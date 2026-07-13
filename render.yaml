@@ -1,0 +1,58 @@
+databases:
+  - name: sparklearn-db
+    plan: free
+    region: singapore
+    databaseName: sparklearn
+    user: sparklearn
+
+services:
+  - type: web
+    name: sparklearn-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sparklearn-db
+          property: connectionString
+      - key: SPARK_API_PASSWORD
+        sync: false
+      - key: SPARK_APPID
+        sync: false
+      - key: SPARK_API_KEY
+        sync: false
+      - key: SPARK_API_SECRET
+        sync: false
+      - key: SPARK_BASE_URL
+        value: https://spark-api-open.xf-yun.com/v1/
+      - key: SPARK_X2_BASE_URL
+        value: https://spark-api-open.xf-yun.com/x2/
+      - key: SPARK_IMAGE_DOMAIN
+        value: general
+      - key: EMBEDDING_BACKEND
+        value: hash
+      - key: DEMO_MODE
+        value: "false"
+      - key: TRACE_ENABLED
+        value: "false"
+      - key: FRONTEND_ORIGIN
+        value: https://sparklearn-multiagent.vercel.app
+      - key: MM_OCR_ENABLED
+        value: "true"
+      - key: MM_LOCAL_OCR_ENABLED
+        value: "true"
+      - key: MM_TTS_ENABLED
+        value: "true"
+      - key: MM_IMAGE_ENABLED
+        value: "true"
+      - key: MM_VIDEO_ENABLED
+        value: "true"
+      - key: PYTHONUNBUFFERED
+        value: "1"
