@@ -25,11 +25,19 @@ def _normalize_answer(value: Any) -> str:
     return re.sub(r"[\s`'\".,，。:：;；、()（）\[\]【】]", "", text)
 
 
-def _choice_letter(value: Any) -> str:
-    text = _normalize_answer(value)
-    if not text:
+def _choice_letter(value: Any, options: list[Any] | None = None) -> str:
+    raw = str(value or "").strip()
+    if not raw:
         return ""
-    return text[0].upper()
+    direct = re.match(r"^([A-D])(?:[.、:：\s]|$)", raw, re.IGNORECASE)
+    if direct:
+        return direct.group(1).upper()
+    expected = _normalize_answer(re.sub(r"^[A-D][.、:：\s]*", "", raw, flags=re.IGNORECASE))
+    for index, option in enumerate(options or []):
+        option_text = re.sub(r"^[A-D][.、:：\s]*", "", str(option or ""), flags=re.IGNORECASE)
+        if _normalize_answer(option_text) == expected:
+            return chr(65 + index)
+    return ""
 
 
 def _judge_value(value: Any) -> bool | None:
@@ -54,7 +62,8 @@ def _grade_answer(question: dict, answer: str) -> bool:
     if not answer:
         return False
     if qtype == "single" or (qtype == "complexity" and question.get("options")):
-        return _choice_letter(answer) == _choice_letter(expected)
+        options = question.get("options") if isinstance(question.get("options"), list) else []
+        return _choice_letter(answer, options) == _choice_letter(expected, options)
     if qtype == "judge":
         got = _judge_value(answer)
         want = _judge_value(expected)

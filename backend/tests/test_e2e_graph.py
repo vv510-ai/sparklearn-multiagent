@@ -57,7 +57,11 @@ def test_generate_pipeline():
     assert any(e["type"] == "profile" for e in events)
     assert any(e["type"] == "summary" for e in events)
     quiz = next(r for r in resources if r["kind"] == "quiz")
-    assert quiz["payload"]["questions"], "题组为空"
+    questions = quiz["payload"]["questions"]
+    assert len(questions) >= 6, f"题量不足: {len(questions)}"
+    for question in questions:
+        if question["type"] == "single" or (question["type"] == "complexity" and question.get("options")):
+            assert question["answer"] in {"A", "B", "C", "D"}, question
     doc = next(r for r in resources if r["kind"] == "doc")
     assert doc["citations"], "文档资源应携带引用"
     # 落库验证(eval_agent.merge)

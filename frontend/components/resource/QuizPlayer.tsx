@@ -32,9 +32,29 @@ function normalize(s: string) {
   return s.trim().toLowerCase().replace(/\s+/g, "").replace(/[()（）]/g, "");
 }
 
+function choiceLetter(options: string[], answer: string): string {
+  const raw = answer.trim();
+  if (/^[A-D](?:[.、：:\s]|$)/i.test(raw)) return raw[0].toUpperCase();
+  const expected = normalize(raw.replace(/^[A-D][.、：:\s]*/i, ""));
+  const index = options.findIndex((option) => (
+    normalize(option.replace(/^[A-D][.、：:\s]*/i, "")) === expected
+  ));
+  return index >= 0 ? String.fromCharCode(65 + index) : "";
+}
+
+function displayAnswer(q: QuizQuestion, answer: string): string {
+  if (q.type !== "single" && !(q.type === "complexity" && q.options.length > 0)) return answer;
+  const letter = choiceLetter(q.options, answer);
+  if (!letter) return answer;
+  const option = q.options[letter.charCodeAt(0) - 65];
+  return option ? `${letter}. ${option.replace(/^[A-D][.、：:\s]*/i, "")}` : letter;
+}
+
 function isCorrect(q: QuizQuestion, ans: string): boolean {
   if (!ans) return false;
-  if (q.type === "single" || (q.type === "complexity" && q.options.length > 0)) return normalize(ans)[0] === normalize(q.answer)[0];
+  if (q.type === "single" || (q.type === "complexity" && q.options.length > 0)) {
+    return choiceLetter(q.options, ans) === choiceLetter(q.options, q.answer);
+  }
   if (q.type === "judge") {
     const yes = ["对", "true", "t", "yes", "y", "正确"];
     return yes.includes(normalize(ans)) === yes.includes(normalize(q.answer));
@@ -56,6 +76,7 @@ export default function QuizPlayer({
   const [submitted, setSubmitted] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const results = useMemo(
     () => Object.fromEntries(questions.map((q) => [q.id, isCorrect(q, answers[q.id] || "")])),
@@ -75,7 +96,7 @@ export default function QuizPlayer({
     );
   }, [report]);
   const answered = Object.keys(answers).filter((id) => answers[id]).length;
-  const set = (id: string, v: string) => !submitted && setAnswers((a) => ({ ...a, [id]: v }));
+  const set = (id: string, v: string) => !submitted && !busy && setAnswers((a) => ({ ...a, [id]: v }));
 
   if (questions.length === 0) {
     return <Notice tone="warn" title="题组为空" desc="当前资源没有可作答的问题。" />;
@@ -83,7 +104,7 @@ export default function QuizPlayer({
 
   async function submit() {
     setBusy(true);
-    setSubmitted(true);
+    setSubmitError("");
     try {
       const rep = await apiPost<Report>("/eval/submit", {
         user_id: USER_ID,
@@ -98,9 +119,11 @@ export default function QuizPlayer({
         behavior: {},
       });
       setReport(rep);
+      setSubmitted(true);
       onEvaluated?.(rep);
-    } catch {
+    } catch (error) {
       setReport(null);
+      setSubmitError(error instanceof Error ? error.message : "报告生成失败，请重试");
     } finally {
       setBusy(false);
     }
@@ -124,6 +147,7 @@ export default function QuizPlayer({
         const gradedItem = graded[q.id];
         const ok = gradedItem ? Boolean(gradedItem.correct) : results[q.id];
         const expected = gradedItem?.expected || q.answer;
+        const expectedLetter = choiceLetter(q.options, expected);
         return (
           <div key={q.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="mb-3 flex items-start gap-2">
@@ -143,7 +167,7 @@ export default function QuizPlayer({
                 {q.options.map((op, j) => {
                   const tag = String.fromCharCode(65 + j);
                   const chosen = mine === tag;
-                  const isAns = submitted && normalize(expected)[0] === tag.toLowerCase();
+                  const isAns = submitted && expectedLetter === tag;
                   return (
                     <button
                       key={j}
@@ -200,7 +224,7 @@ export default function QuizPlayer({
 
             {submitted && (
               <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-orange-200 bg-orange-50 text-orange-700"}`}>
-                <div className="font-bold">{ok ? "回答正确" : `参考答案：${expected}`}</div>
+                <div className="font-bold">{ok ? "回答正确" : `参考答案：${displayAnswer(q, expected)}`}</div>
                 {(gradedItem?.explain || q.explain) && <div className="mt-1 text-slate-600">{gradedItem?.explain || q.explain}</div>}
                 {!ok && (gradedItem?.error_tags || q.error_tags)?.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -214,13 +238,16 @@ export default function QuizPlayer({
       })}
 
       {!submitted ? (
-        <button
-          onClick={submit}
-          disabled={Object.keys(answers).length === 0}
-          className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          提交并更新掌握度
-        </button>
+        <div className="space-y-2">
+          {submitError && <Notice tone="warn" title="报告生成失败" desc={`${submitError}。答案已保留，可直接重试。`} />}
+          <button
+            onClick={submit}
+            disabled={busy || Object.keys(answers).length === 0}
+            className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "正在判分并更新掌握度..." : submitError ? "重新提交" : "提交并更新掌握度"}
+          </button>
+        </div>
       ) : busy ? (
         <div className="text-center font-mono text-xs text-slate-500">正在判分并更新掌握度...</div>
       ) : report ? (
@@ -275,9 +302,7 @@ export default function QuizPlayer({
           )}
           <div className="mt-2 font-mono text-[11px] text-slate-500">后续学习安排已按新掌握度更新</div>
         </div>
-      ) : (
-        <Notice tone="warn" title="报告获取失败" desc="可稍后在本页重新提交或刷新查看。" />
-      )}
+      ) : null}
     </div>
   );
 }

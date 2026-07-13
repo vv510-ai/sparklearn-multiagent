@@ -83,8 +83,22 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
-  return res.json() as Promise<T>;
+  const text = await res.text();
+  if (!res.ok) {
+    let detail = text || `HTTP ${res.status}`;
+    try {
+      const data = JSON.parse(text) as { detail?: string };
+      detail = data.detail || detail;
+    } catch {
+      /* keep raw response text */
+    }
+    throw new Error(`POST ${path} → ${res.status}: ${detail.slice(0, 180)}`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`POST ${path} 返回了不完整的数据，请重试`);
+  }
 }
 
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {

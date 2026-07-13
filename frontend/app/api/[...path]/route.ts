@@ -32,7 +32,9 @@ async function proxy(req: NextRequest, { params }: { params: { path: string[] } 
   }
   const res = await fetch(target, init);
   const responseHeaders = new Headers();
-  for (const name of ["content-type", "content-length", "content-range", "accept-ranges", "etag", "last-modified"]) {
+  // fetch() may transparently decompress the upstream body. Forwarding the
+  // original compressed Content-Length would truncate larger JSON responses.
+  for (const name of ["content-type", "content-range", "accept-ranges", "etag", "last-modified"]) {
     const value = res.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
