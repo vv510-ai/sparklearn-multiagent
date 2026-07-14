@@ -12,25 +12,32 @@ _COMMON_RULES = """
 4. 适合比较的内容使用 Markdown 表格；适合流程或层级的内容使用可渲染的 Mermaid。
 5. 公式说明变量、适用条件和推导关键步；代码说明整体目标、模块职责、参数、返回值、数据流和边界条件。
 6. 不添加外部链接。事实性表述用 [^n] 标注资料编号。
+7. 面向初学者时先讲日常语言，再补专业术语；第一次出现的术语必须就地解释。
+8. 生活化类比必须与知识点一一对应，同一主题尽量沿用同一个比喻场景。
+9. 记忆口诀、故事或谐音只能帮助回忆，随后必须还原为准确的正式表述。
 """.strip()
 
 
 PROMPT_TEMPLATES: dict[str, str] = {
     "complete_notes": """
 TASK=doc
-请围绕“{topic}”制作一份适合复习的完整学习笔记。
+请围绕“{topic}”制作一份零基础也能看懂、理解后还能复习的完整学习笔记。
 用户目标：{goal}
 学生画像：{persona}
 
 建议结构：
 # 标题
-## 30 秒结论
-## 知识框架
-## 核心概念与关系
-## 原理与关键步骤
+## 一句话先懂
+## 从资料里抓住 3—5 个重点
+## 生活里的类比
+## 最小可理解例子
+## 一张小图（适合时使用 Mermaid）
+## 核心概念与关系（此处再引入术语）
+## 原理与关键步骤（由浅入深）
 ## 公式或代码（资料中存在时）
-## 例子与边界条件
 ## 易错点与易混对照
+## 记忆钩子（口诀、故事或关键词串联，按需选一种）
+## 检查理解（2 个选择题、1 个判断题、1 个简答题，答案统一放在最后）
 ## 3 分钟回顾
 
 {common_rules}
@@ -68,6 +75,38 @@ TASK=doc
 参考资料：
 {context}
 """.strip(),
+    "conversation_notes": """
+TASK=conversation_notes
+请把“{topic}”这次学习过程整理成一份可以继续复习、并能在以后学习中再次调用的个人笔记。
+用户目标：{goal}
+学生画像：{persona}
+
+必须同时使用“学习对话”和“参考资料”，但二者职责不同：
+- 学习对话用于还原用户问过什么、哪里卡住、用了什么例子、已经理解到哪一步。
+- 参考资料用于支撑知识事实；事实性内容仍要用 [^n] 标注出处。
+- 不得编造用户没有说过的问题、错误或学习进度。
+
+输出结构：
+# 本次学习笔记：{topic}
+## 一句话结论
+## 我们是怎样一步步理解的
+## 资料中的核心知识
+## 最有用的生活化类比与最小例子
+## 我问过的问题与已经澄清的地方
+## 易错点与仍需补强的地方
+## 一张复习小图（适合时使用 Mermaid）
+## 记忆钩子（口诀、故事或关键词串联）
+## 三分钟复习清单
+## 下一步建议
+
+学习对话：
+{conversation}
+
+{common_rules}
+
+参考资料：
+{context}
+""".strip(),
 }
 
 DEFAULT_TEMPLATE = "complete_notes"
@@ -85,6 +124,7 @@ def render_learning_prompt(
     goal: str,
     persona: str,
     context: str,
+    conversation: str = "",
 ) -> str:
     """Render an allow-listed template; arbitrary user format strings are never executed."""
     key = supported_template(template_key)
@@ -93,6 +133,7 @@ def render_learning_prompt(
         "goal": goal or f"系统学习{topic}",
         "persona": persona,
         "context": context or "（没有检索到可用资料）",
+        "conversation": conversation or "（当前没有可整理的学习对话）",
         "common_rules": _COMMON_RULES,
     }
     required = {name for _, name, _, _ in Formatter().parse(PROMPT_TEMPLATES[key]) if name}

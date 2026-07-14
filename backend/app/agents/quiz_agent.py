@@ -30,6 +30,18 @@ _PROMPT = (
     "\n参考资料:\n{ctx}\n"
 )
 
+_GUIDED_PROMPT = (
+    "TASK=quiz\nMODE=guided\n"
+    "请围绕知识点「{kp}」恰好生成 5 道零基础巩固题,难度档={difficulty}(强制控制在 1~2)。"
+    "题型必须包含 2 道 single(单选,4 选项)、1 道 judge(判断)、1 道 fill(填空)、"
+    "1 道 design(一句话问答)。先考定义和最小例子，再考一个易错边界；不要突然加入进阶概念。"
+    "single 的 answer 必须只填 A/B/C/D；每题解释先说为什么，再用一句生活化提示收尾。"
+    "只输出 JSON:\n"
+    '{{"questions":[{{"type":"single","stem":"...","options":["A...","B...","C...","D..."],'
+    '"answer":"A","explain":"...","kp":"{kpid}","difficulty":1,"error_tags":["概念边界"]}}]}}\n'
+    "\n参考资料:\n{ctx}\n"
+)
+
 _FALLBACK = {
     "type": "judge", "stem": "任何递归算法都可以改写为迭代实现。", "options": [],
     "answer": "对", "explain": "递归可借助显式栈改写为迭代,这是栈与递归等价性的经典结论。",
@@ -102,7 +114,13 @@ def _validate(q: dict, kp: str) -> dict | None:
     return q
 
 
-def _source_fallback_questions(chunks: list[dict], kp: str, difficulty: int) -> list[dict]:
+def _source_fallback_questions(
+    chunks: list[dict],
+    kp: str,
+    difficulty: int,
+    *,
+    target_questions: int = _TARGET_QUESTIONS,
+) -> list[dict]:
     """Create traceable open questions from selected-source excerpts only."""
     candidates: list[tuple[str, str]] = []
     for chunk in chunks:
@@ -135,7 +153,7 @@ def _source_fallback_questions(chunks: list[dict], kp: str, difficulty: int) -> 
             "difficulty": difficulty,
             "error_tags": ["遗漏条件"],
         })
-        if len(output) >= _TARGET_QUESTIONS:
+        if len(output) >= target_questions:
             break
     return output
 
@@ -149,8 +167,11 @@ async def run(state: dict) -> dict:
     profile = state.get("student_profile") or {}
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
     goal = state.get("learning_goal") or ""
-    diff = _difficulty_of(profile, kp)
-    await agent_start("quiz", "题库智能体", f"「{name}」难度档 {diff},生成 {_TARGET_QUESTIONS} 题并本地校验")
+    guided = bool(state.get("guided_learning"))
+    target_questions = 5 if guided else _TARGET_QUESTIONS
+    min_questions = 4 if guided else _MIN_QUESTIONS
+    diff = min(2, _difficulty_of(profile, kp)) if guided else _difficulty_of(profile, kp)
+    await agent_start("quiz", "题库智能体", f"「{name}」难度档 {diff},生成 {target_questions} 题并本地校验")
 
     chunks = retrieve(
         f"{name} 易错点 经典题 {goal}",
@@ -170,7 +191,8 @@ async def run(state: dict) -> dict:
         items = []
     else:
         try:
-            raw = await llm_complete(_PROMPT.format(kp=name, kpid=kp, difficulty=diff, ctx=ctx),
+            prompt_template = _GUIDED_PROMPT if guided else _PROMPT
+            raw = await llm_complete(prompt_template.format(kp=name, kpid=kp, difficulty=diff, ctx=ctx),
                                      role="ultra", temperature=0.6, max_tokens=3000)
             data = parse_json(raw)
             items = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
@@ -178,16 +200,22 @@ async def run(state: dict) -> dict:
             items = []
     questions = []
     seen_stems: set[str] = set()
-    fallback_items = _source_fallback_questions(chunks, kp, diff) if source_ids else _seed_questions(kp)
+    fallback_items = (
+        _source_fallback_questions(chunks, kp, diff, target_questions=target_questions)
+        if source_ids else _seed_questions(kp)
+    )
     if is_demo() and not source_ids:
-        fallback_items = [*fallback_items, *_source_fallback_questions(chunks, kp, diff)]
+        fallback_items = [
+            *fallback_items,
+            *_source_fallback_questions(chunks, kp, diff, target_questions=target_questions),
+        ]
     for item in [*items, *fallback_items]:
         valid = _validate(dict(item), kp) if isinstance(item, dict) else None
         stem_key = re.sub(r"\s+", "", str((valid or {}).get("stem", ""))).lower()
         if valid and stem_key and stem_key not in seen_stems:
             questions.append(valid)
             seen_stems.add(stem_key)
-        if len(questions) >= _TARGET_QUESTIONS:
+        if len(questions) >= target_questions:
             break
     if not questions:                                          # 兜底:保证演示链路不空
         fb = dict(_FALLBACK, kp=kp, id=uuid.uuid4().hex[:10])
@@ -200,7 +228,7 @@ async def run(state: dict) -> dict:
                 "citations": [c.get("citation", "") for c in chunks]}
     await emit({"type": "resource", "resource": resource})
     tags = sorted({t for q in questions for t in q.get("error_tags", [])})
-    count_note = "达到标准题量" if len(questions) >= _MIN_QUESTIONS else "已安全降级"
+    count_note = "达到标准题量" if len(questions) >= min_questions else "已安全降级"
     await agent_end("quiz", f"{len(questions)} 题通过校验({count_note}),覆盖易错点:{('、'.join(tags) or '—')}",
-                    {"id": rid, "n": len(questions), "target": _TARGET_QUESTIONS})
+                    {"id": rid, "n": len(questions), "target": target_questions})
     return {"generated_resources": {rid: resource}}

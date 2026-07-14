@@ -45,24 +45,33 @@ async def run(state: dict) -> dict:
     kinds = state.get("kinds") or ["doc", "mindmap", "quiz", "code", "video"]
     kp_ids = all_kp_ids()
     kps = json.dumps([{"id": k, "name": kp_name(k)} for k in kp_ids], ensure_ascii=False)
+    explicit_kp = canonical_kp_id((state.get("knowledge_points") or [None])[0])
+    goal_kp = _kp_from_goal(str(goal), kp_ids)
+    target_kp = explicit_kp or goal_kp
 
     slim = {k: v for k, v in profile.items()
             if k in ("cognitive_style", "goal", "difficulty_pref", "error_prone", "resource_pref")}
     plan: dict = {}
-    try:
-        raw = await llm_complete(
-            _PROMPT.format(kps=kps, profile=json.dumps(slim, ensure_ascii=False),
-                           goal=goal, kinds=kinds),
-            role="reasoner", temperature=0.3, json_mode=True)
-        plan = parse_json(raw)
-    except Exception as e:  # noqa: BLE001
-        log.warning("规划失败,使用兜底计划:%s", e)
+    if (state.get("guided_learning") or state.get("intent") == "summary") and target_kp:
+        plan = {
+            "resources": [
+                {"kind": kind, "kp": target_kp, "reason": "零基础首轮：先建立框架，再用基础题巩固"}
+                for kind in kinds
+            ],
+            "order": "讲解→" + "→".join(kinds),
+        }
+    else:
+        try:
+            raw = await llm_complete(
+                _PROMPT.format(kps=kps, profile=json.dumps(slim, ensure_ascii=False),
+                               goal=goal, kinds=kinds),
+                role="reasoner", temperature=0.3, json_mode=True)
+            plan = parse_json(raw)
+        except Exception as e:  # noqa: BLE001
+            log.warning("规划失败,使用兜底计划:%s", e)
 
     items = plan.get("resources") if isinstance(plan, dict) else None
     items = [item for item in items or [] if isinstance(item, dict)]
-    explicit_kp = canonical_kp_id((state.get("knowledge_points") or [None])[0])
-    goal_kp = _kp_from_goal(str(goal), kp_ids)
-    target_kp = explicit_kp or goal_kp
     fallback_kp = target_kp or "binary_tree"
     if not items:
         items = [{"kind": k, "kp": fallback_kp, "reason": "兜底默认计划"} for k in kinds]

@@ -12,10 +12,12 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import traceback
+import uuid
 from typing import Any, AsyncIterator
 
-from . import (doc_agent, eval_agent, media_agent, mindmap_agent, orchestrator,
-               path_agent, planner_agent, profile_agent, quiz_agent, tutor_agent)
+from . import (conversation_note_agent, doc_agent, eval_agent, guided_agent,
+               media_agent, mindmap_agent, orchestrator, path_agent,
+               planner_agent, profile_agent, quiz_agent, tutor_agent)
 from .emitter import agent_end, emit, reset_emitter, set_emitter
 from .state import LearningState, merge_dict
 from ..trace import TraceRecorder
@@ -55,17 +57,22 @@ def _build_langgraph():
         g.add_node(name, _guard_gen_node(name, fn))
     g.add_node("eval", eval_agent.run)
     g.add_node("tutor", tutor_agent.run)
+    g.add_node("guided", guided_agent.run)
+    g.add_node("conversation_note", conversation_note_agent.run)
 
     g.add_edge(START, "profile")
     g.add_edge("profile", "orchestrator")
     g.add_conditional_edges("orchestrator", orchestrator.route_task,
-                            {"generate": "planner", "tutor": "tutor", "eval": "eval"})
+                            {"learn": "guided", "summary": "conversation_note",
+                             "generate": "planner", "tutor": "tutor", "eval": "eval"})
     g.add_edge("planner", "path")
     for name in _GEN_NODES:                                # fan-out:path 后四节点并行
         g.add_edge("path", name)
         g.add_edge(name, "eval")                           # fan-in:eval 等四者全部完成
     g.add_edge("eval", END)
     g.add_edge("tutor", END)
+    g.add_edge("guided", END)
+    g.add_edge("conversation_note", END)
     return g.compile(checkpointer=MemorySaver())
 
 
@@ -89,6 +96,12 @@ class MiniGraph:
         absorb(await profile_agent.run(s))
         absorb(await orchestrator.run(s))
         branch = orchestrator.route_task(s)
+        if branch == "learn":
+            absorb(await guided_agent.run(s))
+            return s
+        if branch == "summary":
+            absorb(await conversation_note_agent.run(s))
+            return s
         if branch == "tutor":
             absorb(await tutor_agent.run(s))
             return s
@@ -143,7 +156,9 @@ async def run_with_events(state: dict[str, Any]) -> AsyncIterator[dict]:
 
     token = set_emitter(emitter)
     graph = build_graph()
-    cfg = {"configurable": {"thread_id": state.get("session_id", "default")}}
+    # 对话由数据库持久化；每次请求使用独立图线程，避免上轮 intent/资源被 MemorySaver 合并进本轮。
+    session_id = state.get("session_id", "default")
+    cfg = {"configurable": {"thread_id": f"{session_id}:{uuid.uuid4().hex[:10]}"}}
 
     async def runner():
         try:

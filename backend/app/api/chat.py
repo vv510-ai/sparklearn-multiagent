@@ -4,29 +4,71 @@
 from __future__ import annotations
 
 import uuid
+from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 
 from ..agents.graph import run_with_events
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import ChatRequest
+from ..services.conversation_service import append_message, get_session_messages
 from ..services.profile_service import ensure_user
 from .sse import sse_response
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
+async def _persisted_events(
+    events: AsyncIterator[dict],
+    *,
+    user_id: str,
+    session_id: str,
+) -> AsyncIterator[dict]:
+    answer_parts: list[str] = []
+    resource_titles: list[str] = []
+    summary_text = ""
+    completed = False
+    async for event in events:
+        if event.get("type") == "token":
+            answer_parts.append(str(event.get("delta") or ""))
+        elif event.get("type") == "resource" and isinstance(event.get("resource"), dict):
+            title = str(event["resource"].get("title") or "").strip()
+            if title:
+                resource_titles.append(title)
+        elif event.get("type") == "summary":
+            summary_text = str(event.get("text") or "").strip()
+        elif event.get("type") == "done":
+            completed = True
+        yield event
+
+    if completed:
+        answer = "".join(answer_parts).strip()
+        if not answer and resource_titles:
+            answer = summary_text or f"已整理学习资源：{'、'.join(resource_titles)}"
+        append_message(user_id, session_id, "assistant", answer)
+
+
 @router.post("/chat")
 async def chat(req: ChatRequest):
     ensure_user(req.user_id)
+    session_id = req.session_id or uuid.uuid4().hex[:8]
     try:
         source_ids = validate_source_scope(req.user_id, req.source_ids)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    history = get_session_messages(req.user_id, session_id)
+    current = {"role": "user", "content": req.message}
+    append_message(req.user_id, session_id, "user", req.message)
     state = {
         "user_id": req.user_id,
-        "session_id": req.session_id or uuid.uuid4().hex[:8],
-        "messages": [{"role": "user", "content": req.message}],
+        "session_id": session_id,
+        "messages": [current],
+        "conversation": [*history, current],
         "source_ids": source_ids,
     }
-    return sse_response(run_with_events(state))
+    events = _persisted_events(
+        run_with_events(state),
+        user_id=req.user_id,
+        session_id=session_id,
+    )
+    return sse_response(events)

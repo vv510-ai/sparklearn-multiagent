@@ -42,6 +42,17 @@ class Resource(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
 
 
+class ConversationMessage(Base):
+    """可跨进程恢复的学习对话，供追问和阶段性笔记整理使用。"""
+    __tablename__ = "conversation_messages"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    session_id: Mapped[str] = mapped_column(String(64), index=True)
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
 class PathPlan(Base):
     __tablename__ = "path_plans"
     user_id: Mapped[str] = mapped_column(String(64), primary_key=True)

@@ -34,6 +34,12 @@ MODELS: dict[str, tuple[str, bool]] = {
 _FALLBACK_ORDER = ["ultra", "max", "pro", "lite"]
 
 
+def _is_unrecoverable_auth_error(error: Exception) -> bool:
+    """同一应用鉴权失效时无需重复请求所有同源模型。"""
+    detail = str(error)
+    return "AppIdNoAuthError" in detail or "'code': '11200'" in detail
+
+
 def _client(x2: bool):
     """惰性创建 openai 客户端(讯飞 OpenAI 兼容)。"""
     from openai import OpenAI  # 局部导入,便于无依赖环境跑 Mock
@@ -59,7 +65,8 @@ def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: floa
 # --------------------------------------------------------------------------
 async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
                        temperature: float = 0.7, json_mode: bool = False,
-                       max_tokens: int | None = None) -> str:
+                       max_tokens: int | None = None,
+                       allow_mock_fallback: bool = True) -> str:
     """非流式补全。json_mode=True 时尽力让模型只回 JSON 并做容错解析前清洗。"""
     if is_demo():
         return MockEngine.complete(prompt, role=role, json_mode=json_mode)
@@ -85,12 +92,18 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
         except Exception as e:  # noqa: BLE001
             last_err = e
             log.warning("spark %s 调用失败,尝试下一档:%s", r, e)
-    raise RuntimeError(f"星火全部档位调用失败: {last_err}")
+            if r != "reasoner" and _is_unrecoverable_auth_error(e):
+                break
+    log.warning("星火模型不可用,切换本地演示引擎:%s", last_err)
+    if not allow_mock_fallback:
+        raise RuntimeError(f"星火全部档位调用失败: {last_err}")
+    return MockEngine.complete(prompt, role=role, json_mode=json_mode)
 
 
 async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      temperature: float = 0.7,
-                     max_tokens: int | None = None) -> AsyncIterator[str]:
+                     max_tokens: int | None = None,
+                     allow_model_fallback: bool = True) -> AsyncIterator[str]:
     """流式补全,逐 token 产出(SSE 直接转发)。"""
     if is_demo():
         async for d in MockEngine.stream(prompt, role=role):
@@ -99,7 +112,11 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
     messages = ([{"role": "system", "content": system}] if system else []) + \
                [{"role": "user", "content": prompt}]
     extra = {"max_tokens": max_tokens} if max_tokens else {}
-    order = [role] + [r for r in _FALLBACK_ORDER if r != role] if role != "reasoner" else [role, "ultra", "lite"]
+    order = (
+        ([role] + [r for r in _FALLBACK_ORDER if r != role] if role != "reasoner" else [role, "ultra", "lite"])
+        if allow_model_fallback
+        else [role]
+    )
     last_err: Exception | None = None
     loop = asyncio.get_running_loop()
 
@@ -135,7 +152,11 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
         except Exception as e:  # noqa: BLE001
             last_err = e
             log.warning("spark stream %s 调用失败,尝试下一档:%s", r, e)
-    raise RuntimeError(f"星火流式全部档位调用失败: {last_err}")
+            if r != "reasoner" and _is_unrecoverable_auth_error(e):
+                break
+    log.warning("星火流式模型不可用,切换本地演示引擎:%s", last_err)
+    async for delta in MockEngine.stream(prompt, role=role):
+        yield delta
 
 
 def parse_json(text: str) -> dict | list:
@@ -173,10 +194,16 @@ class MockEngine:
     def complete(prompt: str, *, role: str = "ultra", json_mode: bool = False) -> str:
         p = prompt
         if "TASK=intent" in p:
-            for kw, intent in (("出题", "generate"), ("生成", "generate"), ("资源", "generate"),
-                               ("学习路径", "generate"), ("评估", "eval"), ("测", "eval"),
-                               ("为什么", "tutor"), ("怎么", "tutor"), ("?", "tutor"), ("?", "tutor")):
-                if kw in p:
+            match = re.search(r"用户消息:(.*?)(?:\n学习目标|$)", p, flags=re.S)
+            user_text = match.group(1).strip() if match else p
+            for kw, intent in (
+                ("整理", "summary"), ("总结", "summary"), ("个人笔记", "summary"),
+                ("从零", "learn"), ("零基础", "learn"), ("入门", "learn"), ("我想学", "learn"),
+                ("出题", "generate"), ("生成", "generate"), ("资源", "generate"),
+                ("学习路径", "generate"), ("评估", "eval"), ("测", "eval"),
+                ("为什么", "tutor"), ("怎么", "tutor"), ("?", "tutor"), ("？", "tutor"),
+            ):
+                if kw in user_text:
                     return json.dumps({"intent": intent, "reason": f"命中关键词「{kw}」(演示规则)"},
                                       ensure_ascii=False)
             return json.dumps({"intent": "chat", "reason": "默认闲聊(演示规则)"}, ensure_ascii=False)
@@ -202,6 +229,32 @@ class MockEngine:
             return json.dumps({"grounded": True, "unsupported": [],
                                "verdict": "演示模式:答案各要点均能在给定资料中找到出处"},
                               ensure_ascii=False)
+        if "TASK=quiz" in p and "MODE=guided" in p:
+            return json.dumps([
+                {"type": "single", "difficulty": 1, "kp": "binary_tree",
+                 "stem": "普通二叉树中的一个节点最多可以有几个孩子?",
+                 "options": ["1 个", "2 个", "3 个", "没有限制"],
+                 "answer": "B", "explanation": "二叉树的每个节点至多有两个孩子,并区分左、右。",
+                 "error_tags": ["基本定义"]},
+                {"type": "single", "difficulty": 1, "kp": "binary_tree",
+                 "stem": "下面哪一项是普通二叉树必然具有的性质?",
+                 "options": ["左边都更小", "右边都更大", "每个节点至多两个孩子", "每层都必须填满"],
+                 "answer": "C", "explanation": "大小顺序属于二叉搜索树等特殊类型,不是普通二叉树的要求。",
+                 "error_tags": ["概念边界"]},
+                {"type": "judge", "difficulty": 1, "kp": "binary_tree",
+                 "stem": "普通二叉树一定满足左边的值小于右边的值。", "answer": "错",
+                 "explanation": "普通二叉树只限制孩子数量;有序性质需要额外条件。",
+                 "error_tags": ["二叉树与BST混淆"]},
+                {"type": "fill", "difficulty": 1, "kp": "binary_tree",
+                 "stem": "二叉树的两个孩子通常区分为左孩子和 ____ 孩子。",
+                 "answer": "右", "explanation": "二叉树不仅至多有两个孩子,还区分左右位置。",
+                 "error_tags": ["基本定义"]},
+                {"type": "design", "difficulty": 2, "kp": "binary_tree",
+                 "stem": "用一句话说出普通二叉树和二叉搜索树的区别。",
+                 "answer": "二叉树只限制每个节点至多两个孩子;二叉搜索树还增加左小右大的有序条件。",
+                 "explanation": "先记通用结构,再记特殊类型额外增加的规则。",
+                 "error_tags": ["概念边界"]},
+            ], ensure_ascii=False)
         if "TASK=quiz" in p:
             return json.dumps([
                 {"type": "single", "difficulty": 2, "kp": "binary_tree",
@@ -249,6 +302,20 @@ class MockEngine:
             }, ensure_ascii=False)
         if "TASK=doc" in p or json_mode is False and "讲解文档" in p:
             return MockEngine._doc()
+        if "TASK=tutor" in p and "MODE=guided" in p and "二叉树" in p:
+            return (
+                "## 一句话先懂\n\n二叉树像一张向下展开的小家谱：每个位置最多分出左、右两个分支。\n\n"
+                "## 从资料里抓重点\n\n- 每个节点最多有两个孩子，并区分左、右 [^1]。\n"
+                "- **普通二叉树没有大小顺序**；“左小右大”是二叉搜索树额外增加的规则 [^2]。\n\n"
+                "## 生活里的它\n\n把节点看成家谱卡片，把连线看成亲子关系；一张卡片最多连接左、右两张下一代卡片。"
+                "这个类比只表示分支结构，不表示年龄或数值大小。\n\n"
+                "## 最小例子\n\n让 A 做根节点，B 做左孩子，C 做右孩子，就是一棵含 3 个节点的二叉树。"
+                "删掉 C 后仍是二叉树，因为“至多两个”也允许只有一个孩子。\n\n"
+                "## 一张小图\n\n```mermaid\nflowchart TD\n    A[A 根节点] --> B[B 左孩子]\n"
+                "    A --> C[C 右孩子]\n```\n\n"
+                "## 记忆钩子\n\n**一根往下分，左右最多二。** 正式地说：二叉树中每个节点的孩子数不超过两个，且左右有别。\n\n"
+                "## 接下来怎么练\n\n下方会出现 5 道基础题。先判断题目说的是普通二叉树，还是增加了额外规则的特殊类型。"
+            )
         if "TASK=tutor" in p:
             return ("中序遍历 BST 得到升序序列,核心在于 BST 的不变量:对任意结点,左子树所有键 < 根键 < 右子树所有键 "
                     "[^1]。中序按「左→根→右」访问,递归展开后恰好把所有键按该不变量从小到大串起来 [^2]。"

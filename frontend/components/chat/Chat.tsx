@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, Plus, Square } from "lucide-react";
+import { ArrowRight, NotebookPen, Plus, Square } from "lucide-react";
 import { USER_ID, postSSE } from "@/lib/api";
 import { useView } from "@/components/view/ViewContext";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
@@ -16,17 +16,20 @@ interface Msg {
   streaming?: boolean;
 }
 const STARTERS = [
-  "我是大二学生,两周后期末,想先攻克二叉树和动态规划",
-  "二叉树遍历应该按什么顺序学?",
+  "我想从零开始学习二叉树",
+  "请带我由浅入深学习动态规划",
   "为什么 Dijkstra 算法不能处理负权边?",
   "为什么快排通常不稳定,而归并排序稳定?",
 ];
 
+const BEGINNER_PRESET =
+  "请用完全零基础、由浅入深的方式教我【在这里填写知识点】。先用一句白话说明，再用生活化类比、最小例子和简单图解帮助我理解，最后给我基础练习。";
+
 const FLOW = [
-  ["01", "定位重点", "找到薄弱处"],
-  ["02", "形成路线", "排出顺序"],
-  ["03", "配套资料", "讲义/脑图/练习"],
-  ["04", "练习校准", "结果同步更新"],
+  ["01", "一句话先懂", "不堆术语"],
+  ["02", "类比与图解", "把抽象变具体"],
+  ["03", "基础练习", "单选/判断/问答"],
+  ["04", "沉淀笔记", "对话整理再复习"],
 ];
 
 export default function Chat({
@@ -55,6 +58,8 @@ export default function Chat({
   const abortRef = useRef<(() => void) | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef(`s-${Math.random().toString(36).slice(2, 8)}`);
+  const consumedSeedRef = useRef("");
+  const consumedRequestRef = useRef("");
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -129,17 +134,29 @@ export default function Chat({
   );
 
   useEffect(() => {
-    if (seed && !busy) {
-      send(seed);
+    const key = seed?.trim() || "";
+    if (!key) consumedSeedRef.current = "";
+    if (!key || busy || consumedSeedRef.current === key) return;
+    const timer = window.setTimeout(() => {
+      if (consumedSeedRef.current === key) return;
+      consumedSeedRef.current = key;
+      send(seed!);
       onSeedConsumed?.();
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [busy, onSeedConsumed, seed, send]);
 
   useEffect(() => {
-    if (request && !busy) {
+    const key = request ? `${request.path}:${request.display}` : "";
+    if (!key) consumedRequestRef.current = "";
+    if (!request || busy || consumedRequestRef.current === key) return;
+    const timer = window.setTimeout(() => {
+      if (consumedRequestRef.current === key) return;
+      consumedRequestRef.current = key;
       send(request.display, request);
       onSeedConsumed?.();
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [busy, onSeedConsumed, request, send]);
 
   useEffect(() => {
@@ -156,8 +173,21 @@ export default function Chat({
               学习对话
             </h2>
           </div>
-          <div className="rounded-full border border-[#DDE3ED] bg-[#F7F8FC] px-3 py-1.5 text-xs font-medium text-[#596171]">
-            {sourceIds.length ? `${sourceIds.length} 份已选资料` : "课程知识库"}
+          <div className="flex items-center gap-2">
+            {msgs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => send("请把本次学习对话整理成一份可复习、可继续使用的个人笔记。")}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <NotebookPen size={14} />
+                整理本次笔记
+              </button>
+            )}
+            <div className="rounded-full border border-[#DDE3ED] bg-[#F7F8FC] px-3 py-1.5 text-xs font-medium text-[#596171]">
+              {sourceIds.length ? `${sourceIds.length} 份已选资料` : "课程知识库"}
+            </div>
           </div>
         </div>
       </div>
@@ -168,11 +198,19 @@ export default function Chat({
             <div className="text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#EEF0FA] text-2xl">📘</div>
               <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[#1D2028]">从一个问题开始</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">回答会结合你的问题、学习画像和左侧选中的资料，并保留内容出处。</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">先用白话讲懂，再用类比、图解和练习逐步加深；学完可以把完整对话整理成笔记。</p>
             </div>
+            <button
+              type="button"
+              onClick={() => setInput(BEGINNER_PRESET)}
+              className="w-full rounded-[14px] border border-emerald-200 bg-[#F3F8F5] p-4 text-left transition hover:border-emerald-300 hover:bg-[#EDF6F1]"
+            >
+              <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-emerald-700">零基础学习预设 · 点击填入</span>
+              <span className="mt-2 block text-sm leading-6 text-[#425248]">{BEGINNER_PRESET}</span>
+            </button>
             <div className="rounded-[12px] border border-[#E1E4EC] bg-[#F8F9FC] p-3">
               <div className="mb-2 text-xs font-bold text-emerald-800">
-                {view === "judge" ? "管理者视角：先看学习成效，再看依据" : "按三个步骤推进：定重点、取资料、看进展"}
+                {view === "judge" ? "管理者视角：先看学习成效，再看依据" : "一次完整学习会这样推进"}
               </div>
               <div className="grid gap-2 sm:grid-cols-4">
                 {FLOW.map(([code, title, desc]) => (

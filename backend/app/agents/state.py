@@ -18,13 +18,15 @@ class LearningState(TypedDict, total=False):
     session_id: str
     # 输入
     messages: Annotated[list[dict], operator.add]      # [{role, content}]
+    conversation: list[dict]                           # 持久化会话快照，不参与并行追加
     learning_goal: str
     knowledge_points: list[str]
     kinds: list[str]                                   # 期望生成的资源类型
     source_ids: list[str]                              # 指定上传资料
     prompt_template: str                              # 白名单学习模板键
+    guided_learning: bool                             # 新主题由浅入深教学模式
     # 编排
-    intent: str                                        # generate|tutor|eval|chat
+    intent: str                                        # learn|summary|generate|tutor|eval|chat
     # 画像与计划
     student_profile: dict
     plan: dict                                         # Planner 输出

@@ -44,6 +44,17 @@ def _persona(profile: dict) -> str:
             f"节奏={profile.get('pace', '常规')}")
 
 
+def _conversation_text(state: dict, limit: int = 10000) -> str:
+    items = state.get("conversation") or state.get("messages") or []
+    lines = [
+        f"{('用户' if item.get('role') == 'user' else '学伴')}：{str(item.get('content') or '').strip()}"
+        for item in items
+        if str(item.get("content") or "").strip()
+    ]
+    text = "\n".join(lines)
+    return text[-limit:] if len(text) > limit else text
+
+
 def _compact(text: str, limit: int = 180) -> str:
     text = " ".join(str(text or "").split())
     return text if len(text) <= limit else text[:limit].rstrip() + "..."
@@ -69,6 +80,51 @@ def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
         f"- 先按上面的教材片段梳理「{name}」的定义、操作和复杂度。",
         "- 再结合题组检查边界条件、概念区分和时间复杂度。",
         "- 需要更完整的讲义时，可补充资料或在真实模型可用后重新生成。",
+    ]
+    return "\n".join(lines)
+
+
+def _conversation_fallback_doc(name: str, conversation: str, chunks: list[dict]) -> str:
+    dialog_lines = [line.strip() for line in conversation.splitlines() if line.strip()]
+    user_lines = [
+        line.removeprefix("用户：")
+        for line in dialog_lines
+        if line.startswith("用户：") and not any(word in line for word in ("整理", "总结", "个人笔记"))
+    ]
+    assistant_lines = [line.removeprefix("学伴：") for line in dialog_lines if line.startswith("学伴：")]
+    lines = [
+        f"# 本次学习笔记：{name}",
+        "",
+        "## 一句话结论",
+        "",
+        f"这次学习围绕「{name}」从问题出发，按定义、操作、例子和边界逐步整理。",
+        "",
+        "## 我问过的问题",
+        "",
+    ]
+    lines += [f"- {_compact(item, 220)}" for item in user_lines[-6:]] or ["- 当前会话没有可提取的用户问题。"]
+    lines += ["", "## 已经形成的理解", ""]
+    lines += [f"- {_compact(item, 260)}" for item in assistant_lines[-5:]] or ["- 当前还没有完成可沉淀的讲解。"]
+    lines += ["", "## 资料中的核心知识", ""]
+    if chunks:
+        lines += [f"- {_compact(chunk.get('text', ''), 260)} [^{index}]" for index, chunk in enumerate(chunks[:5], 1)]
+    else:
+        lines.append("- 当前没有检索到可引用资料，暂不补写资料外事实。")
+    lines += [
+        "",
+        "## 记忆钩子",
+        "",
+        "**先认对象，再走步骤，最后查边界。**",
+        "",
+        "## 三分钟复习清单",
+        "",
+        "1. 我能不能用一句白话说出它是什么？",
+        "2. 我能不能独立走完最小例子？",
+        "3. 我知不知道最容易出错的条件？",
+        "",
+        "## 下一步建议",
+        "",
+        "先完成本次基础练习；答错后回到对应概念和边界条件，再补充进这份笔记。",
     ]
     return "\n".join(lines)
 
@@ -103,6 +159,7 @@ def _doc_label(default: str, template_key: str) -> str:
         "one_page": "一页看懂",
         "complete_notes": "学习笔记",
         "error_confusion": "易错易混",
+        "conversation_notes": "对话笔记",
     }.get(str(template_key or "").strip().lower(), default)
 
 
@@ -114,6 +171,7 @@ async def _gen_one(
     source_ids: list[str],
     goal: str,
     prompt_template: str = "",
+    conversation: str = "",
     trace_id: str,
 ) -> dict:
     name = kp_name(kp)
@@ -134,6 +192,7 @@ async def _gen_one(
             goal=goal,
             persona=_persona(profile),
             context=ctx,
+            conversation=conversation,
         )
     else:
         prompt = (
@@ -156,18 +215,34 @@ async def _gen_one(
                       "detail": "所选资料没有可检索内容,已阻止无依据生成"})
     elif demo_fallback:
         fallback = True
-        md = _rag_fallback_doc(name, chunks, kind)
+        md = (
+            _conversation_fallback_doc(name, conversation, chunks)
+            if kind == "doc" and prompt_template == "conversation_notes"
+            else _rag_fallback_doc(name, chunks, kind)
+        )
     else:
         try:
             md = await asyncio.wait_for(
-                llm_complete(prompt, role="ultra", temperature=0.5, max_tokens=1800),
+                llm_complete(
+                    prompt,
+                    role="ultra",
+                    temperature=0.5,
+                    max_tokens=1800,
+                    allow_mock_fallback=prompt_template != "conversation_notes",
+                ),
                 timeout=_DOC_TIMEOUT_S,
             )
         except Exception as exc:  # noqa: BLE001
             fallback = True
-            md = _rag_fallback_doc(name, chunks, kind)
-            flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
-                          "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
+            conversation_fallback = kind == "doc" and prompt_template == "conversation_notes"
+            md = (
+                _conversation_fallback_doc(name, conversation, chunks)
+                if conversation_fallback
+                else _rag_fallback_doc(name, chunks, kind)
+            )
+            if not conversation_fallback:
+                flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
+                              "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
 
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
     if source_scope_missing:
@@ -175,6 +250,9 @@ async def _gen_one(
     elif demo_fallback:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "演示模式直接整理检索片段,未补写资料外事实。"}
+    elif fallback and prompt_template == "conversation_notes":
+        ground = {"grounded": True, "unsupported": [],
+                  "verdict": "对话笔记直接整理已持久化对话与检索片段。"}
     elif fallback:
         ground = {"grounded": False, "unsupported": [],
                   "verdict": "LLM 生成超时,已使用检索片段降级输出,建议人工复核。"}
@@ -202,8 +280,13 @@ async def _gen_one(
     used = used_indices(md, len(citations))
     cite_used = [citations[i - 1] for i in used if 0 < i <= len(citations)] or citations[:3]
     rid = uuid.uuid4().hex[:12]
-    payload = {"markdown": md, "grounded": ground.get("grounded", True)}
-    if kind == "doc" and not source_scope_missing:
+    payload = {
+        "markdown": md,
+        "grounded": ground.get("grounded", True),
+        "template": prompt_template,
+        "reusable_note": prompt_template == "conversation_notes",
+    }
+    if kind == "doc" and not source_scope_missing and prompt_template != "conversation_notes":
         audio, cover = await asyncio.gather(
             multimodal_gateway.tts(
                 _narration_text(name, md),
@@ -242,6 +325,7 @@ async def run(state: dict) -> dict:
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
     goal = state.get("learning_goal") or ""
     prompt_template = str(state.get("prompt_template") or "")
+    conversation = _conversation_text(state)
     trace_id = str(state.get("session_id") or "")
     await agent_start("doc", "文档智能体",
                       f"RAG 检索→引用生成→双层防幻觉校验({'/'.join(kinds)})")
@@ -254,6 +338,7 @@ async def run(state: dict) -> dict:
             source_ids=source_ids,
             goal=goal,
             prompt_template=prompt_template,
+            conversation=conversation,
             trace_id=trace_id,
         )
         resources[out["resource"]["id"]] = out["resource"]

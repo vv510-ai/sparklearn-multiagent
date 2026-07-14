@@ -12,6 +12,8 @@ log = logging.getLogger("sparklearn.orchestrator")
 _PROMPT = (
     "TASK=intent\n"
     "你是学习系统的编排器。判断用户最新消息的意图,intent 取值:\n"
+    "- learn:用户刚开始学习一个主题，希望从零、入门或由浅入深地学\n"
+    "- summary:把本次学习对话整理、总结或保存成笔记\n"
     "- generate:想要生成学习资源/学习计划/出题/做思维导图/讲解视频\n"
     "- tutor:具体提问/答疑/讲解某个概念或题目\n"
     "- eval:想测试自己/检验学习效果/查看学习报告\n"
@@ -19,7 +21,12 @@ _PROMPT = (
     "输出 JSON:{{\"intent\": \"...\", \"reason\": \"...\"}}\n\n"
     "用户消息:{msg}\n学习目标(可能为空):{goal}\n"
 )
-_VALID = {"generate", "tutor", "eval", "chat"}
+_VALID = {"learn", "summary", "generate", "tutor", "eval", "chat"}
+_LEARN_HINTS = ("我想学", "想学习", "从零", "零基础", "入门", "教我", "带我学", "开始学")
+_SUMMARY_HINTS = (
+    "总结本次", "整理本次", "对话笔记", "整理成笔记", "总结成笔记", "保存成笔记",
+    "学习对话整理", "整理成一份", "个人笔记", "可复习、可继续使用",
+)
 _GENERATE_HINTS = ("规划", "计划", "学习路径", "复习路径", "复习计划", "学习资源", "生成资源", "全套学习")
 _TUTOR_HINTS = ("是什么", "为什么", "怎么", "如何", "讲讲", "解释", "区别", "举例", "代码", "算法", "？", "?")
 _EVAL_HINTS = ("测试", "测一测", "考考我", "出题", "练习题", "做题", "评估")
@@ -31,7 +38,11 @@ async def run(state: dict) -> dict:
     intent = state.get("intent") or ""
     reason = "调用方显式指定"
     if intent not in _VALID:
-        if any(k in msg for k in _GENERATE_HINTS):
+        if any(k in msg for k in _SUMMARY_HINTS):
+            intent, reason = "summary", "命中学习对话总结关键词"
+        elif any(k in msg for k in _LEARN_HINTS):
+            intent, reason = "learn", "命中零基础/开始学习关键词"
+        elif any(k in msg for k in _GENERATE_HINTS):
             intent, reason = "generate", "命中学习规划/资源生成关键词"
         elif any(k in msg for k in _EVAL_HINTS):
             intent, reason = "eval", "命中测试/做题关键词"
@@ -49,7 +60,9 @@ async def run(state: dict) -> dict:
                 intent, reason = "chat", f"识别异常回退:{e}"
         if intent not in _VALID:
             intent = "chat"
-    plan_hint = {"generate": "并行 fan-out:Doc/Mindmap/Quiz/Media → Eval 质检汇总",
+    plan_hint = {"learn": "由浅入深讲解 → 小图 → 基础练习 → 后续追问",
+                 "summary": "完整对话 → 可复用个人学习笔记",
+                 "generate": "并行 fan-out:Doc/Mindmap/Quiz/Media → Eval 质检汇总",
                  "tutor": "Tutor Agent 多模态答疑", "eval": "Eval Agent 学习效果评估",
                  "chat": "轻量对话"}[intent]
     await agent_end("orchestrator", f"意图={intent}({reason})→ {plan_hint}",
@@ -60,4 +73,11 @@ async def run(state: dict) -> dict:
 def route_task(state: dict) -> str:
     """LangGraph 条件边函数:按 intent 分发。chat 并入 tutor 轻量直答。"""
     intent = state.get("intent", "chat")
-    return {"generate": "generate", "tutor": "tutor", "eval": "eval", "chat": "tutor"}[intent]
+    return {
+        "learn": "learn",
+        "summary": "summary",
+        "generate": "generate",
+        "tutor": "tutor",
+        "eval": "eval",
+        "chat": "tutor",
+    }[intent]
