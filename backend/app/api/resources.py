@@ -14,6 +14,7 @@ from ..agents.graph import run_with_events
 from ..llm import multimodal_gateway
 from ..models.db import session
 from ..models.entities import Resource
+from ..rag.ingest import validate_source_scope
 from ..schemas.core import GenerateRequest
 from ..services.profile_service import ensure_user
 from .sse import sse_response
@@ -24,6 +25,10 @@ router = APIRouter(prefix="/api/resources", tags=["resources"])
 @router.post("/generate")
 async def generate(req: GenerateRequest):
     ensure_user(req.user_id)
+    try:
+        source_ids = validate_source_scope(req.user_id, req.source_ids)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     msg = req.goal or f"请为我生成 {','.join(req.knowledge_points) or '推荐知识点'} 的学习资源"
     state = {
         "user_id": req.user_id,
@@ -32,7 +37,8 @@ async def generate(req: GenerateRequest):
         "learning_goal": req.goal,
         "knowledge_points": req.knowledge_points,
         "kinds": req.kinds,
-        "source_ids": req.source_ids,
+        "source_ids": source_ids,
+        "prompt_template": req.prompt_template,
         "intent": "generate",                  # 显式生成,Orchestrator 将尊重该意图
     }
     return sse_response(run_with_events(state))

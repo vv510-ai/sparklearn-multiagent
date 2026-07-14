@@ -23,6 +23,21 @@ _PROMPT = (
 )
 
 
+def _kp_from_goal(goal: str, kp_ids: list[str]) -> str | None:
+    """Prefer an explicitly mentioned course concept over a generic model plan."""
+    text = str(goal or "").casefold()
+    matches: list[tuple[int, int, str]] = []
+    for kp in kp_ids:
+        for label in {kp.replace("_", " "), kp_name(kp)}:
+            normalized = str(label or "").casefold().strip()
+            if not normalized:
+                continue
+            position = text.find(normalized)
+            if position >= 0:
+                matches.append((position, -len(normalized), kp))
+    return min(matches)[2] if matches else None
+
+
 async def run(state: dict) -> dict:
     await agent_start("planner", "资源规划智能体", "画像+目标 → 结构化生成计划(星火 X2)")
     profile = state.get("student_profile", {})
@@ -46,13 +61,15 @@ async def run(state: dict) -> dict:
     items = plan.get("resources") if isinstance(plan, dict) else None
     items = [item for item in items or [] if isinstance(item, dict)]
     explicit_kp = canonical_kp_id((state.get("knowledge_points") or [None])[0])
-    fallback_kp = explicit_kp or "binary_tree"
+    goal_kp = _kp_from_goal(str(goal), kp_ids)
+    target_kp = explicit_kp or goal_kp
+    fallback_kp = target_kp or "binary_tree"
     if not items:
         items = [{"kind": k, "kp": fallback_kp, "reason": "兜底默认计划"} for k in kinds]
         plan = {"resources": items, "order": "→".join(kinds)}
 
     for item in items:
-        item["kp"] = explicit_kp or canonical_kp_id(item.get("kp")) or fallback_kp
+        item["kp"] = target_kp or canonical_kp_id(item.get("kp")) or fallback_kp
     plan["resources"] = [it for it in items if it.get("kind") in set(kinds) | {"reading"}]
     kp0 = plan["resources"][0]["kp"] if plan["resources"] else "binary_tree"
     await agent_end("planner",

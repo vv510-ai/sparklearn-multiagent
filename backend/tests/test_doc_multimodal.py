@@ -126,3 +126,8 @@ def test_cover_prompt_is_fixed_and_knowledge_point_scoped():
     assert "二叉树" in prompt
     assert "数据结构教学插画" in prompt
     assert "无人物" in prompt
+
+
+def test_doc_template_has_a_distinct_resource_label():
+    assert doc_agent._doc_label("学习笔记", "one_page") == "一页看懂"  # noqa: SLF001
+    assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001

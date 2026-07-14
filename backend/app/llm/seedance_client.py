@@ -26,18 +26,52 @@ def available() -> bool:
 def create_task(prompt: str, image_url: str | None = None) -> str:
     """创建异步视频生成任务,返回 task_id。"""
     s = get_settings()
+    duration = int(getattr(s, "seedance_duration", 5))
+    if duration <= 0:
+        raise ValueError("SEEDANCE_DURATION must be greater than zero")
     headers = {"Authorization": f"Bearer {s.ark_api_key}", "Content-Type": "application/json"}
     content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
     if image_url:
-        content.append({"type": "image_url", "image_url": {"url": image_url}})
+        content.append({
+            "type": "image_url",
+            "image_url": {"url": image_url},
+            "role": "reference_image",
+        })
+    payload = {
+        "model": s.seedance_model,
+        "content": content,
+        "generate_audio": bool(getattr(s, "seedance_generate_audio", True)),
+        "ratio": str(getattr(s, "seedance_ratio", "16:9")),
+        "duration": duration,
+        "watermark": bool(getattr(s, "seedance_watermark", False)),
+    }
     r = requests.post(
         f"{s.ark_base_url}/contents/generations/tasks",
         headers=headers,
-        json={"model": s.seedance_model, "content": content},
+        json=payload,
         timeout=max(1.0, float(getattr(s, "mm_video_create_timeout_s", 15))),
     )
-    r.raise_for_status()
-    return r.json()["id"]
+    try:
+        r.raise_for_status()
+    except requests.HTTPError as exc:
+        try:
+            detail = r.json()
+        except ValueError:
+            detail = {}
+        error = detail.get("error") if isinstance(detail, dict) else {}
+        error = error if isinstance(error, dict) else {}
+        code = error.get("code") or detail.get("code") or "unknown"
+        message = error.get("message") or detail.get("message") or r.reason
+        request_id = detail.get("request_id") or r.headers.get("x-request-id", "")
+        raise RuntimeError(
+            f"Seedance create failed: status={r.status_code} code={code} "
+            f"message={message} request_id={request_id}"
+        ) from exc
+    data = r.json()
+    task_id = data.get("id") if isinstance(data, dict) else None
+    if not task_id:
+        raise RuntimeError("Seedance create failed: response missing task id")
+    return str(task_id)
 
 
 def poll_task(task_id: str) -> dict:

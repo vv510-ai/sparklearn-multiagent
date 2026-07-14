@@ -7,6 +7,7 @@ import re
 import uuid
 from pathlib import Path
 
+from ..config import is_demo
 from ..llm.spark_client import llm_complete, parse_json
 from ..rag.retriever import retrieve
 from ..services.knowledge_graph import kp_name
@@ -101,6 +102,44 @@ def _validate(q: dict, kp: str) -> dict | None:
     return q
 
 
+def _source_fallback_questions(chunks: list[dict], kp: str, difficulty: int) -> list[dict]:
+    """Create traceable open questions from selected-source excerpts only."""
+    candidates: list[tuple[str, str]] = []
+    for chunk in chunks:
+        text = " ".join(str(chunk.get("text") or "").split())
+        citation = str(chunk.get("citation") or chunk.get("source") or "所选资料")
+        if text:
+            candidates.append((text[:360], citation))
+            candidates.extend(
+                (part.strip()[:260], citation)
+                for part in re.split(r"[。！？；\n]", text)
+                if len(part.strip()) >= 18
+            )
+    output: list[dict] = []
+    seen: set[str] = set()
+    for index, (excerpt, citation) in enumerate(candidates, 1):
+        key = re.sub(r"\s+", "", excerpt).lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        output.append({
+            "type": "design",
+            "stem": (
+                f"阅读所选资料片段 {index}：\n“{excerpt}”\n"
+                "请概括其核心结论，并说明其中的关键条件。"
+            ),
+            "options": [],
+            "answer": excerpt,
+            "explain": f"答案严格依据：{citation}。作答时应同时保留结论和条件。",
+            "kp": kp,
+            "difficulty": difficulty,
+            "error_tags": ["遗漏条件"],
+        })
+        if len(output) >= _TARGET_QUESTIONS:
+            break
+    return output
+
+
 async def run(state: dict) -> dict:
     requested = state.get("kinds") or []
     if requested and "quiz" not in requested:
@@ -115,21 +154,34 @@ async def run(state: dict) -> dict:
 
     chunks = retrieve(
         f"{name} 易错点 经典题 {goal}",
-        final_k=3,
+        final_k=6 if source_ids else 3,
         source_ids=source_ids,
-        kp=kp,
+        kp=None if source_ids else kp,
     )
+    if source_ids and not chunks:
+        await agent_end("quiz", "所选资料无可用片段,已阻止无依据出题")
+        return {
+            "generated_resources": {},
+            "safety_flags": [{"agent": "quiz", "type": "source_scope_empty",
+                              "detail": "所选资料没有可检索内容"}],
+        }
     ctx = "\n---\n".join(c["text"][:280] for c in chunks) or "(无)"
-    try:
-        raw = await llm_complete(_PROMPT.format(kp=name, kpid=kp, difficulty=diff, ctx=ctx),
-                                 role="ultra", temperature=0.6, max_tokens=3000)
-        data = parse_json(raw)
-        items = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-    except Exception:  # noqa: BLE001
+    if is_demo():
         items = []
+    else:
+        try:
+            raw = await llm_complete(_PROMPT.format(kp=name, kpid=kp, difficulty=diff, ctx=ctx),
+                                     role="ultra", temperature=0.6, max_tokens=3000)
+            data = parse_json(raw)
+            items = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+        except Exception:  # noqa: BLE001
+            items = []
     questions = []
     seen_stems: set[str] = set()
-    for item in [*items, *_seed_questions(kp)]:
+    fallback_items = _source_fallback_questions(chunks, kp, diff) if source_ids else _seed_questions(kp)
+    if is_demo() and not source_ids:
+        fallback_items = [*fallback_items, *_source_fallback_questions(chunks, kp, diff)]
+    for item in [*items, *fallback_items]:
         valid = _validate(dict(item), kp) if isinstance(item, dict) else None
         stem_key = re.sub(r"\s+", "", str((valid or {}).get("stem", ""))).lower()
         if valid and stem_key and stem_key not in seen_stems:

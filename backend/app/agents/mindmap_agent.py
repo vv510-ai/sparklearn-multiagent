@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import uuid
 
+from ..config import is_demo
 from ..llm.spark_client import llm_complete
 from ..rag.citation import build_context
 from ..rag.ingest import load_all_chunks
@@ -71,6 +72,13 @@ def _outline_nodes(kp: str) -> list[tuple[str, str]]:
             out.append((rel, node_id))
             seen.add(node_id)
     return out
+
+
+def _outline_for_scope(kp: str, source_ids: list[str]) -> list[tuple[str, str]]:
+    """Keep selected-source maps free from unsourced course-graph relations."""
+    if source_ids:
+        return [("资料要点", kp)]
+    return _outline_nodes(kp)
 
 
 def _label_context(profile: dict | None) -> tuple[dict | None, set[str] | None]:
@@ -162,7 +170,7 @@ async def _expand_node(node_id: str, *, source_ids: list[str], goal: str) -> tup
     prompt = _PROMPT.format(kp=name, ctx=ctx or "(无)")
 
     points: list[str] = []
-    if chunks:
+    if chunks and not is_demo():
         try:
             raw = await llm_complete(prompt, role="lite", temperature=0.2, max_tokens=260)
             points = _points_from_text(raw)
@@ -254,7 +262,7 @@ async def run(state: dict) -> dict:
     expanded: list[tuple[str, str, list[str]]] = []
     citations: list[dict] = []
     prompt_samples: list[str] = []
-    outline = _outline_nodes(kp)
+    outline = _outline_for_scope(kp, source_ids)
     for relation, node_id in outline:
         points, node_citations, prompt = await _expand_node(node_id, source_ids=source_ids, goal=goal)
         expanded.append((relation, _node_label(node_id, mastery, unlocked), points))
@@ -267,7 +275,7 @@ async def run(state: dict) -> dict:
     md = _render_markmap(_node_label(kp, mastery, unlocked), expanded)
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "mindmap", "kp": kp,
-                "title": f"{name}·思维导图",
+                "title": f"{name}·{'资料框架' if source_ids else '思维导图'}",
                 "payload": {"markmap": md,
                             "outline_node_ids": [{"relation": rel, "id": node_id}
                                                  for rel, node_id in outline]},

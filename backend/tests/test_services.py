@@ -15,6 +15,7 @@ from app.services.profile_service import default_profile, sanitize_profile_patch
 from app.rag.ingest import ingest_corpus, load_all_chunks  # noqa: E402
 from app.rag.retriever import _format_citation  # noqa: E402
 from app.rag.vector_store import get_store  # noqa: E402
+from app.agents.planner_agent import _kp_from_goal  # noqa: E402
 
 
 def test_bkt_monotonic():
@@ -40,6 +41,12 @@ def test_kg_topology():
     # complexity 无先修,任何画像下都应可解锁
     mastery = {k: 0.0 for k in ids}
     assert "complexity" in unlockable(mastery)
+
+
+def test_planner_prefers_course_concept_named_in_goal():
+    ids = all_kp_ids()
+    assert _kp_from_goal("我想系统掌握递归与分治", ids) == "recursion"
+    assert _kp_from_goal("先学习复杂度分析，再看排序", ids) == "complexity"
 
 
 def test_plan_path_thresholds():

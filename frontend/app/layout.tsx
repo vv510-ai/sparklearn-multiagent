@@ -19,9 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             跳到主内容
           </a>
 
-          <main id="main">
+          <div id="main">
             {children}
-          </main>
+          </div>
         </ViewProvider>
       </body>
     </html>

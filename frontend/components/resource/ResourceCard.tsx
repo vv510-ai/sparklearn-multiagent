@@ -81,10 +81,12 @@ function resourcePreview(r: ResourceItem): string {
 export default function ResourceCard({
   r,
   defaultOpen = false,
+  versionCount = 1,
   onQuizEvaluated,
 }: {
   r: ResourceItem;
   defaultOpen?: boolean;
+  versionCount?: number;
   onQuizEvaluated?: (report: { path?: PathPlan; profile_version?: number }) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -112,6 +114,7 @@ export default function ResourceCard({
           <span className="mb-1 flex flex-wrap items-center gap-2">
             <Badge variant={meta.variant}>{meta.code}</Badge>
             <span className="text-[11px] font-semibold text-[#8B958D]">{meta.label}</span>
+            {versionCount > 1 && <Badge variant="neutral">{versionCount} 个版本</Badge>}
           </span>
           <span className="block truncate text-base font-bold text-[#182119]">{r.title}</span>
           {preview && <span className="mt-1 block truncate text-xs leading-5 text-[#57635A]">{preview}</span>}

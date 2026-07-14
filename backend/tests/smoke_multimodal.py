@@ -14,6 +14,9 @@ import sys
 import zlib
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="backslashreplace")
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import GEN_DIR, is_demo  # noqa: E402

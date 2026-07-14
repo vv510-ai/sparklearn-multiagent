@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, Plus, Square } from "lucide-react";
 import { USER_ID, postSSE } from "@/lib/api";
 import { useView } from "@/components/view/ViewContext";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
@@ -32,6 +33,8 @@ export default function Chat({
   onEvent,
   seed,
   request,
+  sourceIds = [],
+  onUploadClick,
   onSeedConsumed,
   onQuizEvaluated,
 }: {
@@ -39,6 +42,8 @@ export default function Chat({
   /** 外部(首页快捷入口)注入的一次性发送内容 */
   seed?: string;
   request?: { path: string; body: Record<string, unknown>; display: string };
+  sourceIds?: string[];
+  onUploadClick?: () => void;
   onSeedConsumed?: () => void;
   onQuizEvaluated?: (report: { path?: import("@/lib/types").PathPlan; profile_version?: number }) => void;
 }) {
@@ -81,7 +86,12 @@ export default function Chat({
 
       abortRef.current = postSSE(
         directRequest?.path || "/chat",
-        directRequest?.body || { user_id: USER_ID, session_id: sessionRef.current, message: q },
+        directRequest?.body || {
+          user_id: USER_ID,
+          session_id: sessionRef.current,
+          message: q,
+          source_ids: sourceIds,
+        },
         (ev) => {
           onEvent?.(ev);
           switch (ev.type) {
@@ -115,7 +125,7 @@ export default function Chat({
         },
       );
     },
-    [busy, onEvent],
+    [busy, onEvent, sourceIds],
   );
 
   useEffect(() => {
@@ -123,41 +133,44 @@ export default function Chat({
       send(seed);
       onSeedConsumed?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seed]);
+  }, [busy, onSeedConsumed, seed, send]);
 
   useEffect(() => {
     if (request && !busy) {
       send(request.display, request);
       onSeedConsumed?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request]);
+  }, [busy, onSeedConsumed, request, send]);
 
   useEffect(() => {
     return () => abortRef.current?.();
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-15rem)] min-h-[520px] flex-col overflow-hidden rounded-[14px] border border-[#E5E9E3] bg-white shadow-[0_1px_2px_rgba(18,30,22,0.05),0_6px_20px_rgba(18,30,22,0.06)]">
-      <div className="border-b border-[#E5E9E3] bg-[#FBFCFA] px-5 py-3.5">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+      <div className="border-b border-[#E1E4EC] bg-white px-5 py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[11px] font-bold tracking-[0.18em] text-emerald-700">学习目标</div>
+            <div className="text-[10px] font-bold tracking-[0.18em] text-[#737B8B]">LEARNING CONVERSATION</div>
             <h2 className="mt-0.5 text-lg font-bold leading-tight tracking-tight text-[#182119]">
-              写下目标，系统整理学习安排
+              学习对话
             </h2>
           </div>
-          <div className="rounded-full border border-emerald-100 bg-[#E3F0E9] px-3 py-1.5 text-xs font-medium text-emerald-800">
-            当前学习档案
+          <div className="rounded-full border border-[#DDE3ED] bg-[#F7F8FC] px-3 py-1.5 text-xs font-medium text-[#596171]">
+            {sourceIds.length ? `${sourceIds.length} 份已选资料` : "课程知识库"}
           </div>
         </div>
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-5">
         {msgs.length === 0 && (
-          <div className="mx-auto max-w-3xl space-y-4 pt-2">
-            <div className="rounded-[14px] border border-[#D2DAD2] bg-[#F0F6F2] p-3">
+          <div className="mx-auto max-w-3xl space-y-5 pt-8">
+            <div className="text-center">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#EEF0FA] text-2xl">📘</div>
+              <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[#1D2028]">从一个问题开始</h3>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">回答会结合你的问题、学习画像和左侧选中的资料，并保留内容出处。</p>
+            </div>
+            <div className="rounded-[12px] border border-[#E1E4EC] bg-[#F8F9FC] p-3">
               <div className="mb-2 text-xs font-bold text-emerald-800">
                 {view === "judge" ? "管理者视角：先看学习成效，再看依据" : "按三个步骤推进：定重点、取资料、看进展"}
               </div>
@@ -227,8 +240,16 @@ export default function Chat({
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-[#E5E9E3] bg-[#FBFCFA] p-4">
-        <div className="flex items-end gap-2">
+      <div className="border-t border-[#E1E4EC] bg-white p-4">
+        <div className="notebook-composer flex items-end gap-2">
+          <button
+            onClick={onUploadClick}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#596171] transition hover:bg-[#EEF0F6] hover:text-[#1D2028]"
+            aria-label="添加学习资料"
+            title="添加学习资料"
+          >
+            <Plus size={20} />
+          </button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -240,23 +261,25 @@ export default function Chat({
             }}
             rows={1}
             aria-label="学习目标输入"
-            placeholder="例如：两周后期末，请帮我先攻克二叉树和动态规划"
-            className="max-h-28 flex-1 resize-none rounded-[10px] border border-[#D2DAD2] bg-white px-3 py-2.5 text-sm text-[#182119] outline-none transition placeholder:text-[#8B958D] focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100"
+            placeholder="你今天想学什么知识？"
+            className="max-h-28 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-sm text-[#182119] outline-none placeholder:text-[#9AA0AD]"
           />
           {busy ? (
             <button
               onClick={() => abortRef.current?.()}
-              className="h-11 shrink-0 rounded-[10px] border border-orange-300 px-4 text-sm font-semibold text-orange-700 hover:bg-orange-50"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F4ECEA] text-[#A33A25] transition hover:bg-[#EEDDD8]"
+              aria-label="停止生成"
             >
-              停止
+              <Square size={15} fill="currentColor" />
             </button>
           ) : (
             <button
               onClick={() => send(input)}
               disabled={!input.trim()}
-              className="h-11 shrink-0 rounded-[10px] bg-[#0F6B50] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0B5340] disabled:cursor-not-allowed disabled:opacity-40"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#14161B] text-white transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:bg-[#E1E3E8] disabled:text-[#9AA0AD]"
+              aria-label="发送"
             >
-              开始
+              <ArrowRight size={19} />
             </button>
           )}
         </div>

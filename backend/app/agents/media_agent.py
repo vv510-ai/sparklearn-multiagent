@@ -9,9 +9,11 @@ import asyncio
 import ast
 import uuid
 
-from ..config import GEN_DIR
+from ..config import GEN_DIR, is_demo
 from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_complete, parse_json
+from ..rag.citation import build_context
+from ..rag.retriever import retrieve
 from ..services.knowledge_graph import kp_name
 from .emitter import agent_end, agent_start, emit
 
@@ -20,13 +22,16 @@ _SCRIPT_PROMPT = (
     "请为知识点「{kp}」设计一段 60 秒讲解短视频的分镜脚本,只输出 JSON:\n"
     '{{"title":"...","narration":"完整旁白(180字内,口语化)",'
     '"scenes":[{{"t":"0-10s","visual":"画面描述","caption":"屏幕字幕"}}],'
-    '"video_prompt":"给文生视频模型的一句英文 prompt(教学动画风格)"}}'
+    '"video_prompt":"给文生视频模型的一句英文 prompt(教学动画风格)"}}\n'
+    "用户目标:{goal}\n"
+    "回答只能依据以下参考资料，不得补写资料外事实；画面标签也只能使用资料中出现的概念:\n{context}"
 )
 
 _MANIM_PROMPT = (
     "TASK=doc\n"
     "请用 Manim Community v0.18 写一个 Python 场景类,可视化「{kp}」的核心过程"
     "(如指针移动/节点插入/递归展开),类名 {cls},≤60 行,只输出 Python 代码块。"
+    "只能可视化参考资料中明确出现的结构和步骤。\n参考资料:\n{context}"
 )
 
 _LOCAL_MANIM_VIDEOS = {
@@ -59,7 +64,18 @@ def _valid_manim_code(code: str, cls: str) -> bool:
     return False
 
 
-def _fallback_manim_code(cls: str, name: str) -> str:
+def _fallback_manim_code(cls: str, name: str, *, source_bound: bool = False) -> str:
+    if source_bound:
+        return f'''from manim import *
+
+class {cls}(Scene):
+    def construct(self):
+        title = Text({name!r}, font_size=42, color=GREEN).to_edge(UP)
+        note = Text("根据所选资料整理", font_size=28, color=BLUE)
+        self.play(Write(title))
+        self.play(FadeIn(note))
+        self.wait(1)
+'''
     return f'''from manim import *
 
 class {cls}(Scene):
@@ -76,11 +92,36 @@ class {cls}(Scene):
 '''
 
 
-def _normalize_manim_code(code: str, cls: str, name: str) -> str:
+def _normalize_manim_code(
+    code: str,
+    cls: str,
+    name: str,
+    *,
+    source_bound: bool = False,
+) -> str:
     cleaned = _strip_code_fence(code)
     if _valid_manim_code(cleaned, cls):
         return cleaned
-    return _fallback_manim_code(cls, name)
+    return _fallback_manim_code(cls, name, source_bound=source_bound)
+
+
+def _seedance_prompt(script: dict, *, source_bound: bool) -> str:
+    base = str(script.get("video_prompt") or "").strip()
+    if not source_bound:
+        return base or str(script.get("title") or "educational animation")
+    narration = " ".join(str(script.get("narration") or "").split())[:500]
+    captions = "；".join(
+        str(scene.get("caption") or "").strip()
+        for scene in script.get("scenes") or []
+        if isinstance(scene, dict) and str(scene.get("caption") or "").strip()
+    )[:300]
+    return (
+        "Create a clean educational 2D animation. Only visualize the supplied "
+        "source-grounded narration and captions. Do not add facts, labels, formulas, "
+        "or examples that are not supplied. "
+        f"Narration: {narration or 'Use a neutral abstract learning visual.'} "
+        f"Captions: {captions or 'No factual on-screen labels.'}"
+    )
 
 
 def _local_manim_video(kp: str) -> dict | None:
@@ -96,13 +137,56 @@ async def run(state: dict) -> dict:
         return {}
     kp = (state.get("knowledge_points") or ["binary_tree"])[0]
     name = kp_name(kp)
+    source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
+    goal = str(state.get("learning_goal") or "")
     await agent_start("media", "媒体智能体", f"「{name}」分镜脚本 → 文生视频/动画 + TTS")
 
-    raw = await llm_complete(_SCRIPT_PROMPT.format(kp=name), role="ultra",
-                             temperature=0.7, max_tokens=1200)
-    script = parse_json(raw)
+    chunks = retrieve(
+        f"{name} 核心概念 关键步骤 {goal}",
+        final_k=5,
+        source_ids=source_ids,
+        kp=None if source_ids else kp,
+    )
+    context, citations = build_context(chunks)
+    if source_ids and not chunks:
+        script = {
+            "title": f"{name}·资料不足",
+            "narration": "当前选中的资料没有可检索内容，因此未生成资料范围外的讲解视频。",
+            "scenes": [],
+            "video_prompt": "",
+        }
+        rid = uuid.uuid4().hex[:12]
+        resource = {
+            "id": rid,
+            "kind": "video",
+            "kp": kp,
+            "title": script["title"],
+            "payload": {"script": script, "degraded": True, "reason": "selected sources have no indexed content"},
+            "citations": [],
+        }
+        await emit({"type": "resource", "resource": resource})
+        await agent_end("media", "所选资料无可用片段,已阻止无依据生成")
+        return {
+            "generated_resources": {rid: resource},
+            "safety_flags": [{"agent": "media", "type": "source_scope_empty",
+                              "detail": "所选资料没有可检索内容"}],
+        }
+
+    script = {}
+    if not is_demo():
+        raw = await llm_complete(_SCRIPT_PROMPT.format(
+            kp=name,
+            goal=goal or f"讲清{name}",
+            context=context or "（课程知识库未检索到片段）",
+        ), role="ultra",
+                                 temperature=0.7, max_tokens=1200)
+        script = parse_json(raw)
     if not isinstance(script, dict) or not script.get("narration"):
-        script = {"title": f"{name} 60 秒讲透", "narration": f"本节用一分钟讲清{name}的核心思想与典型操作。",
+        fallback_narration = (
+            " ".join(str(chunks[0].get("text") or "").split())[:180]
+            if chunks else f"本节用一分钟讲清{name}的核心思想与典型操作。"
+        )
+        script = {"title": f"{name} 60 秒讲透", "narration": fallback_narration,
                   "scenes": [{"t": "0-60s", "visual": f"{name} 演示动画", "caption": name}],
                   "video_prompt": f"educational 2D animation explaining {kp}, clean diagram style"}
     await emit({"type": "progress", "agent": "media", "stage": "script", "percent": 25,
@@ -119,7 +203,7 @@ async def run(state: dict) -> dict:
     mode = "manim"
     try:
         created = await multimodal_gateway.video_create(
-            script.get("video_prompt", name), trace_id=trace_id,
+            _seedance_prompt(script, source_bound=bool(source_ids)), trace_id=trace_id,
         )
         if created["ok"]:
             task_id = str(created["data"]["task_id"])
@@ -140,9 +224,16 @@ async def run(state: dict) -> dict:
 
     if mode == "manim":                                            # 降级链路
         cls = "Scene" + kp.title().replace("_", "")
-        code = await llm_complete(_MANIM_PROMPT.format(kp=name, cls=cls),
-                                  role="ultra", temperature=0.3, max_tokens=1400)
-        payload["manim_code"] = _normalize_manim_code(code, cls, name)
+        if source_ids or is_demo():
+            payload["manim_code"] = _fallback_manim_code(cls, name, source_bound=True)
+        else:
+            code = await llm_complete(_MANIM_PROMPT.format(
+                kp=name,
+                cls=cls,
+                context=context or "（课程知识库未检索到片段）",
+            ),
+                                      role="ultra", temperature=0.3, max_tokens=1400)
+            payload["manim_code"] = _normalize_manim_code(code, cls, name)
         local_video = _local_manim_video(kp)
         if local_video:
             payload["video"] = local_video
@@ -154,7 +245,7 @@ async def run(state: dict) -> dict:
     audio, cover = await asyncio.gather(
         multimodal_gateway.tts(script["narration"][:260], trace_id=trace_id),
         multimodal_gateway.text_to_image(
-            f"数据结构教学插画:{name},蓝橙科技风,简洁示意图",
+            f"学习资料主题封面插画:{name},蓝橙科技风,简洁抽象示意图,不添加事实性标签",
             trace_id=trace_id,
         ),
         return_exceptions=True,
@@ -172,7 +263,8 @@ async def run(state: dict) -> dict:
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "video", "kp": kp,
                 "title": script.get("title", f"{name}·讲解视频"),
-                "payload": payload, "citations": []}
+                "payload": payload,
+                "citations": [item["citation"] for item in citations]}
     await emit({"type": "resource", "resource": resource})
     summaries = {
         "seedance": "Seedance 视频任务已提交",

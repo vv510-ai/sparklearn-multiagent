@@ -7,6 +7,7 @@ from app.agents import media_agent
 
 def _install_llm(monkeypatch):
     calls = 0
+    monkeypatch.setattr(media_agent, "is_demo", lambda: False)
 
     async def fake_complete(*args, **kwargs):
         nonlocal calls

@@ -419,6 +419,38 @@ def chunks_for_source(source_id: str) -> list[dict[str, Any]]:
     return [c for c in load_all_chunks() if c.get("source_id") == source_id]
 
 
+def validate_source_scope(user_id: str, source_ids: list[str]) -> list[str]:
+    """Return normalized source ids after ownership, activity, and index checks."""
+    normalized = list(dict.fromkeys(
+        str(source_id).strip() for source_id in source_ids if str(source_id).strip()
+    ))
+    if not normalized:
+        return []
+
+    metas: dict[str, dict[str, Any]] = {}
+    if UPLOAD_SOURCES_DIR.exists():
+        for meta_path in UPLOAD_SOURCES_DIR.rglob("*.meta.json"):
+            try:
+                meta = json.loads(_read_text(meta_path))
+            except Exception:
+                continue
+            if isinstance(meta, dict) and meta.get("id"):
+                metas[str(meta["id"])] = meta
+
+    indexed = {str(chunk.get("source_id") or "") for chunk in load_all_chunks()}
+    invalid = [
+        source_id
+        for source_id in normalized
+        if source_id not in metas
+        or str(metas[source_id].get("user_id") or "") != user_id
+        or not source_is_active(metas[source_id])
+        or source_id not in indexed
+    ]
+    if invalid:
+        raise ValueError("one or more selected sources are unavailable")
+    return normalized
+
+
 def load_all_chunks() -> list[dict[str, Any]]:
     return _load_seed_corpus() + _load_extra_sources() + _load_uploaded_sources()
 

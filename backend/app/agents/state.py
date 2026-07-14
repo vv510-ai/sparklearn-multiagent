@@ -22,6 +22,7 @@ class LearningState(TypedDict, total=False):
     knowledge_points: list[str]
     kinds: list[str]                                   # 期望生成的资源类型
     source_ids: list[str]                              # 指定上传资料
+    prompt_template: str                              # 白名单学习模板键
     # 编排
     intent: str                                        # generate|tutor|eval|chat
     # 画像与计划

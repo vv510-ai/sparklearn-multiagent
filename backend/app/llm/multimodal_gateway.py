@@ -16,7 +16,7 @@ from typing import Any, Awaitable, Callable
 
 from ..agents.emitter import emit
 from ..config import GEN_DIR, get_settings, is_demo
-from . import seedance_client, spark_image, spark_ocr, spark_tts
+from . import local_ocr, openai_image, seedance_client, spark_image, spark_ocr, spark_tts
 
 log = logging.getLogger("sparklearn.multimodal")
 MMResult = dict[str, Any]
@@ -83,11 +83,12 @@ async def _record(result: MMResult, *, agent: str) -> None:
         result["elapsed_ms"],
         result["error"],
     )
-    detail = (
-        f"{result['capability']} 处理完成"
-        if result["ok"]
-        else f"{result['capability']} 已安全降级: {result['error']}"
-    )
+    if result["ok"] and result["degraded"]:
+        detail = f"{result['capability']} 处理完成（已使用本地兜底）"
+    elif result["ok"]:
+        detail = f"{result['capability']} 处理完成"
+    else:
+        detail = f"{result['capability']} 已安全降级: {result['error']}"
     try:
         await emit({
             "type": "progress",
@@ -107,14 +108,32 @@ def _triplet_configured() -> bool:
     return bool(s.spark_appid and s.spark_api_key and s.spark_api_secret)
 
 
+def _openai_image_configured(settings: Any) -> bool:
+    return bool(
+        getattr(settings, "mm_openai_image_enabled", True)
+        and getattr(settings, "openai_api_key", "")
+        and getattr(settings, "openai_image_model", "")
+    )
+
+
 def capability_status() -> dict[str, dict[str, bool]]:
     s = get_settings()
     triplet = _triplet_configured()
     demo = is_demo()
     return {
-        "ocr": {"enabled": bool(s.mm_ocr_enabled), "configured": bool(triplet or demo)},
+        "ocr": {
+            "enabled": bool(s.mm_ocr_enabled),
+            "configured": bool(
+                triplet
+                or demo
+                or (getattr(s, "mm_local_ocr_enabled", True) and local_ocr.available())
+            ),
+        },
         "tts": {"enabled": bool(s.mm_tts_enabled), "configured": bool(triplet and not demo)},
-        "image": {"enabled": bool(s.mm_image_enabled), "configured": bool(triplet and not demo)},
+        "image": {
+            "enabled": bool(s.mm_image_enabled),
+            "configured": bool((triplet or _openai_image_configured(s)) and not demo),
+        },
         "video": {
             "enabled": bool(s.mm_video_enabled),
             "configured": bool(seedance_client.available() and not demo),
@@ -177,29 +196,94 @@ async def ocr_image(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
-    timeout_s = s.mm_ocr_ingest_timeout_s if purpose == "ingest" else s.mm_ocr_tutor_timeout_s
+    timeout_s = float(
+        s.mm_ocr_ingest_timeout_s if purpose == "ingest" else s.mm_ocr_tutor_timeout_s
+    )
+    local_timeout_s = float(getattr(s, "mm_local_ocr_timeout_s", 20))
+    started = time.monotonic()
+    trace_id = _trace_id(trace_id)
+    agent = "tutor" if purpose == "tutor" else "media"
 
-    def normalize(text: Any) -> dict[str, Any]:
+    def normalize_spark(text: Any) -> dict[str, Any]:
         value = str(text or "").strip()
         if not value or value.startswith("("):
             raise RuntimeError(value or "OCR returned no text")
         return {"text": value, "chars": len(value), "engine": "spark_image_understanding"}
 
-    return await _run_sync(
+    if not s.mm_ocr_enabled:
+        result = _result(
+            "ocr", trace_id, started, ok=False, degraded=True, error="capability disabled"
+        )
+        await _record(result, agent=agent)
+        return result
+
+    attempts: list[tuple[str, Callable[[], Any], float, Callable[[Any], dict[str, Any]]]] = []
+    errors: list[str] = []
+    demo = is_demo()
+    if demo or _triplet_configured():
+        attempts.append((
+            "spark",
+            lambda: spark_ocr.image_to_question(
+                image_bytes,
+                hint=hint,
+                max_tokens=4096 if purpose == "ingest" else 1024,
+                timeout_s=timeout_s,
+            ),
+            timeout_s,
+            normalize_spark,
+        ))
+    else:
+        errors.append("spark: credentials not configured")
+
+    local_enabled = bool(getattr(s, "mm_local_ocr_enabled", True))
+    if not demo and local_enabled and local_ocr.available():
+        attempts.append((
+            "local",
+            lambda: local_ocr.recognize(image_bytes),
+            local_timeout_s,
+            lambda data: {
+                **dict(data),
+                "chars": len(str((data or {}).get("text") or "")),
+            },
+        ))
+    elif not demo and not local_enabled:
+        errors.append("local: capability disabled")
+    elif not demo:
+        errors.append("local: rapidocr/onnxruntime not installed")
+
+    for provider, call, budget, normalize in attempts:
+        try:
+            raw = await _run_in_mm_pool(call, budget)
+            data = normalize(raw)
+            if not str(data.get("text") or "").strip():
+                raise RuntimeError("OCR returned no text")
+            used_fallback = provider == "local"
+            result = _result(
+                "ocr",
+                trace_id,
+                started,
+                ok=True,
+                degraded=used_fallback,
+                data=data,
+                error="; ".join(errors) if used_fallback else "",
+            )
+            await _record(result, agent=agent)
+            return result
+        except TimeoutError:
+            errors.append(f"{provider}: timeout after {budget:g}s")
+        except Exception as error:  # noqa: BLE001
+            errors.append(f"{provider}: {_error_text(error)}")
+
+    result = _result(
         "ocr",
-        lambda: spark_ocr.image_to_question(
-            image_bytes,
-            hint=hint,
-            max_tokens=4096 if purpose == "ingest" else 1024,
-            timeout_s=float(timeout_s),
-        ),
-        normalize,
-        enabled=bool(s.mm_ocr_enabled),
-        configured=bool(_triplet_configured() or is_demo()),
-        timeout_s=float(timeout_s),
-        trace_id=trace_id,
-        agent="tutor" if purpose == "tutor" else "media",
+        trace_id,
+        started,
+        ok=False,
+        degraded=True,
+        error="; ".join(errors) or "OCR unavailable",
     )
+    await _record(result, agent=agent)
+    return result
 
 
 async def tts(
@@ -250,42 +334,113 @@ async def text_to_image(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
-    digest = hashlib.sha1(f"{width}x{height}\0{prompt}".encode("utf-8")).hexdigest()[:16]
-    filename = f"img_{digest}.jpg"
-    cached = GEN_DIR / filename
-    if bool(s.mm_image_enabled) and cached.exists() and cached.stat().st_size > 0:
-        started = time.monotonic()
+    started = time.monotonic()
+    trace_id = _trace_id(trace_id)
+    if not bool(s.mm_image_enabled):
         result = _result(
-            "image",
-            _trace_id(trace_id),
-            started,
-            ok=True,
-            degraded=False,
-            data={"image_url": f"/static/gen/{filename}", "cached": True},
+            "image", trace_id, started, ok=False, degraded=True, error="capability disabled"
         )
         await _record(result, agent="media")
         return result
 
-    def normalize(url: Any) -> dict[str, Any]:
+    digest = hashlib.sha1(f"{width}x{height}\0{prompt}".encode("utf-8")).hexdigest()[:16]
+    cache_candidates = [GEN_DIR / f"img_{digest}{suffix}" for suffix in (".jpg", ".png", ".webp")]
+    cached = next((path for path in cache_candidates if path.exists() and path.stat().st_size > 0), None)
+    if cached:
+        result = _result(
+            "image",
+            trace_id,
+            started,
+            ok=True,
+            degraded=False,
+            data={"image_url": f"/static/gen/{cached.name}", "cached": True},
+        )
+        await _record(result, agent="media")
+        return result
+
+    def normalize(url: Any, provider: str) -> dict[str, Any]:
         if not url:
             raise RuntimeError("image generation returned no image")
         source = GEN_DIR / Path(str(url)).name
         if not source.exists() or source.stat().st_size == 0:
             raise RuntimeError("image file was not written")
-        if source != cached:
-            source.replace(cached)
-        return {"image_url": f"/static/gen/{filename}", "cached": False}
+        header = source.read_bytes()[:12]
+        if header.startswith(b"\x89PNG\r\n\x1a\n"):
+            suffix = ".png"
+        elif header.startswith(b"\xff\xd8\xff"):
+            suffix = ".jpg"
+        elif len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+            suffix = ".webp"
+        else:
+            raise RuntimeError("image file has an unsupported format")
+        target = GEN_DIR / f"img_{digest}{suffix}"
+        if source != target:
+            source.replace(target)
+        return {
+            "image_url": f"/static/gen/{target.name}",
+            "cached": False,
+            "provider": provider,
+        }
 
-    return await _run_sync(
+    errors: list[str] = []
+    unavailable: list[str] = []
+    attempts: list[tuple[str, Callable[[], Any]]] = []
+    demo = is_demo()
+    timeout_s = float(s.mm_image_timeout_s)
+    if demo:
+        unavailable.append("real image providers disabled in demo mode")
+    else:
+        if _openai_image_configured(s):
+            attempts.append((
+                "openai",
+                lambda: openai_image.generate_image(
+                    prompt,
+                    width=width,
+                    height=height,
+                    filename=f"openai_img_{digest}.png",
+                    timeout_s=timeout_s,
+                ),
+            ))
+        else:
+            unavailable.append("openai: credentials not configured or fallback disabled")
+        if _triplet_configured():
+            attempts.append((
+                "spark",
+                lambda: spark_image.generate_image(prompt, width=width, height=height),
+            ))
+        else:
+            unavailable.append("spark: credentials not configured")
+
+    for provider, call in attempts:
+        try:
+            raw = await _run_in_mm_pool(call, timeout_s)
+            data = normalize(raw, provider)
+            result = _result(
+                "image",
+                trace_id,
+                started,
+                ok=True,
+                degraded=bool(errors),
+                data=data,
+                error="; ".join(errors),
+            )
+            await _record(result, agent="media")
+            return result
+        except TimeoutError:
+            errors.append(f"{provider}: timeout after {timeout_s:g}s")
+        except Exception as error:  # noqa: BLE001
+            errors.append(f"{provider}: {_error_text(error)}")
+
+    result = _result(
         "image",
-        lambda: spark_image.generate_image(prompt, width=width, height=height),
-        normalize,
-        enabled=bool(s.mm_image_enabled),
-        configured=bool(_triplet_configured() and not is_demo()),
-        timeout_s=float(s.mm_image_timeout_s),
-        trace_id=trace_id,
-        agent="media",
+        trace_id,
+        started,
+        ok=False,
+        degraded=True,
+        error="; ".join([*errors, *unavailable]) or "no image provider available",
     )
+    await _record(result, agent="media")
+    return result
 
 
 async def video_create(

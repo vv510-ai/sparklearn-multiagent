@@ -36,16 +36,27 @@ try:  # pydantic-settings 可用时走标准路径
         spark_api_secret: str = ""
         spark_image_domain: str = "general"
 
+        # OpenAI GPT Image 备用文生图
+        openai_api_key: str = ""
+        openai_base_url: str = "https://api.openai.com/v1"
+        openai_image_model: str = "gpt-image-2"
+        openai_image_quality: str = "low"
+
         # 火山方舟 Seedance
         ark_api_key: str = ""
         ark_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
         seedance_model: str = ""
+        seedance_ratio: str = "16:9"
+        seedance_duration: int = 5
+        seedance_generate_audio: bool = True
+        seedance_watermark: bool = False
 
         # 多模态能力开关与单次调用预算
         mm_ocr_enabled: bool = True
         mm_local_ocr_enabled: bool = True
         mm_tts_enabled: bool = True
         mm_image_enabled: bool = True
+        mm_openai_image_enabled: bool = True
         mm_video_enabled: bool = True
         mm_ocr_max_pages: int = 6
         mm_ocr_tutor_timeout_s: float = 20
@@ -82,13 +93,22 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_api_key = g("SPARK_API_KEY", "")
             self.spark_api_secret = g("SPARK_API_SECRET", "")
             self.spark_image_domain = g("SPARK_IMAGE_DOMAIN", "general")
+            self.openai_api_key = g("OPENAI_API_KEY", "")
+            self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            self.openai_image_model = g("OPENAI_IMAGE_MODEL", "gpt-image-2")
+            self.openai_image_quality = g("OPENAI_IMAGE_QUALITY", "low")
             self.ark_api_key = g("ARK_API_KEY", "")
             self.ark_base_url = g("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
             self.seedance_model = g("SEEDANCE_MODEL", "")
+            self.seedance_ratio = g("SEEDANCE_RATIO", "16:9")
+            self.seedance_duration = int(g("SEEDANCE_DURATION", "5"))
+            self.seedance_generate_audio = _env_bool("SEEDANCE_GENERATE_AUDIO")
+            self.seedance_watermark = _env_bool("SEEDANCE_WATERMARK", False)
             self.mm_ocr_enabled = _env_bool("MM_OCR_ENABLED")
             self.mm_local_ocr_enabled = _env_bool("MM_LOCAL_OCR_ENABLED")
             self.mm_tts_enabled = _env_bool("MM_TTS_ENABLED")
             self.mm_image_enabled = _env_bool("MM_IMAGE_ENABLED")
+            self.mm_openai_image_enabled = _env_bool("MM_OPENAI_IMAGE_ENABLED")
             self.mm_video_enabled = _env_bool("MM_VIDEO_ENABLED")
             self.mm_ocr_max_pages = int(g("MM_OCR_MAX_PAGES", "6"))
             self.mm_ocr_tutor_timeout_s = float(g("MM_OCR_TUTOR_TIMEOUT_S", "20"))

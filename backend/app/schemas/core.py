@@ -10,6 +10,7 @@ class ChatRequest(BaseModel):
     user_id: str = Field(default="demo_user")
     session_id: str = Field(default="s1")
     message: str
+    source_ids: list[str] = Field(default_factory=list)
 
 
 class GenerateRequest(BaseModel):
@@ -18,6 +19,7 @@ class GenerateRequest(BaseModel):
     knowledge_points: list[str] = Field(default_factory=list)
     kinds: list[str] = Field(default_factory=lambda: ["doc", "mindmap", "quiz", "code", "video"])
     source_ids: list[str] = Field(default_factory=list)
+    prompt_template: str = Field(default="", description="后端白名单学习模板键")
 
 
 class TutorRequest(BaseModel):

@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import base64
 
+from ..config import is_demo
 from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_stream
 from ..rag.citation import build_context
@@ -21,6 +22,34 @@ _SYSTEM = (
     "3) 适当使用类比,关键步骤给出代码或伪代码;"
     "4) 语气友好简洁,Markdown 排版。"
 )
+
+
+def _build_prompt(question: str, profile: dict, context: str, source_ids: list[str]) -> str:
+    source_scope = (
+        "仅使用用户本次选中的知识库资料"
+        if source_ids
+        else "使用课程内置教材知识库"
+    )
+
+
+def _rag_demo_answer(chunks: list[dict]) -> str:
+    lines = ["我先按当前资料给出可核对的结论：", ""]
+    for index, chunk in enumerate(chunks[:4], 1):
+        text = " ".join(str(chunk.get("text") or "").split())
+        if text:
+            lines.append(f"- {text[:260]} [^{index}]")
+    if len(lines) == 2:
+        lines.append("当前知识库没有检索到可用片段，暂不补充资料外内容。")
+    lines += ["", "你可以继续追问其中一个概念、步骤或易错点，我会沿用同一资料范围。"]
+    return "\n".join(lines)
+    return (
+        f"学习需求:\n{question}\n\n"
+        f"学生画像:认知风格={profile.get('cognitive_style', '视觉型')},"
+        f"难度偏好={profile.get('difficulty_pref', '循序渐进')}\n"
+        f"资料范围:{source_scope}\n"
+        f"参考资料:\n{context or '(没有检索到可用片段)'}\n\n"
+        "请先给出直接结论,再分步讲解;没有资料支持的事实不要补写。"
+    )
 
 async def run(state: dict) -> dict:
     question = ""
@@ -57,25 +86,45 @@ async def run(state: dict) -> dict:
     question = question or "请讲讲二叉树的中序遍历"
     await agent_start("tutor", "答疑导师智能体", detail)
 
-    chunks = retrieve(question, final_k=4)
+    source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
+    chunks = retrieve(question, final_k=4, source_ids=source_ids)
     ctx, citations = build_context(chunks)
+    if source_ids and not chunks:
+        answer = "在你当前选中的资料中没有检索到可用内容，所以我没有补充资料之外的答案。请换一份资料，或检查上传文件是否已完成索引。"
+        await agent_token("tutor", answer)
+        await emit({"type": "token", "delta": answer})
+        await emit({"type": "citations", "agent": "tutor", "items": []})
+        await agent_end("tutor", "所选资料无可用片段,已阻止无依据回答")
+        return {
+            "answer": answer,
+            "citations": [],
+            "safety_flags": [{"agent": "tutor", "type": "source_scope_empty",
+                              "detail": "所选资料没有可检索内容"}],
+            "messages": [{"role": "assistant", "content": answer}],
+        }
     profile = state.get("student_profile") or {}
-    prompt = (f"学生画像:认知风格={profile.get('cognitive_style', '视觉型')},"
-              f"难度偏好={profile.get('difficulty_pref', '循序渐进')}\n"
-              f"参考资料:\n{ctx}\n\n学生问题:{question}")
+    prompt = _build_prompt(question, profile, ctx, source_ids)
 
-    parts: list[str] = []
-    async for delta in llm_stream(prompt, role="ultra", system=_SYSTEM,
-                                  temperature=0.6, max_tokens=1600):
-        parts.append(delta)
-        await agent_token("tutor", delta)
-        await emit({"type": "token", "delta": delta})
-    answer = "".join(parts)
+    if is_demo():
+        answer = _rag_demo_answer(chunks)
+        for start in range(0, len(answer), 72):
+            delta = answer[start:start + 72]
+            await agent_token("tutor", delta)
+            await emit({"type": "token", "delta": delta})
+        ground = {"grounded": True, "unsupported": [], "verdict": "演示模式直接整理检索片段"}
+    else:
+        parts: list[str] = []
+        async for delta in llm_stream(prompt, role="ultra", system=_SYSTEM,
+                                      temperature=0.6, max_tokens=1600):
+            parts.append(delta)
+            await agent_token("tutor", delta)
+            await emit({"type": "token", "delta": delta})
+        answer = "".join(parts)
 
-    try:
-        ground = await asyncio.wait_for(grounding_check(answer, [c["text"] for c in chunks]), timeout=8)
-    except TimeoutError:
-        ground = {"grounded": False, "unsupported": [], "verdict": "grounding 校验超时,已标记待复核"}
+        try:
+            ground = await asyncio.wait_for(grounding_check(answer, [c["text"] for c in chunks]), timeout=8)
+        except TimeoutError:
+            ground = {"grounded": False, "unsupported": [], "verdict": "grounding 校验超时,已标记待复核"}
     safety = safety_filter(answer)
     flags = []
     if not ground.get("grounded", True):

@@ -7,8 +7,10 @@ import asyncio
 import re
 import uuid
 
+from ..config import is_demo
 from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_complete
+from ..prompt_templates import render_learning_prompt
 from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
@@ -17,9 +19,11 @@ from ..services.knowledge_graph import kp_name
 from .emitter import agent_end, agent_start, emit
 
 _STYLE = {
-    "doc": ("图文教程", "TASK=doc\n请为知识点「{kp}」写一篇结构化图文教程(Markdown):"
-            "## 引入(生活类比)/## 核心概念/## 操作与算法(配 mermaid 图解)/"
-            "## 复杂度分析/## 易错点与对策/## 小结。"
+    "doc": ("学习笔记", "TASK=doc\n请为知识点「{kp}」写一份可快速复习的结构化学习笔记(Markdown):"
+            "## 30 秒看懂(3-5 句直接结论)/## 知识框架(用 mermaid flowchart)/"
+            "## 核心笔记(定义、原理、步骤、复杂度)/## 易错点(错误表现、原因、改法)/"
+            "## 易混对照(用表格比较相近概念)/## 3 分钟自测(3 个问题)。"
+            "每一节先给结论再解释,避免长段落和空泛表述。"
             "正文中的事实性表述用脚注 [^n] 标注来源编号(n 对应参考资料编号),"
             "结合学生画像调整深浅:{persona}。"),
     "code": ("代码示例", "TASK=doc\n请为知识点「{kp}」编写可运行的 Python 代码教学示例(Markdown):"
@@ -50,7 +54,7 @@ def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
     lines = [
         f"# {name}·{title}",
         "",
-        "> 生成模型响应超时，系统已基于当前检索到的教材片段生成可追溯降级版。",
+        "> 系统已基于当前检索到的资料片段生成可追溯版本。",
         "",
         "## 核心教材片段",
     ]
@@ -64,7 +68,7 @@ def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
         "## 学习建议",
         f"- 先按上面的教材片段梳理「{name}」的定义、操作和复杂度。",
         "- 再结合题组检查边界条件、概念区分和时间复杂度。",
-        "- 需要完整讲义时，可稍后重试生成或切换到演示模式。",
+        "- 需要更完整的讲义时，可补充资料或在真实模型可用后重新生成。",
     ]
     return "\n".join(lines)
 
@@ -86,11 +90,20 @@ def _narration_text(name: str, markdown: str, limit: int = 240) -> str:
     return (prefix + text)[:limit]
 
 
-def _cover_prompt(name: str) -> str:
+def _cover_prompt(name: str, *, source_bound: bool = False) -> str:
+    subject = "所选学习资料封面插画" if source_bound else "数据结构教学插画"
     return (
-        f"数据结构教学插画：{name}。清晰展示核心结构与关系，"
-        "简洁学术风，浅色背景，绿色重点标注，无人物，无装饰文字。"
+        f"{subject}：{name}。使用简洁抽象的学习结构视觉，"
+        "浅色背景，绿色重点标注，无人物，不添加事实性文字。"
     )
+
+
+def _doc_label(default: str, template_key: str) -> str:
+    return {
+        "one_page": "一页看懂",
+        "complete_notes": "学习笔记",
+        "error_confusion": "易错易混",
+    }.get(str(template_key or "").strip().lower(), default)
 
 
 async def _gen_one(
@@ -100,34 +113,69 @@ async def _gen_one(
     *,
     source_ids: list[str],
     goal: str,
+    prompt_template: str = "",
     trace_id: str,
 ) -> dict:
     name = kp_name(kp)
     label, tpl = _STYLE.get(kind, _STYLE["doc"])
+    if kind == "doc":
+        label = _doc_label(label, prompt_template)
     chunks = retrieve(
         f"{name} 概念 操作 复杂度 易错点 {goal}",
         final_k=5,
         source_ids=source_ids,
-        kp=kp,
+        kp=None if source_ids else kp,
     )
     ctx, citations = build_context(chunks)
-    prompt = (tpl.format(kp=name, persona=_persona(profile))
-              + f"\n\n参考资料(回答只可依据这些;引用其编号):\n{ctx}")
+    if kind == "doc":
+        prompt = render_learning_prompt(
+            prompt_template,
+            topic=name,
+            goal=goal,
+            persona=_persona(profile),
+            context=ctx,
+        )
+    else:
+        prompt = (
+            tpl.format(kp=name, persona=_persona(profile))
+            + f"\n\n用户本次需求:\n{goal or f'系统学习{name}'}"
+            + f"\n\n参考资料(回答只可依据这些;引用其编号):\n{ctx}"
+        )
     flags = []
     fallback = False
-    try:
-        md = await asyncio.wait_for(
-            llm_complete(prompt, role="ultra", temperature=0.5, max_tokens=1800),
-            timeout=_DOC_TIMEOUT_S,
+    demo_fallback = is_demo()
+    source_scope_missing = bool(source_ids and not chunks)
+    if source_scope_missing:
+        fallback = True
+        md = (
+            f"# {name}·资料不足\n\n"
+            "> 当前选中的资料没有可检索内容，因此未生成资料范围外的知识。\n\n"
+            "请重新选择已完成索引的资料，或上传包含正文的 TXT、MD、PDF、PNG/JPG 文件。"
         )
-    except Exception as exc:  # noqa: BLE001
+        flags.append({"agent": "doc", "kind": kind, "type": "source_scope_empty",
+                      "detail": "所选资料没有可检索内容,已阻止无依据生成"})
+    elif demo_fallback:
         fallback = True
         md = _rag_fallback_doc(name, chunks, kind)
-        flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
-                      "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
+    else:
+        try:
+            md = await asyncio.wait_for(
+                llm_complete(prompt, role="ultra", temperature=0.5, max_tokens=1800),
+                timeout=_DOC_TIMEOUT_S,
+            )
+        except Exception as exc:  # noqa: BLE001
+            fallback = True
+            md = _rag_fallback_doc(name, chunks, kind)
+            flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
+                          "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
 
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
-    if fallback:
+    if source_scope_missing:
+        ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
+    elif demo_fallback:
+        ground = {"grounded": True, "unsupported": [],
+                  "verdict": "演示模式直接整理检索片段,未补写资料外事实。"}
+    elif fallback:
         ground = {"grounded": False, "unsupported": [],
                   "verdict": "LLM 生成超时,已使用检索片段降级输出,建议人工复核。"}
     else:
@@ -155,14 +203,14 @@ async def _gen_one(
     cite_used = [citations[i - 1] for i in used if 0 < i <= len(citations)] or citations[:3]
     rid = uuid.uuid4().hex[:12]
     payload = {"markdown": md, "grounded": ground.get("grounded", True)}
-    if kind == "doc":
+    if kind == "doc" and not source_scope_missing:
         audio, cover = await asyncio.gather(
             multimodal_gateway.tts(
                 _narration_text(name, md),
                 trace_id=trace_id,
             ),
             multimodal_gateway.text_to_image(
-                _cover_prompt(name),
+                _cover_prompt(name, source_bound=bool(source_ids)),
                 width=768,
                 height=768,
                 trace_id=trace_id,
@@ -193,6 +241,7 @@ async def run(state: dict) -> dict:
     profile = state.get("student_profile") or {}
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
     goal = state.get("learning_goal") or ""
+    prompt_template = str(state.get("prompt_template") or "")
     trace_id = str(state.get("session_id") or "")
     await agent_start("doc", "文档智能体",
                       f"RAG 检索→引用生成→双层防幻觉校验({'/'.join(kinds)})")
@@ -204,6 +253,7 @@ async def run(state: dict) -> dict:
             profile,
             source_ids=source_ids,
             goal=goal,
+            prompt_template=prompt_template,
             trace_id=trace_id,
         )
         resources[out["resource"]["id"]] = out["resource"]
