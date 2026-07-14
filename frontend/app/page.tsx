@@ -108,30 +108,42 @@ function RoleGate({
 }) {
   const [role, setRole] = useState<ViewKey>("student");
   const [goal, setGoal] = useState("");
+  const [transitioning, setTransitioning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+  }, []);
 
   const start = () => {
     const next = goal.trim();
-    if (next) onStart(role, next);
+    if (!next || transitioning) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTransitioning(true);
+    transitionTimerRef.current = setTimeout(() => onStart(role, next), reduceMotion ? 40 : 820);
   };
 
   return (
-    <main className="role-gate-shell relative min-h-dvh overflow-hidden text-white">
+    <main
+      className={`role-gate-shell relative min-h-dvh overflow-hidden text-white ${transitioning ? "is-transitioning" : ""}`}
+      aria-busy={transitioning}
+    >
       <CinematicBackground />
-      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-5 sm:px-8 sm:py-6">
-        <nav className="liquid-glass glass-readable flex items-center justify-between rounded-full px-5 py-3 sm:px-6">
+      <div className="role-gate-stage relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-5 sm:px-8 sm:py-6">
+        <nav className="role-gate-nav liquid-glass glass-readable flex items-center justify-between rounded-full px-5 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
             <SparkMark light />
             <span className="text-xl text-white" style={{ fontFamily: "var(--font-display)" }}>
               SparkLearn<sup className="ml-0.5 text-[9px]">®</sup>
             </span>
           </div>
-          <button onClick={() => document.getElementById("learning-goal")?.focus()} className="liquid-glass flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03]">
+          <button disabled={transitioning} onClick={() => document.getElementById("learning-goal")?.focus()} className="liquid-glass flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03] disabled:pointer-events-none">
             开始学习 <ArrowRight size={16} />
           </button>
         </nav>
 
-        <section className="cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
+        <section className="role-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
           <h1 className="animate-fade-rise max-w-6xl text-[43px] font-normal leading-[0.98] text-white sm:text-7xl md:text-[82px]" style={{ fontFamily: "var(--font-display)" }}>
             <span className="block">SparkLearn，</span>
             <em className="mt-1 block whitespace-nowrap text-[37px] not-italic text-white/70 sm:text-7xl md:text-[82px]">学习的左膀右臂。</em>
@@ -142,7 +154,7 @@ function RoleGate({
 
           <div className="animate-fade-rise-delay mt-6 flex flex-wrap justify-center gap-2" aria-label="选择身份">
             {ROLE_ORDER.map((key) => (
-              <button key={key} onClick={() => setRole(key)} aria-pressed={role === key} className={`role-pill liquid-glass glass-readable flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-sm transition ${role === key ? "is-selected" : ""}`}>
+              <button key={key} disabled={transitioning} onClick={() => setRole(key)} aria-pressed={role === key} className={`role-pill liquid-glass glass-readable flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-sm transition disabled:pointer-events-none ${role === key ? "is-selected" : ""}`}>
                 <RoleAvatar role={key} />
                 <span>{ROLE_PROFILE[key].name}</span>
               </button>
@@ -161,18 +173,19 @@ function RoleGate({
                 if (file) onUpload(file);
               }}
             />
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/75 transition hover:bg-white/10 hover:text-white disabled:cursor-wait" aria-label="添加学习资料" title="添加学习资料">
+            <button onClick={() => fileRef.current?.click()} disabled={uploading || transitioning} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/75 transition hover:bg-white/10 hover:text-white disabled:cursor-wait" aria-label="添加学习资料" title="添加学习资料">
               {uploading ? <Upload size={19} className="animate-pulse" /> : <Plus size={21} />}
             </button>
             <input
               id="learning-goal"
               value={goal}
+              disabled={transitioning}
               onChange={(event) => setGoal(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && start()}
               placeholder="你今天想学什么知识？"
               className="min-w-0 flex-1 bg-transparent px-1 text-base text-white outline-none placeholder:text-white/45 sm:text-lg"
             />
-            <button onClick={start} disabled={!goal.trim()} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#092B38] transition hover:scale-[1.04] disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/35" aria-label="开始学习">
+            <button onClick={start} disabled={!goal.trim() || transitioning} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#092B38] transition hover:scale-[1.04] disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/35" aria-label="开始学习">
               <ArrowRight size={20} />
             </button>
           </div>
@@ -187,11 +200,11 @@ function RoleGate({
           </div>
         </section>
 
-        <section className="hidden grid-cols-3 gap-3 pb-2 md:grid">
+        <section className="role-gate-roles hidden grid-cols-3 gap-3 pb-2 md:grid">
           {ROLE_ORDER.map((key) => {
             const item = ROLE_PROFILE[key];
             return (
-              <button key={key} onClick={() => setRole(key)} aria-pressed={role === key} className={`liquid-glass glass-readable group flex min-h-[80px] items-center gap-3 rounded-[16px] p-3 text-left transition hover:-translate-y-0.5 ${role === key ? "role-entry-active" : ""}`}>
+              <button key={key} disabled={transitioning} onClick={() => setRole(key)} aria-pressed={role === key} className={`liquid-glass glass-readable group flex min-h-[80px] items-center gap-3 rounded-[16px] p-3 text-left transition hover:-translate-y-0.5 disabled:pointer-events-none ${role === key ? "role-entry-active" : ""}`}>
                 <RoleAvatar role={key} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-2"><strong>{item.name}</strong><small className="text-white/50">{item.who}</small></span>
@@ -202,6 +215,13 @@ function RoleGate({
             );
           })}
         </section>
+      </div>
+      <div className="workspace-transition" aria-hidden={!transitioning}>
+        <div className="workspace-transition-surface" />
+        <div className="workspace-transition-label">
+          <SparkMark running={transitioning} />
+          <span>正在铺开你的学习工作台</span>
+        </div>
       </div>
     </main>
   );
@@ -442,7 +462,7 @@ export default function Home() {
   const studioPanel = <StudioPanel onGenerate={startGenerate} onOpen={openPanel} />;
 
   return (
-    <main className="notebook-app flex h-dvh flex-col overflow-hidden text-[#1D2028]">
+    <main className="notebook-app notebook-app-enter flex h-dvh flex-col overflow-hidden text-[#1D2028]">
       <input
         ref={sourceInputRef}
         type="file"
