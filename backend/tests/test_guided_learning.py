@@ -46,6 +46,9 @@ def test_beginner_prompt_is_complete_and_contains_conversation():
     )
     assert "朋友兼耐心的老师" in call.system
     assert "朋友兼老师" in call.prompt
+    assert "250—450 个中文字符" in call.prompt
+    assert "不主动建议做题" in call.prompt
+    assert call.prompt.index("本次回答格式优先") > call.prompt.index("输出自检")
     assert "我总分不清左右子树" in prompt
     assert "二叉树不等于" in prompt or "不要把当前主题偷换" in prompt
     assert "TASK=tutor" in prompt
