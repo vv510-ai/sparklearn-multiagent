@@ -154,11 +154,50 @@ def _build_prompt(
     ).prompt
 
 
+def _is_learning_strategy_question(question: str) -> bool:
+    compact = re.sub(r"\s+", "", str(question or ""))
+    return bool(re.search(r"(?:怎么学|如何学|从哪(?:里)?学|学习顺序|学习路线|学习路径|学习计划)", compact))
+
+
+def _strategy_answer(topic_name: str) -> str:
+    topic = str(topic_name or "这个主题").strip() or "这个主题"
+    if "数据结构" in topic:
+        steps = [
+            "1. **先学数组和链表**：看懂数据怎样排在一起，以及插入、删除为什么有快有慢。",
+            "2. **再学栈和队列**：抓住“后进先出”和“先进先出”这两个使用规则。",
+            "3. **接着学树和堆**：理解数据为什么要分层组织，以及怎样更快地查找和取出重点。",
+            "4. **最后学图**：处理对象之间更自由、更复杂的连接关系。",
+            "5. **一路带着复杂度**：每学一种结构，只比较常用操作的时间和空间代价。",
+        ]
+    else:
+        steps = [
+            "1. **先认基本对象**：用自己的话说清最核心的几个名词。",
+            "2. **再看它怎么运作**：一次只理解一个常用步骤或方法。",
+            "3. **用最小例子确认理解**：例子只要小到能在脑中走一遍就够了。",
+            "4. **最后比较适用场景**：弄清什么时候该用它，什么时候不该用。",
+        ]
+    return "\n".join([
+        f"可以，先别急着一次学完「{topic}」。把内容全铺开很容易越学越乱，我们按一个清楚的顺序慢慢来。",
+        "",
+        *steps,
+        "",
+        f"你今天先做一件事：找到「{topic}」里的第一个基础概念，试着用自己的话说清它是什么、解决什么问题。说顺了，我们再继续下一步。",
+    ])
+
+
+def _strategy_response_ok(answer: str) -> bool:
+    text = str(answer or "").strip()
+    numbered_steps = len(re.findall(r"(?m)^\s*\d+[.、]", text))
+    banned = ("```", "mermaid", "练习", "做题", "出题", "测验", "思维导图", "总结：", "##")
+    warm_opening = bool(re.match(r"^(?:可以|别急|先别|不用|其实)", text))
+    return 160 <= len(text) <= 650 and 3 <= numbered_steps <= 5 and warm_opening and not any(
+        marker.lower() in text.lower() for marker in banned
+    )
+
+
 def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False) -> str:
     compact_question = re.sub(r"\s+", "", question)
-    asks_learning_strategy = bool(
-        re.search(r"(?:怎么学|如何学|从哪(?:里)?学|学习顺序|学习路线|学习路径|学习计划)", compact_question)
-    )
+    asks_learning_strategy = _is_learning_strategy_question(compact_question)
     graph_definition_cite = next(
         (
             index for index, chunk in enumerate(chunks[:4], 1)
@@ -224,18 +263,7 @@ def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False)
         ])
 
     if guided and asks_learning_strategy:
-        return "\n".join([
-            "可以，先别急着一次把整门内容铺开。学新主题最容易踩的坑，就是概念、操作和复杂度一起学，越学越乱。",
-            "",
-            "我建议按这个顺序来：",
-            "",
-            "1. **先认对象**：弄清最基本的术语分别指什么。",
-            "2. **再学操作**：一次只学一个最常用操作，并用极小例子手推。",
-            "3. **再看代价**：理解操作为什么这样做，时间和空间花在哪里。",
-            "4. **最后做选择**：比较相近方法分别适合什么场景。",
-            "",
-            "你现在只需要做第一步：从资料里的第一条核心定义开始，用自己的话复述它。先把这一点说顺，再继续往后走。",
-        ])
+        return _strategy_answer(question)
 
     lines = (
         [
@@ -429,6 +457,7 @@ async def run(state: dict) -> dict:
         general_knowledge=custom_topic and not source_ids,
     )
     prompt = prompt_call.prompt
+    learning_strategy = guided and _is_learning_strategy_question(question)
     await emit({
         "type": "progress",
         "agent": "tutor",
@@ -450,6 +479,8 @@ async def run(state: dict) -> dict:
             "detail": "演示模式使用确定性资料整理回答",
         })
         answer = (
+            _strategy_answer(topic_name)
+            if learning_strategy else
             f"当前学习主题已锁定为「{topic_name}」。我们会按“一句话定义 → 使用场景 → 关键组成 → 最小例子 → 常见误区”的顺序学习，"
             "不会再混入任何旧主题。连接星火 X2 后会生成完整同主题讲解。"
             if custom_topic and not chunks else
@@ -473,6 +504,17 @@ async def run(state: dict) -> dict:
                 parts.append(delta)
             answer = "".join(parts)
             answer = _normalize_tutor_answer(answer, question, has_context=bool(chunks))
+            if learning_strategy and not _strategy_response_ok(answer):
+                await emit({
+                    "type": "progress",
+                    "agent": "tutor",
+                    "stage": "answer_style",
+                    "percent": 100,
+                    "degraded": True,
+                    "reason": "learning_strategy_style_gate",
+                    "detail": "路线回答过长、机械或含多余任务，已替换为简洁教学路线",
+                })
+                answer = _strategy_answer(topic_name)
         except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
             model_answer = False
             await emit({
@@ -486,6 +528,8 @@ async def run(state: dict) -> dict:
                 "detail": f"模型暂不可用，已切换资料内讲解：{str(error)[:80]}",
             })
             answer = (
+                _strategy_answer(topic_name)
+                if learning_strategy else
                 f"当前主题是「{topic_name}」，模型暂不可用；系统已停止生成，且不会回退到其他旧主题。"
                 if custom_topic and not chunks else
                 _rag_demo_answer(question, chunks, guided=guided)

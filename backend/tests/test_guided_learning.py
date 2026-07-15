@@ -13,6 +13,7 @@ install()
 from app.agents.graph import run_with_events  # noqa: E402
 from app.agents.orchestrator import requested_resource_kinds, route_task, run as route_intent  # noqa: E402
 from app.agents.tutor_agent import _build_prompt  # noqa: E402, SLF001
+from app.agents.tutor_agent import _strategy_answer, _strategy_response_ok  # noqa: E402, SLF001
 from app.llm.spark_client import MockEngine  # noqa: E402
 from app.models.db import init_db  # noqa: E402
 from app.prompt_templates import render_learning_prompt, render_tutor_prompt  # noqa: E402
@@ -107,6 +108,19 @@ def test_learning_strategy_sse_answers_without_resource_cards():
     assert not {"planner", "path", "mindmap", "quiz", "media", "eval"}.intersection(starts)
     assert any(event.get("type") == "token" for event in events)
     assert not any(event.get("type") == "resource" for event in events)
+    answer = "".join(str(event.get("delta") or "") for event in events if event.get("type") == "token")
+    assert answer.startswith("可以，先别急")
+    assert "练习" not in answer
+    assert "```" not in answer
+
+
+def test_learning_strategy_quality_gate_rejects_mechanical_extras():
+    mechanical = "## 总结\n1. 学概念\n2. 学操作\n3. 做练习题\n4. 画思维导图"
+    friendly = _strategy_answer("数据结构")
+    assert not _strategy_response_ok(mechanical)
+    assert _strategy_response_ok(friendly)
+    assert "数组和链表" in friendly
+    assert "练习" not in friendly
 
 
 def test_conversation_note_template_keeps_dialogue_and_beginner_structure():
