@@ -208,8 +208,8 @@ async def run(state: dict) -> dict:
                 prompt_call.prompt,
                 system=prompt_call.system,
                 role="reasoner",
-                temperature=0.6,
-                max_tokens=3000,
+                temperature=0.4 if custom_topic else 0.6,
+                max_tokens=1800 if custom_topic else 3000,
                 json_mode=True,
                 allow_mock_fallback=not custom_topic,
             )
