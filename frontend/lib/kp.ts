@@ -23,7 +23,7 @@ export const KPS: [string, string][] = [
 export const KP_NAME: Record<string, string> = Object.fromEntries(KPS);
 
 export function kpName(id: string): string {
-  return KP_NAME[id] || id;
+  return KP_NAME[id] || "当前主题";
 }
 
 export function isKnownKp(id: string): boolean {

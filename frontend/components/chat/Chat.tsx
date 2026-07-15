@@ -275,14 +275,18 @@ export default function Chat({
                   <div className="rounded-[14px] rounded-tl-md border border-[#E5E9E3] bg-white px-4 py-3 shadow-sm">
                     <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
                     {m.citations.length > 0 && !m.streaming && (
-                      <div className="mt-3 border-t border-slate-200 pt-2">
-                        <div className="mb-1 font-mono text-[10px] tracking-[0.18em] text-emerald-600">内容出处</div>
-                        {m.citations.map((c, j) => (
-                          <div key={j} id={`chat-${i}-cite-${j + 1}`} className="scroll-mt-20 text-xs leading-5 text-slate-500">
-                            <span className="font-mono text-emerald-600">[{j + 1}]</span> {c}
-                          </div>
-                        ))}
-                      </div>
+                      <details className="mt-3 border-t border-slate-200 pt-2 text-xs text-slate-500">
+                        <summary className="cursor-pointer select-none font-medium text-slate-500 hover:text-emerald-700">
+                          查看依据（{m.citations.length}）
+                        </summary>
+                        <div className="mt-2 space-y-1">
+                          {m.citations.map((c, j) => (
+                            <div key={j} id={`chat-${i}-cite-${j + 1}`} className="scroll-mt-20 leading-5">
+                              <span className="font-mono text-emerald-600">[{j + 1}]</span> {c}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
                     )}
                   </div>
                 )}

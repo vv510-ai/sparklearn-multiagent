@@ -15,7 +15,7 @@ from app.agents.orchestrator import requested_resource_kinds, route_task, run as
 from app.agents.tutor_agent import _build_prompt  # noqa: E402, SLF001
 from app.llm.spark_client import MockEngine  # noqa: E402
 from app.models.db import init_db  # noqa: E402
-from app.prompt_templates import render_learning_prompt  # noqa: E402
+from app.prompt_templates import render_learning_prompt, render_tutor_prompt  # noqa: E402
 from app.rag.ingest import ingest_corpus  # noqa: E402
 from app.services.note_service import recent_note_chunks  # noqa: E402
 from app.services.profile_service import ensure_user  # noqa: E402
@@ -34,9 +34,18 @@ def test_beginner_prompt_is_complete_and_contains_conversation():
         conversation=[{"role": "user", "content": "我总分不清左右子树"}],
         guided=True,
     )
-    for required in ("学习方法/路线", "只给完成当前目标所需的最少内容", "建议顺序", "现在只做什么"):
+    for required in ("学习方法/路线", "只给完成当前目标所需的最少内容", "建议顺序", "现在只做什么", "不要输出程序代码"):
         assert required in prompt
     assert "下方会出现基础练习卡" not in prompt
+    call = render_tutor_prompt(
+        "数据结构怎么学",
+        {"difficulty_pref": "循序渐进"},
+        "课程资料",
+        [],
+        guided=True,
+    )
+    assert "朋友兼耐心的老师" in call.system
+    assert "朋友兼老师" in call.prompt
     assert "我总分不清左右子树" in prompt
     assert "二叉树不等于" in prompt or "不要把当前主题偷换" in prompt
     assert "TASK=tutor" in prompt
