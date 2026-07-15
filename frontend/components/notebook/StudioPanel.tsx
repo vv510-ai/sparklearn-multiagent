@@ -8,6 +8,7 @@ import {
   CircleHelp,
   FileText,
   FolderOpen,
+  Headphones,
   Network,
   PlaySquare,
   Route,
@@ -16,6 +17,15 @@ import {
 type StudioPanelKey = "profile" | "path" | "resources";
 
 const GENERATORS = [
+  {
+    title: "互动讲解",
+    desc: "边听边问，回答后继续",
+    icon: Headphones,
+    tone: "green",
+    goal: "请把当前学习主题整理成适合零基础学习者收听的短讲解：先用一句白话给结论，再讲一个最小例子和一个易错点。内容必须基于所选资料，方便我在播放中随时暂停提问。",
+    kinds: ["doc"],
+    template: "one_page",
+  },
   {
     title: "一页看懂",
     desc: "先结论，再看框架",

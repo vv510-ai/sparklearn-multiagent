@@ -8,6 +8,7 @@ import type { PathPlan, ResourceItem } from "@/lib/types";
 import Markmap from "./Markmap";
 import QuizPlayer from "./QuizPlayer";
 import VideoBlock from "./VideoBlock";
+import InteractiveAudioPlayer from "./InteractiveAudioPlayer";
 import { apiAssetUrl } from "@/lib/api";
 
 const KIND_META: Record<
@@ -83,11 +84,15 @@ export default function ResourceCard({
   defaultOpen = false,
   versionCount = 1,
   onQuizEvaluated,
+  onAudioQuestion,
+  interactionBusy = false,
 }: {
   r: ResourceItem;
   defaultOpen?: boolean;
   versionCount?: number;
   onQuizEvaluated?: (report: { path?: PathPlan; profile_version?: number }) => void;
+  onAudioQuestion?: (prompt: string, display: string) => Promise<boolean>;
+  interactionBusy?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const meta = KIND_META[r.kind] || { label: r.kind, code: r.kind.toUpperCase(), icon: "资", variant: "neutral" as const, hint: "" };
@@ -147,12 +152,23 @@ export default function ResourceCard({
             <div className="mb-4 grid gap-3 rounded-[12px] border border-[#D2DAD2] bg-[#F0F6F2] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="min-w-0">
                 <div className="text-[11px] font-bold tracking-[0.14em] text-[#0F6B50]">
-                  {payload.audio_url ? "星火语音讲解" : "星火知识封面"}
+                  {payload.audio_url ? (onAudioQuestion ? "星火互动讲解" : "星火语音讲解") : "星火知识封面"}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#57635A]">
-                  {payload.audio_url ? "先听一遍重点，再结合正文和脚注深入学习。" : "用一张图先建立知识点的整体印象。"}
+                  {payload.audio_url
+                    ? onAudioQuestion
+                      ? "边听边问；提问时音频会暂停，回答后从原进度继续。"
+                      : "先听一遍重点，再结合正文和脚注深入学习。"
+                    : "用一张图先建立知识点的整体印象。"}
                 </p>
-                {audioUrl && <audio src={audioUrl} controls className="mt-2 h-9 w-full" />}
+                {audioUrl && (
+                  <InteractiveAudioPlayer
+                    src={audioUrl}
+                    resourceTitle={r.title}
+                    disabled={interactionBusy}
+                    onAsk={onAudioQuestion}
+                  />
+                )}
               </div>
               {coverUrl && (
                 // eslint-disable-next-line @next/next/no-img-element

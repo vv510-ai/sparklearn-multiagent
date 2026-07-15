@@ -66,19 +66,23 @@ export default function Chat({
   }, [msgs]);
 
   const send = useCallback(
-    (text: string, directRequest?: { path: string; body: Record<string, unknown>; display: string }) => {
+    (
+      text: string,
+      directRequest?: { path: string; body: Record<string, unknown>; display: string },
+      displayText?: string,
+    ): Promise<boolean> => {
       const q = text.trim();
-      if (!q) return;
+      if (!q) return Promise.resolve(false);
       if (busy) {
         setQueuedHint("当前任务还在整理中。可以先停止，再开始新的任务。");
-        return;
+        return Promise.resolve(false);
       }
       setQueuedHint("");
       setInput("");
       setBusy(true);
       setMsgs((m) => [
         ...m,
-        { role: "user", text: q, resources: [], citations: [] },
+        { role: "user", text: displayText?.trim() || q, resources: [], citations: [] },
         { role: "assistant", text: "", resources: [], citations: [], streaming: true },
       ]);
 
@@ -89,47 +93,60 @@ export default function Chat({
           return out;
         });
 
-      abortRef.current = postSSE(
-        directRequest?.path || "/chat",
-        directRequest?.body || {
-          user_id: USER_ID,
-          session_id: sessionRef.current,
-          message: q,
-          topic_label: topic,
-          source_ids: sourceIds,
-        },
-        (ev) => {
-          onEvent?.(ev);
-          switch (ev.type) {
-            case "token":
-              patchLast((a) => ({ ...a, text: a.text + (ev.delta || "") }));
-              break;
-            case "resource":
-              if (ev.resource) patchLast((a) => ({ ...a, resources: [...a.resources, ev.resource!] }));
-              break;
-            case "citations":
-              if (ev.items?.length && (!directRequest || directRequest.path === "/chat")) {
-                patchLast((a) => ({ ...a, citations: Array.from(new Set([...a.citations, ...ev.items!])) }));
-              }
-              break;
-            case "summary":
-              patchLast((a) => ({ ...a, text: a.text || (ev.text as string) || "" }));
-              break;
-            case "error":
-              patchLast((a) => ({ ...a, text: a.text + `\n\n> 服务异常:${ev.detail || "请稍后重试"}`, streaming: false }));
-              setBusy(false);
-              break;
-            case "done":
-              patchLast((a) => ({ ...a, streaming: false }));
-              setBusy(false);
-              break;
-          }
-        },
-        () => {
-          setBusy(false);
-          patchLast((a) => ({ ...a, streaming: false }));
-        },
-      );
+      return new Promise<boolean>((resolve) => {
+        let settled = false;
+        const finish = (completed: boolean) => {
+          if (settled) return;
+          settled = true;
+          abortRef.current = null;
+          resolve(completed);
+        };
+
+        abortRef.current = postSSE(
+          directRequest?.path || "/chat",
+          directRequest?.body || {
+            user_id: USER_ID,
+            session_id: sessionRef.current,
+            message: q,
+            topic_label: topic,
+            source_ids: sourceIds,
+          },
+          (ev) => {
+            onEvent?.(ev);
+            switch (ev.type) {
+              case "token":
+                patchLast((a) => ({ ...a, text: a.text + (ev.delta || "") }));
+                break;
+              case "resource":
+                if (ev.resource) patchLast((a) => ({ ...a, resources: [...a.resources, ev.resource!] }));
+                break;
+              case "citations":
+                if (ev.items?.length && (!directRequest || directRequest.path === "/chat")) {
+                  patchLast((a) => ({ ...a, citations: Array.from(new Set([...a.citations, ...ev.items!])) }));
+                }
+                break;
+              case "summary":
+                patchLast((a) => ({ ...a, text: a.text || (ev.text as string) || "" }));
+                break;
+              case "error":
+                patchLast((a) => ({ ...a, text: a.text + `\n\n> 服务异常:${ev.detail || "请稍后重试"}`, streaming: false }));
+                setBusy(false);
+                finish(false);
+                break;
+              case "done":
+                patchLast((a) => ({ ...a, streaming: false }));
+                setBusy(false);
+                finish(true);
+                break;
+            }
+          },
+          () => {
+            setBusy(false);
+            patchLast((a) => ({ ...a, streaming: false }));
+            finish(false);
+          },
+        );
+      });
     },
     [busy, onEvent, sourceIds, topic],
   );
@@ -270,7 +287,13 @@ export default function Chat({
                   </div>
                 )}
                 {m.resources.map((r) => (
-                  <ResourceCard key={r.id} r={r} onQuizEvaluated={onQuizEvaluated} />
+                  <ResourceCard
+                    key={r.id}
+                    r={r}
+                    onQuizEvaluated={onQuizEvaluated}
+                    interactionBusy={busy}
+                    onAudioQuestion={(prompt, display) => send(prompt, undefined, display)}
+                  />
                 ))}
               </div>
             </div>
