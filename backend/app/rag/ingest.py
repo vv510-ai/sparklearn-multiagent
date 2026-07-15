@@ -25,7 +25,9 @@ MANIFEST = DATA_DIR / "vector_store_manifest.json"
 SUPPORTED_EXTRA = {".md", ".txt", ".json"}
 SUPPORTED_UPLOAD = {".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg"}
 IMAGE_UPLOAD_SUFFIXES = {".png", ".jpg", ".jpeg"}
-INACTIVE_SOURCE_STATUSES = {"quarantined", "inactive"}
+SOURCE_STATUSES = {"processing", "indexed", "degraded", "failed", "quarantined", "inactive"}
+SELECTABLE_SOURCE_STATUSES = {"indexed", "degraded"}
+INACTIVE_SOURCE_STATUSES = {"failed", "quarantined", "inactive"}
 
 
 def _front_matter(text: str) -> tuple[dict[str, str], str]:
@@ -292,9 +294,28 @@ def _upload_meta(path: Path) -> dict[str, Any]:
         return {}
 
 
+def source_status(meta: dict[str, Any], chunk_count: int = 0) -> str:
+    """Normalize legacy sidecars into the public source lifecycle."""
+
+    raw = str(meta.get("status") or "").strip().lower()
+    if raw in {"", "active"}:
+        return "indexed" if chunk_count > 0 else "processing"
+    if raw == "empty":
+        return "failed"
+    return raw if raw in SOURCE_STATUSES else "inactive"
+
+
 def source_is_active(meta: dict[str, Any]) -> bool:
-    status = str(meta.get("status") or "").strip().lower()
+    status = source_status(meta, int(meta.get("chunk_count") or 0))
     return meta.get("active", True) is not False and status not in INACTIVE_SOURCE_STATUSES
+
+
+def source_is_selectable(meta: dict[str, Any], chunk_count: int) -> bool:
+    return (
+        source_is_active(meta)
+        and chunk_count > 0
+        and source_status(meta, chunk_count) in SELECTABLE_SOURCE_STATUSES
+    )
 
 
 def source_sha256(path: Path, meta: dict[str, Any] | None = None) -> str:
@@ -443,8 +464,7 @@ def validate_source_scope(user_id: str, source_ids: list[str]) -> list[str]:
         for source_id in normalized
         if source_id not in metas
         or str(metas[source_id].get("user_id") or "") != user_id
-        or not source_is_active(metas[source_id])
-        or source_id not in indexed
+        or not source_is_selectable(metas[source_id], 1 if source_id in indexed else 0)
     ]
     if invalid:
         raise ValueError("one or more selected sources are unavailable")

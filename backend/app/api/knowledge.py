@@ -17,8 +17,9 @@ from ..rag.ingest import (
     IMAGE_UPLOAD_SUFFIXES,
     chunks_for_source,
     ingest_corpus,
-    source_is_active,
+    source_is_selectable,
     source_sha256,
+    source_status,
     supported_upload_suffixes,
     upload_meta_path,
 )
@@ -51,10 +52,22 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
 
 
 def _source_response(meta: dict[str, Any], chunk_count: int) -> dict[str, Any]:
-    if not source_is_active(meta):
-        status = str(meta.get("status") or "inactive").strip().lower()
-    else:
-        status = "indexed" if chunk_count else "empty"
+    status = source_status(meta, chunk_count)
+    detail = str(
+        meta.get("status_detail")
+        or meta.get("failure_reason")
+        or meta.get("quarantine_reason")
+        or meta.get("inactive_reason")
+        or meta.get("degraded_reason")
+        or {
+            "processing": "正在解析资料并建立索引",
+            "indexed": "索引已完成，可以参与回答和学习资源生成",
+            "degraded": "已使用降级解析，建议核对引用片段",
+            "failed": "资料解析或索引失败，请检查文件后重新上传",
+            "quarantined": "资料已隔离，不会参与当前知识库检索",
+            "inactive": "资料已停用",
+        }.get(status, "资料状态未知")
+    )
     return {
         "id": meta.get("id", ""),
         "user_id": meta.get("user_id", ""),
@@ -65,7 +78,12 @@ def _source_response(meta: dict[str, Any], chunk_count: int) -> dict[str, Any]:
         "bytes": meta.get("bytes", 0),
         "chunk_count": chunk_count,
         "status": status,
+        "status_detail": detail,
+        "selectable": source_is_selectable(meta, chunk_count),
+        "degraded": status == "degraded",
         "created_at": meta.get("created_at", ""),
+        "updated_at": meta.get("updated_at") or meta.get("indexed_at") or meta.get("created_at", ""),
+        "indexed_at": meta.get("indexed_at", ""),
     }
 
 
@@ -155,9 +173,11 @@ async def upload_source(
         ),
         "bytes": len(data),
         "sha256": digest,
-        "status": "active",
+        "status": "processing",
+        "status_detail": "文件已接收，正在解析并建立索引",
         "active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     meta_path = upload_meta_path(stored)
     _write_json(meta_path, meta)
@@ -187,6 +207,8 @@ async def upload_source(
             "trace_id": str(ocr.get("trace_id") or ""),
             "degraded": bool(ocr.get("degraded")),
         }
+        if meta["ocr"]["degraded"]:
+            meta["degraded_reason"] = str(ocr.get("error") or "图片使用降级 OCR 引擎完成解析")
         _write_json(meta_path, meta)
 
     try:
@@ -199,6 +221,13 @@ async def upload_source(
             raise HTTPException(400, "no readable text extracted from file")
         meta["chunk_count"] = len(chunks)
         meta["indexed_at"] = datetime.now(timezone.utc).isoformat()
+        meta["updated_at"] = meta["indexed_at"]
+        meta["status"] = "degraded" if meta.get("ocr", {}).get("degraded") else "indexed"
+        meta["status_detail"] = (
+            "索引已完成，但图片使用了降级 OCR，请核对引用片段"
+            if meta["status"] == "degraded"
+            else "索引已完成，可以参与回答和学习资源生成"
+        )
         _write_json(meta_path, meta)
     except HTTPException:
         raise
@@ -230,7 +259,7 @@ async def list_sources(user_id: str = Query("demo_user")):
         if user_id and meta.get("user_id") != user_id:
             continue
         source_id = str(meta.get("id") or "")
-        chunk_count = 0 if not source_is_active(meta) else int(meta.get("chunk_count") or counts.get(source_id, 0))
+        chunk_count = int(meta.get("chunk_count") or counts.get(source_id, 0))
         items.append(_source_response(meta, chunk_count))
     items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     return {"items": items}

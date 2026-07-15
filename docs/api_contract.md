@@ -651,7 +651,12 @@ Content-Type: multipart/form-data
     "bytes": 1024,
     "chunk_count": 3,
     "status": "indexed",
-    "created_at": "2026-06-17T12:00:00+00:00"
+    "status_detail": "索引已完成，可以参与回答和学习资源生成",
+    "selectable": true,
+    "degraded": false,
+    "created_at": "2026-06-17T12:00:00+00:00",
+    "updated_at": "2026-06-17T12:00:03+00:00",
+    "indexed_at": "2026-06-17T12:00:03+00:00"
   },
   "vector_count": 120,
   "sample": [
@@ -668,6 +673,19 @@ Content-Type: multipart/form-data
 ```http
 GET /api/knowledge/sources?user_id=demo_user
 ```
+
+资料生命周期统一为：
+
+| `status` | `selectable` | 含义 |
+| --- | --- | --- |
+| `processing` | `false` | 文件已接收，正在解析或建立索引 |
+| `indexed` | `true` | 索引完成，可参与回答与资源生成 |
+| `degraded` | `true` | 使用了降级 OCR/解析，可使用但应核对引用 |
+| `failed` | `false` | 解析或索引失败 |
+| `quarantined` | `false` | 因内容范围或治理规则被隔离 |
+| `inactive` | `false` | 已停用 |
+
+前端只能根据 `selectable` 决定资料能否被选择，不得自行推断状态；具体原因展示 `status_detail`。
 
 验证检索：
 

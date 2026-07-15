@@ -1,6 +1,8 @@
 "use client";
 
-import { BookOpen, Check, FileText, Plus, UploadCloud } from "lucide-react";
+import { BookOpen, Check, CircleAlert, FileText, Plus, ShieldAlert, TriangleAlert, UploadCloud } from "lucide-react";
+
+export type KnowledgeSourceStatus = "processing" | "indexed" | "degraded" | "failed" | "quarantined" | "inactive";
 
 export interface KnowledgeSource {
   id: string;
@@ -8,8 +10,35 @@ export interface KnowledgeSource {
   filename?: string;
   source_type: string;
   chunk_count: number;
-  status: string;
+  status: KnowledgeSourceStatus;
+  status_detail?: string;
+  selectable?: boolean;
+  degraded?: boolean;
   created_at?: string;
+  updated_at?: string;
+  indexed_at?: string;
+}
+
+export function isSourceSelectable(source: KnowledgeSource): boolean {
+  return source.selectable ?? ["indexed", "degraded"].includes(source.status);
+}
+
+function sourceStatusText(source: KnowledgeSource): string {
+  if (source.status_detail) return source.status_detail;
+  if (source.status === "indexed") return `${source.chunk_count} 个可引用片段`;
+  if (source.status === "degraded") return `${source.chunk_count} 个片段 · 降级解析`;
+  if (source.status === "processing") return "正在解析并建立索引";
+  if (source.status === "failed") return "解析失败，请重新上传";
+  if (source.status === "quarantined") return "资料已隔离";
+  return "资料已停用";
+}
+
+function SourceStatusIcon({ source }: { source: KnowledgeSource }) {
+  if (source.status === "processing") return <UploadCloud size={17} className="animate-pulse" />;
+  if (source.status === "degraded") return <TriangleAlert size={17} />;
+  if (source.status === "failed") return <CircleAlert size={17} />;
+  if (source.status === "quarantined" || source.status === "inactive") return <ShieldAlert size={17} />;
+  return <FileText size={17} />;
 }
 
 export default function SourcePanel({
@@ -67,18 +96,20 @@ export default function SourcePanel({
 
         {sources.map((source) => {
           const selected = selectedIds.includes(source.id);
-          const active = source.status === "indexed";
+          const active = isSourceSelectable(source);
+          const statusText = sourceStatusText(source);
           return (
             <button
               key={source.id}
               onClick={() => active && onToggle(source.id)}
               disabled={!active}
-              className={`source-row ${selected ? "is-selected" : ""} ${!active ? "is-disabled" : ""}`}
+              className={`source-row is-${source.status} ${selected ? "is-selected" : ""} ${!active ? "is-disabled" : ""}`}
+              title={statusText}
             >
-              <span className="source-icon"><FileText size={17} /></span>
+              <span className="source-icon"><SourceStatusIcon source={source} /></span>
               <span className="min-w-0 flex-1 text-left">
                 <strong className="truncate">{source.title || source.filename || "未命名资料"}</strong>
-                <small>{active ? `${source.chunk_count} 个可引用片段` : "暂不可使用"}</small>
+                <small>{active && source.status === "indexed" ? `${source.chunk_count} 个可引用片段` : statusText}</small>
               </span>
               <span className={`source-check ${selected ? "is-checked" : ""}`}>
                 {selected && <Check size={13} />}

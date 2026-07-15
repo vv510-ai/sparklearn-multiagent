@@ -47,6 +47,7 @@ def test_image_upload_materializes_ocr_once(monkeypatch):
         source_id = source["id"]
         assert source["source_type"] == "uploaded_image"
         assert source["status"] == "indexed"
+        assert source["selectable"] is True
         assert source["chunk_count"] >= 1
         assert calls == 1
 

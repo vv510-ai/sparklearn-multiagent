@@ -15,7 +15,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgentTrace, { applyTraceEvent, emptyTrace, type TraceState } from "@/components/agent/AgentTrace";
 import Chat from "@/components/chat/Chat";
-import SourcePanel, { type KnowledgeSource } from "@/components/notebook/SourcePanel";
+import SourcePanel, { isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
 import StudioPanel from "@/components/notebook/StudioPanel";
 import PathDag from "@/components/path/PathDag";
 import ProfileRadar from "@/components/profile/ProfileRadar";
@@ -257,7 +257,9 @@ export default function Home() {
   const loadSources = useCallback(async () => {
     try {
       const data = await apiGet<{ items: KnowledgeSource[] }>(`/knowledge/sources?user_id=${USER_ID}`);
-      setSources(data.items || []);
+      const items = data.items || [];
+      setSources(items);
+      setSelectedSourceIds((ids) => ids.filter((id) => items.some((item) => item.id === id && isSourceSelectable(item))));
     } catch (error) {
       setUploadError(true);
       setUploadNote(`学习资料暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
@@ -279,8 +281,14 @@ export default function Home() {
       form.append("title", file.name.replace(/\.[^.]+$/, ""));
       const result = await apiUpload<UploadResult>("/knowledge/upload", form);
       setSources((items) => [result.source, ...items.filter((item) => item.id !== result.source.id)]);
-      setSelectedSourceIds((ids) => Array.from(new Set([...ids, result.source.id])));
-      setUploadNote(`已加入「${result.source.title}」· ${result.source.chunk_count} 个可引用片段`);
+      if (isSourceSelectable(result.source)) {
+        setSelectedSourceIds((ids) => Array.from(new Set([...ids, result.source.id])));
+      }
+      setUploadNote(
+        result.source.status === "degraded"
+          ? `已加入「${result.source.title}」· ${result.source.chunk_count} 个片段，当前使用降级解析`
+          : `已加入「${result.source.title}」· ${result.source.chunk_count} 个可引用片段`,
+      );
     } catch (error) {
       setUploadError(true);
       setUploadNote(error instanceof Error ? error.message : String(error));
@@ -381,7 +389,7 @@ export default function Home() {
         uploading={uploading}
         uploadNote={uploadNote}
         uploadError={uploadError}
-        sourceCount={sources.filter((source) => source.status === "indexed").length}
+        sourceCount={sources.filter(isSourceSelectable).length}
       />
     );
   }

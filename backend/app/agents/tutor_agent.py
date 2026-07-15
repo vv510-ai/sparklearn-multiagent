@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import re
 
 from ..config import is_demo
 from ..llm import multimodal_gateway
@@ -16,6 +17,70 @@ from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
 from ..services.note_service import recent_note_chunks
 from .emitter import agent_end, agent_start, agent_token, emit
+
+
+_SMALL_TALK_RE = re.compile(
+    r"^(?:你好|您好|嗨|哈喽|hello|hi|hey|在吗|谢谢|感谢|再见|拜拜)[!！?？。,.，]*$",
+    re.IGNORECASE,
+)
+_HELP_MARKERS = ("你能做什么", "可以做什么", "怎么用", "如何使用", "使用说明", "help")
+
+
+def _needs_retrieval(question: str, *, guided: bool = False, has_image: bool = False) -> bool:
+    """Only skip retrieval for deterministic small-talk and product-help turns."""
+
+    if guided or has_image:
+        return True
+    compact = re.sub(r"\s+", "", str(question or "")).strip().lower()
+    if not compact:
+        return False
+    if _SMALL_TALK_RE.fullmatch(compact):
+        return False
+    if len(compact) <= 24 and any(marker in compact for marker in _HELP_MARKERS):
+        return False
+    return True
+
+
+def _lightweight_chat_answer(question: str) -> str:
+    compact = re.sub(r"\s+", "", str(question or "")).lower()
+    if any(marker in compact for marker in ("谢谢", "感谢")):
+        return "不客气。你可以继续追问当前知识点，或选中一份资料让我按资料范围讲解、出题和整理笔记。"
+    if any(marker in compact for marker in ("再见", "拜拜")):
+        return "下次见。已经形成的学习笔记可以继续作为后续复习资料。"
+    if any(marker in compact for marker in _HELP_MARKERS):
+        return "你可以先选择学习资料，再让我从零讲解、针对卡点答疑、生成练习，最后把本次对话整理成可复用笔记。"
+    return "你好，我是星火学伴。你可以选中资料后问一个具体问题，或者直接说“从零学习某个主题”。"
+
+
+def _retrieval_evidence(
+    question: str,
+    source_ids: list[str],
+    chunks: list[dict],
+    *,
+    needed: bool,
+    reason: str,
+) -> dict:
+    """Build trace evidence without copying retrieved source text into events."""
+
+    items = []
+    for chunk in chunks[:6]:
+        items.append({
+            "chunk_id": chunk.get("chunk_id") or chunk.get("id"),
+            "source_id": chunk.get("source_id"),
+            "source": chunk.get("source"),
+            "chapter": chunk.get("chapter"),
+            "page": chunk.get("page"),
+            "score": chunk.get("rerank_score", chunk.get("score")),
+            "citation": chunk.get("citation"),
+        })
+    return {
+        "needed": needed,
+        "reason": reason,
+        "query": str(question or "")[:240],
+        "source_ids": source_ids,
+        "count": len(chunks),
+        "chunks": items,
+    }
 
 def _build_prompt(
     question: str,
@@ -87,6 +152,14 @@ def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False)
         lines += ["", "你可以继续追问其中一个概念、步骤或易错点，我会沿用同一资料范围。"]
     return "\n".join(lines)
 
+
+async def _emit_answer(answer: str) -> None:
+    for start in range(0, len(answer), 72):
+        delta = answer[start:start + 72]
+        await agent_token("tutor", delta)
+        await emit({"type": "token", "delta": delta})
+
+
 async def run(state: dict) -> dict:
     question = ""
     for m in reversed(state.get("messages") or []):
@@ -96,7 +169,8 @@ async def run(state: dict) -> dict:
     extras = state.get("tutor_extras") or {}
 
     detail = "文本问答"
-    if extras.get("image_base64"):                      # 拍照搜题
+    has_image = bool(extras.get("image_base64"))
+    if has_image:                                      # 拍照搜题
         try:
             img = base64.b64decode(extras["image_base64"].split(",")[-1])
             ocr = await multimodal_gateway.ocr_image(
@@ -123,16 +197,68 @@ async def run(state: dict) -> dict:
     await agent_start("tutor", "答疑导师智能体", detail)
 
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
+    guided = bool(state.get("guided_learning") or state.get("intent") == "learn")
+    if not _needs_retrieval(question, guided=guided, has_image=has_image):
+        retrieval = _retrieval_evidence(
+            question,
+            source_ids,
+            [],
+            needed=False,
+            reason="small_talk_or_product_help",
+        )
+        await emit({
+            "type": "progress",
+            "agent": "tutor",
+            "stage": "retrieval",
+            "percent": 100,
+            "detail": "轻量对话无需检索资料",
+            "retrieval": retrieval,
+        })
+        answer = _lightweight_chat_answer(question)
+        await agent_token("tutor", answer)
+        await emit({"type": "token", "delta": answer})
+        await emit({"type": "citations", "agent": "tutor", "items": []})
+        await agent_end(
+            "tutor",
+            "轻量对话直接响应,未触发 RAG",
+            {"retrieval": retrieval, "grounding": {"status": "not_required"}},
+        )
+        return {
+            "answer": answer,
+            "citations": [],
+            "safety_flags": [],
+            "messages": [{"role": "assistant", "content": answer}],
+        }
+
     chunks = retrieve(question, final_k=4, source_ids=source_ids)
     if not source_ids:
         chunks = [*chunks, *recent_note_chunks(state.get("user_id", "demo_user"), question, limit=2)]
+    retrieval = _retrieval_evidence(
+        question,
+        source_ids,
+        chunks,
+        needed=True,
+        reason="guided_or_knowledge_question",
+    )
+    await emit({
+        "type": "progress",
+        "agent": "tutor",
+        "stage": "retrieval",
+        "percent": 100,
+        "detail": f"检索完成,命中 {len(chunks)} 个片段",
+        "retrieval": retrieval,
+    })
     ctx, citations = build_context(chunks)
     if source_ids and not chunks:
         answer = "在你当前选中的资料中没有检索到可用内容，所以我没有补充资料之外的答案。请换一份资料，或检查上传文件是否已完成索引。"
         await agent_token("tutor", answer)
         await emit({"type": "token", "delta": answer})
         await emit({"type": "citations", "agent": "tutor", "items": []})
-        await agent_end("tutor", "所选资料无可用片段,已阻止无依据回答")
+        await agent_end(
+            "tutor",
+            "所选资料无可用片段,已阻止无依据回答",
+            {"retrieval": retrieval, "grounding": {"status": "blocked_no_source"}},
+        )
         return {
             "answer": answer,
             "citations": [],
@@ -141,7 +267,6 @@ async def run(state: dict) -> dict:
             "messages": [{"role": "assistant", "content": answer}],
         }
     profile = state.get("student_profile") or {}
-    guided = bool(state.get("guided_learning") or state.get("intent") == "learn")
     prompt_call = render_tutor_prompt(
         question,
         profile,
@@ -157,17 +282,25 @@ async def run(state: dict) -> dict:
         "stage": "prompt_skill",
         "percent": 100,
         "detail": f"已加载 {prompt_call.capability}（{prompt_call.version}）",
+        "prompt_skill": prompt_call.metadata(),
     })
 
+    grounding_fallback_reason = ""
     if is_demo():
+        await emit({
+            "type": "progress",
+            "agent": "tutor",
+            "stage": "fallback",
+            "percent": 100,
+            "degraded": True,
+            "reason": "demo_mode",
+            "detail": "演示模式使用确定性资料整理回答",
+        })
         answer = _rag_demo_answer(question, chunks, guided=guided)
-        for start in range(0, len(answer), 72):
-            delta = answer[start:start + 72]
-            await agent_token("tutor", delta)
-            await emit({"type": "token", "delta": delta})
         ground = {"grounded": True, "unsupported": [], "verdict": "演示模式直接整理检索片段"}
     else:
         parts: list[str] = []
+        model_answer = True
         try:
             async for delta in llm_stream(
                 prompt,
@@ -178,30 +311,90 @@ async def run(state: dict) -> dict:
                 allow_model_fallback=not guided,
             ):
                 parts.append(delta)
-                await agent_token("tutor", delta)
-                await emit({"type": "token", "delta": delta})
             answer = "".join(parts)
         except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
+            model_answer = False
             await emit({
                 "type": "progress",
                 "agent": "tutor",
                 "stage": "fallback",
                 "percent": 100,
                 "degraded": True,
+                "reason": "llm_unavailable",
+                "error": str(error)[:160],
                 "detail": f"模型暂不可用，已切换资料内讲解：{str(error)[:80]}",
             })
             answer = _rag_demo_answer(question, chunks, guided=guided)
-            for start in range(0, len(answer), 72):
-                delta = answer[start:start + 72]
-                await agent_token("tutor", delta)
-                await emit({"type": "token", "delta": delta})
 
-        try:
-            ground = await asyncio.wait_for(grounding_check(answer, [c["text"] for c in chunks]), timeout=8)
-        except TimeoutError:
-            ground = {"grounded": False, "unsupported": [], "verdict": "grounding 校验超时,已标记待复核"}
+        if model_answer:
+            try:
+                ground = await asyncio.wait_for(
+                    grounding_check(answer, [c["text"] for c in chunks]),
+                    timeout=8,
+                )
+            except TimeoutError:
+                ground = {
+                    "grounded": False,
+                    "unsupported": [],
+                    "verdict": "grounding 校验超时",
+                }
+            if not ground.get("grounded", False):
+                grounding_fallback_reason = str(ground.get("verdict") or "存在资料外表述")
+                failed_grounding = {
+                    "grounded": False,
+                    "unsupported_count": len(ground.get("unsupported") or []),
+                    "verdict": grounding_fallback_reason,
+                }
+                await emit({
+                    "type": "progress",
+                    "agent": "tutor",
+                    "stage": "grounding",
+                    "percent": 100,
+                    "detail": "模型回答未通过资料溯源,不会展示原回答",
+                    "grounding": failed_grounding,
+                })
+                await emit({
+                    "type": "progress",
+                    "agent": "tutor",
+                    "stage": "fallback",
+                    "percent": 100,
+                    "degraded": True,
+                    "reason": "grounding_failed",
+                    "detail": f"已替换为资料内确定性讲解：{grounding_fallback_reason[:100]}",
+                })
+                answer = _rag_demo_answer(question, chunks, guided=guided)
+                ground = {
+                    "grounded": True,
+                    "unsupported": [],
+                    "verdict": "原回答未通过溯源,已替换为资料片段整理",
+                }
+        else:
+            ground = {
+                "grounded": True,
+                "unsupported": [],
+                "verdict": "模型不可用,已直接整理检索片段",
+            }
+
+    # Only stream the final answer after it has passed grounding or been replaced.
+    await _emit_answer(answer)
+    grounding = {
+        "grounded": bool(ground.get("grounded", False)),
+        "unsupported_count": len(ground.get("unsupported") or []),
+        "verdict": ground.get("verdict", ""),
+    }
+    await emit({
+        "type": "progress",
+        "agent": "tutor",
+        "stage": "grounding",
+        "percent": 100,
+        "detail": "资料溯源通过" if grounding["grounded"] else "资料溯源需要复核",
+        "grounding": grounding,
+    })
     safety = safety_filter(answer)
-    flags = []
+    flags = (
+        [{"agent": "tutor", "type": "grounding_fallback", "detail": grounding_fallback_reason}]
+        if grounding_fallback_reason else []
+    )
     if not ground.get("grounded", True):
         flags.append({"agent": "tutor", "type": "grounding", "detail": ground.get("verdict", "")})
         await emit({"type": "safety", "level": "warn",
@@ -211,7 +404,15 @@ async def run(state: dict) -> dict:
 
     cites = [c["citation"] for c in citations]
     await emit({"type": "citations", "agent": "tutor", "items": cites})
-    await agent_end("tutor", f"已作答(约 {len(answer)} 字),引用教材 {len(cites)} 处,"
-                             f"{'溯源通过' if ground.get('grounded', True) else '溯源提示复核'}")
+    await agent_end(
+        "tutor",
+        f"已作答(约 {len(answer)} 字),引用教材 {len(cites)} 处,"
+        f"{'溯源通过' if ground.get('grounded', True) else '溯源提示复核'}",
+        {
+            "prompt_skill": prompt_call.metadata(),
+            "retrieval": retrieval,
+            "grounding": grounding,
+        },
+    )
     return {"answer": answer, "citations": cites, "safety_flags": flags,
             "messages": [{"role": "assistant", "content": answer}]}

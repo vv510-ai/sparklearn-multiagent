@@ -207,6 +207,8 @@ def test_knowledge_upload_search_contract():
             payload = res.json()
             source_id = payload["source"]["id"]
             assert payload["source"]["status"] == "indexed"
+            assert payload["source"]["selectable"] is True
+            assert "索引已完成" in payload["source"]["status_detail"]
             assert payload["source"]["chunk_count"] >= 1
 
             search = client.get(

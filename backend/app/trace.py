@@ -60,8 +60,18 @@ def _preview(value: Any, limit: int = 180) -> str:
     return text[:limit] + ("..." if len(text) > limit else "")
 
 
+def _duration_ms(started_at: Any, ended_at: Any) -> int | None:
+    try:
+        started = dt.datetime.fromisoformat(str(started_at))
+        ended = dt.datetime.fromisoformat(str(ended_at))
+    except (TypeError, ValueError):
+        return None
+    return max(0, round((ended - started).total_seconds() * 1000))
+
+
 def _resource_summary(resource: dict[str, Any]) -> dict[str, Any]:
     payload = resource.get("payload") or {}
+    prompt_skill = payload.get("prompt_skill") if isinstance(payload, dict) else None
     return {
         "id": resource.get("id"),
         "kind": resource.get("kind"),
@@ -69,6 +79,8 @@ def _resource_summary(resource: dict[str, Any]) -> dict[str, Any]:
         "title": resource.get("title"),
         "payload_keys": sorted(payload) if isinstance(payload, dict) else [],
         "citation_count": len(resource.get("citations") or []),
+        "prompt_skill": prompt_skill if isinstance(prompt_skill, dict) else None,
+        "degraded": bool(payload.get("degraded")) if isinstance(payload, dict) else False,
     }
 
 
@@ -85,6 +97,10 @@ class TraceRecorder:
         self.agent_status: dict[str, dict[str, Any]] = {}
         self.timeline: list[dict[str, Any]] = []
         self.final_state_summary: dict[str, Any] = {}
+        self.prompt_calls: list[dict[str, Any]] = []
+        self.retrievals: list[dict[str, Any]] = []
+        self.degraded_events: list[dict[str, Any]] = []
+        self.grounding_checks: list[dict[str, Any]] = []
         if self.enabled:
             self._prepare_run_dir()
             _write_json(self.run_dir / "request.json", state)
@@ -109,6 +125,7 @@ class TraceRecorder:
         etype = str(event.get("type", "unknown"))
         self.counts[etype] += 1
         self._record_timeline(event_index, event)
+        self._record_quality_evidence(event_index, event)
 
         with (self.run_dir / "events.jsonl").open("a", encoding="utf-8") as f:
             f.write(json.dumps(event, ensure_ascii=False, default=_json_default) + "\n")
@@ -140,6 +157,47 @@ class TraceRecorder:
             idx = self.counts[etype]
             _write_json(self.run_dir / "events_by_type" / f"{etype}_{idx}.json", event)
 
+    def _record_quality_evidence(self, event_index: int, event: dict[str, Any]) -> None:
+        agent = event.get("agent")
+        stage = event.get("stage")
+        base = {
+            "event": event_index,
+            "agent": agent,
+            "stage": stage,
+            "captured_at": event.get("_captured_at"),
+        }
+        prompt_skill = event.get("prompt_skill")
+        if isinstance(prompt_skill, dict):
+            self.prompt_calls.append({**base, **prompt_skill})
+
+        retrieval = event.get("retrieval")
+        if isinstance(retrieval, dict):
+            self.retrievals.append({**base, **retrieval})
+
+        grounding = event.get("grounding")
+        if isinstance(grounding, dict):
+            self.grounding_checks.append({**base, **grounding})
+
+        if event.get("degraded"):
+            self.degraded_events.append({
+                **base,
+                "reason": event.get("reason") or stage or "degraded",
+                "detail": event.get("detail", ""),
+                "error": event.get("error", ""),
+            })
+
+        if event.get("type") == "resource":
+            resource = event.get("resource") or {}
+            payload = resource.get("payload") or {}
+            resource_prompt = payload.get("prompt_skill") if isinstance(payload, dict) else None
+            if isinstance(resource_prompt, dict):
+                self.prompt_calls.append({
+                    **base,
+                    **resource_prompt,
+                    "resource_id": resource.get("id"),
+                    "resource_kind": resource.get("kind"),
+                })
+
     def _record_timeline(self, event_index: int, event: dict[str, Any]) -> None:
         etype = str(event.get("type", "unknown"))
         agent = event.get("agent")
@@ -158,20 +216,27 @@ class TraceRecorder:
                 "detail": detail,
                 "start_event": event_index,
                 "started_at": event.get("ts"),
+                "started_captured_at": event.get("_captured_at"),
             }
             entry["title"] = f"{agent} started"
             entry["detail"] = detail
         elif etype == "agent_end":
             status = self.agent_status.setdefault(str(agent), {})
+            duration_ms = _duration_ms(
+                status.get("started_captured_at"),
+                event.get("_captured_at"),
+            )
             status.update({
                 "status": "done",
                 "summary": event.get("summary", ""),
                 "end_event": event_index,
                 "ended_at": event.get("ts"),
                 "output_keys": sorted((event.get("output") or {}).keys()),
+                "duration_ms": duration_ms,
             })
             entry["title"] = f"{agent} done"
             entry["summary"] = event.get("summary", "")
+            entry["duration_ms"] = duration_ms
         elif etype == "resource":
             resource = event.get("resource") or {}
             entry["title"] = f"resource: {resource.get('kind')} {resource.get('title')}"
@@ -293,6 +358,8 @@ class TraceRecorder:
         _write_json(self.run_dir / "events.json", self.events)
         _write_json(self.run_dir / "timeline.json", self.timeline)
         _write_json(self.run_dir / "agent_status.json", self._ordered_agent_status())
+        quality_evidence = self._quality_evidence()
+        _write_json(self.run_dir / "quality.evidence.json", quality_evidence)
         _write_text(self.run_dir / "debug_report.md", self._debug_report())
         summary = {
             "session_id": self.session_id,
@@ -307,6 +374,7 @@ class TraceRecorder:
                 _resource_summary(r)
                 for r in self.resources
             ],
+            "quality_evidence": quality_evidence,
             "state": self.final_state_summary,
             "files": {
                 "request": "request.json",
@@ -316,6 +384,7 @@ class TraceRecorder:
                 "state_summary": "state.summary.json",
                 "events": "events.json",
                 "events_jsonl": "events.jsonl",
+                "quality_evidence": "quality.evidence.json",
                 "profile": "profile.output.json",
                 "planner": "planner.output.json",
                 "path": "path.output.json",
@@ -330,6 +399,20 @@ class TraceRecorder:
             },
         }
         _write_json(self.run_dir / "summary.json", summary)
+
+    def _quality_evidence(self) -> dict[str, Any]:
+        return {
+            "prompt_calls": self.prompt_calls,
+            "retrievals": self.retrievals,
+            "degraded_events": self.degraded_events,
+            "grounding_checks": self.grounding_checks,
+            "counts": {
+                "prompt_calls": len(self.prompt_calls),
+                "retrievals": len(self.retrievals),
+                "degraded_events": len(self.degraded_events),
+                "grounding_checks": len(self.grounding_checks),
+            },
+        }
 
     def _ordered_agent_status(self) -> dict[str, dict[str, Any]]:
         ordered = {}
@@ -359,6 +442,10 @@ class TraceRecorder:
             f"- resources: `{len(self.resources)}`",
             f"- errors: `{len(errors)}`",
             f"- safety_warnings: `{len(safety)}`",
+            f"- prompt_calls: `{len(self.prompt_calls)}`",
+            f"- retrievals: `{len(self.retrievals)}`",
+            f"- degraded_events: `{len(self.degraded_events)}`",
+            f"- grounding_checks: `{len(self.grounding_checks)}`",
             "",
             "## Resources",
             "",
@@ -377,6 +464,7 @@ class TraceRecorder:
         for agent, status in self._ordered_agent_status().items():
             lines.append(
                 f"- `{agent}`: {status.get('status', 'unknown')} "
+                f"({status.get('duration_ms', 'n/a')} ms) "
                 f"{_preview(status.get('summary') or status.get('detail'), 120)}"
             )
 
@@ -393,6 +481,7 @@ class TraceRecorder:
             "- `debug_report.md`: this human-readable report",
             "- `timeline.json`: ordered event timeline",
             "- `events.jsonl`: raw SSE event stream",
+            "- `quality.evidence.json`: prompt, retrieval, fallback and grounding evidence",
             "- `state.summary.json`: compact final state summary",
             "- `final_state.json`: full final LangGraph state",
             "- `resources/`: one JSON file per generated resource",

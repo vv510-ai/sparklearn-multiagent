@@ -1024,7 +1024,28 @@ body::after {
 
 .source-row.is-disabled {
   cursor: not-allowed;
-  opacity: 0.46;
+  opacity: 0.72;
+}
+
+.source-row.is-processing .source-icon {
+  background: #eef3fb;
+  color: #47628f;
+}
+
+.source-row.is-degraded .source-icon {
+  background: #fff5dc;
+  color: #9a6814;
+}
+
+.source-row.is-failed .source-icon {
+  background: #fff0ed;
+  color: #a33a25;
+}
+
+.source-row.is-quarantined .source-icon,
+.source-row.is-inactive .source-icon {
+  background: #f1f2f5;
+  color: #6f7480;
 }
 
 .source-row strong,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
@@ -19,6 +20,20 @@ _SUMMARY_HINTS = (
 _GENERATE_HINTS = ("规划", "计划", "学习路径", "复习路径", "复习计划", "学习资源", "生成资源", "全套学习")
 _TUTOR_HINTS = ("是什么", "为什么", "怎么", "如何", "讲讲", "解释", "区别", "举例", "代码", "算法", "？", "?")
 _EVAL_HINTS = ("测试", "测一测", "考考我", "出题", "练习题", "做题", "评估")
+_CHAT_RE = re.compile(
+    r"^(?:你好|您好|嗨|哈喽|hello|hi|hey|在吗|谢谢|感谢|再见|拜拜)[!！?？。,.，]*$",
+    re.IGNORECASE,
+)
+_CHAT_HELP_HINTS = ("你能做什么", "可以做什么", "怎么用", "如何使用", "使用说明", "help")
+
+
+def _is_lightweight_chat(message: str) -> bool:
+    compact = re.sub(r"\s+", "", str(message or "")).strip().lower()
+    return bool(
+        not compact
+        or _CHAT_RE.fullmatch(compact)
+        or (len(compact) <= 24 and any(hint in compact for hint in _CHAT_HELP_HINTS))
+    )
 
 
 async def run(state: dict) -> dict:
@@ -27,7 +42,9 @@ async def run(state: dict) -> dict:
     intent = state.get("intent") or ""
     reason = "调用方显式指定"
     if intent not in _VALID:
-        if any(k in msg for k in _SUMMARY_HINTS):
+        if _is_lightweight_chat(msg):
+            intent, reason = "chat", "命中轻量对话规则"
+        elif any(k in msg for k in _SUMMARY_HINTS):
             intent, reason = "summary", "命中学习对话总结关键词"
         elif any(k in msg for k in _LEARN_HINTS):
             intent, reason = "learn", "命中零基础/开始学习关键词"
