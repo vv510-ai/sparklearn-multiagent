@@ -10,17 +10,21 @@ GET  /api/eval/report —— 学情报告(画像 + 掌握度雷达数据 + 近�
 from __future__ import annotations
 
 import re
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ..agents import doc_agent, eval_agent as eval_agent_module
 from ..agents.eval_agent import evaluate_answers
 from ..models.db import session
 from ..models.entities import QuizAttempt, Resource, ReviewItem
-from ..schemas.core import EvalRetestRequest, EvalReviewRequest, EvalSubmit, EvalSupportRequest
+from ..rag.ingest import validate_source_scope
+from ..schemas.core import (EvalRetestRequest, EvalReviewRequest, EvalSubmit,
+                            EvalSupportRequest, RemediationRequest)
 from ..services.knowledge_graph import canonical_kp_id, kp_name
 from ..services.learning_evidence import build_learning_evidence
-from ..services.profile_service import ensure_user, get_profile, recent_events
+from ..services.profile_service import ensure_user, get_profile, log_event, recent_events
 from ..services.review_service import (apply_review_results, as_utc, review_queue,
                                        schedule_initial_reviews, utc_now)
 
@@ -35,6 +39,18 @@ MISCONCEPTION_TAGS = {
     "会做但不熟练",
     "还不确定",
 }
+
+
+def _resource_dict(resource: Resource) -> dict[str, Any]:
+    return {
+        "id": resource.id,
+        "kind": resource.kind,
+        "kp": resource.kp,
+        "title": resource.title,
+        "payload": resource.payload if isinstance(resource.payload, dict) else {},
+        "citations": resource.citations if isinstance(resource.citations, list) else [],
+        "created_at": resource.created_at.isoformat() if resource.created_at else None,
+    }
 
 
 def _normalize_answer(value: Any) -> str:
@@ -210,7 +226,130 @@ async def submit(req: EvalSubmit):
         "eligible_question_ids": [e["question_id"] for e in enriched if not e["mastery_correct"]],
     }
     report["review"] = {"scheduled": scheduled_reviews}
+    with session() as s:
+        stored_attempt = s.get(QuizAttempt, attempt_id)
+        if stored_attempt:
+            detail = dict(stored_attempt.detail or {})
+            detail["diagnosis"] = report.get("diagnosis") or {}
+            stored_attempt.detail = detail
+            s.commit()
     return report
+
+
+@router.post("/remediation")
+async def remediation(req: RemediationRequest):
+    """Generate one source-grounded micro-lesson for a diagnosed learning gap."""
+    ensure_user(req.user_id)
+    with session() as s:
+        attempt = s.get(QuizAttempt, req.attempt_id)
+        if not attempt or attempt.user_id != req.user_id:
+            raise HTTPException(404, "quiz attempt not found")
+        detail = dict(attempt.detail or {})
+        diagnosis = detail.get("diagnosis") if isinstance(detail.get("diagnosis"), dict) else {}
+        quiz_resource = s.get(Resource, attempt.quiz_resource_id)
+        if not quiz_resource or quiz_resource.user_id != req.user_id:
+            raise HTTPException(404, "quiz resource not found")
+        quiz_payload = quiz_resource.payload if isinstance(quiz_resource.payload, dict) else {}
+
+        existing = detail.get("remediation") if isinstance(detail.get("remediation"), dict) else {}
+        existing_resource_id = str(existing.get("resource_id") or "")
+        existing_resource = s.get(Resource, existing_resource_id) if existing_resource_id else None
+        if existing_resource and existing_resource.user_id == req.user_id:
+            return {
+                "diagnosis": diagnosis,
+                "resource": _resource_dict(existing_resource),
+                "next_action": str(existing.get("next_action") or "retest"),
+                "reused": True,
+            }
+
+    if diagnosis.get("status") != "needed":
+        raise HTTPException(409, "当前答题记录不需要补救学习")
+    remediation_kp = canonical_kp_id(str(diagnosis.get("remediation_kp") or ""))
+    blocked_kp = canonical_kp_id(str(diagnosis.get("blocked_kp") or ""))
+    if not remediation_kp or not blocked_kp:
+        raise HTTPException(409, "诊断结果缺少可验证的课程知识点")
+
+    try:
+        source_ids = validate_source_scope(
+            req.user_id,
+            quiz_payload.get("source_ids") if isinstance(quiz_payload.get("source_ids"), list) else [],
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    misconception = str(diagnosis.get("misconception") or "概念还不稳定")
+    goal = (
+        f"当前原知识点是「{kp_name(blocked_kp)}」，诊断到的误区是「{misconception}」。"
+        f"请先补「{kp_name(remediation_kp)}」，再让学习者回到原题完成无提示复测。"
+    )
+    state = {
+        "user_id": req.user_id,
+        "session_id": f"rem-{req.attempt_id}-{uuid.uuid4().hex[:6]}",
+        "messages": [{"role": "user", "content": goal}],
+        "learning_goal": goal,
+        "knowledge_points": [remediation_kp],
+        "kinds": ["doc"],
+        "source_ids": source_ids,
+        "prompt_template": "remediation",
+        "student_profile": get_profile(req.user_id),
+        "skip_multimodal": True,
+        "required_retrieval_terms": [kp_name(remediation_kp), remediation_kp],
+    }
+    generated = await doc_agent.run(state)
+    resources = generated.get("generated_resources") if isinstance(generated, dict) else {}
+    if not isinstance(resources, dict) or not resources:
+        raise HTTPException(503, "补救微课生成失败，请稍后重试")
+
+    resource = next(iter(resources.values()))
+    payload = dict(resource.get("payload") or {})
+    payload["remediation"] = {
+        "origin_attempt_id": req.attempt_id,
+        "blocked_kp": blocked_kp,
+        "prerequisite_gap": diagnosis.get("prerequisite_gap"),
+        "misconception": misconception,
+        "next_action": "retest",
+    }
+    resource["payload"] = payload
+    resource["title"] = f"{kp_name(remediation_kp)}·补救微课"
+
+    flags = generated.get("safety_flags") if isinstance(generated.get("safety_flags"), list) else []
+    source_blocked = any(flag.get("type") == "source_scope_empty" for flag in flags if isinstance(flag, dict))
+    next_action = "select_source" if source_blocked else "retest"
+    await eval_agent_module.run({
+        "user_id": req.user_id,
+        "generated_resources": resources,
+        "safety_flags": flags,
+    })
+
+    with session() as s:
+        attempt = s.get(QuizAttempt, req.attempt_id)
+        if not attempt:
+            raise HTTPException(404, "quiz attempt not found")
+        detail = dict(attempt.detail or {})
+        detail["remediation"] = {
+            "resource_id": resource["id"],
+            "remediation_kp": remediation_kp,
+            "source_ids": source_ids,
+            "next_action": next_action,
+            "status": "blocked" if source_blocked else "ready_for_retest",
+        }
+        attempt.detail = detail
+        s.commit()
+
+    log_event(req.user_id, "remediation_generated", {
+        "attempt_id": req.attempt_id,
+        "resource_id": resource["id"],
+        "blocked_kp": blocked_kp,
+        "remediation_kp": remediation_kp,
+        "source_ids": source_ids,
+        "next_action": next_action,
+    })
+    return {
+        "diagnosis": diagnosis,
+        "resource": resource,
+        "next_action": next_action,
+        "reused": False,
+    }
 
 
 @router.post("/retest")
@@ -289,6 +428,7 @@ async def retest(req: EvalRetestRequest):
         "answers": enriched,
         "summary": retest_summary,
     }
+    detail["diagnosis"] = report.get("diagnosis") or {}
     with session() as s:
         attempt = s.get(QuizAttempt, req.attempt_id)
         if not attempt:

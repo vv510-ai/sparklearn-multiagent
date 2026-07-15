@@ -10,10 +10,11 @@ from __future__ import annotations
 from ..models.db import session
 from ..models.entities import Resource
 from ..services.bkt import mastery_level
+from ..services.diagnosis_service import apply_diagnosis_to_path, diagnose_answers
+from ..services.knowledge_graph import kp_name
 from ..services.metacognition_service import (apply_metacognition_calibration,
                                                calibration_signal,
                                                normalize_confidence)
-from ..services.knowledge_graph import kp_name
 from ..services.path_service import plan_path, save_path
 from ..services.profile_service import get_profile, log_event, update_mastery
 from .emitter import agent_end, agent_start, emit
@@ -178,13 +179,18 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
 
     calibration, profile = apply_metacognition_calibration(user_id, answers, profile)
 
-    path = plan_path(profile)                            # 据新掌握度重排路径
+    diagnosis = diagnose_answers(items, profile)
+    path = apply_diagnosis_to_path(
+        plan_path(profile),
+        diagnosis,
+    )                                                   # 据诊断结果插入补救或继续路径
     save_path(user_id, path)
     mindmap_refresh = _refresh_mindmap_labels(user_id, affected_kps, profile)
     log_event(user_id, "quiz_eval", {"per_kp": per_kp, "errors": error_counter,
                                      "evidence_phases": sorted({
                                          str(a.get("evidence_phase", "initial")) for a in answers
                                      }),
+                                     "diagnosis": diagnosis,
                                      "calibration": calibration,
                                      "mindmap_refresh": mindmap_refresh})
 
@@ -195,6 +201,8 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
     if weakest and weakest.get("mastery", 1) < 0.6:
         suggestions.append(f"「{weakest['name']}」掌握度 {weakest['mastery']:.0%},"
                            f"建议回看图文教程并重练易错题。")
+    if diagnosis.get("status") == "needed":
+        suggestions.insert(0, str(diagnosis.get("reason") or "建议先完成补救学习。"))
     for t, _ in sorted(error_counter.items(), key=lambda x: -x[1])[:2]:
         suggestions.append(f"错因「{t}」出现较多,已加入你的易错画像,后续出题将针对强化。")
     if not suggestions:
@@ -203,5 +211,6 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
             "items": items,
             "error_tags": error_counter, "suggestions": suggestions,
             "calibration": calibration,
+            "diagnosis": diagnosis,
             "path": path, "profile_version": profile.get("_version"),
             "mindmap_refresh": mindmap_refresh}

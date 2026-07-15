@@ -600,6 +600,17 @@ export default function Home() {
                 {pathPlan ? (
                   <div className="insight-panel overflow-x-auto p-5">
                     <PathDag plan={pathPlan} selected={selectedPathNode} onSelect={setSelectedPathNode} />
+                    {pathPlan.remediation?.status === "needed" && (
+                      <div className="mt-4 rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3">
+                        <div className="text-[10px] font-bold tracking-[0.16em] text-amber-700">DIAGNOSTIC REMEDIATION</div>
+                        <div className="mt-1 text-sm font-bold text-[#3D3122]">
+                          {pathPlan.remediation.prerequisite_gap
+                            ? `先补「${pathPlan.remediation.prerequisite_name}」，再回到「${pathPlan.remediation.blocked_name}」`
+                            : `换一种方式巩固「${pathPlan.remediation.blocked_name}」`}
+                        </div>
+                        <p className="mt-1 text-xs leading-5 text-[#7A654C]">{pathPlan.remediation.reason}</p>
+                      </div>
+                    )}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[#E1E4EC] bg-[#F8F9FC] p-4 text-sm text-[#626978]">
                       <span>当前建议优先学习</span>
                       <strong className="text-[#0F6B50]">{pathPlan.nodes.find((node) => node.id === pathPlan.next_kp)?.name || pathPlan.next_kp || "等待生成"}</strong>

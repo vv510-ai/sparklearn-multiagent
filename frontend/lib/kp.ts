@@ -33,6 +33,9 @@ export function isKnownKp(id: string): boolean {
 export function inferKpFromTopic(topic: string): string | null {
   const compact = topic.replace(/\s+/g, "").toLowerCase();
   if (/sql|select|where|orderby|groupby|join|多表连接|数据库查询/.test(compact)) return "sql_basic";
+  // “优先队列”在课程图谱中属于堆。若只按中文名长度匹配，
+  // “堆与优先队列”会被更长的“队列”误判为 queue。
+  if (/堆与优先队列|优先队列|heap|top-?k/.test(compact)) return "heap";
   if (/^(?:什么是)?图(?:是什么|的定义|的概念|的基础)?[？?。！!]*$/.test(compact)) return "graph_basic";
   const matched = KPS
     .map(([id, name]) => ({ id, name: name.replace(/\s+/g, "").toLowerCase() }))

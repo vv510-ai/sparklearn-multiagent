@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Badge, Notice, Stat, masteryTone } from "@/components/ui";
 import { USER_ID, apiPost } from "@/lib/api";
-import type { PathPlan, QuizQuestion } from "@/lib/types";
+import type { LearningDiagnosis, PathPlan, QuizQuestion } from "@/lib/types";
 import ConfidencePicker, { calibrationSignalText, type ConfidenceLevel } from "./ConfidencePicker";
 
 export interface EvaluationItem {
@@ -56,6 +56,7 @@ export interface EvaluationReport {
     metacognition_before: number;
     metacognition_after: number;
   };
+  diagnosis?: LearningDiagnosis;
 }
 
 function normalize(value: string) {

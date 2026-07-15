@@ -57,9 +57,35 @@ export interface ResourceItem {
     audio_url?: string;
     cover_url?: string;
     grounded?: boolean;
+    remediation?: {
+      origin_attempt_id?: number;
+      blocked_kp?: string;
+      prerequisite_gap?: string | null;
+      misconception?: string;
+      next_action?: string;
+    };
   };
   citations: string[];
   created_at?: string;
+}
+
+export interface LearningDiagnosis {
+  status: "clear" | "needed";
+  action: "advance" | "remediate" | "reteach" | "schedule_review" | "review_again";
+  phase: "initial" | "retest" | "spaced_review" | string;
+  attempt: number;
+  max_attempts: number;
+  blocked_kp?: string | null;
+  blocked_name?: string;
+  prerequisite_gap?: string | null;
+  prerequisite_name?: string;
+  prerequisite_mastery?: number | null;
+  remediation_kp?: string | null;
+  remediation_name?: string;
+  misconception?: string;
+  severity: "none" | "medium" | "high" | string;
+  evidence: string[];
+  reason: string;
 }
 
 export interface StudentProfile {
@@ -93,4 +119,5 @@ export interface PathPlan {
   next_kp: string | null;
   generated_by?: string;
   updated_at?: string;
+  remediation?: LearningDiagnosis;
 }

@@ -138,7 +138,7 @@ type ResourceItem = {
 
 | kind | payload 字段 | 前端组件 |
 | --- | --- | --- |
-| `doc` | `{ markdown, grounded, audio_url?, cover_url? }` | Markdown + 星火 TTS 口播 + 可选封面 |
+| `doc` | `{ markdown, grounded, audio_url?, cover_url?, remediation? }` | Markdown + 星火 TTS 口播 + 可选封面；补救微课带诊断元数据 |
 | `code` | `{ markdown, grounded }` | Markdown |
 | `reading` | `{ markdown, grounded }` | Markdown |
 | `mindmap` | `{ markmap }` | Markmap |
@@ -188,6 +188,7 @@ type PathPlan = {
   next_kp: string | null;
   generated_by?: string;
   updated_at?: string;
+  remediation?: LearningDiagnosis;
 }
 ```
 
@@ -562,6 +563,20 @@ Content-Type: application/json
     "metacognition_before": 0.5,
     "metacognition_after": 0.54
   },
+  "diagnosis": {
+    "status": "needed",
+    "action": "remediate",
+    "blocked_kp": "heap",
+    "blocked_name": "堆与优先队列",
+    "prerequisite_gap": "binary_tree",
+    "prerequisite_name": "二叉树",
+    "remediation_kp": "binary_tree",
+    "remediation_name": "二叉树",
+    "misconception": "父子关系判断错误",
+    "reason": "先补二叉树，再回到堆完成无提示复测。",
+    "attempt": 1,
+    "max_attempts": 3
+  },
   "behavior": {}
 }
 ```
@@ -577,7 +592,61 @@ Content-Type: application/json
 - 写入 `event_logs`
 - 触发路径重排
 
-### 4.13 无提示恢复测
+诊断由后端根据独立作答证据、提示/揭晓、自评错因、知识图谱先修关系和既有掌握度确定。`action` 为 `remediate` 或 `reteach` 时，`path_plan.remediation` 会覆盖下一学习点；首次补救后仍未恢复则转为 `schedule_review`，不无限循环生成微课。
+
+### 4.13 生成补救微课
+
+```http
+POST /api/eval/remediation
+Content-Type: application/json
+```
+
+请求：
+
+```json
+{
+  "user_id": "demo_user",
+  "attempt_id": 42
+}
+```
+
+返回：
+
+```json
+{
+  "diagnosis": {
+    "status": "needed",
+    "action": "remediate",
+    "blocked_kp": "heap",
+    "remediation_kp": "binary_tree",
+    "reason": "先补二叉树，再回到堆完成无提示复测。"
+  },
+  "resource": {
+    "id": "...",
+    "kind": "doc",
+    "kp": "binary_tree",
+    "title": "二叉树·补救微课",
+    "payload": {
+      "markdown": "...",
+      "grounded": true,
+      "remediation": {
+        "origin_attempt_id": 42,
+        "blocked_kp": "heap",
+        "prerequisite_gap": "binary_tree",
+        "misconception": "父子关系判断错误",
+        "next_action": "retest"
+      }
+    },
+    "citations": ["课程讲义 · 二叉树 p.1"]
+  },
+  "next_action": "retest",
+  "reused": false
+}
+```
+
+这是普通 JSON 接口，不使用 SSE。它恢复原测验的 `source_ids`，并要求资料正文或元数据明确命中待补概念；没有足够证据时返回 `next_action: "select_source"`，不会用通用知识补写。成功时写入 `resources`、`quiz_attempts.detail.remediation` 和 `event_logs`，重复请求复用同一资源。前端由 `RemediationPanel` 消费。记录不存在返回 `404`，诊断不需要补救或字段不完整返回 `409`，资料归属错误返回 `400`，生成失败返回 `503`。
+
+### 4.14 无提示恢复测
 
 ```http
 POST /api/eval/retest
@@ -622,7 +691,7 @@ Content-Type: application/json
 
 复测明细保存在原 `quiz_attempts.detail.retest` 中，便于后续展示恢复轨迹，不会伪装成一次新的首轮成绩。
 
-### 4.14 今日间隔复习队列
+### 4.15 今日间隔复习队列
 
 ```http
 GET /api/eval/review-queue?user_id=demo_user&limit=10
@@ -661,7 +730,7 @@ GET /api/eval/review-queue?user_id=demo_user&limit=10
 }
 ```
 
-### 4.15 提交今日复习
+### 4.16 提交今日复习
 
 ```http
 POST /api/eval/review
@@ -684,7 +753,7 @@ Content-Type: application/json
 
 后端会校验题目确实属于当前用户且已经到期，然后重新判分并写入 BKT。连续独立答对按 `1 → 3 → 7 → 14 → 30` 天推进；答错会重置到 1 天并增加 `lapse_count`。完成全部间隔阶段后状态变为 `mastered`。
 
-### 4.16 学习证据账本
+### 4.17 学习证据账本
 
 ```http
 GET /api/eval/evidence?user_id=demo_user&limit=12
@@ -738,7 +807,7 @@ GET /api/eval/evidence?user_id=demo_user&limit=12
 
 历史变化由已有 `quiz_eval` 事件从旧到新重建，因此升级后可以直接解释过去的评估记录，无需迁移数据库。
 
-### 4.17 学情报告
+### 4.18 学情报告
 
 ```http
 GET /api/eval/report?user_id=demo_user
@@ -768,7 +837,7 @@ GET /api/eval/report?user_id=demo_user
 }
 ```
 
-### 4.18 多模态答疑
+### 4.19 多模态答疑
 
 ```http
 POST /api/tutor
@@ -798,7 +867,7 @@ Accept: text/event-stream
 
 返回：SSE 事件流，常见事件为 `agent_start`、`progress`、`token`、`citations`、`safety`、`agent_end`、`done`。
 
-### 4.19 调试报告
+### 4.20 调试报告
 
 ```http
 GET /api/debug/runs/{session_id}
@@ -821,7 +890,7 @@ GET /api/debug/runs/{session_id}
 
 用途：资源页根据 SSE 的 `trace.session_id` 拉取本次调试包,展示事件统计、资源列表和 `debug_report.md`。
 
-### 4.20 知识资料入库
+### 4.21 知识资料入库
 
 上传学习资料并立即重建本地向量索引：
 

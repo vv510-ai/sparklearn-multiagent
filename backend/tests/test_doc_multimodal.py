@@ -131,3 +131,69 @@ def test_cover_prompt_is_fixed_and_knowledge_point_scoped():
 def test_doc_template_has_a_distinct_resource_label():
     assert doc_agent._doc_label("学习笔记", "one_page") == "一页看懂"  # noqa: SLF001
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
+
+
+def test_remediation_disables_unrelated_generic_mock_fallback(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+    captured: dict[str, object] = {}
+
+    async def capture_complete(*args, **kwargs):
+        captured.update(kwargs)
+        return "# 堆的最小补救\n\n堆使用完全二叉树结构。[^1]"
+
+    monkeypatch.setattr(doc_agent, "llm_complete", capture_complete)
+    asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "heap",
+        {},
+        topic_name="堆与优先队列",
+        source_ids=[],
+        goal="重讲堆的 Top-K 误区",
+        prompt_template="remediation",
+        trace_id="doc-remediation-test",
+        skip_multimodal=True,
+    ))
+
+    assert captured["allow_mock_fallback"] is False
+
+
+def test_remediation_rejects_successful_but_off_topic_content(monkeypatch):
+    heap_chunk = {
+        "text": "堆使用完全二叉树结构，并通过上浮和下沉维护堆序性质。",
+        "source": "《数据结构与算法》讲义",
+        "chapter": "堆",
+        "kp": "heap",
+        "page": 1,
+        "source_type": "lecture",
+        "source_id": "heap-notes",
+    }
+    monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [heap_chunk])
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+
+    async def off_topic_complete(*args, **kwargs):
+        return "# 二叉搜索树精讲\n\n中序遍历会得到有序序列。[^1]"
+
+    async def unexpected_grounding(*args, **kwargs):
+        raise AssertionError("RAG fallback does not need an LLM grounding call")
+
+    monkeypatch.setattr(doc_agent, "llm_complete", off_topic_complete)
+    monkeypatch.setattr(doc_agent, "grounding_check", unexpected_grounding)
+    monkeypatch.setattr(doc_agent, "safety_filter", lambda text: {"safe": True, "hits": []})
+
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "heap",
+        {},
+        topic_name="堆与优先队列",
+        source_ids=[],
+        goal="重讲堆的 Top-K 误区",
+        prompt_template="remediation",
+        trace_id="doc-remediation-drift-test",
+        skip_multimodal=True,
+    ))
+
+    assert "堆与优先队列" in result["resource"]["payload"]["markdown"]
+    assert "二叉搜索树精讲" not in result["resource"]["payload"]["markdown"]
+    assert result["resource"]["payload"]["grounded"] is True
+    assert any(flag["type"] == "topic_drift" for flag in result["flags"])

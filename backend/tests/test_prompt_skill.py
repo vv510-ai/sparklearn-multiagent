@@ -34,6 +34,7 @@ def test_manifest_is_ready_for_an_mcp_wrapper():
         "doc.conversation_notes",
         "doc.question_review",
         "doc.exam_guide",
+        "doc.remediation",
         "quiz.guided",
         "quiz.standard",
         "mindmap.leaf",
@@ -133,6 +134,21 @@ def test_question_review_and_exam_guide_are_separate_capabilities():
     assert "每个选项为什么对或错" in review
     assert "识别题型 → 回忆概念" in exam
     assert "🔑 考点回忆" in exam and "🚨 常见陷阱" in exam
+
+
+def test_remediation_prompt_is_narrow_and_returns_to_the_blocked_problem():
+    remediation = invoke_learning_prompt(
+        "doc.remediation",
+        topic="二叉树",
+        goal="补上堆的前置缺口后返回原题",
+        persona="循序渐进",
+        context="[^1] 二叉树由结点和边组成。",
+    ).prompt
+
+    assert "最小、可立即学习" in remediation
+    assert "回到原问题" in remediation
+    assert "不得泄漏原题标准答案" in remediation
+    assert "不要扩展成完整章节" in remediation
 
 
 def test_visual_capabilities_keep_the_same_learning_order():

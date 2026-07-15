@@ -20,13 +20,15 @@ class LearningState(TypedDict, total=False):
     messages: Annotated[list[dict], operator.add]      # [{role, content}]
     conversation: list[dict]                           # 持久化会话快照，不参与并行追加
     learning_goal: str
-    topic_label: str                                   # 当前笔记本主题；支持课外自定义主题
+    topic_label: str                                 # 当前笔记本主题；支持课外自定义主题
     custom_topic: bool
     knowledge_points: list[str]
     kinds: list[str]                                   # 期望生成的资源类型
     source_ids: list[str]                              # 指定上传资料
     prompt_template: str                              # 白名单学习模板键
     guided_learning: bool                             # 新主题由浅入深教学模式
+    skip_multimodal: bool                             # 补救等短流程跳过耗时媒体增强
+    required_retrieval_terms: list[str]              # 高风险生成必须在资料中明确命中的概念
     # 编排
     intent: str                                        # learn|summary|generate|tutor|eval|chat
     # 画像与计划

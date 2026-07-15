@@ -25,6 +25,7 @@ _DOC_TEMPLATES = {
     "conversation_notes",
     "question_review",
     "exam_guide",
+    "remediation",
 }
 DEFAULT_TEMPLATE = "complete_notes"
 _GENERAL_TOPIC_RULES = """自定义主题边界：

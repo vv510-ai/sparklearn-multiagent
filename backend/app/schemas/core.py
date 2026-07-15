@@ -84,6 +84,11 @@ class EvalReviewRequest(BaseModel):
     items: list[ReviewSubmitItem]
 
 
+class RemediationRequest(BaseModel):
+    user_id: str = "demo_user"
+    attempt_id: int = Field(gt=0)
+
+
 class ReplanRequest(BaseModel):
     user_id: str = "demo_user"
     reason: str = "评估后重排"

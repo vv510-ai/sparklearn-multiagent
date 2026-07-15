@@ -50,6 +50,19 @@ def _compact(text: str, limit: int = 180) -> str:
     return text if len(text) <= limit else text[:limit].rstrip() + "..."
 
 
+def _remediation_on_topic(markdown: str, topic_name: str, kp: str) -> bool:
+    """Reject a successful-looking remediation that silently changed topics."""
+    output = re.sub(r"\s+", "", str(markdown or "")).lower()
+    pieces = re.split(r"[与和、/·（）()\s]+", str(topic_name or ""))
+    candidates = [str(kp or "").strip().lower(), str(topic_name or "").strip().lower(), *pieces]
+    terms = {
+        re.sub(r"\s+", "", candidate)
+        for candidate in candidates
+        if str(candidate or "").strip()
+    }
+    return any(term in output for term in terms)
+
+
 def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
     title = "图文教程" if kind == "doc" else "学习资料"
     lines = [
@@ -172,6 +185,7 @@ def _doc_label(default: str, template_key: str) -> str:
         "conversation_notes": "对话笔记",
         "question_review": "题目复盘",
         "exam_guide": "考点手册",
+        "remediation": "补救微课",
     }.get(str(template_key or "").strip().lower(), default)
 
 
@@ -187,6 +201,8 @@ async def _gen_one(
     prompt_template: str = "",
     conversation: str = "",
     trace_id: str,
+    skip_multimodal: bool = False,
+    required_retrieval_terms: list[str] | None = None,
 ) -> dict:
     name = topic_name or resolve_topic([kp])[1]
     label, capability = _STYLE.get(kind, _STYLE["doc"])
@@ -197,6 +213,7 @@ async def _gen_one(
         final_k=5,
         source_ids=source_ids,
         kp=None if source_ids else kp,
+        required_terms=required_retrieval_terms,
     )
     ctx, citations = build_context(chunks)
     if kind == "doc":
@@ -220,6 +237,7 @@ async def _gen_one(
     prompt = prompt_call.prompt
     flags = []
     fallback = False
+    remediation_rag_fallback = False
     demo_fallback = is_demo()
     source_scope_missing = bool(source_ids and not chunks)
     if source_scope_missing:
@@ -249,12 +267,21 @@ async def _gen_one(
                     system=prompt_call.system,
                     temperature=0.5,
                     max_tokens=1800,
-                    allow_mock_fallback=prompt_template != "conversation_notes",
+                    # The generic offline completion is a fixed binary-tree
+                    # sample. It is unsafe for a diagnosed remediation target
+                    # because it can silently change the concept while keeping
+                    # the current citations. Let the exception fall through to
+                    # the target-scoped RAG fallback instead.
+                    allow_mock_fallback=prompt_template not in {
+                        "conversation_notes",
+                        "remediation",
+                    },
                 ),
                 timeout=_DOC_TIMEOUT_S,
             )
         except Exception as exc:  # noqa: BLE001
             fallback = True
+            remediation_rag_fallback = prompt_template == "remediation"
             conversation_fallback = kind == "doc" and prompt_template == "conversation_notes"
             md = (
                 _conversation_fallback_doc(name, conversation, chunks)
@@ -265,6 +292,18 @@ async def _gen_one(
                 flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
                               "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
 
+    if (prompt_template == "remediation" and not fallback and not source_scope_missing
+            and not _remediation_on_topic(md, name, kp)):
+        fallback = True
+        remediation_rag_fallback = True
+        md = _rag_fallback_doc(name, chunks, kind)
+        flags.append({
+            "agent": "doc",
+            "kind": kind,
+            "type": "topic_drift",
+            "detail": f"补救正文未命中目标概念「{name}」,已改用同主题 RAG 保守版",
+        })
+
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
     if source_scope_missing:
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
@@ -274,6 +313,9 @@ async def _gen_one(
     elif demo_fallback:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "演示模式直接整理检索片段,未补写资料外事实。"}
+    elif remediation_rag_fallback:
+        ground = {"grounded": True, "unsupported": [],
+                  "verdict": "补救生成已回退为目标概念的检索片段整理。"}
     elif fallback and prompt_template == "conversation_notes":
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "对话笔记直接整理已持久化对话与检索片段。"}
@@ -311,7 +353,8 @@ async def _gen_one(
         "reusable_note": prompt_template == "conversation_notes",
         "prompt_skill": prompt_call.metadata(),
     }
-    if kind == "doc" and not source_scope_missing and prompt_template != "conversation_notes":
+    if (kind == "doc" and not source_scope_missing
+            and prompt_template != "conversation_notes" and not skip_multimodal):
         audio, cover = await asyncio.gather(
             multimodal_gateway.tts(
                 _narration_text(name, md),
@@ -356,6 +399,12 @@ async def run(state: dict) -> dict:
     prompt_template = str(state.get("prompt_template") or "")
     conversation = _conversation_text(state)
     trace_id = str(state.get("session_id") or "")
+    skip_multimodal = bool(state.get("skip_multimodal"))
+    required_retrieval_terms = [
+        str(value).strip()
+        for value in (state.get("required_retrieval_terms") or [])
+        if str(value).strip()
+    ]
     await agent_start("doc", "文档智能体",
                       f"RAG 检索→引用生成→双层防幻觉校验({'/'.join(kinds)})")
     resources, flags = {}, []
@@ -371,6 +420,8 @@ async def run(state: dict) -> dict:
             prompt_template=prompt_template,
             conversation=conversation,
             trace_id=trace_id,
+            skip_multimodal=skip_multimodal,
+            required_retrieval_terms=required_retrieval_terms,
         )
         resources[out["resource"]["id"]] = out["resource"]
         flags += out["flags"]

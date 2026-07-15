@@ -7,6 +7,7 @@ import type { QuizQuestion } from "@/lib/types";
 import QuizRetest from "./QuizRetest";
 import type { EvaluationReport } from "./QuizRetest";
 import ConfidencePicker, { calibrationSignalText, type ConfidenceLevel } from "./ConfidencePicker";
+import RemediationPanel from "./RemediationPanel";
 
 interface SupportResponse {
   mode: "hint" | "reveal";
@@ -480,6 +481,9 @@ export default function QuizPlayer({
             <div className="mt-3 rounded-md border border-emerald-200 bg-white px-3 py-2 font-mono text-[11px] text-emerald-700">
               学习档案已更新到 v{report.profile_version}
             </div>
+          )}
+          {report.attempt_id && report.diagnosis?.status === "needed" && (
+            <RemediationPanel attemptId={report.attempt_id} diagnosis={report.diagnosis} />
           )}
           {report.attempt_id && report.retest?.status === "ready" && (
             <QuizRetest

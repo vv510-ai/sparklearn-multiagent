@@ -30,6 +30,35 @@ def hit_matches_kp(hit: dict, kp: str | None) -> bool:
     return not values or kp in values
 
 
+def _compact_term(value: object) -> str:
+    return "".join(str(value or "").lower().split())
+
+
+def hit_matches_required_terms(hit: dict, required_terms: list[str] | None) -> bool:
+    """Require explicit concept evidence for high-stakes source-bound generation.
+
+    Rerank scores are relative to the current candidate set, so an unrelated
+    top result can still receive a high normalized score. Remediation instead
+    requires the target concept name or id to appear in the body or metadata.
+    """
+    terms = [_compact_term(term) for term in (required_terms or []) if _compact_term(term)]
+    if not terms:
+        return True
+    tags = hit.get("tags") or []
+    if isinstance(tags, str):
+        tags = [tags]
+    values = (
+        hit.get("text", ""),
+        hit.get("source", ""),
+        hit.get("chapter", ""),
+        hit.get("kp", ""),
+        hit.get("source_id", ""),
+        *tags,
+    )
+    haystack = _compact_term(" ".join(str(value) for value in values if value))
+    return any(term in haystack for term in terms)
+
+
 def _hits_from_sources(query: str, source_ids: list[str], top_k: int) -> list[dict]:
     chunks: list[dict] = []
     for source_id in source_ids:
@@ -52,6 +81,7 @@ def retrieve(
     *,
     source_ids: list[str] | None = None,
     kp: str | None = None,
+    required_terms: list[str] | None = None,
 ) -> list[dict]:
     selected_sources = _clean_ids(source_ids)
     if selected_sources:
@@ -67,15 +97,18 @@ def retrieve(
 
     if kp:
         hits = [hit for hit in hits if hit_matches_kp(hit, kp)]
+    if required_terms:
+        hits = [hit for hit in hits if hit_matches_required_terms(hit, required_terms)]
     if not hits:
         return []
 
     hits, mode = rerank(query, hits, top_k=final_k)
     log.debug(
-        "RAG rerank mode=%s course=%s sources=%s query=%s",
+        "RAG rerank mode=%s course=%s sources=%s evidence_terms=%s query=%s",
         mode,
         course,
         selected_sources or "-",
+        required_terms or "-",
         query[:80],
     )
 

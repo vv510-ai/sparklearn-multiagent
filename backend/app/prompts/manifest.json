@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.07.15.3",
+  "version": "2026.07.16.1",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -40,6 +40,10 @@
     "doc.exam_guide": {
       "description": "黄金考点与解题策略手册",
       "file": "doc/exam-guide.md"
+    },
+    "doc.remediation": {
+      "description": "依据诊断结果生成最小补救微课",
+      "file": "doc/remediation.md"
     },
     "doc.code": {
       "description": "零基础代码教学示例",
