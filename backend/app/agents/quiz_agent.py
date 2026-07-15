@@ -210,6 +210,8 @@ async def run(state: dict) -> dict:
                 role="reasoner",
                 temperature=0.6,
                 max_tokens=3000,
+                json_mode=True,
+                allow_mock_fallback=not custom_topic,
             )
             data = parse_json(raw)
             items = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
