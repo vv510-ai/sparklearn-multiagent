@@ -3,6 +3,8 @@ POST /api/eval/support —— 作答后按需获取提示或揭晓答案;
 POST /api/eval/submit —— 提交答题:逐题比对 → BKT 更新掌握度 → 错因标签回写画像
                           → 路径重排 → 返回评估报告(学习闭环核心);
 POST /api/eval/retest —— 对未形成独立掌握证据的题进行一次无提示复测;
+GET  /api/eval/review-queue —— 获取今天到期的间隔复习题（不含答案）;
+POST /api/eval/review —— 提交独立回忆并推进或重置复习间隔;
 GET  /api/eval/report —— 学情报告(画像 + 掌握度雷达数据 + 近期事件)。"""
 from __future__ import annotations
 
@@ -13,10 +15,12 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..agents.eval_agent import evaluate_answers
 from ..models.db import session
-from ..models.entities import QuizAttempt, Resource
-from ..schemas.core import EvalRetestRequest, EvalSubmit, EvalSupportRequest
+from ..models.entities import QuizAttempt, Resource, ReviewItem
+from ..schemas.core import EvalRetestRequest, EvalReviewRequest, EvalSubmit, EvalSupportRequest
 from ..services.knowledge_graph import canonical_kp_id, kp_name
 from ..services.profile_service import ensure_user, get_profile, recent_events
+from ..services.review_service import (apply_review_results, as_utc, review_queue,
+                                       schedule_initial_reviews, utc_now)
 
 router = APIRouter(prefix="/api/eval", tags=["eval"])
 
@@ -193,12 +197,16 @@ async def submit(req: EvalSubmit):
         attempt_id = attempt.id
 
     report = evaluate_answers(req.user_id, enriched)
+    scheduled_reviews = schedule_initial_reviews(
+        req.user_id, req.quiz_resource_id, attempt_id, enriched,
+    )
     report["behavior"] = behavior
     report["attempt_id"] = attempt_id
     report["retest"] = {
         "status": "ready" if any(not e["mastery_correct"] for e in enriched) else "not_needed",
         "eligible_question_ids": [e["question_id"] for e in enriched if not e["mastery_correct"]],
     }
+    report["review"] = {"scheduled": scheduled_reviews}
     return report
 
 
@@ -262,6 +270,9 @@ async def retest(req: EvalRetestRequest):
         })
 
     report = evaluate_answers(req.user_id, enriched)
+    review_schedules = apply_review_results(
+        req.user_id, enriched, phase="retest", quiz_resource_id=req.quiz_resource_id,
+    )
     recovered = sum(bool(item["mastery_correct"]) for item in enriched)
     retest_summary = {
         "status": "completed",
@@ -283,7 +294,91 @@ async def retest(req: EvalRetestRequest):
 
     report["attempt_id"] = req.attempt_id
     report["retest"] = retest_summary
+    report["review"] = {"schedule": review_schedules}
     report["behavior"] = {"phase": "retest", "support": {
+        "hinted": 0, "revealed": 0, "independent": len(enriched), "misconceptions": [],
+    }}
+    return report
+
+
+@router.get("/review-queue")
+async def get_review_queue(user_id: str = Query("demo_user"), limit: int = Query(10, ge=1, le=50)):
+    ensure_user(user_id)
+    return review_queue(user_id, limit=limit)
+
+
+@router.post("/review")
+async def submit_review(req: EvalReviewRequest):
+    """Grade due spaced-review items and advance/reset their schedules."""
+    ensure_user(req.user_id)
+    if not req.items:
+        raise HTTPException(400, "复习提交不能为空")
+    item_ids = [item.review_item_id for item in req.items]
+    if len(item_ids) != len(set(item_ids)):
+        raise HTTPException(400, "复习题目不能重复提交")
+
+    current = utc_now()
+    with session() as s:
+        rows = [s.get(ReviewItem, item_id) for item_id in item_ids]
+        if any(row is None or row.user_id != req.user_id for row in rows):
+            raise HTTPException(404, "复习题目不存在")
+        if any(row.status != "scheduled" for row in rows if row):
+            raise HTTPException(409, "复习题目已经完成")
+        if any(as_utc(row.due_at) > current for row in rows if row):
+            raise HTTPException(400, "复习时间尚未到达")
+        review_rows = {
+            row.id: {
+                "id": row.id,
+                "quiz_resource_id": row.quiz_resource_id,
+                "question_id": row.question_id,
+                "kp": row.kp,
+            }
+            for row in rows if row
+        }
+
+    qmaps: dict[str, dict[str, dict]] = {}
+    enriched = []
+    for submitted in req.items:
+        row = review_rows[submitted.review_item_id]
+        resource_id = row["quiz_resource_id"]
+        if resource_id not in qmaps:
+            qmaps[resource_id] = _quiz_questions(req.user_id, resource_id)
+        question = qmaps[resource_id].get(row["question_id"])
+        if not question:
+            raise HTTPException(400, f"题组中不存在题目 {row['question_id']}")
+        correct = _grade_answer(question, submitted.answer)
+        kp = canonical_kp_id(question.get("kp") or row["kp"])
+        enriched.append({
+            "review_item_id": row["id"],
+            "quiz_resource_id": resource_id,
+            "question_id": row["question_id"],
+            "kp": kp or "",
+            "correct": correct,
+            "mastery_correct": correct,
+            "answer": submitted.answer,
+            "expected": question.get("answer", ""),
+            "type": question.get("type", ""),
+            "difficulty": question.get("difficulty", 0),
+            "explain": question.get("explain", ""),
+            "error_tags": list(question.get("error_tags", []) or []) if not correct else [],
+            "hint_used": False,
+            "revealed": False,
+            "misconception": "",
+            "support_level": "independent",
+            "evidence_phase": "spaced_review",
+            "seconds": max(0.0, submitted.seconds),
+        })
+
+    report = evaluate_answers(req.user_id, enriched)
+    schedules = apply_review_results(req.user_id, enriched, phase="spaced_review", at=current)
+    queue = review_queue(req.user_id, at=current)
+    report["review"] = {
+        "completed": len(enriched),
+        "correct": sum(bool(item["mastery_correct"]) for item in enriched),
+        "schedule": schedules,
+        "summary": queue["summary"],
+    }
+    report["behavior"] = {"phase": "spaced_review", "support": {
         "hinted": 0, "revealed": 0, "independent": len(enriched), "misconceptions": [],
     }}
     return report

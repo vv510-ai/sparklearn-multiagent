@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -79,3 +79,27 @@ class QuizAttempt(Base):
     score: Mapped[float] = mapped_column(Float, default=0.0)
     detail: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class ReviewItem(Base):
+    """One durable spaced-review schedule per learner and quiz question."""
+    __tablename__ = "review_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "quiz_resource_id", "question_id",
+                         name="uq_review_item_user_question"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    quiz_resource_id: Mapped[str] = mapped_column(String(64), index=True)
+    question_id: Mapped[str] = mapped_column(String(64))
+    kp: Mapped[str] = mapped_column(String(64), default="")
+    source_attempt_id: Mapped[int] = mapped_column(Integer, default=0)
+    stage: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="scheduled")
+    due_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, index=True)
+    lapse_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_correct: Mapped[int] = mapped_column(Integer, default=-1)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)

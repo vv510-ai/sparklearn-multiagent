@@ -608,7 +608,68 @@ Content-Type: application/json
 
 复测明细保存在原 `quiz_attempts.detail.retest` 中，便于后续展示恢复轨迹，不会伪装成一次新的首轮成绩。
 
-### 4.14 学情报告
+### 4.14 今日间隔复习队列
+
+```http
+GET /api/eval/review-queue?user_id=demo_user&limit=10
+```
+
+返回今天已经到期的题目以及队列统计。题目对象只包含题干、选项、类型、难度和知识点，**不会返回答案或解析**。
+
+```json
+{
+  "items": [
+    {
+      "id": 7,
+      "quiz_resource_id": "quiz_binary_tree_xxx",
+      "question_id": "q2",
+      "kp": "binary_tree",
+      "kp_name": "二叉树",
+      "stage": 1,
+      "due_at": "2026-07-16T08:00:00+00:00",
+      "reason": "遍历性质混淆",
+      "question": {
+        "id": "q2",
+        "type": "single",
+        "stem": "...",
+        "options": ["..."],
+        "difficulty": 2
+      }
+    }
+  ],
+  "summary": {
+    "due": 1,
+    "upcoming": 3,
+    "mastered": 2,
+    "next_due_at": "2026-07-18T08:00:00+00:00",
+    "interval_days": [1, 3, 7, 14, 30]
+  }
+}
+```
+
+### 4.15 提交今日复习
+
+```http
+POST /api/eval/review
+Content-Type: application/json
+```
+
+```json
+{
+  "user_id": "demo_user",
+  "items": [
+    {
+      "review_item_id": 7,
+      "answer": "B",
+      "seconds": 9
+    }
+  ]
+}
+```
+
+后端会校验题目确实属于当前用户且已经到期，然后重新判分并写入 BKT。连续独立答对按 `1 → 3 → 7 → 14 → 30` 天推进；答错会重置到 1 天并增加 `lapse_count`。完成全部间隔阶段后状态变为 `mastered`。
+
+### 4.16 学情报告
 
 ```http
 GET /api/eval/report?user_id=demo_user
@@ -638,7 +699,7 @@ GET /api/eval/report?user_id=demo_user
 }
 ```
 
-### 4.15 多模态答疑
+### 4.17 多模态答疑
 
 ```http
 POST /api/tutor
@@ -668,7 +729,7 @@ Accept: text/event-stream
 
 返回：SSE 事件流，常见事件为 `agent_start`、`progress`、`token`、`citations`、`safety`、`agent_end`、`done`。
 
-### 4.16 调试报告
+### 4.18 调试报告
 
 ```http
 GET /api/debug/runs/{session_id}
@@ -691,7 +752,7 @@ GET /api/debug/runs/{session_id}
 
 用途：资源页根据 SSE 的 `trace.session_id` 拉取本次调试包,展示事件统计、资源列表和 `debug_report.md`。
 
-### 4.17 知识资料入库
+### 4.19 知识资料入库
 
 上传学习资料并立即重建本地向量索引：
 

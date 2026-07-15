@@ -131,6 +131,8 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
         d["mastery"] = round(new_m, 3)
         d["level"] = mastery_level(new_m)
         items.append({
+            "review_item_id": a.get("review_item_id"),
+            "quiz_resource_id": a.get("quiz_resource_id", ""),
             "question_id": a.get("question_id", ""),
             "kp": kp,
             "correct": correct,

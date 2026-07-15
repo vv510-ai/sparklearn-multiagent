@@ -13,7 +13,7 @@ install()
 
 from app.main import app  # noqa: E402
 from app.models.db import init_db, session  # noqa: E402
-from app.models.entities import QuizAttempt, Resource  # noqa: E402
+from app.models.entities import QuizAttempt, Resource, ReviewItem  # noqa: E402
 from app.services.profile_service import ensure_user  # noqa: E402
 
 
@@ -36,6 +36,7 @@ def _seed_quiz() -> None:
     init_db()
     ensure_user(USER_ID)
     with session() as db:
+        db.query(ReviewItem).filter(ReviewItem.user_id == USER_ID).delete()
         db.merge(Resource(
             id=QUIZ_ID,
             user_id=USER_ID,
@@ -168,6 +169,7 @@ def test_reveal_is_preserved_as_non_independent_mastery_evidence():
     assert "条件看漏了" in item["error_tags"]
     assert report["per_kp"][0]["right"] == 1
     assert report["per_kp"][0]["mastery_right"] == 0
+    assert report["review"]["scheduled"] == 1
     assert report["retest"] == {
         "status": "ready",
         "eligible_question_ids": [QUESTION["id"]],
@@ -184,6 +186,8 @@ def test_reveal_is_preserved_as_non_independent_mastery_evidence():
     assert retest_report["items"][0]["support_level"] == "independent"
     assert retest_report["items"][0]["evidence_phase"] == "retest"
     assert retest_report["per_kp"][0]["mastery"] > report["per_kp"][0]["mastery"]
+    assert retest_report["review"]["schedule"][0]["stage"] == 1
+    assert retest_report["review"]["schedule"][0]["interval_days"] == 1
     with session() as db:
         persisted = db.get(QuizAttempt, report["attempt_id"])
         assert persisted is not None
@@ -209,6 +213,7 @@ def test_independent_correct_answer_does_not_offer_retest():
             "status": "not_needed",
             "eligible_question_ids": [],
         }
+        assert report["review"]["scheduled"] == 0
 
         retested = client.post("/api/eval/retest", json={
             "user_id": USER_ID,

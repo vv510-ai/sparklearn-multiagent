@@ -68,6 +68,17 @@ class EvalRetestRequest(BaseModel):
     answers: list[RetestAnswerItem]
 
 
+class ReviewSubmitItem(BaseModel):
+    review_item_id: int = Field(gt=0)
+    answer: str
+    seconds: float = 0
+
+
+class EvalReviewRequest(BaseModel):
+    user_id: str = "demo_user"
+    items: list[ReviewSubmitItem]
+
+
 class ReplanRequest(BaseModel):
     user_id: str = "demo_user"
     reason: str = "评估后重排"

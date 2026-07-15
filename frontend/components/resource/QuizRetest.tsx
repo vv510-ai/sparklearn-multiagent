@@ -6,6 +6,8 @@ import { USER_ID, apiPost } from "@/lib/api";
 import type { PathPlan, QuizQuestion } from "@/lib/types";
 
 export interface EvaluationItem {
+  review_item_id?: number;
+  quiz_resource_id?: string;
   question_id: string;
   correct: boolean;
   mastery_correct?: boolean;
@@ -16,7 +18,7 @@ export interface EvaluationItem {
   revealed?: boolean;
   misconception?: string;
   support_level?: "independent" | "hinted" | "revealed";
-  evidence_phase?: "initial" | "retest";
+  evidence_phase?: "initial" | "retest" | "spaced_review";
 }
 
 export interface EvaluationReport {

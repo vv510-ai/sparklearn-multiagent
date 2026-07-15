@@ -19,6 +19,7 @@ import SourcePanel, { isSourceSelectable, type KnowledgeSource } from "@/compone
 import StudioPanel from "@/components/notebook/StudioPanel";
 import PathDag from "@/components/path/PathDag";
 import ProfileRadar from "@/components/profile/ProfileRadar";
+import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiGet, apiUpload, USER_ID } from "@/lib/api";
@@ -565,6 +566,9 @@ export default function Home() {
               <div className="notebook-content-heading">
                 <div><span>LEARNING PROFILE</span><h1>我的学习情况</h1><p>每次真实作答都会更新掌握度与错因。</p></div>
                 <button onClick={() => void loadProfile()} className="secondary-action">刷新</button>
+              </div>
+              <div className="px-5 pt-5">
+                <ReviewQueue onEvaluated={refreshAfterEvaluation} />
               </div>
               <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <ProfileRadar profile={profile} />
