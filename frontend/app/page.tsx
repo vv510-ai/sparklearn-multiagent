@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   ArrowRight,
   BookOpen,
@@ -22,7 +21,6 @@ import PathDag from "@/components/path/PathDag";
 import ProfileRadar from "@/components/profile/ProfileRadar";
 import ResourceCard from "@/components/resource/ResourceCard";
 import CinematicBackground from "@/components/ui/CinematicBackground";
-import { useView, type ViewKey } from "@/components/view/ViewContext";
 import { apiGet, apiUpload, USER_ID } from "@/lib/api";
 import type { PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
@@ -31,28 +29,6 @@ type ResourceFilter = "all" | "doc" | "mindmap" | "quiz" | "video";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
 type UploadResult = { source: KnowledgeSource; sample?: { text: string; citation: string }[] };
-
-const ROLE_ORDER: ViewKey[] = ["student", "teacher", "judge"];
-const ROLE_PROFILE: Record<ViewKey, { image: string; name: string; who: string; example: string }> = {
-  student: {
-    image: "/roles/student-v2.png",
-    name: "学生",
-    who: "个人学习",
-    example: "讲透一个知识点，再练到会",
-  },
-  teacher: {
-    image: "/roles/teacher-v2.png",
-    name: "老师",
-    who: "教学准备",
-    example: "把教学目标整理成内容与练习",
-  },
-  judge: {
-    image: "/roles/manager-v2.png",
-    name: "教研",
-    who: "质量与效果",
-    example: "先看学习效果，再追溯依据",
-  },
-};
 
 const RESOURCE_FILTERS: { key: ResourceFilter; label: string }[] = [
   { key: "all", label: "全部" },
@@ -82,16 +58,7 @@ function SparkMark({ light = false, running = false }: { light?: boolean; runnin
   );
 }
 
-function RoleAvatar({ role }: { role: ViewKey }) {
-  const item = ROLE_PROFILE[role];
-  return (
-    <span className="relative block h-8 w-8 shrink-0 overflow-hidden rounded-full border border-black/[0.06] bg-[#EEF1EC]">
-      <Image src={item.image} alt={`${item.name}角色形象`} fill sizes="32px" className="object-cover object-top" priority={role === "student"} />
-    </span>
-  );
-}
-
-function RoleGate({
+function LearningGate({
   onStart,
   onUpload,
   uploading,
@@ -99,14 +66,13 @@ function RoleGate({
   uploadError,
   sourceCount,
 }: {
-  onStart: (role: ViewKey, goal: string) => void;
+  onStart: (goal: string) => void;
   onUpload: (file: File) => void;
   uploading: boolean;
   uploadNote: string;
   uploadError: boolean;
   sourceCount: number;
 }) {
-  const [role, setRole] = useState<ViewKey>("student");
   const [goal, setGoal] = useState("");
   const [transitioning, setTransitioning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -121,17 +87,17 @@ function RoleGate({
     if (!next || transitioning) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setTransitioning(true);
-    transitionTimerRef.current = setTimeout(() => onStart(role, next), reduceMotion ? 40 : 820);
+    transitionTimerRef.current = setTimeout(() => onStart(next), reduceMotion ? 40 : 820);
   };
 
   return (
     <main
-      className={`role-gate-shell relative min-h-dvh overflow-hidden text-white ${transitioning ? "is-transitioning" : ""}`}
+      className={`learning-gate-shell relative min-h-dvh overflow-hidden text-white ${transitioning ? "is-transitioning" : ""}`}
       aria-busy={transitioning}
     >
       <CinematicBackground />
-      <div className="role-gate-stage relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-5 sm:px-8 sm:py-6">
-        <nav className="role-gate-nav liquid-glass glass-readable flex items-center justify-between rounded-full px-5 py-3 sm:px-6">
+      <div className="learning-gate-stage relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-5 sm:px-8 sm:py-6">
+        <nav className="learning-gate-nav liquid-glass glass-readable flex items-center justify-between rounded-full px-5 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
             <SparkMark light />
             <span className="text-xl text-white" style={{ fontFamily: "var(--font-display)" }}>
@@ -143,25 +109,16 @@ function RoleGate({
           </button>
         </nav>
 
-        <section className="role-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
+        <section className="learning-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
           <h1 className="animate-fade-rise max-w-6xl text-[43px] font-normal leading-[0.98] text-white sm:text-7xl md:text-[82px]" style={{ fontFamily: "var(--font-display)" }}>
             <span className="block">SparkLearn，</span>
             <em className="mt-1 block whitespace-nowrap text-[37px] not-italic text-white/70 sm:text-7xl md:text-[82px]">学习的左膀右臂。</em>
           </h1>
           <p className="animate-fade-rise-delay mt-7 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
-            上传你的资料，问一个问题。星火会把讲解、框架、练习与下一步整理到同一本学习笔记里。
+            不需要选择身份。输入任何想学的内容，星火会把讲解、图解、练习与下一步整理到同一本学习笔记里。
           </p>
 
-          <div className="animate-fade-rise-delay mt-6 flex flex-wrap justify-center gap-2" aria-label="选择身份">
-            {ROLE_ORDER.map((key) => (
-              <button key={key} disabled={transitioning} onClick={() => setRole(key)} aria-pressed={role === key} className={`role-pill liquid-glass glass-readable flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-sm transition disabled:pointer-events-none ${role === key ? "is-selected" : ""}`}>
-                <RoleAvatar role={key} />
-                <span>{ROLE_PROFILE[key].name}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="liquid-glass glass-readable animate-fade-rise-delay-2 mt-5 flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
+          <div className="liquid-glass glass-readable animate-fade-rise-delay-2 mt-7 flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
             <input
               ref={fileRef}
               type="file"
@@ -200,21 +157,6 @@ function RoleGate({
           </div>
         </section>
 
-        <section className="role-gate-roles hidden grid-cols-3 gap-3 pb-2 md:grid">
-          {ROLE_ORDER.map((key) => {
-            const item = ROLE_PROFILE[key];
-            return (
-              <button key={key} disabled={transitioning} onClick={() => setRole(key)} aria-pressed={role === key} className={`liquid-glass glass-readable group flex min-h-[80px] items-center gap-3 rounded-[16px] p-3 text-left transition hover:-translate-y-0.5 disabled:pointer-events-none ${role === key ? "role-entry-active" : ""}`}>
-                <RoleAvatar role={key} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline gap-2"><strong>{item.name}</strong><small className="text-white/50">{item.who}</small></span>
-                  <span className="mt-1 block truncate text-xs text-white/70">{item.example}</span>
-                </span>
-                <ArrowRight size={15} className="text-white/45" />
-              </button>
-            );
-          })}
-        </section>
       </div>
       <div className="workspace-transition" aria-hidden={!transitioning}>
         <div className="workspace-transition-surface" />
@@ -254,7 +196,6 @@ function EvidenceSummary({ trace }: { trace: TraceState }) {
 }
 
 export default function Home() {
-  const { view, setView } = useView();
   const [entered, setEntered] = useState(false);
   const [notebookTopic, setNotebookTopic] = useState("");
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
@@ -278,7 +219,6 @@ export default function Home() {
   const [uploadError, setUploadError] = useState(false);
   const sourceInputRef = useRef<HTMLInputElement>(null);
 
-  const role = ROLE_PROFILE[view];
   const running = useMemo(() => Object.values(trace).some((node) => node.status === "running"), [trace]);
   const finished = useMemo(() => Object.values(trace).some((node) => node.status === "done"), [trace]);
 
@@ -349,8 +289,7 @@ export default function Home() {
     }
   };
 
-  const startNotebook = (nextView: ViewKey, goal: string) => {
-    setView(nextView);
+  const startNotebook = (goal: string) => {
     setEntered(true);
     setNotebookTopic(goal.trim());
     setActivePanel("chat");
@@ -436,7 +375,7 @@ export default function Home() {
 
   if (!entered) {
     return (
-      <RoleGate
+      <LearningGate
         onStart={startNotebook}
         onUpload={(file) => void uploadSource(file)}
         uploading={uploading}
@@ -492,10 +431,9 @@ export default function Home() {
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
           </span>
-          <button onClick={leave} className="role-switch" title="切换身份">
-            <RoleAvatar role={view} />
-            <span className="hidden sm:inline">{role.name}</span>
-            <span className="text-[#8A909C]">⌄</span>
+          <button onClick={leave} className="notebook-home-button" title="开始新的学习">
+            <BookOpen size={16} />
+            <span className="hidden sm:inline">新的学习</span>
           </button>
           <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button">
             <ShieldCheck size={16} /><span className="hidden sm:inline">依据</span>

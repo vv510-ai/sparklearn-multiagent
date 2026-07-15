@@ -1,6 +1,6 @@
 "use client";
 /** Markmap 交互脑图:markmap-lib/view 经 CDN 渲染;失败降级为 Markdown 大纲文本。
- *  浅色企业主题 + 个性化标注图例(✅已掌握 / ⚠️待巩固 / 🔒先修未解锁,来自学生画像)。 */
+ *  浅色企业主题 + 个性化标注图例(✅已掌握 / ⚠️待巩固 / 🔒先修未解锁,来自学习画像)。 */
 import { useEffect, useRef, useState } from "react";
 import { getMarkmap } from "@/lib/cdn";
 

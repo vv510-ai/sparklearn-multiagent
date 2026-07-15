@@ -117,7 +117,7 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
   if (!profile) {
     return (
       <Panel className="p-5">
-        <EmptyState title="暂无画像" desc="对话、生成资源或提交题组后，学生画像会在这里更新。" />
+        <EmptyState title="暂无画像" desc="对话、生成资源或提交题组后，学习画像会在这里更新。" />
       </Panel>
     );
   }
@@ -136,7 +136,7 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
     <Panel className="p-4">
       <PanelHeader
         code={`PROFILE v${version}`}
-        title="学生画像"
+        title="学习画像"
         desc="8 维画像随对话与答题实时更新;雷达展示最薄弱的 6 个知识点。"
         right={<Badge variant={Object.keys(deltas).length ? "info" : "neutral"}>{Object.keys(deltas).length ? "本轮已更新" : "实时同步"}</Badge>}
       />

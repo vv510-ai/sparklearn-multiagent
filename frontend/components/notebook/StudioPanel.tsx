@@ -57,7 +57,7 @@ const GENERATORS = [
     desc: "按薄弱点出题",
     icon: CircleHelp,
     tone: "cyan",
-    goal: "请根据当前学习主题、学生薄弱点和所选资料生成一组巩固测验。",
+    goal: "请根据当前学习主题、学习者薄弱点和所选资料生成一组巩固测验。",
     kinds: ["quiz"],
     template: "quiz",
   },

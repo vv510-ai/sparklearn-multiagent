@@ -17,7 +17,7 @@ export interface TraceNode {
 export type TraceState = Record<string, TraceNode>;
 
 const AGENT_META: Record<string, { name: string; code: string; group: string }> = {
-  profile: { name: "读取画像", code: "PRF", group: "理解学生" },
+  profile: { name: "读取画像", code: "PRF", group: "理解需求" },
   orchestrator: { name: "理解需求", code: "ORC", group: "判断意图" },
   planner: { name: "整理任务", code: "PLN", group: "拆解任务" },
   path: { name: "生成路线", code: "PTH", group: "推荐顺序" },

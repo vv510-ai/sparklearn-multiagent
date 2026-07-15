@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, NotebookPen, Plus, Square } from "lucide-react";
 import { USER_ID, postSSE } from "@/lib/api";
-import { useView } from "@/components/view/ViewContext";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
 import Markdown from "./Markdown";
 import ResourceCard from "@/components/resource/ResourceCard";
@@ -50,7 +49,6 @@ export default function Chat({
   onSeedConsumed?: () => void;
   onQuizEvaluated?: (report: { path?: import("@/lib/types").PathPlan; profile_version?: number }) => void;
 }) {
-  const { view } = useView();
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -210,7 +208,7 @@ export default function Chat({
             </button>
             <div className="rounded-[12px] border border-[#E1E4EC] bg-[#F8F9FC] p-3">
               <div className="mb-2 text-xs font-bold text-emerald-800">
-                {view === "judge" ? "管理者视角：先看学习成效，再看依据" : "一次完整学习会这样推进"}
+                一次完整学习会这样推进
               </div>
               <div className="grid gap-2 sm:grid-cols-4">
                 {FLOW.map(([code, title, desc]) => (
