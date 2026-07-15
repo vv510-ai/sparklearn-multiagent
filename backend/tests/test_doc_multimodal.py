@@ -73,6 +73,48 @@ def test_doc_survives_tts_degradation(monkeypatch):
     assert out["resource"]["payload"]["markdown"]
 
 
+def test_interactive_audio_keeps_browser_narration_and_failure_reason(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False)
+    out = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "binary_tree",
+        {},
+        source_ids=[],
+        goal="请生成互动讲解",
+        prompt_template="interactive_audio",
+        trace_id="doc-interactive-audio-degraded",
+    ))
+
+    payload = out["resource"]["payload"]
+    assert out["resource"]["title"] == "二叉树·互动讲解"
+    assert payload["audio_narration"].startswith("本节讲解二叉树")
+    assert payload["audio"] == {
+        "status": "fallback",
+        "provider": "browser_speech",
+        "error": "disabled",
+        "retryable": True,
+    }
+    assert any(flag["type"] == "audio_degraded" for flag in out["flags"])
+
+
+def test_interactive_audio_marks_cloud_tts_ready(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=True)
+    out = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "binary_tree",
+        {},
+        source_ids=[],
+        goal="请生成互动讲解",
+        prompt_template="interactive_audio",
+        trace_id="doc-interactive-audio-ready",
+    ))
+
+    payload = out["resource"]["payload"]
+    assert payload["audio_url"] == "/static/gen/doc-test.mp3"
+    assert payload["audio"]["status"] == "ready"
+    assert payload["audio"]["provider"] == "spark_tts"
+
+
 def test_doc_includes_cover_when_image_succeeds(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=True)
     out = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
@@ -130,6 +172,7 @@ def test_cover_prompt_is_fixed_and_knowledge_point_scoped():
 
 def test_doc_template_has_a_distinct_resource_label():
     assert doc_agent._doc_label("学习笔记", "one_page") == "一页看懂"  # noqa: SLF001
+    assert doc_agent._doc_label("学习笔记", "interactive_audio") == "互动讲解"  # noqa: SLF001
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
 
 

@@ -9,7 +9,7 @@ import Markmap from "./Markmap";
 import QuizPlayer from "./QuizPlayer";
 import VideoBlock from "./VideoBlock";
 import InteractiveAudioPlayer from "./InteractiveAudioPlayer";
-import { apiAssetUrl } from "@/lib/api";
+import { apiAssetUrl, apiPost, USER_ID } from "@/lib/api";
 
 const KIND_META: Record<
   string,
@@ -95,15 +95,33 @@ export default function ResourceCard({
   interactionBusy?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const meta = KIND_META[r.kind] || { label: r.kind, code: r.kind.toUpperCase(), icon: "资", variant: "neutral" as const, hint: "" };
+  const payload = r.payload || {};
+  const interactiveAudio = payload.template === "interactive_audio";
+  const baseMeta = KIND_META[r.kind] || { label: r.kind, code: r.kind.toUpperCase(), icon: "资", variant: "neutral" as const, hint: "" };
+  const meta = interactiveAudio
+    ? { label: "互动音频", code: "听讲", icon: "听", variant: "success" as const, hint: "来源约束的短讲解；可边听边暂停提问" }
+    : baseMeta;
   const grounded = r.payload?.grounded;
   const issue = resourceIssue(r);
-  const payload = r.payload || {};
-  const audioUrl = apiAssetUrl(payload.audio_url);
+  const [audioPath, setAudioPath] = useState(payload.audio_url || "");
+  const [audioState, setAudioState] = useState(payload.audio);
+  const audioUrl = apiAssetUrl(audioPath);
   const coverUrl = apiAssetUrl(payload.cover_url);
+  const narration = payload.audio_narration || "";
   const isText = TEXT_KINDS.has(r.kind);
   const created = r.created_at ? r.created_at.replace("T", " ").slice(0, 16) : "";
   const preview = resourcePreview(r);
+
+  async function retryAudio(): Promise<boolean> {
+    const response = await apiPost<{ resource: ResourceItem; audio?: ResourceItem["payload"]["audio"] }>(
+      `/resources/${r.id}/audio`,
+      { user_id: USER_ID },
+    );
+    const nextPayload = response.resource.payload || {};
+    setAudioPath(nextPayload.audio_url || "");
+    setAudioState(response.audio || nextPayload.audio);
+    return Boolean(nextPayload.audio_url);
+  }
 
   return (
     <Panel className="animate-rise overflow-hidden transition duration-200 hover:border-[#C8D1C9]">
@@ -148,25 +166,30 @@ export default function ResourceCard({
             <p className="mb-3 rounded-[10px] border border-[#E5E9E3] bg-[#FBFCFA] px-3 py-2 text-xs leading-5 text-[#57635A]">{meta.hint}</p>
           )}
 
-          {isText && (payload.audio_url || payload.cover_url) && (
+          {isText && (audioPath || narration || audioState || payload.cover_url) && (
             <div className="mb-4 grid gap-3 rounded-[12px] border border-[#D2DAD2] bg-[#F0F6F2] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="min-w-0">
                 <div className="text-[11px] font-bold tracking-[0.14em] text-[#0F6B50]">
-                  {payload.audio_url ? (onAudioQuestion ? "星火互动讲解" : "星火语音讲解") : "星火知识封面"}
+                  {narration
+                    ? audioUrl ? "星火云端互动讲解" : "互动讲解 · 浏览器朗读"
+                    : audioUrl ? "星火语音讲解" : "星火知识封面"}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#57635A]">
-                  {payload.audio_url
+                  {audioPath || narration
                     ? onAudioQuestion
                       ? "边听边问；提问时音频会暂停，回答后从原进度继续。"
                       : "先听一遍重点，再结合正文和脚注深入学习。"
                     : "用一张图先建立知识点的整体印象。"}
                 </p>
-                {audioUrl && (
+                {(audioUrl || narration || audioState) && (
                   <InteractiveAudioPlayer
                     src={audioUrl}
+                    narration={narration}
+                    audioState={audioState}
                     resourceTitle={r.title}
                     disabled={interactionBusy}
                     onAsk={onAudioQuestion}
+                    onRetry={interactiveAudio ? retryAudio : undefined}
                   />
                 )}
               </div>

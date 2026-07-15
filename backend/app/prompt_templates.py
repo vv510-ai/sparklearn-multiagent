@@ -20,6 +20,7 @@ _MANIFEST_PATH = _PROMPT_ROOT / "manifest.json"
 _TOKEN = re.compile(r"\{\{([a-zA-Z][a-zA-Z0-9_]*)\}\}")
 _DOC_TEMPLATES = {
     "complete_notes",
+    "interactive_audio",
     "one_page",
     "error_confusion",
     "conversation_notes",

@@ -10,13 +10,14 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ..agents import doc_agent
 from ..agents.graph import run_with_events
 from ..llm import multimodal_gateway
 from ..models.db import session
 from ..models.entities import Resource
 from ..rag.ingest import validate_source_scope
-from ..schemas.core import GenerateRequest
-from ..services.profile_service import ensure_user
+from ..schemas.core import AudioRetryRequest, GenerateRequest
+from ..services.profile_service import ensure_user, log_event
 from .sse import sse_response
 
 router = APIRouter(prefix="/api/resources", tags=["resources"])
@@ -73,6 +74,70 @@ async def list_resources(user_id: str = Query("demo_user"),
             q = q.filter(Resource.kp == kp)
         rows = q.order_by(Resource.created_at.desc()).limit(limit).all()
         return {"items": [_row_to_dict(r) for r in rows]}
+
+
+@router.post("/{rid}/audio")
+async def retry_audio(rid: str, req: AudioRetryRequest):
+    """Retry cloud TTS while keeping browser speech as a visible fallback."""
+    ensure_user(req.user_id)
+    with session() as s:
+        resource = s.get(Resource, rid)
+        if not resource or resource.user_id != req.user_id:
+            raise HTTPException(404, "resource not found")
+        if resource.kind != "doc":
+            raise HTTPException(400, "only document resources support audio narration")
+        payload = dict(_as_json(resource.payload, {}))
+        markdown = str(payload.get("markdown") or "").strip()
+        if not markdown:
+            raise HTTPException(409, "resource has no narration content")
+        narration = str(payload.get("audio_narration") or "").strip()
+        if not narration:
+            narration = doc_agent._narration_text(resource.title, markdown)  # noqa: SLF001
+            payload["audio_narration"] = narration
+    result = await multimodal_gateway.tts(narration, trace_id=f"audio-retry-{rid}")
+    if isinstance(result, dict) and result.get("ok"):
+        payload["audio_url"] = str((result.get("data") or {}).get("audio_url") or "")
+        payload["audio"] = {
+            "status": "ready",
+            "provider": "spark_tts",
+            "error": "",
+            "retryable": False,
+        }
+    else:
+        payload.pop("audio_url", None)
+        error = (
+            str(result.get("error") or "云端语音暂时不可用")
+            if isinstance(result, dict) else "云端语音暂时不可用"
+        )
+        payload["audio"] = {
+            "status": "fallback",
+            "provider": "browser_speech",
+            "error": error[:240],
+            "retryable": True,
+        }
+
+    with session() as s:
+        resource = s.get(Resource, rid)
+        if not resource or resource.user_id != req.user_id:
+            raise HTTPException(404, "resource not found")
+        resource.payload = payload
+        if payload["audio"]["status"] == "ready":
+            safety = dict(_as_json(resource.safety, {}))
+            safety["flags"] = [
+                flag for flag in safety.get("flags", [])
+                if not isinstance(flag, dict) or flag.get("type") != "audio_degraded"
+            ]
+            resource.safety = safety
+        s.commit()
+        s.refresh(resource)
+        response_resource = _row_to_dict(resource)
+
+    log_event(req.user_id, "audio_retry", {
+        "resource_id": rid,
+        "status": payload["audio"]["status"],
+        "provider": payload["audio"]["provider"],
+    })
+    return {"resource": response_resource, "audio": payload["audio"], "reused": False}
 
 
 @router.get("/video/task/{task_id}")

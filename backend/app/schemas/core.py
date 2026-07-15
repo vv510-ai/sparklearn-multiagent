@@ -24,6 +24,10 @@ class GenerateRequest(BaseModel):
     prompt_template: str = Field(default="", description="后端白名单学习模板键")
 
 
+class AudioRetryRequest(BaseModel):
+    user_id: str = "demo_user"
+
+
 class TutorRequest(BaseModel):
     user_id: str = "demo_user"
     question: str = ""

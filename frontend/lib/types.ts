@@ -48,6 +48,7 @@ export interface ResourceItem {
   title: string;
   payload: {
     markdown?: string;
+    template?: string;
     markmap?: string;
     questions?: QuizQuestion[];
     difficulty?: number;
@@ -55,6 +56,13 @@ export interface ResourceItem {
     video?: { status?: string; url?: string; task_id?: string; error?: string; reason?: string };
     manim_code?: string;
     audio_url?: string;
+    audio_narration?: string;
+    audio?: {
+      status?: "ready" | "fallback" | "blocked" | string;
+      provider?: "spark_tts" | "browser_speech" | "none" | string;
+      error?: string;
+      retryable?: boolean;
+    };
     cover_url?: string;
     grounded?: boolean;
     remediation?: {

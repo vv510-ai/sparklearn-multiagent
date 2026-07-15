@@ -180,6 +180,7 @@ def _cover_prompt(name: str, *, source_bound: bool = False, custom_topic: bool =
 def _doc_label(default: str, template_key: str) -> str:
     return {
         "one_page": "一页看懂",
+        "interactive_audio": "互动讲解",
         "complete_notes": "学习笔记",
         "error_confusion": "易错易混",
         "conversation_notes": "对话笔记",
@@ -353,11 +354,15 @@ async def _gen_one(
         "reusable_note": prompt_template == "conversation_notes",
         "prompt_skill": prompt_call.metadata(),
     }
+    interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
+    narration = _narration_text(name, md)
+    if interactive_audio and not source_scope_missing:
+        payload["audio_narration"] = narration
     if (kind == "doc" and not source_scope_missing
             and prompt_template != "conversation_notes" and not skip_multimodal):
         audio, cover = await asyncio.gather(
             multimodal_gateway.tts(
-                _narration_text(name, md),
+                narration,
                 trace_id=trace_id,
             ),
             multimodal_gateway.text_to_image(
@@ -370,8 +375,41 @@ async def _gen_one(
         )
         if isinstance(audio, dict) and audio.get("ok"):
             payload["audio_url"] = audio["data"]["audio_url"]
+            if interactive_audio:
+                payload["audio"] = {
+                    "status": "ready",
+                    "provider": "spark_tts",
+                    "error": "",
+                    "retryable": False,
+                }
+        elif interactive_audio:
+            error = (
+                str(audio.get("error") or "云端语音暂时不可用")
+                if isinstance(audio, dict)
+                else str(audio) if isinstance(audio, BaseException)
+                else "云端语音暂时不可用"
+            )
+            payload["audio"] = {
+                "status": "fallback",
+                "provider": "browser_speech",
+                "error": error[:240],
+                "retryable": True,
+            }
+            flags.append({
+                "agent": "doc",
+                "kind": kind,
+                "type": "audio_degraded",
+                "detail": f"互动讲解已切换浏览器朗读：{error[:160]}",
+            })
         if isinstance(cover, dict) and cover.get("ok"):
             payload["cover_url"] = cover["data"]["image_url"]
+    elif interactive_audio:
+        payload["audio"] = {
+            "status": "blocked" if source_scope_missing else "fallback",
+            "provider": "none" if source_scope_missing else "browser_speech",
+            "error": "所选资料没有可朗读内容" if source_scope_missing else "云端语音生成已跳过",
+            "retryable": not source_scope_missing,
+        }
 
     resource = {"id": rid, "kind": kind, "kp": kp,
                 "title": f"{name}·{label}",

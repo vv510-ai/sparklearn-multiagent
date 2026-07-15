@@ -138,7 +138,7 @@ type ResourceItem = {
 
 | kind | payload 字段 | 前端组件 |
 | --- | --- | --- |
-| `doc` | `{ markdown, grounded, audio_url?, cover_url?, remediation? }` | Markdown + 星火 TTS 口播 + 可选封面；补救微课带诊断元数据 |
+| `doc` | `{ markdown, grounded, template?, audio_url?, audio_narration?, audio?, cover_url?, remediation? }` | Markdown + 云端 TTS；互动讲解失败时使用 `audio_narration` 浏览器朗读并暴露失败原因 |
 | `code` | `{ markdown, grounded }` | Markdown |
 | `reading` | `{ markdown, grounded }` | Markdown |
 | `mindmap` | `{ markmap }` | Markmap |
@@ -326,7 +326,8 @@ Accept: text/event-stream
   "goal": "两周后期末，希望用可视化方式理解二叉树",
   "knowledge_points": ["binary_tree"],
   "kinds": ["doc", "mindmap", "quiz", "video"],
-  "source_ids": ["demo_user_ab12cd34_note"]
+  "source_ids": ["demo_user_ab12cd34_note"],
+  "prompt_template": "complete_notes"
 }
 ```
 
@@ -339,6 +340,7 @@ Accept: text/event-stream
 | `knowledge_points` | string[] | 是 | 目标知识点 id |
 | `kinds` | string[] | 是 | 要生成的资源类型 |
 | `source_ids` | string[] | 否 | 指定已上传资料；为空时使用全局知识库 |
+| `prompt_template` | string | 否 | 白名单模板；互动音频使用 `interactive_audio` |
 
 返回：SSE 事件流。
 
@@ -416,6 +418,35 @@ GET /api/resources/{rid}
 ```
 
 状态码：`404`
+
+#### 4.7.1 重新生成互动讲解语音
+
+```http
+POST /api/resources/{rid}/audio
+Content-Type: application/json
+```
+
+```json
+{
+  "user_id": "demo_user"
+}
+```
+
+接口会重新调用云端 TTS 并更新原资源。成功时 `payload.audio.status` 为 `ready` 且带 `audio_url`；失败时返回 `fallback`、可读的 `error` 和保留的 `audio_narration`，前端继续使用浏览器中文朗读，不会再次静默消失。
+
+互动音频资源的状态示例：
+
+```json
+{
+  "audio_narration": "本节讲解二叉树……",
+  "audio": {
+    "status": "fallback",
+    "provider": "browser_speech",
+    "error": "TTS provider timeout",
+    "retryable": true
+  }
+}
+```
 
 ### 4.8 视频任务查询
 

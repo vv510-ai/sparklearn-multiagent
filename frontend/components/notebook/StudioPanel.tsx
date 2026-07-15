@@ -24,7 +24,7 @@ const GENERATORS = [
     tone: "green",
     goal: "请把当前学习主题整理成适合零基础学习者收听的短讲解：先用一句白话给结论，再讲一个最小例子和一个易错点。内容必须基于所选资料，方便我在播放中随时暂停提问。",
     kinds: ["doc"],
-    template: "one_page",
+    template: "interactive_audio",
   },
   {
     title: "一页看懂",

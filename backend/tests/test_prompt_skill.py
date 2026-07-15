@@ -31,6 +31,7 @@ def test_manifest_is_ready_for_an_mcp_wrapper():
         "tutor.guided",
         "tutor.followup",
         "doc.complete_notes",
+        "doc.interactive_audio",
         "doc.conversation_notes",
         "doc.question_review",
         "doc.exam_guide",
@@ -153,6 +154,22 @@ def test_remediation_prompt_is_narrow_and_returns_to_the_blocked_problem():
     assert "回到原问题" in remediation
     assert "不得泄漏原题标准答案" in remediation
     assert "不要扩展成完整章节" in remediation
+
+
+def test_interactive_audio_prompt_is_short_spoken_and_beginner_first():
+    audio = invoke_learning_prompt(
+        "doc.interactive_audio",
+        topic="二叉树",
+        goal="适合零基础收听",
+        persona="循序渐进",
+        context="二叉树每个节点最多有两个孩子。",
+    ).prompt
+
+    assert "60—90 秒口播" in audio
+    assert "一句白话给出核心结论" in audio
+    assert "最小例子" in audio
+    assert "适合朗读" in audio
+    assert "不得扩展成完整章节" in audio
 
 
 def test_remediation_quiz_requires_fresh_source_grounded_transfer_items():

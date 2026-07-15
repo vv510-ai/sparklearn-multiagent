@@ -168,6 +168,35 @@ def test_generate_sse_contract():
     assert {"doc", "mindmap", "quiz", "video"} <= {r["kind"] for r in resources}
 
 
+def test_interactive_audio_contract_keeps_a_playable_browser_fallback():
+    init_db()
+    ingest_corpus()
+    ensure_user("contract_audio_user")
+    events = asyncio.run(_collect({
+        "user_id": "contract_audio_user",
+        "session_id": "contract-interactive-audio",
+        "messages": [{"role": "user", "content": "请生成二叉树互动讲解"}],
+        "learning_goal": "请生成二叉树互动讲解",
+        "knowledge_points": ["binary_tree"],
+        "kinds": ["doc"],
+        "prompt_template": "interactive_audio",
+        "intent": "generate",
+    }))
+
+    resource = next(
+        event["resource"] for event in events
+        if event.get("type") == "resource" and event.get("resource", {}).get("kind") == "doc"
+    )
+    payload = resource["payload"]
+    assert resource["title"] == "二叉树·互动讲解"
+    assert payload["template"] == "interactive_audio"
+    assert payload["audio_narration"].startswith("本节讲解二叉树")
+    assert payload["audio"]["status"] in {"ready", "fallback"}
+    if payload["audio"]["status"] == "fallback":
+        assert payload["audio"]["provider"] == "browser_speech"
+        assert payload["audio"]["error"]
+
+
 def test_debug_run_report_contract():
     init_db()
     ingest_corpus()

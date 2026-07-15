@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.07.16.2",
+  "version": "2026.07.16.3",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -20,6 +20,10 @@
     "doc.complete_notes": {
       "description": "多资料融合的完整学习笔记",
       "file": "doc/complete-notes.md"
+    },
+    "doc.interactive_audio": {
+      "description": "适合边听边问的零基础短讲解",
+      "file": "doc/interactive-audio.md"
     },
     "doc.one_page": {
       "description": "一页看懂复习页",
