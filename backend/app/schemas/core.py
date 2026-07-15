@@ -34,6 +34,17 @@ class AnswerItem(BaseModel):
     answer: str
     correct: bool
     seconds: float = 0
+    hint_used: bool = False
+    revealed: bool = False
+    misconception: str = ""
+
+
+class EvalSupportRequest(BaseModel):
+    user_id: str = "demo_user"
+    quiz_resource_id: str
+    question_id: str
+    mode: Literal["hint", "reveal"]
+    attempt: str = ""
 
 
 class EvalSubmit(BaseModel):

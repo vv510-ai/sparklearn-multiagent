@@ -103,36 +103,53 @@ async def run(state: dict) -> dict:
 
 def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
     """答题闭环:BKT 逐题更新掌握度 → 错因标签回写画像 → 路径重排 → 评估报告。
-    answers: [{question_id, kp, correct, error_tags?, type?, difficulty?}]"""
+    answers: [{question_id, kp, correct, mastery_correct?, error_tags?, type?, difficulty?}]
+
+    ``correct`` is the raw grading result. ``mastery_correct`` is the learning
+    evidence used by BKT, so an answer seen via reveal cannot inflate mastery.
+    """
     per_kp: dict[str, dict] = {}
     error_counter: dict[str, int] = {}
     items: list[dict] = []
     affected_kps: set[str] = set()
     for a in answers:
         kp, correct = a.get("kp", ""), bool(a.get("correct"))
+        mastery_correct = bool(a.get("mastery_correct", correct))
         if not kp:
             continue
         affected_kps.add(kp)
-        new_m = update_mastery(user_id, kp, correct)
-        d = per_kp.setdefault(kp, {"kp": kp, "name": kp_name(kp), "n": 0, "right": 0})
+        new_m = update_mastery(user_id, kp, mastery_correct)
+        d = per_kp.setdefault(
+            kp,
+            {"kp": kp, "name": kp_name(kp), "n": 0, "right": 0,
+             "mastery_right": 0, "supported": 0},
+        )
         d["n"] += 1
         d["right"] += int(correct)
+        d["mastery_right"] += int(mastery_correct)
+        d["supported"] += int(a.get("support_level", "independent") != "independent")
         d["mastery"] = round(new_m, 3)
         d["level"] = mastery_level(new_m)
         items.append({
             "question_id": a.get("question_id", ""),
             "kp": kp,
             "correct": correct,
+            "mastery_correct": mastery_correct,
             "answer": a.get("answer", ""),
             "expected": a.get("expected", ""),
             "type": a.get("type", ""),
             "difficulty": a.get("difficulty", 0),
             "explain": a.get("explain", ""),
             "error_tags": a.get("error_tags") or [],
+            "hint_used": bool(a.get("hint_used")),
+            "revealed": bool(a.get("revealed")),
+            "misconception": a.get("misconception", ""),
+            "support_level": a.get("support_level", "independent"),
+            "seconds": a.get("seconds", 0),
             "mastery": round(new_m, 3),
             "level": mastery_level(new_m),
         })
-        if not correct:
+        if not mastery_correct:
             for t in a.get("error_tags") or ["未归因"]:
                 error_counter[t] = error_counter.get(t, 0) + 1
 

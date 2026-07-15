@@ -478,7 +478,28 @@ Content-Type: application/json
 
 用途：答题后、目标变化后、手动刷新路径。
 
-### 4.11 提交答题
+### 4.11 获取逐题学习支持
+
+```http
+POST /api/eval/support
+Content-Type: application/json
+```
+
+请求必须带上学习者已经写下的尝试，`mode` 可选 `hint` 或 `reveal`：
+
+```json
+{
+  "user_id": "demo_user",
+  "quiz_resource_id": "quiz_binary_tree_xxx",
+  "question_id": "q1",
+  "mode": "hint",
+  "attempt": "A"
+}
+```
+
+`hint` 只返回不含答案的确定性脚手架；`reveal` 返回参考答案、解析和题目错因标签。空尝试会返回 `400`，资源和题目必须属于当前用户。
+
+### 4.12 提交答题
 
 ```http
 POST /api/eval/submit
@@ -497,7 +518,10 @@ Content-Type: application/json
       "question_id": "q1",
       "answer": "A",
       "correct": true,
-      "seconds": 12
+      "seconds": 12,
+      "hint_used": true,
+      "revealed": false,
+      "misconception": ""
     }
   ],
   "behavior": {
@@ -518,6 +542,8 @@ Content-Type: application/json
       "name": "二叉树",
       "n": 5,
       "right": 4,
+      "mastery_right": 4,
+      "supported": 1,
       "mastery": 0.72,
       "level": "..."
     }
@@ -528,6 +554,8 @@ Content-Type: application/json
 }
 ```
 
+后端始终按题组资源重新判分，不信任客户端的 `correct`。`correct` 表示原始判分，`mastery_correct` 表示写入 BKT 的学习证据；题目一旦揭晓，即使答案正确也不会被算作独立掌握，并且提交前必须从白名单中选择一项自评错因。学习支持次数与学习者自评错因会写入 `behavior.support`。
+
 副作用：
 
 - 写入 `quiz_attempts`
@@ -536,7 +564,7 @@ Content-Type: application/json
 - 写入 `event_logs`
 - 触发路径重排
 
-### 4.12 学情报告
+### 4.13 学情报告
 
 ```http
 GET /api/eval/report?user_id=demo_user
