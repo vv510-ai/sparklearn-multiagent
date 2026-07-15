@@ -108,16 +108,10 @@ function LearningGate({
   onStart,
   onUpload,
   uploading,
-  uploadNote,
-  uploadError,
-  sourceCount,
 }: {
   onStart: (goal: string) => void;
   onUpload: (file: File) => void;
   uploading: boolean;
-  uploadNote: string;
-  uploadError: boolean;
-  sourceCount: number;
 }) {
   const [goal, setGoal] = useState("");
   const [transitioning, setTransitioning] = useState(false);
@@ -155,16 +149,8 @@ function LearningGate({
           </button>
         </nav>
 
-        <section className="learning-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
-          <h1 className="animate-fade-rise max-w-6xl text-[43px] font-normal leading-[0.98] text-white sm:text-7xl md:text-[82px]" style={{ fontFamily: "var(--font-display)" }}>
-            <span className="block">SparkLearn，</span>
-            <em className="mt-1 block whitespace-nowrap text-[37px] not-italic text-white/70 sm:text-7xl md:text-[82px]">学习的左膀右臂。</em>
-          </h1>
-          <p className="animate-fade-rise-delay mt-7 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
-            不需要选择身份。输入任何想学的内容，星火会把讲解、图解、练习与下一步整理到同一本学习笔记里。
-          </p>
-
-          <div className="liquid-glass glass-readable animate-fade-rise-delay-2 mt-7 flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
+        <section className="learning-gate-hero flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
+          <div className="liquid-glass glass-readable animate-fade-rise flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
             <input
               ref={fileRef}
               type="file"
@@ -185,21 +171,12 @@ function LearningGate({
               disabled={transitioning}
               onChange={(event) => setGoal(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && start()}
-              placeholder="你今天想学什么知识？"
+              placeholder="你今天想学什么？"
               className="min-w-0 flex-1 bg-transparent px-1 text-base text-white outline-none placeholder:text-white/45 sm:text-lg"
             />
             <button onClick={start} disabled={!goal.trim() || transitioning} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#092B38] transition hover:scale-[1.04] disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/35" aria-label="开始学习">
               <ArrowRight size={20} />
             </button>
-          </div>
-          <div className="mt-3 min-h-5 text-xs text-white/60">
-            {uploadNote ? (
-              <span className={uploadError ? "text-[#FFD0C6]" : "text-[#D7F6E6]"}>{uploadNote}</span>
-            ) : sourceCount ? (
-              <span>已准备 {sourceCount} 份个人资料，进入后可选择使用范围</span>
-            ) : (
-              <span>不上传也可以，系统会使用课程知识库</span>
-            )}
           </div>
         </section>
 
@@ -485,9 +462,6 @@ export default function Home() {
         onStart={startNotebook}
         onUpload={(file) => void uploadSource(file)}
         uploading={uploading}
-        uploadNote={uploadNote}
-        uploadError={uploadError}
-        sourceCount={sources.filter(isSourceSelectable).length}
       />
     );
   }
