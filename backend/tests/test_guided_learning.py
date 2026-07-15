@@ -34,7 +34,7 @@ def test_beginner_prompt_is_complete_and_contains_conversation():
         conversation=[{"role": "user", "content": "我总分不清左右子树"}],
         guided=True,
     )
-    for required in ("学习方法/路线", "只给完成当前目标所需的最少内容", "建议顺序", "现在只做什么", "不要输出程序代码"):
+    for required in ("学习方法/路线", "只给完成当前目标所需的最少内容", "不要套固定标题", "不要把前面的路线再重复一遍", "不要输出程序代码"):
         assert required in prompt
     assert "下方会出现基础练习卡" not in prompt
     call = render_tutor_prompt(
