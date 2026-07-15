@@ -10,7 +10,7 @@ import uuid
 from ..config import is_demo
 from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_complete
-from ..prompt_templates import render_learning_prompt
+from ..prompt_templates import invoke_learning_prompt, render_learning_prompt_call
 from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
@@ -19,19 +19,9 @@ from ..services.knowledge_graph import kp_name
 from .emitter import agent_end, agent_start, emit
 
 _STYLE = {
-    "doc": ("学习笔记", "TASK=doc\n请为知识点「{kp}」写一份可快速复习的结构化学习笔记(Markdown):"
-            "## 30 秒看懂(3-5 句直接结论)/## 知识框架(用 mermaid flowchart)/"
-            "## 核心笔记(定义、原理、步骤、复杂度)/## 易错点(错误表现、原因、改法)/"
-            "## 易混对照(用表格比较相近概念)/## 3 分钟自测(3 个问题)。"
-            "每一节先给结论再解释,避免长段落和空泛表述。"
-            "正文中的事实性表述用脚注 [^n] 标注来源编号(n 对应参考资料编号),"
-            "结合学生画像调整深浅:{persona}。"),
-    "code": ("代码示例", "TASK=doc\n请为知识点「{kp}」编写可运行的 Python 代码教学示例(Markdown):"
-             "完整代码块(含详细中文注释)+ 逐段讲解 + 一个典型错误写法对比 + 复杂度说明,"
-             "事实性表述用 [^n] 标注来源;贴合画像:{persona}。"),
-    "reading": ("拓展阅读", "TASK=doc\n请为知识点「{kp}」写一篇拓展阅读(Markdown):"
-                "工程实战应用 / 历史与典故 / 与相邻知识点的联系 / 进阶方向,"
-                "事实性表述用 [^n] 标注来源;贴合画像:{persona}。"),
+    "doc": ("学习笔记", "doc.complete_notes"),
+    "code": ("代码示例", "doc.code"),
+    "reading": ("拓展阅读", "doc.reading"),
 }
 
 _DOC_TIMEOUT_S = 75
@@ -47,7 +37,7 @@ def _persona(profile: dict) -> str:
 def _conversation_text(state: dict, limit: int = 10000) -> str:
     items = state.get("conversation") or state.get("messages") or []
     lines = [
-        f"{('用户' if item.get('role') == 'user' else '学伴')}：{str(item.get('content') or '').strip()}"
+        f"{('学习者' if item.get('role') == 'user' else '学伴')}：{str(item.get('content') or '').strip()}"
         for item in items
         if str(item.get("content") or "").strip()
     ]
@@ -87,9 +77,9 @@ def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
 def _conversation_fallback_doc(name: str, conversation: str, chunks: list[dict]) -> str:
     dialog_lines = [line.strip() for line in conversation.splitlines() if line.strip()]
     user_lines = [
-        line.removeprefix("用户：")
+        line.removeprefix("学习者：")
         for line in dialog_lines
-        if line.startswith("用户：") and not any(word in line for word in ("整理", "总结", "个人笔记"))
+        if line.startswith("学习者：") and not any(word in line for word in ("整理", "总结", "个人笔记"))
     ]
     assistant_lines = [line.removeprefix("学伴：") for line in dialog_lines if line.startswith("学伴：")]
     lines = [
@@ -160,6 +150,8 @@ def _doc_label(default: str, template_key: str) -> str:
         "complete_notes": "学习笔记",
         "error_confusion": "易错易混",
         "conversation_notes": "对话笔记",
+        "question_review": "题目复盘",
+        "exam_guide": "考点手册",
     }.get(str(template_key or "").strip().lower(), default)
 
 
@@ -175,7 +167,7 @@ async def _gen_one(
     trace_id: str,
 ) -> dict:
     name = kp_name(kp)
-    label, tpl = _STYLE.get(kind, _STYLE["doc"])
+    label, capability = _STYLE.get(kind, _STYLE["doc"])
     if kind == "doc":
         label = _doc_label(label, prompt_template)
     chunks = retrieve(
@@ -186,7 +178,7 @@ async def _gen_one(
     )
     ctx, citations = build_context(chunks)
     if kind == "doc":
-        prompt = render_learning_prompt(
+        prompt_call = render_learning_prompt_call(
             prompt_template,
             topic=name,
             goal=goal,
@@ -195,11 +187,14 @@ async def _gen_one(
             conversation=conversation,
         )
     else:
-        prompt = (
-            tpl.format(kp=name, persona=_persona(profile))
-            + f"\n\n用户本次需求:\n{goal or f'系统学习{name}'}"
-            + f"\n\n参考资料(回答只可依据这些;引用其编号):\n{ctx}"
+        prompt_call = invoke_learning_prompt(
+            capability,
+            topic=name,
+            persona=_persona(profile),
+            goal=goal or f"系统学习{name}",
+            context=ctx or "（没有检索到可用资料）",
         )
+    prompt = prompt_call.prompt
     flags = []
     fallback = False
     demo_fallback = is_demo()
@@ -226,6 +221,7 @@ async def _gen_one(
                 llm_complete(
                     prompt,
                     role="ultra",
+                    system=prompt_call.system,
                     temperature=0.5,
                     max_tokens=1800,
                     allow_mock_fallback=prompt_template != "conversation_notes",
@@ -285,6 +281,7 @@ async def _gen_one(
         "grounded": ground.get("grounded", True),
         "template": prompt_template,
         "reusable_note": prompt_template == "conversation_notes",
+        "prompt_skill": prompt_call.metadata(),
     }
     if kind == "doc" and not source_scope_missing and prompt_template != "conversation_notes":
         audio, cover = await asyncio.gather(

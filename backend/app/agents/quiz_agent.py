@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..config import is_demo
 from ..llm.spark_client import llm_complete, parse_json
+from ..prompt_templates import render_quiz_prompt_call
 from ..rag.retriever import retrieve
 from ..services.knowledge_graph import kp_name
 from .emitter import agent_end, agent_start, emit
@@ -17,30 +18,6 @@ _TYPES = {"single", "fill", "judge", "design", "complexity"}
 _TARGET_QUESTIONS = 8
 _MIN_QUESTIONS = 6
 _SEED_QUIZ_PATH = Path(__file__).resolve().parents[1] / "data" / "seed_quiz.json"
-
-_PROMPT = (
-    "TASK=quiz\n"
-    "请围绕知识点「{kp}」恰好生成 8 道习题,难度档={difficulty}(1易~5难)。"
-    "题型至少包含 3 道 single(单选,4 选项)、1 道 fill(填空)、1 道 judge(判断)、"
-    "1 道 complexity(复杂度分析)、1 道 design(简答设计),剩余 1 道自选。"
-    "single 以及带选项的 complexity 的 answer 必须只填 A/B/C/D,每题解释控制在 80 字以内。"
-    "结合参考资料命题,易错点优先。只输出 JSON:\n"
-    '{{"questions":[{{"type":"single","stem":"...","options":["A...","B...","C...","D..."],'
-    '"answer":"A","explain":"...","kp":"{kpid}","difficulty":3,"error_tags":["边界条件"]}}]}}\n'
-    "\n参考资料:\n{ctx}\n"
-)
-
-_GUIDED_PROMPT = (
-    "TASK=quiz\nMODE=guided\n"
-    "请围绕知识点「{kp}」恰好生成 5 道零基础巩固题,难度档={difficulty}(强制控制在 1~2)。"
-    "题型必须包含 2 道 single(单选,4 选项)、1 道 judge(判断)、1 道 fill(填空)、"
-    "1 道 design(一句话问答)。先考定义和最小例子，再考一个易错边界；不要突然加入进阶概念。"
-    "single 的 answer 必须只填 A/B/C/D；每题解释先说为什么，再用一句生活化提示收尾。"
-    "只输出 JSON:\n"
-    '{{"questions":[{{"type":"single","stem":"...","options":["A...","B...","C...","D..."],'
-    '"answer":"A","explain":"...","kp":"{kpid}","difficulty":1,"error_tags":["概念边界"]}}]}}\n'
-    "\n参考资料:\n{ctx}\n"
-)
 
 _FALLBACK = {
     "type": "judge", "stem": "任何递归算法都可以改写为迭代实现。", "options": [],
@@ -187,13 +164,24 @@ async def run(state: dict) -> dict:
                               "detail": "所选资料没有可检索内容"}],
         }
     ctx = "\n---\n".join(c["text"][:280] for c in chunks) or "(无)"
+    prompt_call = render_quiz_prompt_call(
+        kp=name,
+        kpid=kp,
+        difficulty=diff,
+        context=ctx,
+        guided=guided,
+    )
     if is_demo():
         items = []
     else:
         try:
-            prompt_template = _GUIDED_PROMPT if guided else _PROMPT
-            raw = await llm_complete(prompt_template.format(kp=name, kpid=kp, difficulty=diff, ctx=ctx),
-                                     role="ultra", temperature=0.6, max_tokens=3000)
+            raw = await llm_complete(
+                prompt_call.prompt,
+                system=prompt_call.system,
+                role="ultra",
+                temperature=0.6,
+                max_tokens=3000,
+            )
             data = parse_json(raw)
             items = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
         except Exception:  # noqa: BLE001
@@ -224,7 +212,8 @@ async def run(state: dict) -> dict:
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "quiz", "kp": kp,
                 "title": f"{name}·智能习题组({len(questions)} 题)",
-                "payload": {"questions": questions, "difficulty": diff},
+                "payload": {"questions": questions, "difficulty": diff,
+                            "prompt_skill": prompt_call.metadata()},
                 "citations": [c.get("citation", "") for c in chunks]}
     await emit({"type": "resource", "resource": resource})
     tags = sorted({t for q in questions for t in q.get("error_tags", [])})

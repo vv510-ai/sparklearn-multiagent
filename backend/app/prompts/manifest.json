@@ -1,0 +1,89 @@
+{
+  "name": "sparklearn.learning_prompt",
+  "version": "2026.07.15.2",
+  "system": "system.md",
+  "partials": {
+    "source_rules": "shared/source-grounding.md",
+    "beginner_rules": "shared/beginner-first.md",
+    "integration_rules": "shared/multi-source-integration.md",
+    "output_rules": "shared/output-check.md"
+  },
+  "capabilities": {
+    "tutor.guided": {
+      "description": "新主题零基础引导讲解",
+      "file": "tutor/guided.md"
+    },
+    "tutor.followup": {
+      "description": "沿用上下文解决当前卡点",
+      "file": "tutor/followup.md"
+    },
+    "doc.complete_notes": {
+      "description": "多资料融合的完整学习笔记",
+      "file": "doc/complete-notes.md"
+    },
+    "doc.one_page": {
+      "description": "一页看懂复习页",
+      "file": "doc/one-page.md"
+    },
+    "doc.error_confusion": {
+      "description": "易错点与易混概念手册",
+      "file": "doc/error-confusion.md"
+    },
+    "doc.conversation_notes": {
+      "description": "完整学习对话转可复用笔记",
+      "file": "doc/conversation-notes.md"
+    },
+    "doc.question_review": {
+      "description": "已有题目与选项的知识复盘",
+      "file": "doc/question-review.md"
+    },
+    "doc.exam_guide": {
+      "description": "黄金考点与解题策略手册",
+      "file": "doc/exam-guide.md"
+    },
+    "doc.code": {
+      "description": "零基础代码教学示例",
+      "file": "doc/code.md"
+    },
+    "doc.reading": {
+      "description": "资料内拓展阅读",
+      "file": "doc/reading.md"
+    },
+    "quiz.guided": {
+      "description": "零基础巩固练习",
+      "file": "quiz/guided.md"
+    },
+    "quiz.standard": {
+      "description": "按掌握度生成综合练习",
+      "file": "quiz/standard.md"
+    },
+    "mindmap.leaf": {
+      "description": "资料内概念导图节点",
+      "file": "mindmap/leaf.md"
+    },
+    "media.video_script": {
+      "description": "生活化讲解短视频分镜",
+      "file": "media/video-script.md"
+    },
+    "media.manim": {
+      "description": "资料内过程可视化代码",
+      "file": "media/manim.md"
+    },
+    "orchestrator.intent": {
+      "description": "学习请求意图识别",
+      "file": "orchestrator/intent.md"
+    },
+    "planner.resources": {
+      "description": "学习资源组合规划",
+      "file": "planner/resources.md"
+    },
+    "profile.update": {
+      "description": "学习画像增量提取",
+      "file": "profile/update.md"
+    },
+    "safety.grounding": {
+      "description": "回答与资料一致性核查",
+      "file": "safety/grounding.md"
+    }
+  }
+}

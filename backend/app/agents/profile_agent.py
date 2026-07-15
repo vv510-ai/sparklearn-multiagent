@@ -1,33 +1,18 @@
 """画像构建智能体(Profile Agent)。
 
 职责:通过多轮自然语言对话 + 学习行为日志,调用星火 Lite/Ultra 抽取并动态更新
-≥6 维学生画像,写入数据库,支持"随学随新"(每次交互后增量更新)。
+≥6 维学习画像,写入数据库,支持"随学随新"(每次交互后增量更新)。
 """
 from __future__ import annotations
 
 import logging
 
 from ..llm.spark_client import llm_complete, parse_json
+from ..prompt_templates import invoke_learning_prompt
 from ..services.profile_service import get_profile, merge_profile, recent_events
 from .emitter import agent_end, agent_start, emit
 
 log = logging.getLogger("sparklearn.profile")
-
-_PROMPT = (
-    "TASK=profile\n"
-    "你是学生画像分析师。基于【对话】与【近期学习行为】,抽取可更新的画像字段;"
-    "无法判断的字段不要输出。字段定义:\n"
-    "cognitive_style: 视觉型|语言型|动手型\n"
-    "goal: 应试|竞赛|工程实践|兴趣\n"
-    "difficulty_pref: 循序渐进|挑战式\n"
-    "error_prone: [易错知识点或错误类型]\n"
-    "metacognition: 0-1 浮点(自评准确度/求助合理性)\n"
-    "evidence: 一句话说明依据\n"
-    "不要输出 knowledge_mastery、pace、resource_pref;"
-    "这三项分别由 BKT、真实时长统计和资源行为统计维护。\n"
-    "只输出 JSON 对象。\n\n【对话】\n{dialog}\n\n【近期学习行为】\n{events}\n"
-)
-
 
 async def run(state: dict) -> dict:
     user_id = state.get("user_id", "demo_user")
@@ -51,8 +36,14 @@ async def run(state: dict) -> dict:
 
     patch: dict = {}
     try:
-        raw = await llm_complete(_PROMPT.format(dialog=dialog, events=ev_text),
-                                 role="lite", temperature=0.2, json_mode=True)
+        prompt_call = invoke_learning_prompt("profile.update", dialog=dialog, events=ev_text)
+        raw = await llm_complete(
+            prompt_call.prompt,
+            system=prompt_call.system,
+            role="lite",
+            temperature=0.2,
+            json_mode=True,
+        )
         patch = parse_json(raw)
         if not isinstance(patch, dict):
             patch = {}

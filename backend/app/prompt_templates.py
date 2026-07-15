@@ -1,120 +1,181 @@
-"""Safe, source-grounded learning templates distilled from prompt.docx."""
+"""File-backed Prompt Skill loader.
+
+All model-facing wording lives under ``app/prompts``. Python only selects a
+capability, injects variables, and returns the software-wide system prompt plus
+the module prompt. Templates are intentionally re-read on every call so a
+maintainer can replace a Markdown file without editing Python or restarting a
+long-running development process.
+"""
 from __future__ import annotations
 
-from string import Formatter
+from dataclasses import dataclass
+import json
+from pathlib import Path
+import re
+from typing import Any
 
 
-_COMMON_RULES = """
-通用约束：
-1. 只能使用“参考资料”中的事实，不补充外部知识；资料不足时明确指出缺口。
-2. 按知识逻辑重组，不照抄资料顺序；完整覆盖、合并重复内容，并保留独有的概念、例子、数据、公式和代码。
-3. 先给结论再解释。概念说明“是什么、为什么、怎么用、与相邻概念的关系”。
-4. 适合比较的内容使用 Markdown 表格；适合流程或层级的内容使用可渲染的 Mermaid。
-5. 公式说明变量、适用条件和推导关键步；代码说明整体目标、模块职责、参数、返回值、数据流和边界条件。
-6. 不添加外部链接。事实性表述用 [^n] 标注资料编号。
-7. 面向初学者时先讲日常语言，再补专业术语；第一次出现的术语必须就地解释。
-8. 生活化类比必须与知识点一一对应，同一主题尽量沿用同一个比喻场景。
-9. 记忆口诀、故事或谐音只能帮助回忆，随后必须还原为准确的正式表述。
-""".strip()
-
-
-PROMPT_TEMPLATES: dict[str, str] = {
-    "complete_notes": """
-TASK=doc
-请围绕“{topic}”制作一份零基础也能看懂、理解后还能复习的完整学习笔记。
-用户目标：{goal}
-学生画像：{persona}
-
-建议结构：
-# 标题
-## 一句话先懂
-## 从资料里抓住 3—5 个重点
-## 生活里的类比
-## 最小可理解例子
-## 一张小图（适合时使用 Mermaid）
-## 核心概念与关系（此处再引入术语）
-## 原理与关键步骤（由浅入深）
-## 公式或代码（资料中存在时）
-## 易错点与易混对照
-## 记忆钩子（口诀、故事或关键词串联，按需选一种）
-## 检查理解（2 个选择题、1 个判断题、1 个简答题，答案统一放在最后）
-## 3 分钟回顾
-
-{common_rules}
-
-参考资料：
-{context}
-""".strip(),
-    "one_page": """
-TASK=doc
-请把“{topic}”整理为一份真正可在一页内快速理解的复习页。
-用户目标：{goal}
-学生画像：{persona}
-
-必须包含：直接结论、全局框架、学习路径、核心概念、运行机制、关键方法，
-以及资料中实际出现的公式/代码、1—3 个例子、3—6 个易错点和一个记忆抓手。
-内容过密时优先压缩措辞，不得通过删掉关键条件来变短。
-
-{common_rules}
-
-参考资料：
-{context}
-""".strip(),
-    "error_confusion": """
-TASK=doc
-请围绕“{topic}”整理易错点与易混概念，不要生成新的练习题。
-用户目标：{goal}
-学生画像：{persona}
-
-对每个易错点说明：错误表现、根本原因、正确做法、适用边界、反例或识别信号。
-对每组易混概念使用表格比较定义、触发条件、关键差异、常见陷阱和记忆抓手。
-最后给出一份考前快速复核清单。
-
-{common_rules}
-
-参考资料：
-{context}
-""".strip(),
-    "conversation_notes": """
-TASK=conversation_notes
-请把“{topic}”这次学习过程整理成一份可以继续复习、并能在以后学习中再次调用的个人笔记。
-用户目标：{goal}
-学生画像：{persona}
-
-必须同时使用“学习对话”和“参考资料”，但二者职责不同：
-- 学习对话用于还原用户问过什么、哪里卡住、用了什么例子、已经理解到哪一步。
-- 参考资料用于支撑知识事实；事实性内容仍要用 [^n] 标注出处。
-- 不得编造用户没有说过的问题、错误或学习进度。
-
-输出结构：
-# 本次学习笔记：{topic}
-## 一句话结论
-## 我们是怎样一步步理解的
-## 资料中的核心知识
-## 最有用的生活化类比与最小例子
-## 我问过的问题与已经澄清的地方
-## 易错点与仍需补强的地方
-## 一张复习小图（适合时使用 Mermaid）
-## 记忆钩子（口诀、故事或关键词串联）
-## 三分钟复习清单
-## 下一步建议
-
-学习对话：
-{conversation}
-
-{common_rules}
-
-参考资料：
-{context}
-""".strip(),
+_PROMPT_ROOT = Path(__file__).resolve().parent / "prompts"
+_MANIFEST_PATH = _PROMPT_ROOT / "manifest.json"
+_TOKEN = re.compile(r"\{\{([a-zA-Z][a-zA-Z0-9_]*)\}\}")
+_DOC_TEMPLATES = {
+    "complete_notes",
+    "one_page",
+    "error_confusion",
+    "conversation_notes",
+    "question_review",
+    "exam_guide",
 }
-
 DEFAULT_TEMPLATE = "complete_notes"
+
+
+@dataclass(frozen=True)
+class PromptCall:
+    """A rendered, traceable prompt capability invocation."""
+
+    capability: str
+    prompt: str
+    system: str
+    version: str
+
+    def metadata(self) -> dict[str, str]:
+        return {
+            "name": "sparklearn.learning_prompt",
+            "capability": self.capability,
+            "version": self.version,
+        }
+
+
+def _load_manifest() -> dict[str, Any]:
+    try:
+        data = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError) as exc:
+        raise RuntimeError(f"cannot load prompt manifest: {_MANIFEST_PATH}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("capabilities"), dict):
+        raise RuntimeError("prompt manifest must contain a capabilities object")
+    return data
+
+
+def _prompt_path(relative_path: str) -> Path:
+    path = (_PROMPT_ROOT / str(relative_path or "")).resolve()
+    if _PROMPT_ROOT.resolve() not in path.parents:
+        raise ValueError(f"prompt path escapes prompt root: {relative_path}")
+    if path.suffix.lower() != ".md":
+        raise ValueError(f"prompt file must be Markdown: {relative_path}")
+    return path
+
+
+def _read_prompt(relative_path: str) -> str:
+    try:
+        return _prompt_path(relative_path).read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"cannot read prompt file: {relative_path}") from exc
+
+
+def _partials(manifest: dict[str, Any]) -> dict[str, str]:
+    items = manifest.get("partials") or {}
+    if not isinstance(items, dict):
+        raise RuntimeError("prompt manifest partials must be an object")
+    return {str(name): _read_prompt(str(path)) for name, path in items.items()}
+
+
+def _render(template: str, values: dict[str, Any], *, label: str) -> str:
+    string_values = {str(key): str(value) for key, value in values.items()}
+    missing = sorted(set(_TOKEN.findall(template)) - string_values.keys())
+    if missing:
+        raise ValueError(f"prompt {label} is missing variables: {missing}")
+    return _TOKEN.sub(lambda match: string_values[match.group(1)], template)
+
+
+def prompt_skill_manifest() -> dict[str, Any]:
+    """Return a public manifest suitable for a future MCP wrapper."""
+
+    manifest = _load_manifest()
+    capabilities = {
+        str(key): str(value.get("description") or "")
+        for key, value in manifest["capabilities"].items()
+        if isinstance(value, dict)
+    }
+    return {
+        "name": str(manifest.get("name") or "sparklearn.learning_prompt"),
+        "version": str(manifest.get("version") or "unversioned"),
+        "capabilities": capabilities,
+    }
+
+
+_INITIAL_MANIFEST = prompt_skill_manifest()
+PROMPT_SKILL_VERSION = _INITIAL_MANIFEST["version"]
+PROMPT_CAPABILITIES: dict[str, str] = dict(_INITIAL_MANIFEST["capabilities"])
+
+
+def invoke_learning_prompt(capability: str, **values: Any) -> PromptCall:
+    """Render one named capability from disk, like invoking an MCP prompt tool."""
+
+    key = str(capability or "").strip().lower()
+    manifest = _load_manifest()
+    entry = manifest["capabilities"].get(key)
+    if not isinstance(entry, dict):
+        raise ValueError(f"unsupported learning prompt capability: {capability}")
+    partials = _partials(manifest)
+    defaults: dict[str, Any] = {}
+    if key.startswith("doc."):
+        defaults = {
+            "topic": "当前主题",
+            "goal": "系统学习当前主题",
+            "persona": "循序渐进",
+            "context": "（没有检索到可用资料）",
+            "conversation": "（当前没有可整理的学习对话）",
+        }
+    all_values = {**partials, **defaults, **values}
+    system = _render(
+        _read_prompt(str(manifest.get("system") or "system.md")),
+        all_values,
+        label="system",
+    )
+    prompt = _render(
+        _read_prompt(str(entry.get("file") or "")),
+        all_values,
+        label=key,
+    )
+    return PromptCall(
+        capability=key,
+        prompt=prompt,
+        system=system,
+        version=str(manifest.get("version") or "unversioned"),
+    )
 
 
 def supported_template(value: str) -> str:
     key = str(value or "").strip().lower()
-    return key if key in PROMPT_TEMPLATES else DEFAULT_TEMPLATE
+    return key if key in _DOC_TEMPLATES else DEFAULT_TEMPLATE
+
+
+def _dialog_text(conversation: list[dict] | None) -> str:
+    return "\n".join(
+        f"{('学习者' if item.get('role') == 'user' else '学伴')}: {str(item.get('content') or '').strip()}"
+        for item in (conversation or [])[-10:]
+        if str(item.get("content") or "").strip()
+    ) or "（这是本主题的第一次交流）"
+
+
+def render_learning_prompt_call(
+    template_key: str,
+    *,
+    topic: str,
+    goal: str,
+    persona: str,
+    context: str,
+    conversation: str = "",
+) -> PromptCall:
+    key = supported_template(template_key)
+    return invoke_learning_prompt(
+        f"doc.{key}",
+        topic=topic or "当前主题",
+        goal=goal or f"系统学习{topic or '当前主题'}",
+        persona=persona or "循序渐进",
+        context=context or "（没有检索到可用资料）",
+        conversation=conversation or "（当前没有可整理的学习对话）",
+    )
 
 
 def render_learning_prompt(
@@ -126,18 +187,93 @@ def render_learning_prompt(
     context: str,
     conversation: str = "",
 ) -> str:
-    """Render an allow-listed template; arbitrary user format strings are never executed."""
-    key = supported_template(template_key)
-    values = {
-        "topic": topic,
-        "goal": goal or f"系统学习{topic}",
-        "persona": persona,
-        "context": context or "（没有检索到可用资料）",
-        "conversation": conversation or "（当前没有可整理的学习对话）",
-        "common_rules": _COMMON_RULES,
-    }
-    required = {name for _, name, _, _ in Formatter().parse(PROMPT_TEMPLATES[key]) if name}
-    missing = required - values.keys()
-    if missing:
-        raise ValueError(f"prompt template is missing values: {sorted(missing)}")
-    return PROMPT_TEMPLATES[key].format_map(values)
+    """Backward-compatible document prompt renderer."""
+
+    return render_learning_prompt_call(
+        template_key,
+        topic=topic,
+        goal=goal,
+        persona=persona,
+        context=context,
+        conversation=conversation,
+    ).prompt
+
+
+def render_tutor_prompt(
+    question: str,
+    profile: dict,
+    context: str,
+    source_ids: list[str],
+    *,
+    conversation: list[dict] | None = None,
+    guided: bool = False,
+) -> PromptCall:
+    source_scope = (
+        "仅使用本次选中的学习资料"
+        if source_ids
+        else "使用课程知识库和已经沉淀的个人学习笔记"
+    )
+    return invoke_learning_prompt(
+        "tutor.guided" if guided else "tutor.followup",
+        question=question or "请从最基础开始讲解当前主题",
+        cognitive_style=profile.get("cognitive_style", "视觉型"),
+        difficulty_pref=profile.get("difficulty_pref", "循序渐进"),
+        pace=profile.get("pace", "常规"),
+        source_scope=source_scope,
+        conversation=_dialog_text(conversation),
+        context=context or "（没有检索到可用片段）",
+    )
+
+
+def render_quiz_prompt_call(
+    *, kp: str, kpid: str, difficulty: int, context: str, guided: bool,
+) -> PromptCall:
+    return invoke_learning_prompt(
+        "quiz.guided" if guided else "quiz.standard",
+        kp=kp or "当前知识点",
+        kpid=kpid or "unknown",
+        difficulty=max(1, min(5, int(difficulty or 1))),
+        context=context or "（没有可用资料）",
+    )
+
+
+def render_quiz_prompt(*, kp: str, kpid: str, difficulty: int, context: str, guided: bool) -> str:
+    return render_quiz_prompt_call(
+        kp=kp, kpid=kpid, difficulty=difficulty, context=context, guided=guided,
+    ).prompt
+
+
+def render_mindmap_prompt_call(*, kp: str, context: str) -> PromptCall:
+    return invoke_learning_prompt(
+        "mindmap.leaf", kp=kp or "当前概念", context=context or "（无）",
+    )
+
+
+def render_mindmap_prompt(*, kp: str, context: str) -> str:
+    return render_mindmap_prompt_call(kp=kp, context=context).prompt
+
+
+def render_video_prompt_call(*, kp: str, goal: str, context: str) -> PromptCall:
+    return invoke_learning_prompt(
+        "media.video_script",
+        kp=kp or "当前知识点",
+        goal=goal or "理解并记住该知识点",
+        context=context or "（无）",
+    )
+
+
+def render_video_prompt(*, kp: str, goal: str, context: str) -> str:
+    return render_video_prompt_call(kp=kp, goal=goal, context=context).prompt
+
+
+def render_manim_prompt_call(*, kp: str, class_name: str, context: str) -> PromptCall:
+    return invoke_learning_prompt(
+        "media.manim",
+        kp=kp or "当前知识点",
+        class_name=class_name or "LearningScene",
+        context=context or "（无）",
+    )
+
+
+def render_manim_prompt(*, kp: str, class_name: str, context: str) -> str:
+    return render_manim_prompt_call(kp=kp, class_name=class_name, context=context).prompt

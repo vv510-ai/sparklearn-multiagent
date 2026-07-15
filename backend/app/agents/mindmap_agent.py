@@ -7,25 +7,13 @@ import uuid
 
 from ..config import is_demo
 from ..llm.spark_client import llm_complete
+from ..prompt_templates import PromptCall, render_mindmap_prompt_call
 from ..rag.citation import build_context
 from ..rag.ingest import load_all_chunks
 from ..rag.retriever import retrieve
 from ..services.bkt import mastery_level
 from ..services.knowledge_graph import kp_name, load_kg, prerequisites, unlockable
 from .emitter import agent_end, agent_start, emit
-
-_PROMPT = (
-    "TASK=mindmap_leaf\n"
-    "你只负责展开思维导图中一个概念节点。概念:「{kp}」。\n"
-    "要求:只依据参考资料提炼 3-5 个短要点,不要编造资料外概念;"
-    "每条要点约 6-14 个字,必须是短词组或半句话,不要写完整长句,"
-    "不要一条里塞多个意思;只输出 Markdown 无序列表,每行以 - 开头,"
-    "不要解释、不要前后缀、不要 Markdown 以外的修饰。\n"
-    "格式例子只示范长短,禁止照抄示例词:好「先来先服务 FCFS」「按到达顺序调度」;"
-    "坏「先来先服务(FCFS)是一种最简单的调度算法,它按照进程到达的先后顺序进行调度处理」。\n\n"
-    "参考资料:\n{ctx}\n"
-)
-
 
 def _clean_point(line: str) -> str:
     line = re.sub(r"^\s*[-*+]\s*", "", line.strip())
@@ -161,24 +149,32 @@ def _retrieve_node_chunks(query: str, node_id: str, source_ids: list[str]) -> li
     return []
 
 
-async def _expand_node(node_id: str, *, source_ids: list[str], goal: str) -> tuple[list[str], list[dict], str]:
+async def _expand_node(
+    node_id: str, *, source_ids: list[str], goal: str,
+) -> tuple[list[str], list[dict], PromptCall]:
     name = kp_name(node_id)
     node_desc = load_kg()["nodes"].get(node_id, {}).get("desc", "")
     query = f"{name} {node_desc} 概念 性质 操作 算法 复杂度 易错点 {goal}"
     chunks = _retrieve_node_chunks(query, node_id, source_ids)
     ctx, citations = build_context(chunks)
-    prompt = _PROMPT.format(kp=name, ctx=ctx or "(无)")
+    prompt_call = render_mindmap_prompt_call(kp=name, context=ctx or "(无)")
 
     points: list[str] = []
     if chunks and not is_demo():
         try:
-            raw = await llm_complete(prompt, role="lite", temperature=0.2, max_tokens=260)
+            raw = await llm_complete(
+                prompt_call.prompt,
+                system=prompt_call.system,
+                role="lite",
+                temperature=0.2,
+                max_tokens=260,
+            )
             points = _points_from_text(raw)
         except Exception:
             points = []
     if not points:
         points = _fallback_points(chunks)
-    return points[:5], citations, prompt
+    return points[:5], citations, prompt_call
 
 
 def _render_markmap(root_name: str, expanded: list[tuple[str, str, list[str]]]) -> str:
@@ -262,21 +258,24 @@ async def run(state: dict) -> dict:
     expanded: list[tuple[str, str, list[str]]] = []
     citations: list[dict] = []
     prompt_samples: list[str] = []
+    prompt_meta: dict[str, str] = {}
     outline = _outline_for_scope(kp, source_ids)
     for relation, node_id in outline:
-        points, node_citations, prompt = await _expand_node(node_id, source_ids=source_ids, goal=goal)
+        points, node_citations, prompt_call = await _expand_node(node_id, source_ids=source_ids, goal=goal)
         expanded.append((relation, _node_label(node_id, mastery, unlocked), points))
         citations.extend(node_citations)
+        prompt_meta = prompt_call.metadata()
         if relation == "当前":
-            prompt_samples = [prompt[:600]]
+            prompt_samples = [prompt_call.prompt[:600]]
         elif not prompt_samples:
-            prompt_samples.append(prompt[:600])
+            prompt_samples.append(prompt_call.prompt[:600])
 
     md = _render_markmap(_node_label(kp, mastery, unlocked), expanded)
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "mindmap", "kp": kp,
                 "title": f"{name}·{'资料框架' if source_ids else '思维导图'}",
                 "payload": {"markmap": md,
+                            "prompt_skill": prompt_meta,
                             "outline_node_ids": [{"relation": rel, "id": node_id}
                                                  for rel, node_id in outline]},
                 "citations": list(dict.fromkeys(c.get("citation", "") for c in citations if c.get("citation")))}

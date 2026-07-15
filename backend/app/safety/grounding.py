@@ -8,24 +8,23 @@ from __future__ import annotations
 import logging
 
 from ..llm.spark_client import llm_complete, parse_json
+from ..prompt_templates import invoke_learning_prompt
 
 log = logging.getLogger("sparklearn.grounding")
-
-_PROMPT = (
-    "TASK=grounding\n"
-    "你是教育内容事实核查员。基于以下【资料】判断【回答】是否完全有据可依:\n"
-    "- 列出资料中找不到出处的句子(unsupported);\n"
-    "- grounded=true 当且仅当所有关键论断均有出处;\n"
-    "输出 JSON:{{\"grounded\": bool, \"unsupported\": [\"...\"], \"verdict\": \"一句话结论\"}}\n\n"
-    "【资料】\n{ctx}\n\n【回答】\n{answer}\n"
-)
-
 
 async def grounding_check(answer: str, contexts: list[str]) -> dict:
     ctx = "\n---\n".join(contexts) if contexts else "(无)"
     try:
-        raw = await llm_complete(_PROMPT.format(ctx=ctx, answer=answer),
-                                 role="reasoner", temperature=0, json_mode=True)
+        prompt_call = invoke_learning_prompt(
+            "safety.grounding", context=ctx, answer=answer,
+        )
+        raw = await llm_complete(
+            prompt_call.prompt,
+            system=prompt_call.system,
+            role="reasoner",
+            temperature=0,
+            json_mode=True,
+        )
         data = parse_json(raw)
         if isinstance(data, list):
             data = data[0] if data and isinstance(data[0], dict) else {}

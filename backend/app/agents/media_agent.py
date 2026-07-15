@@ -12,27 +12,11 @@ import uuid
 from ..config import GEN_DIR, is_demo
 from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_complete, parse_json
+from ..prompt_templates import render_manim_prompt_call, render_video_prompt_call
 from ..rag.citation import build_context
 from ..rag.retriever import retrieve
 from ..services.knowledge_graph import kp_name
 from .emitter import agent_end, agent_start, emit
-
-_SCRIPT_PROMPT = (
-    "TASK=video_script\n"
-    "请为知识点「{kp}」设计一段 60 秒讲解短视频的分镜脚本,只输出 JSON:\n"
-    '{{"title":"...","narration":"完整旁白(180字内,口语化)",'
-    '"scenes":[{{"t":"0-10s","visual":"画面描述","caption":"屏幕字幕"}}],'
-    '"video_prompt":"给文生视频模型的一句英文 prompt(教学动画风格)"}}\n'
-    "用户目标:{goal}\n"
-    "回答只能依据以下参考资料，不得补写资料外事实；画面标签也只能使用资料中出现的概念:\n{context}"
-)
-
-_MANIM_PROMPT = (
-    "TASK=doc\n"
-    "请用 Manim Community v0.18 写一个 Python 场景类,可视化「{kp}」的核心过程"
-    "(如指针移动/节点插入/递归展开),类名 {cls},≤60 行,只输出 Python 代码块。"
-    "只能可视化参考资料中明确出现的结构和步骤。\n参考资料:\n{context}"
-)
 
 _LOCAL_MANIM_VIDEOS = {
     "binary_tree": "manim_binary_tree_traversal.mp4",
@@ -172,13 +156,16 @@ async def run(state: dict) -> dict:
                               "detail": "所选资料没有可检索内容"}],
         }
 
+    video_prompt_call = render_video_prompt_call(
+        kp=name,
+        goal=goal or f"讲清{name}",
+        context=context or "（课程知识库未检索到片段）",
+    )
     script = {}
     if not is_demo():
-        raw = await llm_complete(_SCRIPT_PROMPT.format(
-            kp=name,
-            goal=goal or f"讲清{name}",
-            context=context or "（课程知识库未检索到片段）",
-        ), role="ultra",
+        raw = await llm_complete(video_prompt_call.prompt,
+                                 system=video_prompt_call.system,
+                                 role="ultra",
                                  temperature=0.7, max_tokens=1200)
         script = parse_json(raw)
     if not isinstance(script, dict) or not script.get("narration"):
@@ -192,7 +179,7 @@ async def run(state: dict) -> dict:
     await emit({"type": "progress", "agent": "media", "stage": "script", "percent": 25,
                 "detail": f"分镜脚本就绪,共 {len(script.get('scenes', []))} 个镜头"})
 
-    payload: dict = {"script": script}
+    payload: dict = {"script": script, "prompt_skill": video_prompt_call.metadata()}
     trace_id = str(state.get("session_id", ""))
 
     async def on_progress(p: dict):
@@ -227,13 +214,20 @@ async def run(state: dict) -> dict:
         if source_ids or is_demo():
             payload["manim_code"] = _fallback_manim_code(cls, name, source_bound=True)
         else:
-            code = await llm_complete(_MANIM_PROMPT.format(
+            manim_prompt_call = render_manim_prompt_call(
                 kp=name,
-                cls=cls,
+                class_name=cls,
                 context=context or "（课程知识库未检索到片段）",
-            ),
-                                      role="ultra", temperature=0.3, max_tokens=1400)
+            )
+            code = await llm_complete(
+                manim_prompt_call.prompt,
+                system=manim_prompt_call.system,
+                role="ultra",
+                temperature=0.3,
+                max_tokens=1400,
+            )
             payload["manim_code"] = _normalize_manim_code(code, cls, name)
+            payload["manim_prompt_skill"] = manim_prompt_call.metadata()
         local_video = _local_manim_video(kp)
         if local_video:
             payload["video"] = local_video

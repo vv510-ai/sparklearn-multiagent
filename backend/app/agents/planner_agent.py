@@ -6,22 +6,11 @@ import json
 import logging
 
 from ..llm.spark_client import llm_complete, parse_json
+from ..prompt_templates import invoke_learning_prompt
 from ..services.knowledge_graph import all_kp_ids, canonical_kp_id, kp_name
 from .emitter import agent_end, agent_start
 
 log = logging.getLogger("sparklearn.planner")
-
-_PROMPT = (
-    "TASK=plan\n"
-    "你是个性化学习资源规划师。课程《数据结构与算法》。\n"
-    "基于【学生画像】与【学习目标】,从知识点列表中选定 1 个目标知识点(kp 用 id),"
-    "并规划资源清单(kind ∈ doc|mindmap|quiz|code|reading|video),每项给 reason "
-    "说明与画像维度的对应关系(如视觉型→video/mindmap 优先,易错点→quiz 针对出题)。\n"
-    "输出 JSON:{{\"resources\": [{{\"kind\": \"...\", \"kp\": \"...\", \"reason\": \"...\"}}], "
-    "\"order\": \"用→连接的生成顺序\"}}\n\n"
-    "知识点列表:{kps}\n【学生画像】{profile}\n【学习目标】{goal}\n【期望类型】{kinds}\n"
-)
-
 
 def _kp_from_goal(goal: str, kp_ids: list[str]) -> str | None:
     """Prefer an explicitly mentioned course concept over a generic model plan."""
@@ -62,10 +51,20 @@ async def run(state: dict) -> dict:
         }
     else:
         try:
+            prompt_call = invoke_learning_prompt(
+                "planner.resources",
+                knowledge_points=kps,
+                profile=json.dumps(slim, ensure_ascii=False),
+                goal=goal,
+                kinds=kinds,
+            )
             raw = await llm_complete(
-                _PROMPT.format(kps=kps, profile=json.dumps(slim, ensure_ascii=False),
-                               goal=goal, kinds=kinds),
-                role="reasoner", temperature=0.3, json_mode=True)
+                prompt_call.prompt,
+                system=prompt_call.system,
+                role="reasoner",
+                temperature=0.3,
+                json_mode=True,
+            )
             plan = parse_json(raw)
         except Exception as e:  # noqa: BLE001
             log.warning("规划失败,使用兜底计划:%s", e)
