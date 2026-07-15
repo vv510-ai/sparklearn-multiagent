@@ -178,7 +178,7 @@ async def run(state: dict) -> dict:
             raw = await llm_complete(
                 prompt_call.prompt,
                 system=prompt_call.system,
-                role="ultra",
+                role="reasoner",
                 temperature=0.6,
                 max_tokens=3000,
             )

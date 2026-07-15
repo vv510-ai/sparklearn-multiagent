@@ -7,6 +7,8 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from ..config import COURSE_NAME, is_demo
+from ..rag.embedding import embedding_status
+from ..rag.reranker import reranker_status
 from ..services.knowledge_graph import load_kg
 from ..services.profile_service import ensure_user, get_profile
 
@@ -29,5 +31,7 @@ async def profile(user_id: str):
 async def health():
     return {"status": "ok", "demo_mode": is_demo(),
             "course": COURSE_NAME,
-            "llm": "MockEngine(离线演示)" if is_demo() else "讯飞星火 4.0Ultra/X2",
+            "llm": "MockEngine(离线演示)" if is_demo() else "讯飞星火 X2（自动深度思考）",
+            "embedding": embedding_status(),
+            "reranker": reranker_status(),
             "app": "SparkLearn 星火学伴"}

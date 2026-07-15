@@ -191,7 +191,7 @@ async def _expand_node(
             raw = await llm_complete(
                 prompt_call.prompt,
                 system=prompt_call.system,
-                role="lite",
+                role="reasoner",
                 temperature=0.2,
                 max_tokens=260,
             )

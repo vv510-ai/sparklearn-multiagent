@@ -220,7 +220,7 @@ async def _gen_one(
             md = await asyncio.wait_for(
                 llm_complete(
                     prompt,
-                    role="ultra",
+                    role="reasoner",
                     system=prompt_call.system,
                     temperature=0.5,
                     max_tokens=1800,

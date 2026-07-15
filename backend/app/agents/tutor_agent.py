@@ -104,6 +104,9 @@ def _retrieval_evidence(
             "chapter": chunk.get("chapter"),
             "page": chunk.get("page"),
             "score": chunk.get("rerank_score", chunk.get("score")),
+            "vector_score": chunk.get("vector_score"),
+            "lexical_score": chunk.get("lexical_score"),
+            "rerank_mode": chunk.get("rerank_mode"),
             "citation": chunk.get("citation"),
         })
     return {
@@ -440,11 +443,11 @@ async def run(state: dict) -> dict:
         try:
             async for delta in llm_stream(
                 prompt,
-                role="ultra",
+                role="reasoner",
                 system=prompt_call.system,
                 temperature=0.25 if guided else 0.45,
                 max_tokens=2200 if guided else 1600,
-                allow_model_fallback=not guided,
+                allow_model_fallback=True,
                 allow_mock_fallback=False,
             ):
                 parts.append(delta)

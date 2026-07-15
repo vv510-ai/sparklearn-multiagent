@@ -34,6 +34,15 @@ MODELS: dict[str, tuple[str, bool]] = {
 _FALLBACK_ORDER = ["ultra", "max", "pro", "lite"]
 
 
+def _reasoning_extra(x2: bool) -> dict:
+    if not x2:
+        return {}
+    mode = (get_settings().spark_reasoning_mode or "auto").lower()
+    if mode not in {"enabled", "disabled", "auto"}:
+        mode = "auto"
+    return {"extra_body": {"thinking": {"type": mode}}}
+
+
 def _is_unrecoverable_auth_error(error: Exception) -> bool:
     """同一应用鉴权失效时无需重复请求所有同源模型。"""
     detail = str(error)
@@ -57,7 +66,8 @@ def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: floa
     model, x2 = MODELS[role]
     base = s.spark_x2_base_url if x2 else s.spark_base_url
     return ChatOpenAI(model=model, api_key=s.spark_api_password, base_url=base,
-                      streaming=streaming, temperature=temperature)
+                      streaming=streaming, temperature=temperature,
+                      **_reasoning_extra(x2))
 
 
 # --------------------------------------------------------------------------
@@ -76,12 +86,13 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
     if json_mode:
         prompt += "\n\n只输出 JSON,不要 Markdown 围栏,不要任何解释。"
     messages.append({"role": "user", "content": prompt})
-    extra = {"max_tokens": max_tokens} if max_tokens else {}
+    token_extra = {"max_tokens": max_tokens} if max_tokens else {}
 
     last_err: Exception | None = None
     order = [role] + [r for r in _FALLBACK_ORDER if r != role] if role != "reasoner" else [role, "ultra", "lite"]
     for r in order:  # 限流/故障时按序互备(对应方案"降级策略")
         model, x2 = MODELS[r]
+        extra = {**token_extra, **_reasoning_extra(x2)}
         try:
             resp = await asyncio.to_thread(
                 lambda: _client(x2).chat.completions.create(
@@ -112,7 +123,7 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
         return
     messages = ([{"role": "system", "content": system}] if system else []) + \
                [{"role": "user", "content": prompt}]
-    extra = {"max_tokens": max_tokens} if max_tokens else {}
+    token_extra = {"max_tokens": max_tokens} if max_tokens else {}
     order = (
         ([role] + [r for r in _FALLBACK_ORDER if r != role] if role != "reasoner" else [role, "ultra", "lite"])
         if allow_model_fallback
@@ -124,6 +135,7 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
     for r in order:
         model, x2 = MODELS[r]
         client = _client(x2)
+        extra = {**token_extra, **_reasoning_extra(x2)}
 
         def _create():
             return client.chat.completions.create(

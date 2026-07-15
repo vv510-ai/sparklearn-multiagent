@@ -34,10 +34,14 @@ services:
         value: https://spark-api-open.xf-yun.com/v1/
       - key: SPARK_X2_BASE_URL
         value: https://spark-api-open.xf-yun.com/x2/
+      - key: SPARK_REASONING_MODE
+        value: auto
       - key: SPARK_IMAGE_DOMAIN
         value: general
       - key: EMBEDDING_BACKEND
-        value: hash
+        value: auto
+      - key: RERANK_MODE
+        value: auto
       - key: DEMO_MODE
         value: "false"
       - key: TRACE_ENABLED

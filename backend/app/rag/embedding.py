@@ -1,65 +1,169 @@
-"""向量化后端(对应方案"无 GPU 时 Embedding 可改用讯飞 Embedding API"的降级链)。
+"""Embedding backends with deployment-safe fallbacks.
 
-优先级:bge-m3(本地 FlagEmbedding,1024 维,中文多粒度强)
-      → iflytek(讯飞 MaaS OpenAI 兼容 /embeddings)
-      → hash(零依赖 char n-gram hashing,保证离线演示检索可用)
-
-统一对外:embed_texts(list[str]) -> np.ndarray[float32, (n, dim)],已 L2 归一化。
+The preferred order is local BGE-M3, the official iFlytek Embedding API, then
+an offline hashing encoder.  The hashing encoder deliberately keeps Chinese
+single-character features so short questions such as ``图是什么`` remain
+retrievable even when no hosted embedding service is configured.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
+import json
 import logging
+import re
 from functools import lru_cache
 
 import numpy as np
+import requests
 
 from ..config import get_settings
+from ..llm.signing import assemble_auth_url
 
 log = logging.getLogger("sparklearn.embedding")
-HASH_DIM = 512
+HASH_DIM = 1024
+IFLYTEK_DIM = 2560
+_QUESTION_PREFIXES = (
+    "请问", "麻烦解释", "请解释", "帮我解释", "帮我介绍", "介绍一下",
+    "什么是", "为什么",
+)
+_QUESTION_SUFFIXES = (
+    "是什么", "是啥", "是什么意思", "什么意思", "的定义", "怎么理解",
+    "请解释", "介绍一下",
+)
+
+
+def query_core(text: str) -> str:
+    """Remove conversational question wrappers while retaining the topic."""
+
+    value = re.sub(r"[\s？?。！!，,；;：:]+", "", str(text or "")).lower()
+    changed = True
+    while changed and value:
+        changed = False
+        for prefix in _QUESTION_PREFIXES:
+            if value.startswith(prefix) and len(value) > len(prefix):
+                value = value[len(prefix):]
+                changed = True
+        for suffix in _QUESTION_SUFFIXES:
+            if value.endswith(suffix) and len(value) > len(suffix):
+                value = value[:-len(suffix)]
+                changed = True
+    return value or re.sub(r"\s+", "", str(text or "")).lower()
 
 
 class _BGEBackend:
     name, dim = "bge-m3", 1024
 
     def __init__(self) -> None:
-        from FlagEmbedding import BGEM3FlagModel  # 重依赖,惰性导入
-        self.model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=True)
+        from FlagEmbedding import BGEM3FlagModel
 
-    def embed(self, texts: list[str]) -> np.ndarray:
+        self.model = BGEM3FlagModel("BAAI/bge-m3", use_fp16=False)
+
+    def embed(self, texts: list[str], *, domain: str = "para") -> np.ndarray:
+        del domain
         out = self.model.encode(texts)["dense_vecs"]
         return np.asarray(out, dtype=np.float32)
 
 
 class _IflytekBackend:
-    name, dim = "iflytek", 1024  # 新版 MaaS OpenAI 兼容(旧版 WebSocket 为 2560 维)
+    """Official signed iFlytek llm-embedding HTTP protocol."""
+
+    name, dim = "iflytek", IFLYTEK_DIM
 
     def __init__(self) -> None:
-        from openai import OpenAI
-        s = get_settings()
-        if not s.spark_api_password:
-            raise RuntimeError("无 SPARK_API_PASSWORD")
-        self.client = OpenAI(api_key=s.spark_api_password, base_url=s.spark_base_url)
+        settings = get_settings()
+        if not (settings.spark_appid and settings.spark_api_key and settings.spark_api_secret):
+            raise RuntimeError("SPARK_APPID/SPARK_API_KEY/SPARK_API_SECRET are required")
+        self.appid = settings.spark_appid
+        self.api_key = settings.spark_api_key
+        self.api_secret = settings.spark_api_secret
+        self.url = settings.iflytek_embedding_url
+        self.timeout = settings.embedding_timeout_s
 
-    def embed(self, texts: list[str]) -> np.ndarray:
-        resp = self.client.embeddings.create(model="embedding", input=texts)
-        return np.asarray([d.embedding for d in resp.data], dtype=np.float32)
+        # Select this backend only when the account is actually entitled to the
+        # service.  Otherwise auto mode safely proceeds to the offline backend.
+        probe = self._embed_one("检索", domain="query")
+        if probe.shape != (IFLYTEK_DIM,):
+            raise RuntimeError(f"unexpected iFlytek embedding dimension: {probe.shape}")
+
+    @staticmethod
+    def _clip_text(text: str, max_bytes: int = 1700) -> str:
+        raw = str(text or "").encode("utf-8")
+        if len(raw) <= max_bytes:
+            return str(text or "")
+        return raw[:max_bytes].decode("utf-8", errors="ignore")
+
+    def _embed_one(self, text: str, *, domain: str) -> np.ndarray:
+        message = {
+            "messages": [{"content": self._clip_text(text), "role": "user"}],
+        }
+        encoded = base64.b64encode(
+            json.dumps(message, ensure_ascii=False).encode("utf-8")
+        ).decode("ascii")
+        payload = {
+            "header": {"app_id": self.appid, "uid": "sparklearn", "status": 3},
+            "parameter": {
+                "emb": {
+                    "domain": "query" if domain == "query" else "para",
+                    "feature": {"encoding": "utf8", "compress": "raw", "format": "plain"},
+                },
+            },
+            "payload": {
+                "messages": {
+                    "encoding": "utf8",
+                    "compress": "raw",
+                    "format": "json",
+                    "status": 3,
+                    "text": encoded,
+                },
+            },
+        }
+        signed_url = assemble_auth_url(
+            self.url, self.api_key, self.api_secret, method="POST"
+        )
+        response = requests.post(signed_url, json=payload, timeout=self.timeout)
+        response.raise_for_status()
+        data = response.json()
+        header = data.get("header") if isinstance(data, dict) else {}
+        code = int((header or {}).get("code", -1))
+        if code != 0:
+            raise RuntimeError(
+                f"iFlytek embedding error {code}: {(header or {}).get('message', 'unknown')}"
+            )
+        feature = ((data.get("payload") or {}).get("feature") or {}).get("text", "")
+        raw = base64.b64decode(feature)
+        vector = np.frombuffer(raw, dtype="<f4").astype(np.float32, copy=True)
+        if vector.size != IFLYTEK_DIM:
+            raise RuntimeError(f"expected {IFLYTEK_DIM} values, got {vector.size}")
+        return vector
+
+    def embed(self, texts: list[str], *, domain: str = "para") -> np.ndarray:
+        return np.vstack([self._embed_one(text, domain=domain) for text in texts])
 
 
 class _HashBackend:
-    """字符 2/3-gram hashing 向量:无任何模型依赖,中文检索效果可用于演示。"""
+    """Chinese-aware signed feature hashing with no model dependency."""
 
-    name, dim = "hash", HASH_DIM
+    name, dim = "hash-v2", HASH_DIM
 
-    def embed(self, texts: list[str]) -> np.ndarray:
+    @staticmethod
+    def _add_feature(row: np.ndarray, feature: str, weight: float) -> None:
+        digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
+        bucket = int.from_bytes(digest[:4], "little") % HASH_DIM
+        sign = 1.0 if digest[4] & 1 else -1.0
+        row[bucket] += sign * weight
+
+    def embed(self, texts: list[str], *, domain: str = "para") -> np.ndarray:
         mat = np.zeros((len(texts), HASH_DIM), dtype=np.float32)
-        for i, t in enumerate(texts):
-            t = t.lower()
-            grams = [t[j:j + n] for n in (2, 3) for j in range(max(0, len(t) - n + 1))]
-            for g in grams:
-                h = int(hashlib.md5(g.encode("utf-8")).hexdigest()[:8], 16)
-                mat[i, h % HASH_DIM] += 1.0
+        for i, original in enumerate(texts):
+            text = query_core(original) if domain == "query" else str(original or "").lower()
+            for token in re.findall(r"[a-z0-9_+#.-]+", text):
+                self._add_feature(mat[i], f"latin:{token}", 2.0)
+            for sequence in re.findall(r"[\u3400-\u9fff]+", text):
+                for n, weight in ((1, 0.9), (2, 1.5), (3, 1.2)):
+                    for start in range(max(0, len(sequence) - n + 1)):
+                        gram = sequence[start:start + n]
+                        self._add_feature(mat[i], f"cjk{n}:{gram}", weight)
         return mat
 
 
@@ -73,22 +177,32 @@ def _l2(mat: np.ndarray) -> np.ndarray:
 def get_backend():
     pref = (get_settings().embedding_backend or "auto").lower()
     order = {
-        "bge-m3": [_BGEBackend], "iflytek": [_IflytekBackend], "hash": [_HashBackend],
+        "bge-m3": [_BGEBackend],
+        "iflytek": [_IflytekBackend],
+        "hash": [_HashBackend],
+        "hash-v2": [_HashBackend],
         "auto": [_BGEBackend, _IflytekBackend, _HashBackend],
     }.get(pref, [_HashBackend])
-    for cls in order:
+    for backend_class in order:
         try:
-            backend = cls()
-            log.info("Embedding 后端:%s (dim=%d)", backend.name, backend.dim)
+            backend = backend_class()
+            log.info("Embedding backend: %s (dim=%d)", backend.name, backend.dim)
             return backend
-        except Exception as e:  # noqa: BLE001
-            log.info("Embedding 后端 %s 不可用(%s),尝试下一级", cls.__name__, e)
+        except Exception as exc:  # noqa: BLE001
+            log.info("Embedding backend %s unavailable (%s); trying fallback", backend_class.__name__, exc)
     return _HashBackend()
 
 
-def embed_texts(texts: list[str]) -> np.ndarray:
-    return _l2(get_backend().embed(texts))
+def embed_texts(texts: list[str], *, domain: str = "para") -> np.ndarray:
+    if not texts:
+        return np.empty((0, embedding_dim()), dtype=np.float32)
+    return _l2(get_backend().embed(texts, domain=domain))
 
 
 def embedding_dim() -> int:
     return get_backend().dim
+
+
+def embedding_status() -> dict[str, str | int]:
+    backend = get_backend()
+    return {"backend": backend.name, "dimension": backend.dim}

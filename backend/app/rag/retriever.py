@@ -36,7 +36,7 @@ def _hits_from_sources(query: str, source_ids: list[str], top_k: int) -> list[di
         return []
 
     vectors = embed_texts([c.get("text", "") for c in chunks])
-    qv = embed_texts([query])[0]
+    qv = embed_texts([query], domain="query")[0]
     scores = vectors @ qv
     idx = np.argsort(-scores)[:top_k]
     return [{**chunks[i], "score": float(scores[i])} for i in idx]
@@ -56,7 +56,7 @@ def retrieve(
         hits = _hits_from_sources(query, selected_sources, top_k=max(top_k, final_k * 4))
     else:
         store = get_store()
-        qv = embed_texts([query])[0]
+        qv = embed_texts([query], domain="query")[0]
         search_k = max(top_k * 4, final_k * 8, 40)
         hits = [
             hit for hit in store.search(qv, top_k=search_k)

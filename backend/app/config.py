@@ -29,6 +29,7 @@ try:  # pydantic-settings 可用时走标准路径
         spark_api_password: str = ""
         spark_base_url: str = "https://spark-api-open.xf-yun.com/v1/"
         spark_x2_base_url: str = "https://spark-api-open.xf-yun.com/x2/"
+        spark_reasoning_mode: str = "auto"  # enabled | disabled | auto
 
         # 讯飞三元组(WebSocket/HTTP 旧鉴权:TTS、文生图、OCR)
         spark_appid: str = ""
@@ -74,6 +75,9 @@ try:  # pydantic-settings 可用时走标准路径
         redis_url: str = ""
 
         embedding_backend: str = "auto"  # auto | bge-m3 | iflytek | hash
+        iflytek_embedding_url: str = "https://emb-cn-huabei-1.xf-yun.com/"
+        embedding_timeout_s: float = 12.0
+        rerank_mode: str = "auto"  # auto | api | hybrid | vector
         rerank_api_url: str = ""
         rerank_api_key: str = ""
         rerank_top_k: int = 5
@@ -89,6 +93,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_api_password = g("SPARK_API_PASSWORD", "")
             self.spark_base_url = g("SPARK_BASE_URL", "https://spark-api-open.xf-yun.com/v1/")
             self.spark_x2_base_url = g("SPARK_X2_BASE_URL", "https://spark-api-open.xf-yun.com/x2/")
+            self.spark_reasoning_mode = g("SPARK_REASONING_MODE", "auto")
             self.spark_appid = g("SPARK_APPID", "")
             self.spark_api_key = g("SPARK_API_KEY", "")
             self.spark_api_secret = g("SPARK_API_SECRET", "")
@@ -123,6 +128,11 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.milvus_uri = g("MILVUS_URI", "")
             self.redis_url = g("REDIS_URL", "")
             self.embedding_backend = g("EMBEDDING_BACKEND", "auto")
+            self.iflytek_embedding_url = g(
+                "IFLYTEK_EMBEDDING_URL", "https://emb-cn-huabei-1.xf-yun.com/"
+            )
+            self.embedding_timeout_s = float(g("EMBEDDING_TIMEOUT_S", "12"))
+            self.rerank_mode = g("RERANK_MODE", "auto")
             self.rerank_api_url = g("RERANK_API_URL", "")
             self.rerank_api_key = g("RERANK_API_KEY", "")
             self.rerank_top_k = int(g("RERANK_TOP_K", "5"))

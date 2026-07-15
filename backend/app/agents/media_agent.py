@@ -165,7 +165,7 @@ async def run(state: dict) -> dict:
     if not is_demo():
         raw = await llm_complete(video_prompt_call.prompt,
                                  system=video_prompt_call.system,
-                                 role="ultra",
+                                 role="reasoner",
                                  temperature=0.7, max_tokens=1200)
         script = parse_json(raw)
     if not isinstance(script, dict) or not script.get("narration"):
@@ -222,7 +222,7 @@ async def run(state: dict) -> dict:
             code = await llm_complete(
                 manim_prompt_call.prompt,
                 system=manim_prompt_call.system,
-                role="ultra",
+                role="reasoner",
                 temperature=0.3,
                 max_tokens=1400,
             )
