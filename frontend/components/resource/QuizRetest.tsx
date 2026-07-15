@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Badge, Notice, Stat, masteryTone } from "@/components/ui";
 import { USER_ID, apiPost } from "@/lib/api";
 import type { PathPlan, QuizQuestion } from "@/lib/types";
+import ConfidencePicker, { calibrationSignalText, type ConfidenceLevel } from "./ConfidencePicker";
 
 export interface EvaluationItem {
   review_item_id?: number;
@@ -19,6 +20,8 @@ export interface EvaluationItem {
   misconception?: string;
   support_level?: "independent" | "hinted" | "revealed";
   evidence_phase?: "initial" | "retest" | "spaced_review";
+  confidence?: ConfidenceLevel;
+  calibration_signal?: string;
 }
 
 export interface EvaluationReport {
@@ -37,13 +40,21 @@ export interface EvaluationReport {
     remaining?: number;
   };
   behavior?: {
-    phase?: "retest";
+    phase?: "retest" | "spaced_review";
     support?: {
       hinted: number;
       revealed: number;
       independent: number;
       misconceptions: string[];
     };
+  };
+  calibration?: {
+    recorded: number;
+    score: number | null;
+    confident_wrong: number;
+    uncertain_correct: number;
+    metacognition_before: number;
+    metacognition_after: number;
   };
 }
 
@@ -83,6 +94,7 @@ export default function QuizRetest({
 }) {
   const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [confidences, setConfidences] = useState<Record<string, ConfidenceLevel>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<EvaluationReport | null>(null);
@@ -92,12 +104,22 @@ export default function QuizRetest({
     [result],
   );
   const answered = questions.filter((question) => (answers[question.id] || "").trim()).length;
+  const pendingConfidence = questions.filter((question) => (
+    (answers[question.id] || "").trim() && !confidences[question.id]
+  )).length;
 
   if (questions.length === 0) return null;
 
   function setAnswer(questionId: string, value: string) {
     if (busy || result) return;
     if (!startedAt.current[questionId]) startedAt.current[questionId] = Date.now();
+    if (answers[questionId] !== value) {
+      setConfidences((saved) => {
+        const next = { ...saved };
+        delete next[questionId];
+        return next;
+      });
+    }
     setAnswers((current) => ({ ...current, [questionId]: value }));
   }
 
@@ -115,6 +137,7 @@ export default function QuizRetest({
           seconds: startedAt.current[question.id]
             ? Math.max(1, Math.round((Date.now() - startedAt.current[question.id]) / 1000))
             : 0,
+          confidence: confidences[question.id] || "",
         })),
       });
       setResult(report);
@@ -223,6 +246,13 @@ export default function QuizRetest({
                 className="w-full resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-400 disabled:bg-slate-100"
               />
             )}
+            {mine.trim() && !result && (
+              <ConfidencePicker
+                value={confidences[question.id]}
+                onChange={(value) => setConfidences((current) => ({ ...current, [question.id]: value }))}
+                disabled={busy}
+              />
+            )}
             {graded && (
               <div className={`mt-2 rounded-md border px-3 py-2 text-xs ${
                 graded.correct
@@ -233,6 +263,9 @@ export default function QuizRetest({
                   {graded.correct ? "独立答对，已形成恢复证据" : `仍需巩固 · 参考答案：${displayAnswer(question, graded.expected || "")}`}
                 </div>
                 {graded.explain && <div className="mt-1 leading-5 text-slate-600">{graded.explain}</div>}
+                {calibrationSignalText(graded.calibration_signal) && (
+                  <div className="mt-1 font-medium text-violet-700">{calibrationSignalText(graded.calibration_signal)}</div>
+                )}
               </div>
             )}
           </div>
@@ -244,10 +277,10 @@ export default function QuizRetest({
         <button
           type="button"
           onClick={submit}
-          disabled={busy || answered !== questions.length}
+          disabled={busy || answered !== questions.length || pendingConfidence > 0}
           className="w-full rounded-lg bg-sky-600 py-2.5 text-xs font-black text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "正在校准恢复后的掌握度..." : "提交无提示复测"}
+          {busy ? "正在校准恢复后的掌握度..." : pendingConfidence ? "请先标记作答把握" : "提交无提示复测"}
         </button>
       ) : (
         <div className="space-y-2">

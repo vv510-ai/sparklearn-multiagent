@@ -141,6 +141,7 @@ def test_reveal_is_preserved_as_non_independent_mastery_evidence():
                 "question_id": QUESTION["id"],
                 "answer": "B",
                 "seconds": 6,
+                "confidence": "confident",
             }],
         })
         assert retested.status_code == 200, retested.text
@@ -188,6 +189,9 @@ def test_reveal_is_preserved_as_non_independent_mastery_evidence():
     assert retest_report["items"][0]["mastery_correct"] is True
     assert retest_report["items"][0]["support_level"] == "independent"
     assert retest_report["items"][0]["evidence_phase"] == "retest"
+    assert retest_report["items"][0]["confidence"] == "confident"
+    assert retest_report["items"][0]["calibration_signal"] == "confident_correct"
+    assert retest_report["calibration"]["recorded"] == 1
     assert retest_report["per_kp"][0]["mastery"] > report["per_kp"][0]["mastery"]
     assert retest_report["review"]["schedule"][0]["stage"] == 1
     assert retest_report["review"]["schedule"][0]["interval_days"] == 1

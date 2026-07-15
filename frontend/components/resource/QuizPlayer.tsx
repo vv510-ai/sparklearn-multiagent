@@ -6,6 +6,7 @@ import { USER_ID, apiPost } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
 import QuizRetest from "./QuizRetest";
 import type { EvaluationReport } from "./QuizRetest";
+import ConfidencePicker, { calibrationSignalText, type ConfidenceLevel } from "./ConfidencePicker";
 
 interface SupportResponse {
   mode: "hint" | "reveal";
@@ -86,6 +87,7 @@ export default function QuizPlayer({
   const [hints, setHints] = useState<Record<string, string>>({});
   const [reveals, setReveals] = useState<Record<string, SupportResponse>>({});
   const [misconceptions, setMisconceptions] = useState<Record<string, string>>({});
+  const [confidences, setConfidences] = useState<Record<string, ConfidenceLevel>>({});
   const [supportBusy, setSupportBusy] = useState("");
   const [supportErrors, setSupportErrors] = useState<Record<string, string>>({});
   const startedAt = useRef<Record<string, number>>({});
@@ -107,12 +109,24 @@ export default function QuizPlayer({
       ),
     );
   }, [report]);
-  const answered = Object.keys(answers).filter((id) => answers[id]).length;
+  const answered = questions.filter((question) => (answers[question.id] || "").trim()).length;
+  const pendingConfidence = questions.filter((question) => (
+    (answers[question.id] || "").trim() && !confidences[question.id]
+  )).length;
   const pendingReflections = Object.keys(reveals).filter((id) => !misconceptions[id]).length;
   const set = (id: string, v: string) => {
     if (submitted || busy || reveals[id]) return;
     if (!startedAt.current[id]) startedAt.current[id] = Date.now();
-    setAnswers((a) => ({ ...a, [id]: v }));
+    // Once a hint is requested, preserve the confidence captured for the
+    // original attempt even if the learner revises the answer afterward.
+    if (answers[id] !== v && !hints[id]) {
+      setConfidences((saved) => {
+        const next = { ...saved };
+        delete next[id];
+        return next;
+      });
+    }
+    setAnswers((current) => ({ ...current, [id]: v }));
     setSupportErrors((errors) => ({ ...errors, [id]: "" }));
   };
 
@@ -124,6 +138,10 @@ export default function QuizPlayer({
     const attempt = (answers[question.id] || "").trim();
     if (!attempt) {
       setSupportErrors((errors) => ({ ...errors, [question.id]: "请先写下你的尝试" }));
+      return;
+    }
+    if (!confidences[question.id]) {
+      setSupportErrors((errors) => ({ ...errors, [question.id]: "请先记录作答时的把握，再获取学习支持" }));
       return;
     }
     setSupportBusy(`${question.id}:${mode}`);
@@ -170,11 +188,13 @@ export default function QuizPlayer({
           hint_used: Boolean(hints[q.id]),
           revealed: Boolean(reveals[q.id]),
           misconception: misconceptions[q.id] || "",
+          confidence: confidences[q.id] || "",
         })),
         behavior: {
           hinted_question_ids: Object.keys(hints),
           revealed_question_ids: Object.keys(reveals),
           misconceptions,
+          confidences,
         },
       });
       setReport(rep);
@@ -286,6 +306,17 @@ export default function QuizPlayer({
               />
             )}
 
+            {mine.trim() && !submitted && (
+              <ConfidencePicker
+                value={confidences[q.id]}
+                onChange={(value) => {
+                  setConfidences((current) => ({ ...current, [q.id]: value }));
+                  setSupportErrors((errors) => ({ ...errors, [q.id]: "" }));
+                }}
+                disabled={Boolean(hints[q.id]) || Boolean(revealed) || busy}
+              />
+            )}
+
             {!submitted && (
               <div className="mt-3 space-y-2">
                 <div className="flex flex-wrap gap-2">
@@ -353,6 +384,9 @@ export default function QuizPlayer({
                   </div>
                 )}
                 {(gradedItem?.explain || q.explain) && <div className="mt-1 text-slate-600">{gradedItem?.explain || q.explain}</div>}
+                {calibrationSignalText(gradedItem?.calibration_signal) && (
+                  <div className="mt-1 font-medium text-violet-700">{calibrationSignalText(gradedItem?.calibration_signal)}</div>
+                )}
                 {!ok && (gradedItem?.error_tags || q.error_tags)?.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
                     {(gradedItem?.error_tags || q.error_tags).map((tag) => <Badge key={tag} variant="warn">{tag}</Badge>)}
@@ -369,13 +403,16 @@ export default function QuizPlayer({
           {pendingReflections > 0 && (
             <Notice tone="warn" title="还差一步错因复盘" desc={`请为已揭晓的 ${pendingReflections} 道题选择一个最接近的卡点。`} />
           )}
+          {pendingConfidence > 0 && (
+            <Notice tone="warn" title="还没有记录作答把握" desc={`请为已作答的 ${pendingConfidence} 道题选择“在猜 / 有点把握 / 很确定”。`} />
+          )}
           {submitError && <Notice tone="warn" title="报告生成失败" desc={`${submitError}。答案已保留，可直接重试。`} />}
           <button
             onClick={submit}
-            disabled={busy || Object.keys(answers).length === 0 || pendingReflections > 0}
+            disabled={busy || answered === 0 || pendingReflections > 0 || pendingConfidence > 0}
             className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? "正在判分并更新掌握度..." : pendingReflections > 0 ? "请先完成错因复盘" : submitError ? "重新提交" : "提交并更新掌握度"}
+            {busy ? "正在判分并更新掌握度..." : pendingReflections > 0 ? "请先完成错因复盘" : pendingConfidence > 0 ? "请先标记作答把握" : submitError ? "重新提交" : "提交并更新掌握度"}
           </button>
         </div>
       ) : busy ? (
@@ -429,6 +466,14 @@ export default function QuizPlayer({
             <div className="mt-3 rounded-md border border-emerald-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
               独立作答 {report.behavior.support.independent} 题 · 使用提示 {report.behavior.support.hinted} 题 · 揭晓复盘 {report.behavior.support.revealed} 题
               {report.behavior.support.misconceptions.length > 0 && ` · 自评错因：${report.behavior.support.misconceptions.join(" / ")}`}
+            </div>
+          )}
+          {report.calibration && report.calibration.recorded > 0 && (
+            <div className="mt-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] leading-5 text-violet-800">
+              信心校准 {Math.round((report.calibration.score || 0) * 100)}%
+              {report.calibration.confident_wrong > 0 && ` · 自信误判 ${report.calibration.confident_wrong} 题`}
+              {report.calibration.uncertain_correct > 0 && ` · 答对但不稳 ${report.calibration.uncertain_correct} 题`}
+              {` · 元认知 ${Math.round(report.calibration.metacognition_before * 100)}% → ${Math.round(report.calibration.metacognition_after * 100)}%`}
             </div>
           )}
           {report.profile_version != null && (

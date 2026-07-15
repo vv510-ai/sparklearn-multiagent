@@ -37,6 +37,7 @@ class AnswerItem(BaseModel):
     hint_used: bool = False
     revealed: bool = False
     misconception: str = ""
+    confidence: Literal["", "guess", "unsure", "confident"] = ""
 
 
 class EvalSupportRequest(BaseModel):
@@ -59,6 +60,7 @@ class RetestAnswerItem(BaseModel):
     question_id: str
     answer: str
     seconds: float = 0
+    confidence: Literal["", "guess", "unsure", "confident"] = ""
 
 
 class EvalRetestRequest(BaseModel):
@@ -72,6 +74,7 @@ class ReviewSubmitItem(BaseModel):
     review_item_id: int = Field(gt=0)
     answer: str
     seconds: float = 0
+    confidence: Literal["", "guess", "unsure", "confident"] = ""
 
 
 class EvalReviewRequest(BaseModel):

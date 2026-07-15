@@ -521,7 +521,8 @@ Content-Type: application/json
       "seconds": 12,
       "hint_used": true,
       "revealed": false,
-      "misconception": ""
+      "misconception": "",
+      "confidence": "unsure"
     }
   ],
   "behavior": {
@@ -544,23 +545,35 @@ Content-Type: application/json
       "right": 4,
       "mastery_right": 4,
       "supported": 1,
+      "confidence_recorded": 5,
+      "confident_wrong": 1,
+      "uncertain_correct": 1,
       "mastery": 0.72,
       "level": "..."
     }
   ],
   "error_tags": {},
   "suggestions": [],
+  "calibration": {
+    "recorded": 5,
+    "score": 0.66,
+    "confident_wrong": 1,
+    "uncertain_correct": 1,
+    "metacognition_before": 0.5,
+    "metacognition_after": 0.54
+  },
   "behavior": {}
 }
 ```
 
-后端始终按题组资源重新判分，不信任客户端的 `correct`。`correct` 表示原始判分，`mastery_correct` 表示写入 BKT 的学习证据；题目一旦揭晓，即使答案正确也不会被算作独立掌握，并且提交前必须从白名单中选择一项自评错因。学习支持次数与学习者自评错因会写入 `behavior.support`。
+后端始终按题组资源重新判分，不信任客户端的 `correct`。`correct` 表示原始判分，`mastery_correct` 表示写入 BKT 的学习证据；题目一旦揭晓，即使答案正确也不会被算作独立掌握，并且提交前必须从白名单中选择一项自评错因。`confidence` 可选 `guess / unsure / confident`，必须在查看提示或结果前记录。信心不会直接修改 BKT；仅独立作答会把信心与真实判分对照，用于识别“自信误判”和“答对但不稳”，并平滑更新 `profiles.metacognition`。使用提示或揭晓的题会保留信心记录，但不进入校准。旧客户端不传该字段时维持原行为。
 
 副作用：
 
 - 写入 `quiz_attempts`
 - 更新 `profiles.knowledge_mastery`
 - 更新 `profiles.error_prone`
+- 有信心证据时更新 `profiles.metacognition`
 - 写入 `event_logs`
 - 触发路径重排
 
@@ -582,7 +595,8 @@ Content-Type: application/json
     {
       "question_id": "q2",
       "answer": "n+1",
-      "seconds": 8
+      "seconds": 8,
+      "confidence": "confident"
     }
   ]
 }
@@ -661,7 +675,8 @@ Content-Type: application/json
     {
       "review_item_id": 7,
       "answer": "B",
-      "seconds": 9
+      "seconds": 9,
+      "confidence": "unsure"
     }
   ]
 }
@@ -686,6 +701,14 @@ GET /api/eval/evidence?user_id=demo_user&limit=12
       "raw_correct": 1,
       "mastery_correct": 1,
       "supported": 0,
+      "calibration": {
+        "recorded": 1,
+        "score": 0.9,
+        "confident_wrong": 0,
+        "uncertain_correct": 0,
+        "metacognition_before": 0.5,
+        "metacognition_after": 0.6
+      },
       "knowledge_points": [
         {
           "kp": "binary_tree",
@@ -704,6 +727,10 @@ GET /api/eval/evidence?user_id=demo_user&limit=12
     "mastery_correct": 2,
     "supported": 1,
     "independent": 3,
+    "confidence_recorded": 3,
+    "confident_wrong": 1,
+    "uncertain_correct": 1,
+    "calibration_score": 0.57,
     "by_phase": { "initial": 1, "retest": 1, "spaced_review": 1 }
   }
 }

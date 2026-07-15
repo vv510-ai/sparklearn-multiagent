@@ -68,8 +68,13 @@ def build_learning_evidence(user_id: str, limit: int = 12) -> dict[str, Any]:
         "mastery_correct": 0,
         "supported": 0,
         "independent": 0,
+        "confidence_recorded": 0,
+        "confident_wrong": 0,
+        "uncertain_correct": 0,
+        "calibration_score": None,
         "by_phase": {"initial": 0, "retest": 0, "spaced_review": 0},
     }
+    calibration_weighted = 0.0
 
     for row in rows:
         payload = row.payload if isinstance(row.payload, dict) else {}
@@ -99,6 +104,9 @@ def build_learning_evidence(user_id: str, limit: int = 12) -> dict[str, Any]:
                 "raw_correct": raw_correct,
                 "mastery_correct": mastery_correct,
                 "supported": supported,
+                "confidence_recorded": _integer(raw.get("confidence_recorded")),
+                "confident_wrong": _integer(raw.get("confident_wrong")),
+                "uncertain_correct": _integer(raw.get("uncertain_correct")),
                 "mastery_before": round(before, 3),
                 "mastery_after": after,
                 "mastery_delta": round(after - before, 3),
@@ -112,6 +120,13 @@ def build_learning_evidence(user_id: str, limit: int = 12) -> dict[str, Any]:
         mastery_correct = sum(point["mastery_correct"] for point in points)
         supported = sum(point["supported"] for point in points)
         errors = payload.get("errors") if isinstance(payload.get("errors"), dict) else {}
+        raw_calibration = payload.get("calibration")
+        calibration = raw_calibration if isinstance(raw_calibration, dict) else {}
+        calibration_recorded = _integer(calibration.get("recorded"))
+        try:
+            calibration_score = float(calibration.get("score")) if calibration_recorded else None
+        except (TypeError, ValueError):
+            calibration_score = None
         record = {
             "id": row.id,
             "created_at": row.created_at.isoformat() if row.created_at else "",
@@ -122,6 +137,14 @@ def build_learning_evidence(user_id: str, limit: int = 12) -> dict[str, Any]:
             "supported": supported,
             "independent": max(0, answered - supported),
             "errors": errors,
+            "calibration": {
+                "recorded": calibration_recorded,
+                "score": round(calibration_score, 3) if calibration_score is not None else None,
+                "confident_wrong": _integer(calibration.get("confident_wrong")),
+                "uncertain_correct": _integer(calibration.get("uncertain_correct")),
+                "metacognition_before": calibration.get("metacognition_before"),
+                "metacognition_after": calibration.get("metacognition_after"),
+            },
             "knowledge_points": points,
         }
         records.append(record)
@@ -131,7 +154,17 @@ def build_learning_evidence(user_id: str, limit: int = 12) -> dict[str, Any]:
         summary["mastery_correct"] += mastery_correct
         summary["supported"] += supported
         summary["independent"] += max(0, answered - supported)
+        summary["confidence_recorded"] += calibration_recorded
+        summary["confident_wrong"] += record["calibration"]["confident_wrong"]
+        summary["uncertain_correct"] += record["calibration"]["uncertain_correct"]
+        if calibration_score is not None:
+            calibration_weighted += calibration_score * calibration_recorded
         summary["by_phase"][phase] = summary["by_phase"].get(phase, 0) + 1
+
+    if summary["confidence_recorded"]:
+        summary["calibration_score"] = round(
+            calibration_weighted / summary["confidence_recorded"], 3,
+        )
 
     return {
         "items": list(reversed(records[-limit:])),

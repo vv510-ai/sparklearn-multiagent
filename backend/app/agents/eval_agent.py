@@ -10,6 +10,9 @@ from __future__ import annotations
 from ..models.db import session
 from ..models.entities import Resource
 from ..services.bkt import mastery_level
+from ..services.metacognition_service import (apply_metacognition_calibration,
+                                               calibration_signal,
+                                               normalize_confidence)
 from ..services.knowledge_graph import kp_name
 from ..services.path_service import plan_path, save_path
 from ..services.profile_service import get_profile, log_event, update_mastery
@@ -127,7 +130,15 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
         d["n"] += 1
         d["right"] += int(correct)
         d["mastery_right"] += int(mastery_correct)
-        d["supported"] += int(a.get("support_level", "independent") != "independent")
+        support_level = a.get("support_level", "independent")
+        d["supported"] += int(support_level != "independent")
+        confidence = normalize_confidence(a.get("confidence"))
+        calibration_eligible = bool(confidence) and support_level == "independent"
+        signal = (calibration_signal(confidence, correct) if calibration_eligible else
+                  "supported" if confidence else "unrecorded")
+        d["confidence_recorded"] = d.get("confidence_recorded", 0) + int(calibration_eligible)
+        d["confident_wrong"] = d.get("confident_wrong", 0) + int(signal == "confident_wrong")
+        d["uncertain_correct"] = d.get("uncertain_correct", 0) + int(signal == "uncertain_correct")
         d["mastery"] = round(new_m, 3)
         d["level"] = mastery_level(new_m)
         items.append({
@@ -146,9 +157,11 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
             "hint_used": bool(a.get("hint_used")),
             "revealed": bool(a.get("revealed")),
             "misconception": a.get("misconception", ""),
-            "support_level": a.get("support_level", "independent"),
+            "support_level": support_level,
             "evidence_phase": a.get("evidence_phase", "initial"),
             "seconds": a.get("seconds", 0),
+            "confidence": confidence,
+            "calibration_signal": signal,
             "mastery": round(new_m, 3),
             "level": mastery_level(new_m),
         })
@@ -163,6 +176,8 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
         from ..services.profile_service import merge_profile
         profile = merge_profile(user_id, {"error_prone": merged})
 
+    calibration, profile = apply_metacognition_calibration(user_id, answers, profile)
+
     path = plan_path(profile)                            # 据新掌握度重排路径
     save_path(user_id, path)
     mindmap_refresh = _refresh_mindmap_labels(user_id, affected_kps, profile)
@@ -170,6 +185,7 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
                                      "evidence_phases": sorted({
                                          str(a.get("evidence_phase", "initial")) for a in answers
                                      }),
+                                     "calibration": calibration,
                                      "mindmap_refresh": mindmap_refresh})
 
     total = sum(d["n"] for d in per_kp.values()) or 1
@@ -186,5 +202,6 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
     return {"accuracy": round(right / total, 3), "per_kp": list(per_kp.values()),
             "items": items,
             "error_tags": error_counter, "suggestions": suggestions,
+            "calibration": calibration,
             "path": path, "profile_version": profile.get("_version"),
             "mindmap_refresh": mindmap_refresh}

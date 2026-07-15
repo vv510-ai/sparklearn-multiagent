@@ -31,10 +31,17 @@ def _seed_events() -> None:
                     "binary_tree": {
                         "kp": "binary_tree", "name": "二叉树", "n": 2,
                         "right": 2, "mastery_right": 1, "supported": 1,
+                        "confidence_recorded": 2, "confident_wrong": 1,
+                        "uncertain_correct": 1,
                         "mastery": 0.42, "level": "学习中",
                     },
                 },
                 "errors": {"条件看漏了": 1},
+                "calibration": {
+                    "recorded": 2, "score": 0.4, "confident_wrong": 1,
+                    "uncertain_correct": 1, "metacognition_before": 0.5,
+                    "metacognition_after": 0.475,
+                },
                 "evidence_phases": ["initial"],
             }),
             EventLog(user_id=USER_ID, etype="quiz_eval", payload={
@@ -42,10 +49,17 @@ def _seed_events() -> None:
                     "binary_tree": {
                         "kp": "binary_tree", "name": "二叉树", "n": 1,
                         "right": 1, "mastery_right": 1, "supported": 0,
+                        "confidence_recorded": 1, "confident_wrong": 0,
+                        "uncertain_correct": 0,
                         "mastery": 0.66, "level": "学习中",
                     },
                 },
                 "errors": {},
+                "calibration": {
+                    "recorded": 1, "score": 0.9, "confident_wrong": 0,
+                    "uncertain_correct": 0, "metacognition_before": 0.475,
+                    "metacognition_after": 0.5813,
+                },
                 "evidence_phases": ["retest"],
             }),
             EventLog(user_id=USER_ID, etype="quiz_eval", payload={
@@ -79,6 +93,10 @@ def test_evidence_reconstructs_mastery_changes_and_support_gap():
         "mastery_correct": 2,
         "supported": 1,
         "independent": 3,
+        "confidence_recorded": 3,
+        "confident_wrong": 1,
+        "uncertain_correct": 1,
+        "calibration_score": 0.567,
         "by_phase": {"initial": 1, "retest": 1, "spaced_review": 1},
     }
 
@@ -91,6 +109,7 @@ def test_evidence_reconstructs_mastery_changes_and_support_gap():
 
     retest = body["items"][1]
     assert retest["knowledge_points"][0]["mastery_before"] == 0.42
+    assert retest["calibration"]["score"] == 0.9
     assert all("answer" not in item and "expected" not in item for item in body["items"])
     assert all(
         "answer" not in point and "expected" not in point

@@ -13,6 +13,9 @@ interface KnowledgeEvidence {
   raw_correct: number;
   mastery_correct: number;
   supported: number;
+  confidence_recorded: number;
+  confident_wrong: number;
+  uncertain_correct: number;
   mastery_before: number;
   mastery_after: number;
   mastery_delta: number;
@@ -29,6 +32,14 @@ interface EvidenceRound {
   supported: number;
   independent: number;
   errors: Record<string, number>;
+  calibration: {
+    recorded: number;
+    score: number | null;
+    confident_wrong: number;
+    uncertain_correct: number;
+    metacognition_before: number | null;
+    metacognition_after: number | null;
+  };
   knowledge_points: KnowledgeEvidence[];
 }
 
@@ -41,6 +52,10 @@ interface EvidenceResponse {
     mastery_correct: number;
     supported: number;
     independent: number;
+    confidence_recorded: number;
+    confident_wrong: number;
+    uncertain_correct: number;
+    calibration_score: number | null;
     by_phase: Record<EvidencePhase, number>;
   };
 }
@@ -124,10 +139,18 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
         <button onClick={() => void loadEvidence()} className="secondary-action">刷新证据</button>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="有效证据轮次" value={data.summary.rounds} sub="首次、复测与间隔复习" tone="action" />
         <Stat label="独立作答" value={data.summary.independent} sub={`共作答 ${data.summary.answers} 次`} tone="success" />
         <Stat label="计入掌握的答对" value={data.summary.mastery_correct} sub={`原始判对 ${data.summary.raw_correct} 次`} tone="warn" />
+        <Stat
+          label="信心校准"
+          value={data.summary.calibration_score == null ? "待记录" : percent(data.summary.calibration_score)}
+          sub={data.summary.confidence_recorded
+            ? `自信误判 ${data.summary.confident_wrong} · 答对但不稳 ${data.summary.uncertain_correct}`
+            : "下一次作答时开始记录"}
+          tone={data.summary.calibration_score == null ? "muted" : data.summary.calibration_score >= 0.7 ? "success" : "warn"}
+        />
       </div>
 
       {error && <Notice tone="warn" className="mt-4" title="刷新失败，当前展示上次结果" desc={error} />}
@@ -151,6 +174,11 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
                       判对 {item.raw_correct}/{item.answers} · 计入掌握 {item.mastery_correct}/{item.answers}
                     </strong>
                     {item.supported > 0 && <Badge variant="warn">使用支持 {item.supported} 次</Badge>}
+                    {item.calibration.recorded > 0 && (
+                      <Badge variant={item.calibration.confident_wrong ? "danger" : "info"}>
+                        信心校准 {percent(item.calibration.score || 0)}
+                      </Badge>
+                    )}
                   </div>
                   <time className="text-xs text-[#858B98]">{formatTime(item.created_at)}</time>
                 </div>
@@ -177,6 +205,17 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-bold text-[#8A6546]">本轮错因</span>
                     {errors.map((tag) => <Badge key={tag} variant="warn">{tag}</Badge>)}
+                  </div>
+                )}
+                {item.calibration.recorded > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    {item.calibration.confident_wrong > 0 && <Badge variant="danger">自信误判 {item.calibration.confident_wrong}</Badge>}
+                    {item.calibration.uncertain_correct > 0 && <Badge variant="warn">答对但不稳 {item.calibration.uncertain_correct}</Badge>}
+                    {item.calibration.metacognition_before != null && item.calibration.metacognition_after != null && (
+                      <span className="text-[11px] text-[#7A818E]">
+                        元认知 {percent(item.calibration.metacognition_before)} → {percent(item.calibration.metacognition_after)}
+                      </span>
+                    )}
                   </div>
                 )}
               </article>

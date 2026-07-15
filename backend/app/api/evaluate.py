@@ -174,6 +174,7 @@ async def submit(req: EvalSubmit):
                          "hint_used": a.hint_used,
                          "revealed": a.revealed,
                          "misconception": misconception,
+                         "confidence": a.confidence,
                          "support_level": ("revealed" if a.revealed else
                                            "hinted" if a.hint_used else "independent"),
                          "seconds": max(0.0, a.seconds)})
@@ -266,6 +267,7 @@ async def retest(req: EvalRetestRequest):
             "hint_used": False,
             "revealed": False,
             "misconception": "",
+            "confidence": answer.confidence,
             "support_level": "independent",
             "evidence_phase": "retest",
             "seconds": max(0.0, answer.seconds),
@@ -366,6 +368,7 @@ async def submit_review(req: EvalReviewRequest):
             "hint_used": False,
             "revealed": False,
             "misconception": "",
+            "confidence": submitted.confidence,
             "support_level": "independent",
             "evidence_phase": "spaced_review",
             "seconds": max(0.0, submitted.seconds),

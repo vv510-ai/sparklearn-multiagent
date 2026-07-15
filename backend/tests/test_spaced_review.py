@@ -87,12 +87,18 @@ def test_review_queue_hides_answers_and_advances_or_resets_intervals():
 
         first_review = client.post("/api/eval/review", json={
             "user_id": USER_ID,
-            "items": [{"review_item_id": item["id"], "answer": "B", "seconds": 5}],
+            "items": [{
+                "review_item_id": item["id"], "answer": "B", "seconds": 5,
+                "confidence": "unsure",
+            }],
         })
         assert first_review.status_code == 200, first_review.text
         first_report = first_review.json()
         first_schedule = first_report["review"]["schedule"][0]
         assert first_report["items"][0]["evidence_phase"] == "spaced_review"
+        assert first_report["items"][0]["confidence"] == "unsure"
+        assert first_report["items"][0]["calibration_signal"] == "uncertain_correct"
+        assert first_report["calibration"]["recorded"] == 1
         assert first_schedule["correct"] is True
         assert first_schedule["stage"] == 1
         assert first_schedule["interval_days"] == 1

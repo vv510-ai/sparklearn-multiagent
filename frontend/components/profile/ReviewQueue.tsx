@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Notice, Stat } from "@/components/ui";
 import { USER_ID, apiGet, apiPost } from "@/lib/api";
 import type { EvaluationReport } from "@/components/resource/QuizRetest";
+import ConfidencePicker, { calibrationSignalText, type ConfidenceLevel } from "@/components/resource/ConfidencePicker";
 
 interface ReviewQuestion {
   id: string;
@@ -101,6 +102,7 @@ export default function ReviewQueue({
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [confidences, setConfidences] = useState<Record<number, ConfidenceLevel>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ReviewReport | null>(null);
@@ -115,6 +117,9 @@ export default function ReviewQueue({
     (result?.review?.schedule || []).map((item) => [item.review_item_id, item]),
   ), [result]);
   const answered = (queue?.items || []).filter((item) => (answers[item.id] || "").trim()).length;
+  const pendingConfidence = (queue?.items || []).filter((item) => (
+    (answers[item.id] || "").trim() && !confidences[item.id]
+  )).length;
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -124,6 +129,7 @@ export default function ReviewQueue({
       setQueue(data);
       setStarted(false);
       setAnswers({});
+      setConfidences({});
       setResult(null);
       startedAt.current = {};
     } catch (caught) {
@@ -140,6 +146,13 @@ export default function ReviewQueue({
   function setAnswer(itemId: number, value: string) {
     if (busy || result) return;
     if (!startedAt.current[itemId]) startedAt.current[itemId] = Date.now();
+    if (answers[itemId] !== value) {
+      setConfidences((saved) => {
+        const next = { ...saved };
+        delete next[itemId];
+        return next;
+      });
+    }
     setAnswers((current) => ({ ...current, [itemId]: value }));
   }
 
@@ -156,6 +169,7 @@ export default function ReviewQueue({
           seconds: startedAt.current[item.id]
             ? Math.max(1, Math.round((Date.now() - startedAt.current[item.id]) / 1000))
             : 0,
+          confidence: confidences[item.id] || "",
         })),
       });
       setResult(report);
@@ -286,6 +300,14 @@ export default function ReviewQueue({
               />
             )}
 
+            {mine.trim() && !result && (
+              <ConfidencePicker
+                value={confidences[item.id]}
+                onChange={(value) => setConfidences((current) => ({ ...current, [item.id]: value }))}
+                disabled={busy}
+              />
+            )}
+
             {graded && (
               <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${
                 graded.correct ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-orange-200 bg-orange-50 text-orange-700"
@@ -294,6 +316,9 @@ export default function ReviewQueue({
                   {graded.correct ? "回忆正确" : `需要继续巩固 · 参考答案：${displayAnswer(question, graded.expected || "")}`}
                 </div>
                 {graded.explain && <div className="mt-1 leading-5 text-slate-600">{graded.explain}</div>}
+                {calibrationSignalText(graded.calibration_signal) && (
+                  <div className="mt-1 font-medium text-violet-700">{calibrationSignalText(graded.calibration_signal)}</div>
+                )}
                 {schedule && (
                   <div className="mt-1 text-slate-600">
                     {schedule.status === "mastered" ? "已完成本轮间隔周期" : `下次复习：${schedule.interval_days} 天后`}
@@ -310,10 +335,10 @@ export default function ReviewQueue({
         <button
           type="button"
           onClick={submit}
-          disabled={busy || answered !== queue.items.length}
+          disabled={busy || answered !== queue.items.length || pendingConfidence > 0}
           className="primary-action w-full justify-center disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "正在更新复习计划..." : "提交今日复习"}
+          {busy ? "正在更新复习计划..." : pendingConfidence ? "请先标记作答把握" : "提交今日复习"}
         </button>
       ) : (
         <div className="space-y-3">
