@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
@@ -13,6 +14,58 @@ from ..services.profile_service import get_profile, merge_profile, recent_events
 from .emitter import agent_end, agent_start, emit
 
 log = logging.getLogger("sparklearn.profile")
+
+_STYLE_EVIDENCE = {
+    "视觉型": ("看图", "图解", "画图", "可视化", "示意图"),
+    "语言型": ("文字讲解", "文字说明", "读文字", "用文字"),
+    "动手型": ("动手", "实操", "写代码", "敲代码", "边做边学"),
+}
+_GOAL_EVIDENCE = {
+    "应试": ("考试", "备考", "考研", "期末", "刷题"),
+    "竞赛": ("竞赛", "比赛", "算法赛", "软件杯"),
+    "工程实践": ("项目", "工程", "开发", "实战", "工作"),
+    "兴趣": ("兴趣", "好奇", "想了解"),
+}
+_DIFFICULTY_EVIDENCE = {
+    "循序渐进": ("从零", "零基础", "循序渐进", "由浅入深", "一步一步", "慢一点"),
+    "挑战式": ("挑战", "难一点", "进阶", "高难度"),
+    "挑战型": ("挑战", "难一点", "进阶", "高难度"),
+}
+_ERROR_EVIDENCE_RE = re.compile(r"(?:总是|经常|容易|老是).{0,12}(?:错|混淆)|总把.{0,12}弄混")
+
+
+def _contains_any(text: str, markers: tuple[str, ...]) -> bool:
+    return any(marker in text for marker in markers)
+
+
+def _gate_profile_patch(patch: dict, dialog: str, events: list[dict]) -> dict:
+    """Only persist profile dimensions supported by explicit or behavioral evidence."""
+    if not isinstance(patch, dict):
+        return {}
+    quiz_evidence = any(str(event.get("etype") or "") == "quiz_eval" for event in events)
+    gated: dict = {}
+
+    style = str(patch.get("cognitive_style") or "")
+    if style in _STYLE_EVIDENCE and _contains_any(dialog, _STYLE_EVIDENCE[style]):
+        gated["cognitive_style"] = style
+
+    goal = str(patch.get("goal") or "")
+    if goal in _GOAL_EVIDENCE and _contains_any(dialog, _GOAL_EVIDENCE[goal]):
+        gated["goal"] = goal
+
+    difficulty = str(patch.get("difficulty_pref") or "")
+    if difficulty in _DIFFICULTY_EVIDENCE and _contains_any(dialog, _DIFFICULTY_EVIDENCE[difficulty]):
+        gated["difficulty_pref"] = difficulty
+
+    if quiz_evidence or _ERROR_EVIDENCE_RE.search(dialog):
+        if patch.get("error_prone"):
+            gated["error_prone"] = patch["error_prone"]
+    if quiz_evidence and patch.get("metacognition") is not None:
+        gated["metacognition"] = patch["metacognition"]
+
+    if gated and patch.get("evidence"):
+        gated["evidence"] = patch["evidence"]
+    return gated
 
 async def run(state: dict) -> dict:
     user_id = state.get("user_id", "demo_user")
@@ -49,6 +102,7 @@ async def run(state: dict) -> dict:
             patch = {}
         for managed_field in ("knowledge_mastery", "pace", "resource_pref"):
             patch.pop(managed_field, None)
+        patch = _gate_profile_patch(patch, dialog, events)
     except Exception as e:  # noqa: BLE001
         log.warning("画像抽取失败,保持现状:%s", e)
 

@@ -169,12 +169,14 @@ def merge_profile(user_id: str, patch: dict[str, Any]) -> dict:
     patch = sanitize_profile_patch(patch)
     if not patch:
         return get_profile(user_id)
+    evidence = patch.pop("evidence", None)
     with session() as s:
         p = s.get(Profile, user_id)
         if p is None:
             p = Profile(user_id=user_id, data=default_profile(), version=0)
             s.add(p)
         data = dict(p.data or default_profile())
+        original = dict(data)
         for k, v in patch.items():
             if k.startswith("_"):
                 continue
@@ -187,6 +189,13 @@ def merge_profile(user_id: str, patch: dict[str, Any]) -> dict:
                 data[k] = merged
             elif v not in (None, "", "未知"):
                 data[k] = v
+        if data == original:
+            result = dict(original)
+            result["_version"] = p.version
+            result["_updated_at"] = (p.updated_at or dt.datetime.now(dt.timezone.utc)).isoformat()
+            return result
+        if evidence:
+            data["evidence"] = evidence
         p.data = data
         p.version = (p.version or 0) + 1
         s.commit()

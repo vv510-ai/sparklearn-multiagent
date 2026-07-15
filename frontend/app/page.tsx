@@ -29,6 +29,49 @@ type ResourceFilter = "all" | "doc" | "mindmap" | "quiz" | "video";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
 type UploadResult = { source: KnowledgeSource; sample?: { text: string; citation: string }[] };
+type QualityEvidence = {
+  retrievalCount: number | null;
+  knowledgePoint: string;
+  grounded: boolean | null;
+  verdict: string;
+  citationCount: number | null;
+  degradedReason: string;
+  promptCapability: string;
+};
+
+const emptyQualityEvidence = (): QualityEvidence => ({
+  retrievalCount: null,
+  knowledgePoint: "",
+  grounded: null,
+  verdict: "",
+  citationCount: null,
+  degradedReason: "",
+  promptCapability: "",
+});
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function dedupeSources(items: KnowledgeSource[]): KnowledgeSource[] {
+  const byDocument = new Map<string, KnowledgeSource>();
+  for (const source of items) {
+    const key = String(source.filename || source.title || source.id).trim().toLocaleLowerCase();
+    const existing = byDocument.get(key);
+    if (!existing) {
+      byDocument.set(key, source);
+      continue;
+    }
+    const sourceRank = (isSourceSelectable(source) ? 4 : source.status === "processing" ? 3 : 1);
+    const existingRank = (isSourceSelectable(existing) ? 4 : existing.status === "processing" ? 3 : 1);
+    const sourceTime = source.updated_at || source.created_at || "";
+    const existingTime = existing.updated_at || existing.created_at || "";
+    if (sourceRank > existingRank || (sourceRank === existingRank && sourceTime > existingTime)) {
+      byDocument.set(key, source);
+    }
+  }
+  return Array.from(byDocument.values());
+}
 
 const RESOURCE_FILTERS: { key: ResourceFilter; label: string }[] = [
   { key: "all", label: "全部" },
@@ -169,10 +212,24 @@ function LearningGate({
   );
 }
 
-function EvidenceSummary({ trace }: { trace: TraceState }) {
+function EvidenceSummary({
+  trace,
+  quality,
+  selectedSourceCount,
+}: {
+  trace: TraceState;
+  quality: QualityEvidence;
+  selectedSourceCount: number;
+}) {
+  const qualityRows = [
+    { label: "资料范围", value: selectedSourceCount ? `已选 ${selectedSourceCount} 份个人资料` : "课程知识库" },
+    { label: "检索片段", value: quality.retrievalCount == null ? "等待检索" : `${quality.retrievalCount} 个可核对片段` },
+    { label: "回答溯源", value: quality.grounded == null ? "等待检查" : quality.grounded ? "已通过" : "需要复核" },
+    { label: "引用来源", value: quality.citationCount == null ? "等待生成" : `${quality.citationCount} 处` },
+  ];
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {TRACE_FLOW.map((stage, index) => {
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">{TRACE_FLOW.map((stage, index) => {
         const nodes = stage.ids.map((id) => trace[id]).filter(Boolean);
         const status = nodes.some((node) => node.status === "error")
           ? "error"
@@ -190,7 +247,22 @@ function EvidenceSummary({ trace }: { trace: TraceState }) {
             <div className="mt-2 text-sm font-semibold text-white">{stage.label}</div>
           </div>
         );
-      })}
+      })}</div>
+      <div className="rounded-[8px] border border-white/10 bg-white/[0.04] p-3">
+        <div className="text-[10px] font-bold tracking-[0.16em] text-[#7ED9A6]">QUALITY EVIDENCE</div>
+        <div className="mt-2 divide-y divide-white/10">
+          {qualityRows.map((row) => (
+            <div key={row.label} className="flex items-center justify-between gap-3 py-2 text-xs">
+              <span className="text-white/50">{row.label}</span>
+              <strong className="text-right font-semibold text-white/90">{row.value}</strong>
+            </div>
+          ))}
+        </div>
+        {quality.knowledgePoint && <div className="mt-2 rounded-md bg-black/10 px-2.5 py-2 text-[11px] text-white/65">检索主题：{quality.knowledgePoint}</div>}
+        {quality.promptCapability && <div className="mt-2 text-[11px] text-white/50">教学模板：{quality.promptCapability}</div>}
+        {quality.verdict && <div className="mt-2 text-[11px] leading-5 text-white/60">检查结论：{quality.verdict}</div>}
+        {quality.degradedReason && <div className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/10 px-2.5 py-2 text-[11px] text-amber-100">已启用备用方案：{quality.degradedReason}</div>}
+      </div>
     </div>
   );
 }
@@ -203,6 +275,7 @@ export default function Home() {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [traceDetailsOpen, setTraceDetailsOpen] = useState(false);
   const [trace, setTrace] = useState<TraceState>(emptyTrace());
+  const [qualityEvidence, setQualityEvidence] = useState<QualityEvidence>(emptyQualityEvidence());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [seed, setSeed] = useState<string | undefined>();
   const [request, setRequest] = useState<ChatRequest | undefined>();
@@ -257,7 +330,7 @@ export default function Home() {
   const loadSources = useCallback(async () => {
     try {
       const data = await apiGet<{ items: KnowledgeSource[] }>(`/knowledge/sources?user_id=${USER_ID}`);
-      const items = data.items || [];
+      const items = dedupeSources(data.items || []);
       setSources(items);
       setSelectedSourceIds((ids) => ids.filter((id) => items.some((item) => item.id === id && isSourceSelectable(item))));
     } catch (error) {
@@ -280,7 +353,7 @@ export default function Home() {
       form.append("user_id", USER_ID);
       form.append("title", file.name.replace(/\.[^.]+$/, ""));
       const result = await apiUpload<UploadResult>("/knowledge/upload", form);
-      setSources((items) => [result.source, ...items.filter((item) => item.id !== result.source.id)]);
+      setSources((items) => dedupeSources([result.source, ...items.filter((item) => item.id !== result.source.id)]));
       if (isSourceSelectable(result.source)) {
         setSelectedSourceIds((ids) => Array.from(new Set([...ids, result.source.id])));
       }
@@ -302,6 +375,7 @@ export default function Home() {
     setNotebookTopic(goal.trim());
     setActivePanel("chat");
     setTrace(emptyTrace());
+    setQualityEvidence(emptyQualityEvidence());
     setSeed(goal.trim());
     setRequest(undefined);
   };
@@ -310,6 +384,7 @@ export default function Home() {
     setEntered(false);
     setActivePanel("chat");
     setTrace(emptyTrace());
+    setQualityEvidence(emptyQualityEvidence());
     setSeed(undefined);
     setRequest(undefined);
     setEvidenceOpen(false);
@@ -321,6 +396,7 @@ export default function Home() {
     setActivePanel("chat");
     setMobilePane(null);
     setTrace(emptyTrace());
+    setQualityEvidence(emptyQualityEvidence());
     setSeed(undefined);
     setRequest({
       path: "/resources/generate",
@@ -354,6 +430,23 @@ export default function Home() {
 
   const onEvent = useCallback((event: SparkEvent) => {
     setTrace((current) => applyTraceEvent(current, event));
+    if (event.type === "agent_start" && event.agent === "profile") setQualityEvidence(emptyQualityEvidence());
+    const output = asRecord(event.output);
+    const retrieval = asRecord(event.retrieval) || asRecord(output?.retrieval);
+    const grounding = asRecord(event.grounding) || asRecord(output?.grounding);
+    const promptSkill = asRecord(event.prompt_skill) || asRecord(output?.prompt_skill);
+    if (retrieval || grounding || promptSkill || event.degraded || event.type === "citations") {
+      setQualityEvidence((current) => ({
+        ...current,
+        retrievalCount: retrieval ? Number(retrieval.count ?? 0) : current.retrievalCount,
+        knowledgePoint: retrieval?.knowledge_point ? String(retrieval.knowledge_point) : current.knowledgePoint,
+        grounded: grounding && typeof grounding.grounded === "boolean" ? grounding.grounded : current.grounded,
+        verdict: grounding?.verdict ? String(grounding.verdict) : current.verdict,
+        citationCount: event.type === "citations" ? (event.items || []).length : current.citationCount,
+        degradedReason: event.degraded ? String(event.detail || event.reason || "备用链路") : current.degradedReason,
+        promptCapability: promptSkill?.capability ? String(promptSkill.capability) : current.promptCapability,
+      }));
+    }
     if (event.type === "profile" && event.profile) setProfile(event.profile);
     if (event.type === "path" && event.path) {
       setPathPlan(event.path);
@@ -547,7 +640,7 @@ export default function Home() {
           <button onClick={() => setEvidenceOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-white/5 text-white/70 hover:bg-white/10" aria-label="关闭依据面板"><X size={18} /></button>
         </div>
         <div className="h-[calc(100dvh-68px)] overflow-y-auto p-4">
-          <EvidenceSummary trace={trace} />
+          <EvidenceSummary trace={trace} quality={qualityEvidence} selectedSourceCount={selectedSourceIds.length} />
           <button onClick={() => setTraceDetailsOpen((open) => !open)} className="mt-3 flex w-full items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.05] px-3 py-2.5 text-left text-sm font-semibold text-white">
             <span>{traceDetailsOpen ? "收起详细过程" : "查看详细过程"}</span><span>⌄</span>
           </button>

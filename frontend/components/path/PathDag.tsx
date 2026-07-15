@@ -4,9 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PathNode, PathPlan } from "@/lib/types";
 
 const W = 900;
-const NODE_W = 152;
-const NODE_H = 64;
-const GAP_Y = 92;
+const NODE_W = 168;
+const NODE_H = 70;
+const GAP_Y = 102;
 
 function layout(plan: PathPlan) {
   const layer: Record<string, number> = {};
@@ -86,7 +86,7 @@ export default function PathDag({
   }, [plan]);
 
   return (
-    <svg viewBox={`0 0 ${W} ${height}`} className="w-full">
+    <svg viewBox={`0 0 ${W} ${height}`} className="block h-auto w-full min-w-[900px]" role="img" aria-label="知识点先修关系图">
       <defs>
         <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M0,0 L8,4 L0,8 z" fill="#94a3b8" />
@@ -135,10 +135,10 @@ export default function PathDag({
             )}
             <title>{`${n.name} · 掌握 ${Math.round(n.mastery * 100)}% · ${n.status === "done" ? "已掌握" : n.status === "ready" ? "可学习" : "待解锁"}`}</title>
             <rect width={NODE_W} height={NODE_H} rx="12" fill={f.bg} stroke={isSel ? "#0F6B50" : f.border} strokeWidth={isSel ? 2.4 : 1.5} />
-            <text x={NODE_W / 2} y={22} textAnchor="middle" fontSize="14" fontWeight={800} fill={f.text}>
+            <text x={NODE_W / 2} y={24} textAnchor="middle" fontSize="15" fontWeight={800} fill={f.text}>
               {n.status === "done" ? "✓ " : n.status === "locked" ? "🔒 " : ""}{n.name}
             </text>
-            <text x={NODE_W - 16} y={NODE_H - 24} textAnchor="end" fontSize="10.5" fontWeight={700} fill={f.text}>
+            <text x={NODE_W - 16} y={NODE_H - 25} textAnchor="end" fontSize="11.5" fontWeight={700} fill={f.text}>
               {Math.round(n.mastery * 100)}%
             </text>
             <rect x="16" y={NODE_H - 18} width={NODE_W - 32} height="6" rx="3" fill="#e2e8f0" />

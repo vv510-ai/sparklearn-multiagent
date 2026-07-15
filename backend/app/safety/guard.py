@@ -37,7 +37,8 @@ def safety_filter(text: str) -> dict:
     if not ok_local:
         for w in hits:
             cleaned = cleaned.replace(w, "*" * len(w))
-    return {"passed": passed, "hits": hits, "text": cleaned}
+    # ``safe`` is kept as a compatibility alias for older agents and tests.
+    return {"passed": passed, "safe": passed, "hits": hits, "text": cleaned}
 
 
 def strip_pii(text: str) -> str:

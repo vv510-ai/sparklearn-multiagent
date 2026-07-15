@@ -253,12 +253,12 @@ export default function Chat({
               <div className="min-w-0 flex-1 space-y-3">
                 {(m.text || m.streaming) && (
                   <div className="rounded-[14px] rounded-tl-md border border-[#E5E9E3] bg-white px-4 py-3 shadow-sm">
-                    <Markdown text={m.text} streaming={m.streaming} />
+                    <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
                     {m.citations.length > 0 && !m.streaming && (
                       <div className="mt-3 border-t border-slate-200 pt-2">
                         <div className="mb-1 font-mono text-[10px] tracking-[0.18em] text-emerald-600">内容出处</div>
                         {m.citations.map((c, j) => (
-                          <div key={j} className="text-xs leading-5 text-slate-500">
+                          <div key={j} id={`chat-${i}-cite-${j + 1}`} className="scroll-mt-20 text-xs leading-5 text-slate-500">
                             <span className="font-mono text-emerald-600">[{j + 1}]</span> {c}
                           </div>
                         ))}

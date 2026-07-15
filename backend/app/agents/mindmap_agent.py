@@ -46,6 +46,21 @@ def _fallback_points(chunks: list[dict]) -> list[str]:
     return points or ["资料片段不足"]
 
 
+def _guided_goal_points(goal: str, chunks: list[dict]) -> list[str]:
+    """Use a source-backed deterministic outline for common traversal first lessons."""
+    if not chunks:
+        return []
+    compact = re.sub(r"\s+", "", goal)
+    traversal = next((name for name in ("前序", "中序", "后序", "层序") if name in compact), "")
+    orders = {
+        "前序": ["顺序：根 → 左 → 右", "先记录当前节点", "再遍历左子树", "最后遍历右子树", "最小例子：A → B → C"],
+        "中序": ["顺序：左 → 根 → 右", "先遍历左子树", "再记录当前节点", "最后遍历右子树", "最小例子：B → A → C"],
+        "后序": ["顺序：左 → 右 → 根", "先遍历左子树", "再遍历右子树", "最后记录当前节点", "最小例子：B → C → A"],
+        "层序": ["顺序：从上到下", "同层从左到右", "使用队列记录待访问节点", "访问后加入孩子", "最小例子：A → B → C"],
+    }
+    return orders.get(traversal, [])
+
+
 def _outline_nodes(kp: str) -> list[tuple[str, str]]:
     kg = load_kg()
     children = kg["adj"].get(kp, [])
@@ -62,10 +77,17 @@ def _outline_nodes(kp: str) -> list[tuple[str, str]]:
     return out
 
 
-def _outline_for_scope(kp: str, source_ids: list[str]) -> list[tuple[str, str]]:
-    """Keep selected-source maps free from unsourced course-graph relations."""
+def _outline_for_scope(
+    kp: str,
+    source_ids: list[str],
+    *,
+    guided: bool = False,
+) -> list[tuple[str, str]]:
+    """Keep source-bound and first-lesson maps focused on the current concept."""
     if source_ids:
         return [("资料要点", kp)]
+    if guided:
+        return [("当前主题", kp)]
     return _outline_nodes(kp)
 
 
@@ -150,17 +172,21 @@ def _retrieve_node_chunks(query: str, node_id: str, source_ids: list[str]) -> li
 
 
 async def _expand_node(
-    node_id: str, *, source_ids: list[str], goal: str,
+    node_id: str, *, source_ids: list[str], goal: str, guided: bool = False,
 ) -> tuple[list[str], list[dict], PromptCall]:
     name = kp_name(node_id)
     node_desc = load_kg()["nodes"].get(node_id, {}).get("desc", "")
-    query = f"{name} {node_desc} 概念 性质 操作 算法 复杂度 易错点 {goal}"
+    query = (
+        f"{name} {goal} 定义 最小例子 步骤"
+        if guided else
+        f"{name} {node_desc} 概念 性质 操作 算法 复杂度 易错点 {goal}"
+    )
     chunks = _retrieve_node_chunks(query, node_id, source_ids)
     ctx, citations = build_context(chunks)
     prompt_call = render_mindmap_prompt_call(kp=name, context=ctx or "(无)")
 
-    points: list[str] = []
-    if chunks and not is_demo():
+    points: list[str] = _guided_goal_points(goal, chunks) if guided else []
+    if chunks and not points and not is_demo():
         try:
             raw = await llm_complete(
                 prompt_call.prompt,
@@ -259,9 +285,15 @@ async def run(state: dict) -> dict:
     citations: list[dict] = []
     prompt_samples: list[str] = []
     prompt_meta: dict[str, str] = {}
-    outline = _outline_for_scope(kp, source_ids)
+    guided = bool(state.get("guided_learning") or state.get("intent") == "learn")
+    outline = _outline_for_scope(kp, source_ids, guided=guided)
     for relation, node_id in outline:
-        points, node_citations, prompt_call = await _expand_node(node_id, source_ids=source_ids, goal=goal)
+        points, node_citations, prompt_call = await _expand_node(
+            node_id,
+            source_ids=source_ids,
+            goal=goal,
+            guided=guided,
+        )
         expanded.append((relation, _node_label(node_id, mastery, unlocked), points))
         citations.extend(node_citations)
         prompt_meta = prompt_call.metadata()
@@ -273,7 +305,7 @@ async def run(state: dict) -> dict:
     md = _render_markmap(_node_label(kp, mastery, unlocked), expanded)
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "mindmap", "kp": kp,
-                "title": f"{name}·{'资料框架' if source_ids else '思维导图'}",
+                "title": f"{name}·{'资料框架' if source_ids else '入门导图' if guided else '思维导图'}",
                 "payload": {"markmap": md,
                             "prompt_skill": prompt_meta,
                             "outline_node_ids": [{"relation": rel, "id": node_id}

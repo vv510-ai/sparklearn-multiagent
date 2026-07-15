@@ -11,7 +11,7 @@ from ..config import is_demo
 from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_stream
 from ..prompt_templates import render_tutor_prompt
-from ..rag.citation import build_context
+from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
@@ -59,6 +59,7 @@ def _retrieval_evidence(
     *,
     needed: bool,
     reason: str,
+    knowledge_point: str | None = None,
 ) -> dict:
     """Build trace evidence without copying retrieved source text into events."""
 
@@ -78,9 +79,26 @@ def _retrieval_evidence(
         "reason": reason,
         "query": str(question or "")[:240],
         "source_ids": source_ids,
+        "knowledge_point": knowledge_point,
         "count": len(chunks),
         "chunks": items,
     }
+
+
+def _focused_kp_chunks(chunks: list[dict], kp: str | None, limit: int = 4) -> list[dict]:
+    """Prefer chunks narrowly tagged to the planned concept over broad guide pages."""
+    if not kp:
+        return chunks[:limit]
+    specific: list[dict] = []
+    matching: list[dict] = []
+    for chunk in chunks:
+        values = [value.strip() for value in str(chunk.get("kp") or "").split(",") if value.strip()]
+        if kp not in values:
+            continue
+        matching.append(chunk)
+        if len(values) <= 3:
+            specific.append(chunk)
+    return (specific or matching or chunks)[:limit]
 
 def _build_prompt(
     question: str,
@@ -102,6 +120,53 @@ def _build_prompt(
 
 
 def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False) -> str:
+    compact_question = re.sub(r"\s+", "", question)
+    traversal = next((name for name in ("前序", "中序", "后序", "层序") if name in compact_question), "")
+    traversal_order = {
+        "前序": ("根 → 左 → 右", "先看当前节点，再走左子树，最后走右子树", "A → B → C"),
+        "中序": ("左 → 根 → 右", "先走左子树，再看当前节点，最后走右子树", "B → A → C"),
+        "后序": ("左 → 右 → 根", "先走左右子树，最后回到当前节点", "B → C → A"),
+        "层序": ("从上到下、从左到右", "先访问离根近的节点，再逐层向下", "A → B → C"),
+    }.get(traversal)
+    traversal_cite = next(
+        (index for index, chunk in enumerate(chunks[:4], 1)
+         if traversal and traversal in str(chunk.get("text") or "")),
+        next((index for index, chunk in enumerate(chunks[:4], 1)
+              if "遍历" in str(chunk.get("text") or "")), None),
+    )
+
+    if guided and traversal_order and traversal_cite:
+        order, plain, result = traversal_order
+        return "\n".join([
+            "## 一句话先懂",
+            "",
+            f"{traversal}遍历就是：{plain}。记成 **{order}**。 [^{traversal_cite}]",
+            "",
+            "## 最小例子",
+            "",
+            "```text",
+            "    A",
+            "   / \\",
+            "  B   C",
+            "```",
+            "",
+            f"按 **{order}** 依次访问，结果是：**{result}**。",
+            "",
+            "## 手走一遍",
+            "",
+            f"1. 从根节点 A 开始，严格按“{order}”判断下一步。",
+            "2. 每访问一个节点就立刻写下字母，不要等走完再回忆。",
+            f"3. 最后检查结果是否为 **{result}**。",
+            "",
+            "## 记忆钩子",
+            "",
+            f"**{traversal} = {order}。** “根”出现在哪里，就是当前节点什么时候被记录。",
+            "",
+            "## 接下来怎么练",
+            "",
+            "先完成下方基础练习卡；答错时只回到“访问当前节点的时机”这一点，不扩展到别的树结构。",
+        ])
+
     lines = (
         [
             "## 一句话先懂",
@@ -230,8 +295,16 @@ async def run(state: dict) -> dict:
             "messages": [{"role": "assistant", "content": answer}],
         }
 
-    chunks = retrieve(question, final_k=4, source_ids=source_ids)
-    if not source_ids:
+    knowledge_points = [str(item).strip() for item in (state.get("knowledge_points") or []) if str(item).strip()]
+    retrieval_kp = knowledge_points[0] if guided and not source_ids and knowledge_points else None
+    chunks = retrieve(
+        question,
+        final_k=8 if retrieval_kp else 4,
+        source_ids=source_ids,
+        kp=retrieval_kp,
+    )
+    chunks = _focused_kp_chunks(chunks, retrieval_kp)
+    if not source_ids and not guided:
         chunks = [*chunks, *recent_note_chunks(state.get("user_id", "demo_user"), question, limit=2)]
     retrieval = _retrieval_evidence(
         question,
@@ -239,6 +312,7 @@ async def run(state: dict) -> dict:
         chunks,
         needed=True,
         reason="guided_or_knowledge_question",
+        knowledge_point=retrieval_kp,
     )
     await emit({
         "type": "progress",
@@ -375,7 +449,11 @@ async def run(state: dict) -> dict:
                 "verdict": "模型不可用,已直接整理检索片段",
             }
 
-    # Only stream the final answer after it has passed grounding or been replaced.
+    # Only stream the final answer after grounding and content-safety checks.
+    safety = safety_filter(answer)
+    if not safety.get("passed", safety.get("safe", True)):
+        answer = str(safety.get("text") or answer)
+        await emit({"type": "safety", "level": "warn", "detail": "命中内容安全规则,已在展示前脱敏"})
     await _emit_answer(answer)
     grounding = {
         "grounded": bool(ground.get("grounded", False)),
@@ -390,7 +468,6 @@ async def run(state: dict) -> dict:
         "detail": "资料溯源通过" if grounding["grounded"] else "资料溯源需要复核",
         "grounding": grounding,
     })
-    safety = safety_filter(answer)
     flags = (
         [{"agent": "tutor", "type": "grounding_fallback", "detail": grounding_fallback_reason}]
         if grounding_fallback_reason else []
@@ -399,10 +476,11 @@ async def run(state: dict) -> dict:
         flags.append({"agent": "tutor", "type": "grounding", "detail": ground.get("verdict", "")})
         await emit({"type": "safety", "level": "warn",
                     "detail": "部分表述未命中教材依据,已提示复核"})
-    if not safety.get("safe", True):
+    if not safety.get("passed", safety.get("safe", True)):
         flags.append({"agent": "tutor", "type": "safety", "detail": safety.get("hits", [])})
 
-    cites = [c["citation"] for c in citations]
+    cited_indices = used_indices(answer, len(citations))
+    cites = [citations[index - 1]["citation"] for index in cited_indices]
     await emit({"type": "citations", "agent": "tutor", "items": cites})
     await agent_end(
         "tutor",
