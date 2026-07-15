@@ -11,7 +11,7 @@ from tests._stubs import install  # noqa: E402
 install()
 
 from app.agents.graph import run_with_events  # noqa: E402
-from app.agents.orchestrator import route_task, run as route_intent  # noqa: E402
+from app.agents.orchestrator import requested_resource_kinds, route_task, run as route_intent  # noqa: E402
 from app.agents.tutor_agent import _build_prompt  # noqa: E402, SLF001
 from app.llm.spark_client import MockEngine  # noqa: E402
 from app.models.db import init_db  # noqa: E402
@@ -34,8 +34,9 @@ def test_beginner_prompt_is_complete_and_contains_conversation():
         conversation=[{"role": "user", "content": "我总分不清左右子树"}],
         guided=True,
     )
-    for required in ("一句话先懂", "生活里的它", "最小例子", "一张小图", "记忆钩子", "接下来怎么练"):
+    for required in ("学习方法/路线", "只给完成当前目标所需的最少内容", "建议顺序", "现在只做什么"):
         assert required in prompt
+    assert "下方会出现基础练习卡" not in prompt
     assert "我总分不清左右子树" in prompt
     assert "二叉树不等于" in prompt or "不要把当前主题偷换" in prompt
     assert "TASK=tutor" in prompt
@@ -62,6 +63,40 @@ def test_learning_and_summary_intents_are_deterministic():
     assert route_task(summary) == "summary"
 
 
+def test_learning_strategy_is_not_misclassified_as_resource_generation():
+    learning = asyncio.run(route_intent({
+        "messages": [{"role": "user", "content": "数据结构怎么学？请通俗易懂地教我"}],
+    }))
+    assert learning["intent"] == "learn"
+    assert learning["artifact_policy"] == "on_demand"
+    assert not learning.get("kinds")
+
+
+def test_only_explicitly_named_artifacts_are_selected():
+    assert requested_resource_kinds("数据结构怎么学？") == []
+    assert requested_resource_kinds("请画一张数据结构思维导图") == ["mindmap"]
+    assert requested_resource_kinds("请给我出题，不需要导图") == ["quiz"]
+    assert requested_resource_kinds("只讲怎么学，不要题目和思维导图") == []
+
+
+def test_learning_strategy_sse_answers_without_resource_cards():
+    init_db()
+    ingest_corpus()
+    ensure_user("strategy-stu")
+    events = asyncio.run(_collect({
+        "user_id": "strategy-stu",
+        "session_id": "strategy-flow-1",
+        "messages": [{"role": "user", "content": "数据结构怎么学？请通俗易懂地教我"}],
+        "conversation": [{"role": "user", "content": "数据结构怎么学？请通俗易懂地教我"}],
+        "topic_label": "数据结构",
+    }))
+    starts = [event.get("agent") for event in events if event.get("type") == "agent_start"]
+    assert "tutor" in starts
+    assert not {"planner", "path", "mindmap", "quiz", "media", "eval"}.intersection(starts)
+    assert any(event.get("type") == "token" for event in events)
+    assert not any(event.get("type") == "resource" for event in events)
+
+
 def test_conversation_note_template_keeps_dialogue_and_beginner_structure():
     prompt = render_learning_prompt(
         "conversation_notes",
@@ -76,7 +111,7 @@ def test_conversation_note_template_keeps_dialogue_and_beginner_structure():
     assert "记忆钩子" in prompt
 
 
-def test_guided_pipeline_then_conversation_note_is_reusable():
+def test_guided_answer_has_no_automatic_artifacts_then_conversation_note_is_reusable():
     init_db()
     ingest_corpus()
     ensure_user("guided-stu")
@@ -90,11 +125,10 @@ def test_guided_pipeline_then_conversation_note_is_reusable():
         "intent": "learn",
     }))
     starts = [event.get("agent") for event in learning_events if event.get("type") == "agent_start"]
-    assert starts.index("tutor") < starts.index("mindmap")
+    assert "tutor" in starts
+    assert not {"planner", "path", "mindmap", "quiz", "media", "eval"}.intersection(starts)
     resources = [event["resource"] for event in learning_events if event.get("type") == "resource"]
-    assert {"mindmap", "quiz"} <= {resource["kind"] for resource in resources}
-    guided_quiz = next(resource for resource in resources if resource["kind"] == "quiz")
-    assert len(guided_quiz["payload"]["questions"]) <= 5
+    assert resources == []
 
     conversation = [
         {"role": "user", "content": "我想从零开始学习二叉树"},

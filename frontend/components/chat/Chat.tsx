@@ -22,13 +22,13 @@ const STARTERS = [
 ];
 
 const BEGINNER_PRESET =
-  "请用完全零基础、由浅入深的方式教我【在这里填写知识点】。先用一句白话说明，再用生活化类比、最小例子和简单图解帮助我理解，最后给我基础练习。";
+  "请用完全零基础、由浅入深的方式教我【在这里填写知识点】。先判断我现在需要学习路线还是概念讲解，只回答当下最需要的内容；练习、导图或笔记等我需要时会单独提出。";
 
 const FLOW = [
-  ["01", "一句话先懂", "不堆术语"],
-  ["02", "类比与图解", "把抽象变具体"],
-  ["03", "基础练习", "单选/判断/问答"],
-  ["04", "沉淀笔记", "对话整理再复习"],
+  ["01", "先判断需求", "路线还是概念"],
+  ["02", "只答眼前问题", "不强塞全套"],
+  ["03", "需要再展开", "由你决定深度"],
+  ["04", "产物按需生成", "导图练习可选"],
 ];
 
 export default function Chat({
@@ -216,7 +216,7 @@ export default function Chat({
             <div className="text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#EEF0FA] text-2xl">📘</div>
               <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[#1D2028]">从一个问题开始</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">先用白话讲懂，再用类比、图解和练习逐步加深；学完可以把完整对话整理成笔记。</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">先判断你要学习路线还是具体讲解，只回答当前问题；导图、练习和笔记都按需生成。</p>
             </div>
             <button
               type="button"

@@ -156,6 +156,9 @@ def _build_prompt(
 
 def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False) -> str:
     compact_question = re.sub(r"\s+", "", question)
+    asks_learning_strategy = bool(
+        re.search(r"(?:怎么学|如何学|从哪(?:里)?学|学习顺序|学习路线|学习路径|学习计划)", compact_question)
+    )
     graph_definition_cite = next(
         (
             index for index, chunk in enumerate(chunks[:4], 1)
@@ -215,9 +218,9 @@ def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False)
             "",
             f"**{traversal} = {order}。** “根”出现在哪里，就是当前节点什么时候被记录。",
             "",
-            "## 接下来怎么练",
+            "## 现在只做什么",
             "",
-            "先完成下方基础练习卡；答错时只回到“访问当前节点的时机”这一点，不扩展到别的树结构。",
+            "先确认自己能按顺序手走这 3 个节点；需要练习题时再单独提出，不扩展到别的树结构。",
         ])
 
     lines = (
@@ -238,7 +241,21 @@ def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False)
             lines.append(f"- {text[:260]} [^{index}]")
     if not chunks:
         lines.append("当前知识库没有检索到可用片段，暂不补充资料外内容。")
-    if guided:
+    if guided and asks_learning_strategy:
+        lines += [
+            "",
+            "## 建议顺序",
+            "",
+            "1. **先认对象**：弄清最基本的术语分别指什么。",
+            "2. **再学操作**：一次只学一个最常用操作，并用极小例子手推。",
+            "3. **再看代价**：理解这个操作为什么这样做、时间和空间花在哪里。",
+            "4. **最后做选择**：比较相近方法分别适合什么场景。",
+            "",
+            "## 现在只做什么",
+            "",
+            "先从资料里的第一条核心定义开始，用自己的话复述它；不要同时铺开整门课，也不自动生成题目或导图。",
+        ]
+    elif guided:
         lines += [
             "",
             "## 生活里的它",
@@ -249,22 +266,13 @@ def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False)
             "",
             "先从资料中的第一条核心定义出发，自己画出或写出一个只包含 2—3 个元素的例子；再删掉一个元素，检查定义是否仍成立。",
             "",
-            "## 一张小图",
-            "",
-            "```mermaid",
-            "flowchart LR",
-            "    A[先认对象] --> B[再看操作]",
-            "    B --> C[用最小例子演示]",
-            "    C --> D[检查边界和易错点]",
-            "```",
-            "",
             "## 记忆钩子",
             "",
             "**先认、再做、后查错。** 正式地说：先掌握定义，再理解操作流程，最后验证适用条件。",
             "",
-            "## 接下来怎么练",
+            "## 现在只做什么",
             "",
-            "我已在下方准备基础练习卡。先自己作答，再根据解析定位还没理解的地方。",
+            "先确认这一条定义和最小例子；需要练习或导图时再单独提出。",
         ]
     else:
         lines += ["", "你可以继续追问其中一个概念、步骤或易错点，我会沿用同一资料范围。"]

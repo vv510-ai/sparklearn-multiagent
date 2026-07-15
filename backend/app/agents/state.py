@@ -27,6 +27,7 @@ class LearningState(TypedDict, total=False):
     source_ids: list[str]                              # 指定上传资料
     prompt_template: str                              # 白名单学习模板键
     guided_learning: bool                             # 新主题由浅入深教学模式
+    artifact_policy: str                              # on_demand:仅生成用户明确点名的学习产物
     skip_multimodal: bool                             # 补救等短流程跳过耗时媒体增强
     required_retrieval_terms: list[str]              # 高风险生成必须在资料中明确命中的概念
     # 编排
