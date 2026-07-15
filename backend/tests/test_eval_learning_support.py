@@ -13,7 +13,7 @@ install()
 
 from app.main import app  # noqa: E402
 from app.models.db import init_db, session  # noqa: E402
-from app.models.entities import Resource  # noqa: E402
+from app.models.entities import QuizAttempt, Resource  # noqa: E402
 from app.services.profile_service import ensure_user  # noqa: E402
 
 
@@ -121,6 +121,38 @@ def test_reveal_is_preserved_as_non_independent_mastery_evidence():
         assert submitted.status_code == 200, submitted.text
         report = submitted.json()
 
+        incomplete = client.post("/api/eval/retest", json={
+            "user_id": USER_ID,
+            "quiz_resource_id": QUIZ_ID,
+            "attempt_id": report["attempt_id"],
+            "answers": [],
+        })
+        assert incomplete.status_code == 400
+
+        retested = client.post("/api/eval/retest", json={
+            "user_id": USER_ID,
+            "quiz_resource_id": QUIZ_ID,
+            "attempt_id": report["attempt_id"],
+            "answers": [{
+                "question_id": QUESTION["id"],
+                "answer": "B",
+                "seconds": 6,
+            }],
+        })
+        assert retested.status_code == 200, retested.text
+        retest_report = retested.json()
+
+        duplicate = client.post("/api/eval/retest", json={
+            "user_id": USER_ID,
+            "quiz_resource_id": QUIZ_ID,
+            "attempt_id": report["attempt_id"],
+            "answers": [{
+                "question_id": QUESTION["id"],
+                "answer": "B",
+            }],
+        })
+        assert duplicate.status_code == 409
+
     assert report["accuracy"] == 1.0  # backend grading ignores client `correct`
     assert report["behavior"]["support"] == {
         "hinted": 0,
@@ -136,3 +168,52 @@ def test_reveal_is_preserved_as_non_independent_mastery_evidence():
     assert "条件看漏了" in item["error_tags"]
     assert report["per_kp"][0]["right"] == 1
     assert report["per_kp"][0]["mastery_right"] == 0
+    assert report["retest"] == {
+        "status": "ready",
+        "eligible_question_ids": [QUESTION["id"]],
+    }
+
+    assert retest_report["retest"] == {
+        "status": "completed",
+        "eligible": 1,
+        "recovered": 1,
+        "remaining": 0,
+    }
+    assert retest_report["accuracy"] == 1.0
+    assert retest_report["items"][0]["mastery_correct"] is True
+    assert retest_report["items"][0]["support_level"] == "independent"
+    assert retest_report["items"][0]["evidence_phase"] == "retest"
+    assert retest_report["per_kp"][0]["mastery"] > report["per_kp"][0]["mastery"]
+    with session() as db:
+        persisted = db.get(QuizAttempt, report["attempt_id"])
+        assert persisted is not None
+        assert persisted.detail["retest"]["summary"]["recovered"] == 1
+
+
+def test_independent_correct_answer_does_not_offer_retest():
+    _seed_quiz()
+    with TestClient(app) as client:
+        submitted = client.post("/api/eval/submit", json={
+            "user_id": USER_ID,
+            "quiz_resource_id": QUIZ_ID,
+            "kp": "binary_tree",
+            "answers": [{
+                "question_id": QUESTION["id"],
+                "answer": "B",
+                "correct": False,
+            }],
+        })
+        assert submitted.status_code == 200, submitted.text
+        report = submitted.json()
+        assert report["retest"] == {
+            "status": "not_needed",
+            "eligible_question_ids": [],
+        }
+
+        retested = client.post("/api/eval/retest", json={
+            "user_id": USER_ID,
+            "quiz_resource_id": QUIZ_ID,
+            "attempt_id": report["attempt_id"],
+            "answers": [],
+        })
+        assert retested.status_code == 400

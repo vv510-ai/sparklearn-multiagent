@@ -2,6 +2,7 @@
 POST /api/eval/support —— 作答后按需获取提示或揭晓答案;
 POST /api/eval/submit —— 提交答题:逐题比对 → BKT 更新掌握度 → 错因标签回写画像
                           → 路径重排 → 返回评估报告(学习闭环核心);
+POST /api/eval/retest —— 对未形成独立掌握证据的题进行一次无提示复测;
 GET  /api/eval/report —— 学情报告(画像 + 掌握度雷达数据 + 近期事件)。"""
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from ..agents.eval_agent import evaluate_answers
 from ..models.db import session
 from ..models.entities import QuizAttempt, Resource
-from ..schemas.core import EvalSubmit, EvalSupportRequest
+from ..schemas.core import EvalRetestRequest, EvalSubmit, EvalSupportRequest
 from ..services.knowledge_graph import canonical_kp_id, kp_name
 from ..services.profile_service import ensure_user, get_profile, recent_events
 
@@ -84,15 +85,23 @@ def _grade_answer(question: dict, answer: str) -> bool:
     return len(str(answer).strip()) >= 8
 
 
-def _quiz_question(user_id: str, resource_id: str, question_id: str) -> dict:
+def _quiz_questions(user_id: str, resource_id: str) -> dict[str, dict]:
     with session() as s:
         resource = s.get(Resource, resource_id)
         if not resource or resource.user_id != user_id or resource.kind != "quiz":
             raise HTTPException(404, "quiz resource not found")
         payload = resource.payload if isinstance(resource.payload, dict) else {}
-        for question in payload.get("questions", []):
-            if isinstance(question, dict) and question.get("id") == question_id:
-                return question
+        return {
+            str(question["id"]): question
+            for question in payload.get("questions", [])
+            if isinstance(question, dict) and question.get("id")
+        }
+
+
+def _quiz_question(user_id: str, resource_id: str, question_id: str) -> dict:
+    question = _quiz_questions(user_id, resource_id).get(question_id)
+    if question:
+        return question
     raise HTTPException(404, "quiz question not found")
 
 
@@ -130,16 +139,13 @@ async def support(req: EvalSupportRequest):
 async def submit(req: EvalSubmit):
     ensure_user(req.user_id)
     # 从题组资源还原每题的 kp / error_tags / 参考答案
-    qmap: dict[str, dict] = {}
-    with session() as s:
-        r = s.get(Resource, req.quiz_resource_id)
-        if r:
-            payload = r.payload if isinstance(r.payload, dict) else {}
-            qmap = {q["id"]: q for q in payload.get("questions", []) if q.get("id")}
+    qmap = _quiz_questions(req.user_id, req.quiz_resource_id)
 
     enriched = []
     for a in req.answers:
-        q = qmap.get(a.question_id, {})
+        q = qmap.get(a.question_id)
+        if not q:
+            raise HTTPException(400, f"题组中不存在题目 {a.question_id}")
         correct = _grade_answer(q, a.answer)
         mastery_correct = correct and not a.revealed
         misconception = a.misconception if a.misconception in MISCONCEPTION_TAGS else ""
@@ -176,16 +182,110 @@ async def submit(req: EvalSubmit):
     }
     behavior = {**req.behavior, "support": support_summary}
     with session() as s:
-        s.add(QuizAttempt(user_id=req.user_id, quiz_resource_id=req.quiz_resource_id,
-                          kp=attempt_kp,
-                          score=round(score, 3),
-                          detail={"answers": enriched,
-                                  "submitted": [a.model_dump() for a in req.answers],
-                                  "behavior": behavior}))
+        attempt = QuizAttempt(user_id=req.user_id, quiz_resource_id=req.quiz_resource_id,
+                              kp=attempt_kp,
+                              score=round(score, 3),
+                              detail={"answers": enriched,
+                                      "submitted": [a.model_dump() for a in req.answers],
+                                      "behavior": behavior})
+        s.add(attempt)
         s.commit()
+        attempt_id = attempt.id
 
     report = evaluate_answers(req.user_id, enriched)
     report["behavior"] = behavior
+    report["attempt_id"] = attempt_id
+    report["retest"] = {
+        "status": "ready" if any(not e["mastery_correct"] for e in enriched) else "not_needed",
+        "eligible_question_ids": [e["question_id"] for e in enriched if not e["mastery_correct"]],
+    }
+    return report
+
+
+@router.post("/retest")
+async def retest(req: EvalRetestRequest):
+    """One independent recovery attempt for every unsupported/incorrect item."""
+    ensure_user(req.user_id)
+    with session() as s:
+        attempt = s.get(QuizAttempt, req.attempt_id)
+        if (not attempt or attempt.user_id != req.user_id
+                or attempt.quiz_resource_id != req.quiz_resource_id):
+            raise HTTPException(404, "quiz attempt not found")
+        detail = dict(attempt.detail or {})
+
+    if detail.get("retest"):
+        raise HTTPException(409, "该答题记录已经完成过复测")
+    original_items = {
+        str(item.get("question_id")): item
+        for item in detail.get("answers", [])
+        if isinstance(item, dict) and item.get("question_id")
+    }
+    eligible_ids = {
+        question_id
+        for question_id, item in original_items.items()
+        if not bool(item.get("mastery_correct", item.get("correct")))
+    }
+    if not eligible_ids:
+        raise HTTPException(400, "本次答题没有需要恢复的题目")
+
+    submitted_ids = [answer.question_id for answer in req.answers]
+    if len(submitted_ids) != len(set(submitted_ids)):
+        raise HTTPException(400, "复测题目不能重复提交")
+    if set(submitted_ids) != eligible_ids:
+        raise HTTPException(400, "请一次完成全部待复测题目")
+
+    qmap = _quiz_questions(req.user_id, req.quiz_resource_id)
+    enriched = []
+    for answer in req.answers:
+        question = qmap.get(answer.question_id)
+        if not question:
+            raise HTTPException(400, f"题组中不存在题目 {answer.question_id}")
+        correct = _grade_answer(question, answer.answer)
+        kp = canonical_kp_id(question.get("kp") or attempt.kp)
+        enriched.append({
+            "question_id": answer.question_id,
+            "kp": kp or "",
+            "correct": correct,
+            "mastery_correct": correct,
+            "answer": answer.answer,
+            "expected": question.get("answer", ""),
+            "type": question.get("type", ""),
+            "difficulty": question.get("difficulty", 0),
+            "explain": question.get("explain", ""),
+            "error_tags": list(question.get("error_tags", []) or []) if not correct else [],
+            "hint_used": False,
+            "revealed": False,
+            "misconception": "",
+            "support_level": "independent",
+            "evidence_phase": "retest",
+            "seconds": max(0.0, answer.seconds),
+        })
+
+    report = evaluate_answers(req.user_id, enriched)
+    recovered = sum(bool(item["mastery_correct"]) for item in enriched)
+    retest_summary = {
+        "status": "completed",
+        "eligible": len(enriched),
+        "recovered": recovered,
+        "remaining": len(enriched) - recovered,
+    }
+    detail["retest"] = {
+        "submitted": [answer.model_dump() for answer in req.answers],
+        "answers": enriched,
+        "summary": retest_summary,
+    }
+    with session() as s:
+        attempt = s.get(QuizAttempt, req.attempt_id)
+        if not attempt:
+            raise HTTPException(404, "quiz attempt not found")
+        attempt.detail = detail
+        s.commit()
+
+    report["attempt_id"] = req.attempt_id
+    report["retest"] = retest_summary
+    report["behavior"] = {"phase": "retest", "support": {
+        "hinted": 0, "revealed": 0, "independent": len(enriched), "misconceptions": [],
+    }}
     return report
 
 

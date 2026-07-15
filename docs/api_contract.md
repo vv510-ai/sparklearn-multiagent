@@ -564,7 +564,51 @@ Content-Type: application/json
 - 写入 `event_logs`
 - 触发路径重排
 
-### 4.13 学情报告
+### 4.13 无提示恢复测
+
+```http
+POST /api/eval/retest
+Content-Type: application/json
+```
+
+首轮 `/api/eval/submit` 会返回 `attempt_id` 和 `retest`：只有答错或已经揭晓、因而没有形成独立掌握证据的题目会进入 `eligible_question_ids`。
+
+```json
+{
+  "user_id": "demo_user",
+  "quiz_resource_id": "quiz_binary_tree_xxx",
+  "attempt_id": 42,
+  "answers": [
+    {
+      "question_id": "q2",
+      "answer": "n+1",
+      "seconds": 8
+    }
+  ]
+}
+```
+
+复测规则：
+
+- 必须一次提交该答题记录的全部待恢复题。
+- 不允许提示或揭晓，所有答案由后端重新判分。
+- 同一个 `attempt_id` 只能完成一次复测，重复提交返回 `409`。
+- 独立答对会作为新的 BKT 证据更新掌握度，并再次触发画像、脑图标签和路径重排。
+
+返回的 `retest` 示例：
+
+```json
+{
+  "status": "completed",
+  "eligible": 2,
+  "recovered": 1,
+  "remaining": 1
+}
+```
+
+复测明细保存在原 `quiz_attempts.detail.retest` 中，便于后续展示恢复轨迹，不会伪装成一次新的首轮成绩。
+
+### 4.14 学情报告
 
 ```http
 GET /api/eval/report?user_id=demo_user
@@ -594,7 +638,7 @@ GET /api/eval/report?user_id=demo_user
 }
 ```
 
-### 4.13 多模态答疑
+### 4.15 多模态答疑
 
 ```http
 POST /api/tutor
@@ -624,7 +668,7 @@ Accept: text/event-stream
 
 返回：SSE 事件流，常见事件为 `agent_start`、`progress`、`token`、`citations`、`safety`、`agent_end`、`done`。
 
-### 4.14 调试报告
+### 4.16 调试报告
 
 ```http
 GET /api/debug/runs/{session_id}
@@ -647,7 +691,7 @@ GET /api/debug/runs/{session_id}
 
 用途：资源页根据 SSE 的 `trace.session_id` 拉取本次调试包,展示事件统计、资源列表和 `debug_report.md`。
 
-### 4.15 知识资料入库
+### 4.17 知识资料入库
 
 上传学习资料并立即重建本地向量索引：
 

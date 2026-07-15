@@ -145,6 +145,7 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
             "revealed": bool(a.get("revealed")),
             "misconception": a.get("misconception", ""),
             "support_level": a.get("support_level", "independent"),
+            "evidence_phase": a.get("evidence_phase", "initial"),
             "seconds": a.get("seconds", 0),
             "mastery": round(new_m, 3),
             "level": mastery_level(new_m),
@@ -164,6 +165,9 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
     save_path(user_id, path)
     mindmap_refresh = _refresh_mindmap_labels(user_id, affected_kps, profile)
     log_event(user_id, "quiz_eval", {"per_kp": per_kp, "errors": error_counter,
+                                     "evidence_phases": sorted({
+                                         str(a.get("evidence_phase", "initial")) for a in answers
+                                     }),
                                      "mindmap_refresh": mindmap_refresh})
 
     total = sum(d["n"] for d in per_kp.values()) or 1

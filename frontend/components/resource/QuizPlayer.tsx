@@ -3,35 +3,9 @@
 import { useMemo, useRef, useState } from "react";
 import { Badge, Notice, Stat, masteryTone } from "@/components/ui";
 import { USER_ID, apiPost } from "@/lib/api";
-import type { PathPlan, QuizQuestion } from "@/lib/types";
-
-interface Report {
-  accuracy: number;
-  items?: {
-    question_id: string;
-    correct: boolean;
-    mastery_correct?: boolean;
-    expected?: string;
-    explain?: string;
-    error_tags?: string[];
-    hint_used?: boolean;
-    revealed?: boolean;
-    misconception?: string;
-    support_level?: "independent" | "hinted" | "revealed";
-  }[];
-  per_kp: { name: string; mastery: number; level: string; right: number; n: number }[];
-  suggestions: string[];
-  path?: PathPlan;
-  profile_version?: number;
-  behavior?: {
-    support?: {
-      hinted: number;
-      revealed: number;
-      independent: number;
-      misconceptions: string[];
-    };
-  };
-}
+import type { QuizQuestion } from "@/lib/types";
+import QuizRetest from "./QuizRetest";
+import type { EvaluationReport } from "./QuizRetest";
 
 interface SupportResponse {
   mode: "hint" | "reveal";
@@ -102,11 +76,11 @@ export default function QuizPlayer({
 }: {
   resourceId: string;
   questions: QuizQuestion[];
-  onEvaluated?: (report: Report) => void;
+  onEvaluated?: (report: EvaluationReport) => void;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
-  const [report, setReport] = useState<Report | null>(null);
+  const [report, setReport] = useState<EvaluationReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [hints, setHints] = useState<Record<string, string>>({});
@@ -182,7 +156,7 @@ export default function QuizPlayer({
     setBusy(true);
     setSubmitError("");
     try {
-      const rep = await apiPost<Report>("/eval/submit", {
+      const rep = await apiPost<EvaluationReport>("/eval/submit", {
         user_id: USER_ID,
         quiz_resource_id: resourceId,
         kp: questions[0]?.kp || "",
@@ -461,6 +435,16 @@ export default function QuizPlayer({
             <div className="mt-3 rounded-md border border-emerald-200 bg-white px-3 py-2 font-mono text-[11px] text-emerald-700">
               学习档案已更新到 v{report.profile_version}
             </div>
+          )}
+          {report.attempt_id && report.retest?.status === "ready" && (
+            <QuizRetest
+              resourceId={resourceId}
+              attemptId={report.attempt_id}
+              questions={questions.filter((question) => (
+                report.retest?.eligible_question_ids || []
+              ).includes(question.id))}
+              onEvaluated={onEvaluated}
+            />
           )}
           <div className="mt-2 font-mono text-[11px] text-slate-500">后续学习安排已按新掌握度更新</div>
         </div>

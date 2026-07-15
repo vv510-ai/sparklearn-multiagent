@@ -55,6 +55,19 @@ class EvalSubmit(BaseModel):
     behavior: dict[str, Any] = Field(default_factory=dict, description="停留/重看/求助等")
 
 
+class RetestAnswerItem(BaseModel):
+    question_id: str
+    answer: str
+    seconds: float = 0
+
+
+class EvalRetestRequest(BaseModel):
+    user_id: str = "demo_user"
+    quiz_resource_id: str
+    attempt_id: int = Field(gt=0)
+    answers: list[RetestAnswerItem]
+
+
 class ReplanRequest(BaseModel):
     user_id: str = "demo_user"
     reason: str = "评估后重排"
