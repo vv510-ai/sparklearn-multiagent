@@ -483,9 +483,13 @@ export default function QuizPlayer({
             </div>
           )}
           {report.attempt_id && report.diagnosis?.status === "needed" && (
-            <RemediationPanel attemptId={report.attempt_id} diagnosis={report.diagnosis} />
+            <RemediationPanel
+              attemptId={report.attempt_id}
+              diagnosis={report.diagnosis}
+              onEvaluated={onEvaluated}
+            />
           )}
-          {report.attempt_id && report.retest?.status === "ready" && (
+          {report.attempt_id && report.retest?.status === "ready" && report.diagnosis?.status !== "needed" && (
             <QuizRetest
               resourceId={resourceId}
               attemptId={report.attempt_id}

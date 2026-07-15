@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from ..config import is_demo
@@ -18,6 +19,28 @@ _TYPES = {"single", "fill", "judge", "design", "complexity"}
 _TARGET_QUESTIONS = 8
 _MIN_QUESTIONS = 6
 _SEED_QUIZ_PATH = Path(__file__).resolve().parents[1] / "data" / "seed_quiz.json"
+
+
+def _stem_key(value: object) -> str:
+    return re.sub(r"[^0-9a-z\u4e00-\u9fff]", "", str(value or "").lower())
+
+
+def _reuses_stem(stem: object, forbidden_stems: list[str]) -> bool:
+    """Reject copied or cosmetically rewritten stems in transfer retests."""
+    candidate = _stem_key(stem)
+    if not candidate:
+        return True
+    for forbidden in forbidden_stems:
+        original = _stem_key(forbidden)
+        if not original:
+            continue
+        if candidate == original or (len(original) >= 12 and (candidate in original or original in candidate)):
+            return True
+        if min(len(candidate), len(original)) >= 12 and SequenceMatcher(
+            None, candidate, original, autojunk=False,
+        ).ratio() >= 0.82:
+            return True
+    return False
 
 def _difficulty_of(profile: dict, kp: str) -> int:
     m = float((profile.get("knowledge_mastery") or {}).get(kp, 0.3))
@@ -173,9 +196,19 @@ async def run(state: dict) -> dict:
     profile = state.get("student_profile") or {}
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
     guided = bool(state.get("guided_learning"))
-    target_questions = 5 if guided else _TARGET_QUESTIONS
-    min_questions = 4 if guided else _MIN_QUESTIONS
-    diff = min(2, _difficulty_of(profile, kp)) if guided else _difficulty_of(profile, kp)
+    remediation = bool(state.get("transfer_retest"))
+    requested_target = int(state.get("target_questions") or 3)
+    target_questions = max(1, min(5, requested_target)) if remediation else 5 if guided else _TARGET_QUESTIONS
+    min_questions = target_questions if remediation else 4 if guided else _MIN_QUESTIONS
+    diff = min(3, _difficulty_of(profile, kp)) if remediation else (
+        min(2, _difficulty_of(profile, kp)) if guided else _difficulty_of(profile, kp)
+    )
+    forbidden_stems = [
+        str(stem).strip() for stem in (state.get("avoid_stems") or []) if str(stem).strip()
+    ]
+    required_terms = [
+        str(term).strip() for term in (state.get("required_retrieval_terms") or []) if str(term).strip()
+    ]
     await agent_start("quiz", "题库智能体", f"「{name}」难度档 {diff},生成 {target_questions} 题并本地校验")
 
     chunks = [] if custom_topic and not source_ids else retrieve(
@@ -183,6 +216,7 @@ async def run(state: dict) -> dict:
         final_k=6,
         source_ids=source_ids,
         kp=None if source_ids else kp,
+        required_terms=required_terms or None,
     )
     if source_ids and not chunks:
         await agent_end("quiz", "所选资料无可用片段,已阻止无依据出题")
@@ -199,6 +233,10 @@ async def run(state: dict) -> dict:
         context=ctx,
         guided=guided,
         general_knowledge=custom_topic and not source_ids,
+        remediation=remediation,
+        target_questions=target_questions,
+        misconception=str(state.get("misconception") or ""),
+        forbidden_stems="\n".join(f"- {stem}" for stem in forbidden_stems),
     )
     if is_demo():
         items = []
@@ -229,6 +267,8 @@ async def run(state: dict) -> dict:
     )
     for item in [*items, *fallback_items]:
         valid = _validate(dict(item), kp) if isinstance(item, dict) else None
+        if valid and remediation and _reuses_stem(valid.get("stem"), forbidden_stems):
+            continue
         stem_key = re.sub(r"\s+", "", str((valid or {}).get("stem", ""))).lower()
         if valid and stem_key and stem_key not in seen_stems:
             questions.append(valid)
@@ -246,6 +286,7 @@ async def run(state: dict) -> dict:
                             "learning_goal": goal,
                             "topic_label": name,
                             "custom_topic": custom_topic,
+                            "transfer_retest": remediation,
                             "prompt_skill": prompt_call.metadata()},
                 "citations": [c.get("citation", "") for c in chunks]}
     await emit({"type": "resource", "resource": resource})

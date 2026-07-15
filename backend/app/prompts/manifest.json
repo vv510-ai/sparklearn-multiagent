@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.07.16.1",
+  "version": "2026.07.16.2",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -56,6 +56,10 @@
     "quiz.guided": {
       "description": "零基础巩固练习",
       "file": "quiz/guided.md"
+    },
+    "quiz.remediation": {
+      "description": "补救微课后的同概念迁移复测",
+      "file": "quiz/remediation.md"
     },
     "quiz.standard": {
       "description": "按掌握度生成综合练习",

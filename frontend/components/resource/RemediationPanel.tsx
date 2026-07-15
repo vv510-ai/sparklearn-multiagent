@@ -5,10 +5,13 @@ import Markdown from "@/components/chat/Markdown";
 import { Badge, Notice } from "@/components/ui";
 import { USER_ID, apiPost } from "@/lib/api";
 import type { LearningDiagnosis, ResourceItem } from "@/lib/types";
+import QuizRetest from "./QuizRetest";
+import type { EvaluationReport } from "./QuizRetest";
 
 interface RemediationResponse {
   diagnosis: LearningDiagnosis;
   resource: ResourceItem;
+  transfer_quiz?: ResourceItem | null;
   next_action: "retest" | "select_source";
   reused: boolean;
 }
@@ -16,9 +19,11 @@ interface RemediationResponse {
 export default function RemediationPanel({
   attemptId,
   diagnosis,
+  onEvaluated,
 }: {
   attemptId: number;
   diagnosis: LearningDiagnosis;
+  onEvaluated?: (report: EvaluationReport) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,7 +66,7 @@ export default function RemediationPanel({
             <Badge variant="warn" mono>REMEDIATE</Badge>
             <Badge variant={diagnosis.severity === "high" ? "danger" : "neutral"}>{gapLabel}</Badge>
           </div>
-          <h3 className="mt-3 text-sm font-black text-slate-950">先补一个最小缺口，再回到原题</h3>
+          <h3 className="mt-3 text-sm font-black text-slate-950">先补一个最小缺口，再用新题验证迁移</h3>
           <p className="mt-1 text-xs leading-5 text-slate-600">{diagnosis.reason}</p>
           {diagnosis.misconception && (
             <p className="mt-2 text-[11px] font-medium text-amber-800">诊断误区：{diagnosis.misconception}</p>
@@ -91,7 +96,7 @@ export default function RemediationPanel({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <strong className="text-sm text-slate-950">{result.resource.title}</strong>
             <Badge variant={result.next_action === "retest" ? "success" : "warn"}>
-              {result.next_action === "retest" ? "读完后回到无提示复测" : "需要补充或重选资料"}
+              {result.next_action === "retest" ? "读完后完成无提示迁移复测" : "需要补充或重选资料"}
             </Badge>
           </div>
           {result.resource.payload.markdown && (
@@ -107,6 +112,15 @@ export default function RemediationPanel({
                 <div key={`${citation}-${index}`}><span className="font-mono text-emerald-700">[{index + 1}]</span> {citation}</div>
               ))}
             </div>
+          )}
+          {result.next_action === "retest" && result.transfer_quiz?.payload.questions && (
+            <QuizRetest
+              resourceId={result.transfer_quiz.id}
+              attemptId={attemptId}
+              questions={result.transfer_quiz.payload.questions}
+              mode="transfer"
+              onEvaluated={onEvaluated}
+            />
           )}
         </div>
       )}

@@ -86,11 +86,13 @@ export default function QuizRetest({
   resourceId,
   attemptId,
   questions,
+  mode = "recovery",
   onEvaluated,
 }: {
   resourceId: string;
   attemptId: number;
   questions: QuizQuestion[];
+  mode?: "recovery" | "transfer";
   onEvaluated?: (report: EvaluationReport) => void;
 }) {
   const [started, setStarted] = useState(false);
@@ -108,6 +110,7 @@ export default function QuizRetest({
   const pendingConfidence = questions.filter((question) => (
     (answers[question.id] || "").trim() && !confidences[question.id]
   )).length;
+  const isTransfer = mode === "transfer";
 
   if (questions.length === 0) return null;
 
@@ -157,10 +160,12 @@ export default function QuizRetest({
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="info" mono>RETEST</Badge>
-              <span className="text-xs font-bold">无提示恢复测</span>
+              <span className="text-xs font-bold">{isTransfer ? "无提示迁移复测" : "无提示恢复测"}</span>
             </div>
             <p className="mt-1 text-[11px] leading-5 text-slate-600">
-              {questions.length} 道题还没有形成独立掌握证据。重新独立答对后，系统才会更新恢复后的掌握度。
+              {isTransfer
+                ? `${questions.length} 道新题与原题考查同一概念，但更换了题面。独立完成后，系统才会确认你能迁移应用。`
+                : `${questions.length} 道题还没有形成独立掌握证据。重新独立答对后，系统才会更新恢复后的掌握度。`}
             </p>
           </div>
           <button
@@ -168,7 +173,7 @@ export default function QuizRetest({
             onClick={() => setStarted(true)}
             className="rounded-md bg-sky-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-sky-700"
           >
-            开始无提示复测
+            {isTransfer ? "开始迁移复测" : "开始无提示复测"}
           </button>
         </div>
       </div>
@@ -181,9 +186,11 @@ export default function QuizRetest({
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="info" mono>RETEST</Badge>
-            <span className="text-sm font-black text-slate-900">无提示恢复测</span>
+            <span className="text-sm font-black text-slate-900">{isTransfer ? "无提示迁移复测" : "无提示恢复测"}</span>
           </div>
-          <div className="mt-1 text-[11px] text-slate-500">不提供提示或揭晓；请一次完成全部待恢复题。</div>
+          <div className="mt-1 text-[11px] text-slate-500">
+            {isTransfer ? "不提供提示或揭晓；请用新情境独立验证同一概念。" : "不提供提示或揭晓；请一次完成全部待恢复题。"}
+          </div>
         </div>
         {!result && <Badge variant="neutral">已作答 {answered}/{questions.length}</Badge>}
       </div>
@@ -281,7 +288,7 @@ export default function QuizRetest({
           disabled={busy || answered !== questions.length || pendingConfidence > 0}
           className="w-full rounded-lg bg-sky-600 py-2.5 text-xs font-black text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? "正在校准恢复后的掌握度..." : pendingConfidence ? "请先标记作答把握" : "提交无提示复测"}
+          {busy ? "正在校准恢复后的掌握度..." : pendingConfidence ? "请先标记作答把握" : isTransfer ? "提交迁移复测" : "提交无提示复测"}
         </button>
       ) : (
         <div className="space-y-2">

@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..agents import doc_agent, eval_agent as eval_agent_module
+from ..agents import doc_agent, eval_agent as eval_agent_module, quiz_agent
 from ..agents.eval_agent import evaluate_answers
 from ..models.db import session
 from ..models.entities import QuizAttempt, Resource, ReviewItem
@@ -238,8 +238,9 @@ async def submit(req: EvalSubmit):
 
 @router.post("/remediation")
 async def remediation(req: RemediationRequest):
-    """Generate one source-grounded micro-lesson for a diagnosed learning gap."""
+    """Generate a source-grounded micro-lesson and a fresh transfer retest."""
     ensure_user(req.user_id)
+    existing_doc: dict[str, Any] | None = None
     with session() as s:
         attempt = s.get(QuizAttempt, req.attempt_id)
         if not attempt or attempt.user_id != req.user_id:
@@ -254,10 +255,22 @@ async def remediation(req: RemediationRequest):
         existing = detail.get("remediation") if isinstance(detail.get("remediation"), dict) else {}
         existing_resource_id = str(existing.get("resource_id") or "")
         existing_resource = s.get(Resource, existing_resource_id) if existing_resource_id else None
-        if existing_resource and existing_resource.user_id == req.user_id:
+        existing_quiz_id = str(existing.get("transfer_quiz_id") or "")
+        existing_quiz = s.get(Resource, existing_quiz_id) if existing_quiz_id else None
+        existing_doc = (
+            _resource_dict(existing_resource)
+            if existing_resource and existing_resource.user_id == req.user_id else None
+        )
+        valid_existing_quiz = (
+            _resource_dict(existing_quiz)
+            if existing_quiz and existing_quiz.user_id == req.user_id and existing_quiz.kind == "quiz"
+            else None
+        )
+        if existing_doc and (valid_existing_quiz or existing.get("next_action") == "select_source"):
             return {
                 "diagnosis": diagnosis,
-                "resource": _resource_dict(existing_resource),
+                "resource": existing_doc,
+                "transfer_quiz": valid_existing_quiz,
                 "next_action": str(existing.get("next_action") or "retest"),
                 "reused": True,
             }
@@ -282,38 +295,103 @@ async def remediation(req: RemediationRequest):
         f"当前原知识点是「{kp_name(blocked_kp)}」，诊断到的误区是「{misconception}」。"
         f"请先补「{kp_name(remediation_kp)}」，再让学习者回到原题完成无提示复测。"
     )
-    state = {
-        "user_id": req.user_id,
-        "session_id": f"rem-{req.attempt_id}-{uuid.uuid4().hex[:6]}",
-        "messages": [{"role": "user", "content": goal}],
-        "learning_goal": goal,
-        "knowledge_points": [remediation_kp],
-        "kinds": ["doc"],
-        "source_ids": source_ids,
-        "prompt_template": "remediation",
-        "student_profile": get_profile(req.user_id),
-        "skip_multimodal": True,
-        "required_retrieval_terms": [kp_name(remediation_kp), remediation_kp],
-    }
-    generated = await doc_agent.run(state)
-    resources = generated.get("generated_resources") if isinstance(generated, dict) else {}
-    if not isinstance(resources, dict) or not resources:
-        raise HTTPException(503, "补救微课生成失败，请稍后重试")
+    profile = get_profile(req.user_id)
+    if existing_doc:
+        resource = existing_doc
+        resources = {str(resource["id"]): resource}
+        flags: list[dict] = []
+        source_blocked = False
+    else:
+        state = {
+            "user_id": req.user_id,
+            "session_id": f"rem-{req.attempt_id}-{uuid.uuid4().hex[:6]}",
+            "messages": [{"role": "user", "content": goal}],
+            "learning_goal": goal,
+            "knowledge_points": [remediation_kp],
+            "kinds": ["doc"],
+            "source_ids": source_ids,
+            "prompt_template": "remediation",
+            "student_profile": profile,
+            "skip_multimodal": True,
+            "required_retrieval_terms": [kp_name(remediation_kp), remediation_kp],
+        }
+        generated = await doc_agent.run(state)
+        resources = generated.get("generated_resources") if isinstance(generated, dict) else {}
+        if not isinstance(resources, dict) or not resources:
+            raise HTTPException(503, "补救微课生成失败，请稍后重试")
 
-    resource = next(iter(resources.values()))
-    payload = dict(resource.get("payload") or {})
-    payload["remediation"] = {
-        "origin_attempt_id": req.attempt_id,
-        "blocked_kp": blocked_kp,
-        "prerequisite_gap": diagnosis.get("prerequisite_gap"),
-        "misconception": misconception,
-        "next_action": "retest",
-    }
-    resource["payload"] = payload
-    resource["title"] = f"{kp_name(remediation_kp)}·补救微课"
+        resource = next(iter(resources.values()))
+        payload = dict(resource.get("payload") or {})
+        payload["remediation"] = {
+            "origin_attempt_id": req.attempt_id,
+            "blocked_kp": blocked_kp,
+            "prerequisite_gap": diagnosis.get("prerequisite_gap"),
+            "misconception": misconception,
+            "next_action": "retest",
+        }
+        resource["payload"] = payload
+        resource["title"] = f"{kp_name(remediation_kp)}·补救微课"
 
-    flags = generated.get("safety_flags") if isinstance(generated.get("safety_flags"), list) else []
-    source_blocked = any(flag.get("type") == "source_scope_empty" for flag in flags if isinstance(flag, dict))
+        flags = generated.get("safety_flags") if isinstance(generated.get("safety_flags"), list) else []
+        source_blocked = any(
+            flag.get("type") == "source_scope_empty" for flag in flags if isinstance(flag, dict)
+        )
+
+    transfer_quiz: dict[str, Any] | None = None
+    if not source_blocked:
+        original_stems = [
+            str(question.get("stem") or "")
+            for question in quiz_payload.get("questions", [])
+            if isinstance(question, dict) and str(question.get("stem") or "").strip()
+        ]
+        transfer_goal = (
+            f"学习者已完成「{kp_name(remediation_kp)}」补救微课。"
+            f"请用全新题面检查其能否回到「{kp_name(blocked_kp)}」并独立迁移；"
+            f"重点辨析误区「{misconception}」。"
+        )
+        quiz_generated = await quiz_agent.run({
+            "user_id": req.user_id,
+            "session_id": f"transfer-{req.attempt_id}-{uuid.uuid4().hex[:6]}",
+            "messages": [{"role": "user", "content": transfer_goal}],
+            "learning_goal": transfer_goal,
+            "knowledge_points": [blocked_kp],
+            "kinds": ["quiz"],
+            "source_ids": source_ids,
+            "student_profile": profile,
+            "transfer_retest": True,
+            "target_questions": 3,
+            "avoid_stems": original_stems,
+            "misconception": misconception,
+            "required_retrieval_terms": [kp_name(blocked_kp), blocked_kp],
+        })
+        quiz_resources = (
+            quiz_generated.get("generated_resources") if isinstance(quiz_generated, dict) else {}
+        )
+        quiz_flags = (
+            quiz_generated.get("safety_flags")
+            if isinstance(quiz_generated, dict) and isinstance(quiz_generated.get("safety_flags"), list)
+            else []
+        )
+        flags.extend(quiz_flags)
+        source_blocked = any(
+            flag.get("type") == "source_scope_empty" for flag in quiz_flags if isinstance(flag, dict)
+        )
+        if not source_blocked:
+            if not isinstance(quiz_resources, dict) or not quiz_resources:
+                raise HTTPException(503, "迁移复测生成失败，请稍后重试")
+            transfer_quiz = next(iter(quiz_resources.values()))
+            transfer_payload = dict(transfer_quiz.get("payload") or {})
+            transfer_payload.update({
+                "transfer_retest": True,
+                "origin_attempt_id": req.attempt_id,
+                "origin_quiz_resource_id": str(quiz_resource.id),
+                "blocked_kp": blocked_kp,
+                "source_ids": source_ids,
+            })
+            transfer_quiz["payload"] = transfer_payload
+            transfer_quiz["title"] = f"{kp_name(blocked_kp)}·迁移复测"
+            resources.update(quiz_resources)
+
     next_action = "select_source" if source_blocked else "retest"
     await eval_agent_module.run({
         "user_id": req.user_id,
@@ -330,6 +408,7 @@ async def remediation(req: RemediationRequest):
             "resource_id": resource["id"],
             "remediation_kp": remediation_kp,
             "source_ids": source_ids,
+            "transfer_quiz_id": transfer_quiz.get("id") if transfer_quiz else "",
             "next_action": next_action,
             "status": "blocked" if source_blocked else "ready_for_retest",
         }
@@ -339,6 +418,7 @@ async def remediation(req: RemediationRequest):
     log_event(req.user_id, "remediation_generated", {
         "attempt_id": req.attempt_id,
         "resource_id": resource["id"],
+        "transfer_quiz_id": transfer_quiz.get("id") if transfer_quiz else "",
         "blocked_kp": blocked_kp,
         "remediation_kp": remediation_kp,
         "source_ids": source_ids,
@@ -347,6 +427,7 @@ async def remediation(req: RemediationRequest):
     return {
         "diagnosis": diagnosis,
         "resource": resource,
+        "transfer_quiz": transfer_quiz,
         "next_action": next_action,
         "reused": False,
     }
@@ -354,27 +435,37 @@ async def remediation(req: RemediationRequest):
 
 @router.post("/retest")
 async def retest(req: EvalRetestRequest):
-    """One independent recovery attempt for every unsupported/incorrect item."""
+    """Grade one independent recovery attempt, including fresh transfer items."""
     ensure_user(req.user_id)
     with session() as s:
         attempt = s.get(QuizAttempt, req.attempt_id)
-        if (not attempt or attempt.user_id != req.user_id
-                or attempt.quiz_resource_id != req.quiz_resource_id):
+        if not attempt or attempt.user_id != req.user_id:
             raise HTTPException(404, "quiz attempt not found")
         detail = dict(attempt.detail or {})
+        remediation_detail = (
+            detail.get("remediation") if isinstance(detail.get("remediation"), dict) else {}
+        )
+        transfer_quiz_id = str(remediation_detail.get("transfer_quiz_id") or "")
+        transfer_retest = bool(transfer_quiz_id and transfer_quiz_id == req.quiz_resource_id)
+        if attempt.quiz_resource_id != req.quiz_resource_id and not transfer_retest:
+            raise HTTPException(404, "quiz attempt not found")
 
     if detail.get("retest"):
         raise HTTPException(409, "该答题记录已经完成过复测")
-    original_items = {
-        str(item.get("question_id")): item
-        for item in detail.get("answers", [])
-        if isinstance(item, dict) and item.get("question_id")
-    }
-    eligible_ids = {
-        question_id
-        for question_id, item in original_items.items()
-        if not bool(item.get("mastery_correct", item.get("correct")))
-    }
+    qmap = _quiz_questions(req.user_id, req.quiz_resource_id)
+    if transfer_retest:
+        eligible_ids = set(qmap)
+    else:
+        original_items = {
+            str(item.get("question_id")): item
+            for item in detail.get("answers", [])
+            if isinstance(item, dict) and item.get("question_id")
+        }
+        eligible_ids = {
+            question_id
+            for question_id, item in original_items.items()
+            if not bool(item.get("mastery_correct", item.get("correct")))
+        }
     if not eligible_ids:
         raise HTTPException(400, "本次答题没有需要恢复的题目")
 
@@ -384,7 +475,6 @@ async def retest(req: EvalRetestRequest):
     if set(submitted_ids) != eligible_ids:
         raise HTTPException(400, "请一次完成全部待复测题目")
 
-    qmap = _quiz_questions(req.user_id, req.quiz_resource_id)
     enriched = []
     for answer in req.answers:
         question = qmap.get(answer.question_id)
@@ -413,10 +503,31 @@ async def retest(req: EvalRetestRequest):
         })
 
     report = evaluate_answers(req.user_id, enriched)
-    review_schedules = apply_review_results(
-        req.user_id, enriched, phase="retest", quiz_resource_id=req.quiz_resource_id,
-    )
     recovered = sum(bool(item["mastery_correct"]) for item in enriched)
+    if transfer_retest:
+        with session() as s:
+            original_reviews = s.query(ReviewItem).filter(
+                ReviewItem.user_id == req.user_id,
+                ReviewItem.source_attempt_id == req.attempt_id,
+            ).all()
+        fully_recovered = recovered == len(enriched)
+        review_inputs = [{
+            "review_item_id": row.id,
+            "question_id": row.question_id,
+            "kp": row.kp,
+            "correct": fully_recovered,
+            "mastery_correct": fully_recovered,
+        } for row in original_reviews]
+        review_schedules = apply_review_results(
+            req.user_id,
+            review_inputs or enriched,
+            phase="retest",
+            quiz_resource_id=attempt.quiz_resource_id if review_inputs else req.quiz_resource_id,
+        )
+    else:
+        review_schedules = apply_review_results(
+            req.user_id, enriched, phase="retest", quiz_resource_id=req.quiz_resource_id,
+        )
     retest_summary = {
         "status": "completed",
         "eligible": len(enriched),
@@ -426,6 +537,8 @@ async def retest(req: EvalRetestRequest):
     detail["retest"] = {
         "submitted": [answer.model_dump() for answer in req.answers],
         "answers": enriched,
+        "quiz_resource_id": req.quiz_resource_id,
+        "mode": "transfer" if transfer_retest else "original",
         "summary": retest_summary,
     }
     detail["diagnosis"] = report.get("diagnosis") or {}

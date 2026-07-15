@@ -36,6 +36,7 @@ def test_manifest_is_ready_for_an_mcp_wrapper():
         "doc.exam_guide",
         "doc.remediation",
         "quiz.guided",
+        "quiz.remediation",
         "quiz.standard",
         "mindmap.leaf",
         "media.video_script",
@@ -57,6 +58,9 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "kp": "示例知识点",
         "kpid": "sample_kp",
         "difficulty": 2,
+        "target_questions": 3,
+        "misconception": "条件看漏了",
+        "forbidden_stems": "- 原题题干",
         "class_name": "SampleScene",
         "message": "我想学习示例主题",
         "knowledge_points": "[]",
@@ -149,6 +153,25 @@ def test_remediation_prompt_is_narrow_and_returns_to_the_blocked_problem():
     assert "回到原问题" in remediation
     assert "不得泄漏原题标准答案" in remediation
     assert "不要扩展成完整章节" in remediation
+
+
+def test_remediation_quiz_requires_fresh_source_grounded_transfer_items():
+    transfer = invoke_learning_prompt(
+        "quiz.remediation",
+        kp="堆",
+        kpid="heap",
+        difficulty=2,
+        target_questions=3,
+        misconception="父子关系判断错误",
+        forbidden_stems="- 原题：堆的父节点在哪里？",
+        context="讲义：堆满足完全二叉树的结构约束。",
+    ).prompt
+
+    assert "恰好生成 3 道" in transfer
+    assert "这不是原题重做" in transfer
+    assert "更换题面、例子、数值或提问角度" in transfer
+    assert "父子关系判断错误" in transfer
+    assert "原题：堆的父节点在哪里" in transfer
 
 
 def test_visual_capabilities_keep_the_same_learning_order():

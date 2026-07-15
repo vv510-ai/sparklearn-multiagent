@@ -240,13 +240,21 @@ def render_tutor_prompt(
 def render_quiz_prompt_call(
     *, kp: str, kpid: str, difficulty: int, context: str, guided: bool,
     general_knowledge: bool = False,
+    remediation: bool = False,
+    target_questions: int = 3,
+    misconception: str = "",
+    forbidden_stems: str = "",
 ) -> PromptCall:
+    capability = "quiz.remediation" if remediation else "quiz.guided" if guided else "quiz.standard"
     return invoke_learning_prompt(
-        "quiz.guided" if guided else "quiz.standard",
+        capability,
         kp=kp or "当前知识点",
         kpid=kpid or "unknown",
         difficulty=max(1, min(5, int(difficulty or 1))),
         context=context or "（没有可用资料）",
+        target_questions=max(1, min(5, int(target_questions or 3))),
+        misconception=misconception or "概念边界还不稳定",
+        forbidden_stems=forbidden_stems or "（无可复用题干；仍需生成新题面）",
         **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
     )
 

@@ -88,6 +88,62 @@ def test_source_fallback_quiz_shows_the_excerpt_and_citation():
     assert "用户讲义 p.1" in questions[0]["explain"]
 
 
+def test_transfer_quiz_keeps_source_scope_and_rejects_original_stem(monkeypatch):
+    captured: dict[str, object] = {}
+    original_stem = "堆的父节点关系依赖哪一种基础结构？"
+
+    def fake_retrieve(query: str, **kwargs):
+        captured["source_ids"] = kwargs.get("source_ids")
+        return [{
+            "text": "堆满足完全二叉树的结构约束，父子节点可用数组下标定位。",
+            "citation": "用户讲义 p.2",
+        }]
+
+    async def fake_complete(prompt: str, **kwargs):
+        captured["prompt"] = prompt
+        return json.dumps({"questions": [
+            {"type": "single", "stem": original_stem, "options": ["A. 二叉树", "B. 图"],
+             "answer": "A", "explain": "原题复用", "difficulty": 2, "error_tags": []},
+            {"type": "single", "stem": "数组中的某个堆节点要寻找父节点，应先利用什么信息？",
+             "options": ["A. 下标", "B. 颜色"], "answer": "A", "explain": "依据下标关系。",
+             "difficulty": 2, "error_tags": ["父子关系"]},
+            {"type": "judge", "stem": "一个堆可以忽略完全二叉树的结构约束。", "options": [],
+             "answer": "错误", "explain": "堆必须满足结构约束。", "difficulty": 2,
+             "error_tags": ["结构边界"]},
+            {"type": "fill", "stem": "堆中定位父子节点时可使用数组的____关系。", "options": [],
+             "answer": "下标", "explain": "资料明确说明可用数组下标定位。", "difficulty": 2,
+             "error_tags": ["下标关系"]},
+        ]}, ensure_ascii=False)
+
+    monkeypatch.setattr(quiz_agent, "retrieve", fake_retrieve)
+    monkeypatch.setattr(quiz_agent, "is_demo", lambda: False)
+    monkeypatch.setattr(quiz_agent, "llm_complete", fake_complete)
+    monkeypatch.setattr(quiz_agent, "infer_kp_id", lambda _text: "heap")
+
+    result = asyncio.run(quiz_agent.run({
+        "user_id": "transfer-user",
+        "learning_goal": "检查堆概念能否迁移",
+        "knowledge_points": ["heap"],
+        "kinds": ["quiz"],
+        "source_ids": ["source-a"],
+        "student_profile": {},
+        "transfer_retest": True,
+        "target_questions": 3,
+        "avoid_stems": [original_stem],
+        "misconception": "父子关系判断错误",
+    }))
+
+    resource = next(iter(result["generated_resources"].values()))
+    stems = [question["stem"] for question in resource["payload"]["questions"]]
+    assert len(stems) == 3
+    assert original_stem not in stems
+    assert resource["payload"]["transfer_retest"] is True
+    assert resource["payload"]["source_ids"] == ["source-a"]
+    assert captured["source_ids"] == ["source-a"]
+    assert "MODE=remediation-transfer" in str(captured["prompt"])
+    assert original_stem in str(captured["prompt"])
+
+
 def test_validate_source_scope_enforces_owner_and_normalizes(monkeypatch, tmp_path):
     own = {"id": "source-a", "user_id": "alice", "active": True, "status": "active"}
     foreign = {"id": "source-b", "user_id": "bob", "active": True, "status": "active"}

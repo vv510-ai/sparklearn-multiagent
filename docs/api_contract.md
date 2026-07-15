@@ -594,7 +594,7 @@ Content-Type: application/json
 
 诊断由后端根据独立作答证据、提示/揭晓、自评错因、知识图谱先修关系和既有掌握度确定。`action` 为 `remediate` 或 `reteach` 时，`path_plan.remediation` 会覆盖下一学习点；首次补救后仍未恢复则转为 `schedule_review`，不无限循环生成微课。
 
-### 4.13 生成补救微课
+### 4.13 生成补救微课与迁移复测
 
 ```http
 POST /api/eval/remediation
@@ -639,21 +639,35 @@ Content-Type: application/json
     },
     "citations": ["课程讲义 · 二叉树 p.1"]
   },
+  "transfer_quiz": {
+    "id": "...",
+    "kind": "quiz",
+    "kp": "heap",
+    "title": "堆与优先队列·迁移复测",
+    "payload": {
+      "questions": ["3 道同概念、不同题面的新题"],
+      "transfer_retest": true,
+      "origin_attempt_id": 42,
+      "origin_quiz_resource_id": "quiz_heap_xxx",
+      "source_ids": ["原测验继承的资料 ID"]
+    },
+    "citations": ["课程讲义 · 堆 p.1"]
+  },
   "next_action": "retest",
   "reused": false
 }
 ```
 
-这是普通 JSON 接口，不使用 SSE。它恢复原测验的 `source_ids`，并要求资料正文或元数据明确命中待补概念；没有足够证据时返回 `next_action: "select_source"`，不会用通用知识补写。成功时写入 `resources`、`quiz_attempts.detail.remediation` 和 `event_logs`，重复请求复用同一资源。前端由 `RemediationPanel` 消费。记录不存在返回 `404`，诊断不需要补救或字段不完整返回 `409`，资料归属错误返回 `400`，生成失败返回 `503`。
+这是普通 JSON 接口，不使用 SSE。它恢复原测验的 `source_ids`，并要求资料正文或元数据明确命中待补概念；没有足够证据时返回 `next_action: "select_source"`，不会用通用知识补写。成功时同时写入补救微课和 3 道迁移新题，迁移题不得复用或近似改写原题题干，重复请求复用同一组资源。资源 ID 会写入 `quiz_attempts.detail.remediation`，前端由 `RemediationPanel` 消费。记录不存在返回 `404`，诊断不需要补救或字段不完整返回 `409`，资料归属错误返回 `400`，生成失败返回 `503`。
 
-### 4.14 无提示恢复测
+### 4.14 无提示恢复/迁移复测
 
 ```http
 POST /api/eval/retest
 Content-Type: application/json
 ```
 
-首轮 `/api/eval/submit` 会返回 `attempt_id` 和 `retest`：只有答错或已经揭晓、因而没有形成独立掌握证据的题目会进入 `eligible_question_ids`。
+首轮 `/api/eval/submit` 会返回 `attempt_id` 和 `retest`：没有触发补救诊断时，答错或已经揭晓、因而没有形成独立掌握证据的原题会进入 `eligible_question_ids`。若触发补救诊断，则先调用 `/api/eval/remediation`，再把返回的 `transfer_quiz.id` 作为 `quiz_resource_id`，一次提交其中全部新题。
 
 ```json
 {
@@ -674,6 +688,7 @@ Content-Type: application/json
 复测规则：
 
 - 必须一次提交该答题记录的全部待恢复题。
+- 迁移复测资源必须由该 `attempt_id` 的补救接口生成并登记，不能替换为任意测验。
 - 不允许提示或揭晓，所有答案由后端重新判分。
 - 同一个 `attempt_id` 只能完成一次复测，重复提交返回 `409`。
 - 独立答对会作为新的 BKT 证据更新掌握度，并再次触发画像、脑图标签和路径重排。
