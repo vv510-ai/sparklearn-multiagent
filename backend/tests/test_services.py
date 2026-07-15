@@ -47,6 +47,10 @@ def test_planner_prefers_course_concept_named_in_goal():
     ids = all_kp_ids()
     assert _kp_from_goal("我想系统掌握递归与分治", ids) == "recursion"
     assert _kp_from_goal("先学习复杂度分析，再看排序", ids) == "complexity"
+    assert _kp_from_goal("图是什么？", ids) == "graph_basic"
+    assert _kp_from_goal("什么是图", ids) == "graph_basic"
+    assert _kp_from_goal("请解释 Dijkstra 算法", ids) == "shortest_path"
+    assert _kp_from_goal("生成一张二叉树思维导图", ids) == "binary_tree"
 
 
 def test_plan_path_thresholds():

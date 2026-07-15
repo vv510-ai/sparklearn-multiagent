@@ -115,4 +115,9 @@ def test_guided_pipeline_then_conversation_note_is_reusable():
     )
     assert note["payload"]["reusable_note"] is True
     assert "根节点是什么意思" in note["payload"]["markdown"]
-    assert recent_note_chunks("guided-stu", "二叉树根节点", limit=1)
+    assert recent_note_chunks(
+        "guided-stu", "二叉树根节点", limit=1, knowledge_point="binary_tree"
+    )
+    assert not recent_note_chunks(
+        "guided-stu", "图是什么", limit=1, knowledge_point="graph_basic"
+    )

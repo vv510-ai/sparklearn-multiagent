@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import uuid
 
+import pytest
+
 from app.agents import mindmap_agent, profile_agent, tutor_agent
+from app.llm import spark_client
 from app.safety.guard import safety_filter
 from app.services.profile_service import get_profile, merge_profile
 
@@ -41,6 +44,70 @@ def test_guided_tutor_retrieval_uses_planned_kp_and_ignores_old_notes(monkeypatc
     assert "根 → 左 → 右" in result["answer"]
     assert "工具箱" not in result["answer"]
     assert result["citations"] == ["《数据结构与算法》讲义 · 二叉树 p.1"]
+
+
+def test_short_graph_question_uses_graph_scope_and_rejects_binary_tree_notes(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_retrieve(query: str, **kwargs):
+        captured["query"] = query
+        captured["retrieve"] = kwargs
+        return [{
+            "text": "图是一种描述对象及其关系的非线性数据结构，写成 G=(V,E)，V 是顶点集合，E 是边集合。",
+            "source": "《数据结构与算法》讲义",
+            "source_id": "seed-graph",
+            "chapter": "第9章 图",
+            "page": 1,
+            "kp": "graph_basic,graph_traverse,shortest_path",
+            "citation": "《数据结构与算法》讲义 · 第9章 图 p.1",
+        }]
+
+    def fake_notes(user_id: str, query: str, **kwargs):
+        captured["notes"] = kwargs
+        return []
+
+    monkeypatch.setattr(tutor_agent, "retrieve", fake_retrieve)
+    monkeypatch.setattr(tutor_agent, "recent_note_chunks", fake_notes)
+    monkeypatch.setattr(tutor_agent, "is_demo", lambda: True)
+    result = asyncio.run(tutor_agent.run({
+        "user_id": "demo_user",
+        "session_id": "graph-definition",
+        "messages": [{"role": "user", "content": "图是什么"}],
+        "source_ids": [],
+        "student_profile": {},
+    }))
+
+    assert captured["retrieve"]["kp"] == "graph_basic"
+    assert captured["notes"]["knowledge_point"] == "graph_basic"
+    assert "邻接矩阵" in str(captured["query"])
+    assert "G=(V,E)" in result["answer"]
+    assert "二叉树" not in result["answer"]
+    assert "Dijkstra" not in result["answer"]
+
+
+def test_stream_can_disable_generic_mock_fallback(monkeypatch):
+    class BrokenCompletions:
+        def create(self, **kwargs):
+            raise RuntimeError("model unavailable")
+
+    class BrokenClient:
+        def __init__(self):
+            self.chat = type("Chat", (), {"completions": BrokenCompletions()})()
+
+    monkeypatch.setattr(spark_client, "is_demo", lambda: False)
+    monkeypatch.setattr(spark_client, "_client", lambda x2=False: BrokenClient())
+
+    async def collect():
+        return [
+            token async for token in spark_client.llm_stream(
+                "TASK=tutor\n图是什么",
+                allow_model_fallback=False,
+                allow_mock_fallback=False,
+            )
+        ]
+
+    with pytest.raises(RuntimeError, match="model unavailable"):
+        asyncio.run(collect())
 
 
 def test_guided_mindmap_only_expands_the_current_topic():

@@ -103,7 +103,8 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
 async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      temperature: float = 0.7,
                      max_tokens: int | None = None,
-                     allow_model_fallback: bool = True) -> AsyncIterator[str]:
+                     allow_model_fallback: bool = True,
+                     allow_mock_fallback: bool = True) -> AsyncIterator[str]:
     """流式补全,逐 token 产出(SSE 直接转发)。"""
     if is_demo():
         async for d in MockEngine.stream(prompt, role=role):
@@ -155,6 +156,8 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
             if r != "reasoner" and _is_unrecoverable_auth_error(e):
                 break
     log.warning("星火流式模型不可用,切换本地演示引擎:%s", last_err)
+    if not allow_mock_fallback:
+        raise RuntimeError(f"星火流式模型调用失败: {last_err}")
     async for delta in MockEngine.stream(prompt, role=role):
         yield delta
 

@@ -15,6 +15,7 @@ from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
+from ..services.knowledge_graph import canonical_kp_id, infer_kp_id, kp_retrieval_text
 from ..services.note_service import recent_note_chunks
 from .emitter import agent_end, agent_start, agent_token, emit
 
@@ -121,6 +122,24 @@ def _build_prompt(
 
 def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False) -> str:
     compact_question = re.sub(r"\s+", "", question)
+    graph_definition_cite = next(
+        (
+            index for index, chunk in enumerate(chunks[:4], 1)
+            if "G=(V,E)" in str(chunk.get("text") or "")
+            and "顶点集合" in str(chunk.get("text") or "")
+        ),
+        None,
+    )
+    asks_graph_definition = bool(
+        re.search(r"(?:^图是什么|什么是图[？?。！!]*$|图的定义)", compact_question)
+    )
+    if not guided and asks_graph_definition and graph_definition_cite:
+        return (
+            "图是一种描述“对象以及对象之间关系”的非线性数据结构，通常写成 "
+            f"**G=(V,E)**：V 是顶点集合，E 是连接顶点的边集合 [^{graph_definition_cite}]。\n\n"
+            "按边的特点，图可以分为有向图/无向图、带权图/无权图。"
+            "存储时常用邻接矩阵或邻接表；前者适合稠密图，后者适合稀疏图。"
+        )
     traversal = next((name for name in ("前序", "中序", "后序", "层序") if name in compact_question), "")
     traversal_order = {
         "前序": ("根 → 左 → 右", "先看当前节点，再走左子树，最后走右子树", "A → B → C"),
@@ -296,16 +315,28 @@ async def run(state: dict) -> dict:
         }
 
     knowledge_points = [str(item).strip() for item in (state.get("knowledge_points") or []) if str(item).strip()]
-    retrieval_kp = knowledge_points[0] if guided and not source_ids and knowledge_points else None
+    planned_kp = canonical_kp_id(knowledge_points[0]) if knowledge_points else None
+    retrieval_kp = None if source_ids else (planned_kp or infer_kp_id(question))
+    retrieval_query = question
+    if retrieval_kp:
+        retrieval_query = f"{question}\n课程知识点：{kp_retrieval_text(retrieval_kp)}"
     chunks = retrieve(
-        question,
+        retrieval_query,
         final_k=8 if retrieval_kp else 4,
         source_ids=source_ids,
         kp=retrieval_kp,
     )
     chunks = _focused_kp_chunks(chunks, retrieval_kp)
     if not source_ids and not guided:
-        chunks = [*chunks, *recent_note_chunks(state.get("user_id", "demo_user"), question, limit=2)]
+        chunks = [
+            *chunks,
+            *recent_note_chunks(
+                state.get("user_id", "demo_user"),
+                question,
+                limit=2,
+                knowledge_point=retrieval_kp,
+            ),
+        ]
     retrieval = _retrieval_evidence(
         question,
         source_ids,
@@ -383,6 +414,7 @@ async def run(state: dict) -> dict:
                 temperature=0.25 if guided else 0.45,
                 max_tokens=2200 if guided else 1600,
                 allow_model_fallback=not guided,
+                allow_mock_fallback=False,
             ):
                 parts.append(delta)
             answer = "".join(parts)

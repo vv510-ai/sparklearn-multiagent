@@ -7,24 +7,14 @@ import logging
 
 from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
-from ..services.knowledge_graph import all_kp_ids, canonical_kp_id, kp_name
+from ..services.knowledge_graph import all_kp_ids, canonical_kp_id, infer_kp_id, kp_name
 from .emitter import agent_end, agent_start
 
 log = logging.getLogger("sparklearn.planner")
 
 def _kp_from_goal(goal: str, kp_ids: list[str]) -> str | None:
     """Prefer an explicitly mentioned course concept over a generic model plan."""
-    text = str(goal or "").casefold()
-    matches: list[tuple[int, int, str]] = []
-    for kp in kp_ids:
-        for label in {kp.replace("_", " "), kp_name(kp)}:
-            normalized = str(label or "").casefold().strip()
-            if not normalized:
-                continue
-            position = text.find(normalized)
-            if position >= 0:
-                matches.append((position, -len(normalized), kp))
-    return min(matches)[2] if matches else None
+    return infer_kp_id(goal, kp_ids)
 
 
 async def run(state: dict) -> dict:
@@ -71,15 +61,27 @@ async def run(state: dict) -> dict:
 
     items = plan.get("resources") if isinstance(plan, dict) else None
     items = [item for item in items or [] if isinstance(item, dict)]
-    fallback_kp = target_kp or "binary_tree"
     if not items:
-        items = [{"kind": k, "kp": fallback_kp, "reason": "兜底默认计划"} for k in kinds]
+        if not target_kp:
+            raise ValueError("未能从学习目标识别课程知识点，请明确要学习的主题")
+        items = [{"kind": k, "kp": target_kp, "reason": "按已识别知识点生成"} for k in kinds]
         plan = {"resources": items, "order": "→".join(kinds)}
 
+    normalized_items = []
     for item in items:
-        item["kp"] = target_kp or canonical_kp_id(item.get("kp")) or fallback_kp
-    plan["resources"] = [it for it in items if it.get("kind") in set(kinds) | {"reading"}]
-    kp0 = plan["resources"][0]["kp"] if plan["resources"] else "binary_tree"
+        kp = target_kp or canonical_kp_id(item.get("kp"))
+        if not kp or item.get("kind") not in set(kinds) | {"reading"}:
+            continue
+        normalized_items.append({**item, "kp": kp})
+    if not normalized_items:
+        if not target_kp:
+            raise ValueError("资源规划没有返回可验证的课程知识点")
+        normalized_items = [
+            {"kind": kind, "kp": target_kp, "reason": "按已识别知识点生成"}
+            for kind in kinds
+        ]
+    plan["resources"] = normalized_items
+    kp0 = normalized_items[0]["kp"]
     await agent_end("planner",
                     f"目标知识点「{kp_name(kp0)}」,计划 {len(plan['resources'])} 项:"
                     + plan.get("order", ""), {"plan": plan})
