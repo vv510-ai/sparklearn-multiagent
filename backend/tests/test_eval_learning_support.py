@@ -13,7 +13,7 @@ install()
 
 from app.main import app  # noqa: E402
 from app.models.db import init_db, session  # noqa: E402
-from app.models.entities import QuizAttempt, Resource, ReviewItem  # noqa: E402
+from app.models.entities import EventLog, Profile, QuizAttempt, Resource, ReviewItem  # noqa: E402
 from app.services.profile_service import ensure_user  # noqa: E402
 
 
@@ -37,6 +37,9 @@ def _seed_quiz() -> None:
     ensure_user(USER_ID)
     with session() as db:
         db.query(ReviewItem).filter(ReviewItem.user_id == USER_ID).delete()
+        db.query(QuizAttempt).filter(QuizAttempt.user_id == USER_ID).delete()
+        db.query(EventLog).filter(EventLog.user_id == USER_ID).delete()
+        db.query(Profile).filter(Profile.user_id == USER_ID).delete()
         db.merge(Resource(
             id=QUIZ_ID,
             user_id=USER_ID,

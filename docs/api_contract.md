@@ -669,7 +669,49 @@ Content-Type: application/json
 
 后端会校验题目确实属于当前用户且已经到期，然后重新判分并写入 BKT。连续独立答对按 `1 → 3 → 7 → 14 → 30` 天推进；答错会重置到 1 天并增加 `lapse_count`。完成全部间隔阶段后状态变为 `mastered`。
 
-### 4.16 学情报告
+### 4.16 学习证据账本
+
+```http
+GET /api/eval/evidence?user_id=demo_user&limit=12
+```
+
+按时间倒序返回首次作答、无提示复测和间隔复习的证据轮次。接口不会返回学生答案或参考答案，只展示解释掌握度变化所需的聚合字段。`raw_correct` 是原始判对数，`mastery_correct` 是真正进入 BKT 的答对证据；两者不同通常表示学生在揭晓答案后答对，不能据此判定已经掌握。
+
+```json
+{
+  "items": [
+    {
+      "phase": "retest",
+      "answers": 1,
+      "raw_correct": 1,
+      "mastery_correct": 1,
+      "supported": 0,
+      "knowledge_points": [
+        {
+          "kp": "binary_tree",
+          "name": "二叉树",
+          "mastery_before": 0.42,
+          "mastery_after": 0.66,
+          "mastery_delta": 0.24
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "rounds": 3,
+    "answers": 4,
+    "raw_correct": 3,
+    "mastery_correct": 2,
+    "supported": 1,
+    "independent": 3,
+    "by_phase": { "initial": 1, "retest": 1, "spaced_review": 1 }
+  }
+}
+```
+
+历史变化由已有 `quiz_eval` 事件从旧到新重建，因此升级后可以直接解释过去的评估记录，无需迁移数据库。
+
+### 4.17 学情报告
 
 ```http
 GET /api/eval/report?user_id=demo_user
@@ -699,7 +741,7 @@ GET /api/eval/report?user_id=demo_user
 }
 ```
 
-### 4.17 多模态答疑
+### 4.18 多模态答疑
 
 ```http
 POST /api/tutor
@@ -729,7 +771,7 @@ Accept: text/event-stream
 
 返回：SSE 事件流，常见事件为 `agent_start`、`progress`、`token`、`citations`、`safety`、`agent_end`、`done`。
 
-### 4.18 调试报告
+### 4.19 调试报告
 
 ```http
 GET /api/debug/runs/{session_id}
@@ -752,7 +794,7 @@ GET /api/debug/runs/{session_id}
 
 用途：资源页根据 SSE 的 `trace.session_id` 拉取本次调试包,展示事件统计、资源列表和 `debug_report.md`。
 
-### 4.19 知识资料入库
+### 4.20 知识资料入库
 
 上传学习资料并立即重建本地向量索引：
 

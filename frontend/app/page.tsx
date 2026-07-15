@@ -18,6 +18,7 @@ import Chat from "@/components/chat/Chat";
 import SourcePanel, { isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
 import StudioPanel from "@/components/notebook/StudioPanel";
 import PathDag from "@/components/path/PathDag";
+import LearningEvidence from "@/components/profile/LearningEvidence";
 import ProfileRadar from "@/components/profile/ProfileRadar";
 import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
@@ -569,6 +570,9 @@ export default function Home() {
               </div>
               <div className="px-5 pt-5">
                 <ReviewQueue onEvaluated={refreshAfterEvaluation} />
+              </div>
+              <div className="px-5 pt-4">
+                <LearningEvidence refreshToken={profile?._version ?? profile?.version ?? 0} />
               </div>
               <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <ProfileRadar profile={profile} />

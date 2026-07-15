@@ -144,7 +144,10 @@ def test_saturated_multimodal_pool_degrades_without_provider_call(monkeypatch):
 
 
 def test_tts_uses_stable_content_cache(monkeypatch, tmp_path: Path):
-    settings = _settings()
+    # A previous timeout test deliberately leaves its worker finishing in the
+    # shared pool. Give this cache contract enough scheduling headroom without
+    # changing the production timeout behavior under test elsewhere.
+    settings = _settings(mm_tts_timeout_s=0.2)
     calls = 0
 
     def provider(text, *, voice, filename):

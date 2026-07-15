@@ -5,6 +5,7 @@ POST /api/eval/submit —— 提交答题:逐题比对 → BKT 更新掌握度 �
 POST /api/eval/retest —— 对未形成独立掌握证据的题进行一次无提示复测;
 GET  /api/eval/review-queue —— 获取今天到期的间隔复习题（不含答案）;
 POST /api/eval/review —— 提交独立回忆并推进或重置复习间隔;
+GET  /api/eval/evidence —— 可解释学习证据账本;
 GET  /api/eval/report —— 学情报告(画像 + 掌握度雷达数据 + 近期事件)。"""
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ from ..models.db import session
 from ..models.entities import QuizAttempt, Resource, ReviewItem
 from ..schemas.core import EvalRetestRequest, EvalReviewRequest, EvalSubmit, EvalSupportRequest
 from ..services.knowledge_graph import canonical_kp_id, kp_name
+from ..services.learning_evidence import build_learning_evidence
 from ..services.profile_service import ensure_user, get_profile, recent_events
 from ..services.review_service import (apply_review_results, as_utc, review_queue,
                                        schedule_initial_reviews, utc_now)
@@ -382,6 +384,13 @@ async def submit_review(req: EvalReviewRequest):
         "hinted": 0, "revealed": 0, "independent": len(enriched), "misconceptions": [],
     }}
     return report
+
+
+@router.get("/evidence")
+async def evidence(user_id: str = Query("demo_user"), limit: int = Query(12, ge=1, le=50)):
+    """Explain which assessment rounds changed mastery and why."""
+    ensure_user(user_id)
+    return build_learning_evidence(user_id, limit=limit)
 
 
 @router.get("/report")
