@@ -149,8 +149,13 @@ function LearningGate({
           </button>
         </nav>
 
-        <section className="learning-gate-hero flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
-          <div className="liquid-glass glass-readable animate-fade-rise flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
+        <section className="learning-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
+          <h1 className="animate-fade-rise max-w-6xl text-[43px] font-normal leading-[0.98] text-white sm:text-7xl md:text-[82px]" style={{ fontFamily: "var(--font-display)" }}>
+            <span className="block">SparkLearn，</span>
+            <em className="mt-1 block whitespace-nowrap text-[37px] not-italic text-white/70 sm:text-7xl md:text-[82px]">学习的左膀右臂。</em>
+          </h1>
+
+          <div className="liquid-glass glass-readable animate-fade-rise-delay mt-7 flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
             <input
               ref={fileRef}
               type="file"
