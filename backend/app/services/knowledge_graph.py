@@ -12,6 +12,7 @@ from functools import lru_cache
 from ..config import DATA_DIR
 
 KG_FILE = DATA_DIR / "knowledge_graph.json"
+CUSTOM_TOPIC_KP = "custom_topic"
 
 _KP_ALIASES: dict[str, tuple[str, ...]] = {
     "complexity": ("时间复杂度", "空间复杂度", "大O", "复杂度"),
@@ -32,10 +33,14 @@ _KP_ALIASES: dict[str, tuple[str, ...]] = {
     "graph_traverse": ("图遍历", "广度优先", "深度优先", "BFS", "DFS"),
     "shortest_path": ("最短路径", "Dijkstra", "Bellman-Ford", "Floyd"),
     "dp": ("动态规划", "DP"),
+    "sql_basic": (
+        "SQL", "结构化查询语言", "SELECT", "WHERE", "ORDER BY", "GROUP BY",
+        "JOIN", "多表连接", "数据库查询",
+    ),
 }
 
 _STANDALONE_GRAPH_RE = re.compile(
-    r"(?:^|请问|什么是|学习|了解|讲讲|解释|教我)图"
+    r"(?:^|请问|什么是|学习|了解|讲讲|解释|教我|(?:当前)?(?:学习)?主题[：:]?)图"
     r"(?:是什么|的定义|的概念|怎么表示|如何表示|有哪些|[？?。！!]|$)",
     re.IGNORECASE,
 )
@@ -58,12 +63,16 @@ def all_kp_ids() -> list[str]:
 
 
 def kp_name(kp_id: str) -> str:
+    if kp_id == CUSTOM_TOPIC_KP:
+        return "自定义主题"
     return load_kg()["nodes"].get(kp_id, {}).get("name", kp_id)
 
 
 def canonical_kp_id(value: str | None) -> str | None:
     """Return a knowledge-graph id, accepting the legacy ``id(name)`` form."""
     raw = str(value or "").strip().replace("（", "(").replace("）", ")")
+    if raw == CUSTOM_TOPIC_KP:
+        return CUSTOM_TOPIC_KP
     nodes = load_kg()["nodes"]
     if raw in nodes:
         return raw
@@ -73,6 +82,52 @@ def canonical_kp_id(value: str | None) -> str | None:
         if kp_id in nodes and label == str(nodes[kp_id].get("name", "")).strip():
             return kp_id
     return None
+
+
+_TOPIC_MARKER_RE = re.compile(r"当前学习主题\s*[：:]\s*([^\r\n]+)", re.IGNORECASE)
+_TOPIC_PREFIXES = (
+    "请用完全零基础、由浅入深的方式教我", "请从零开始教我", "请从零讲解",
+    "我刚开始学习", "我想要学习", "我想学习", "我想学", "想学习", "学习", "了解",
+)
+_TOPIC_SUFFIXES = ("方面的知识", "相关知识", "的知识", "是什么", "入门")
+
+
+def clean_topic_label(value: str | None) -> str:
+    """Extract a short notebook topic without silently mapping it to a course KP."""
+    raw = " ".join(str(value or "").strip().split())
+    marker = _TOPIC_MARKER_RE.search(raw)
+    if marker:
+        raw = marker.group(1).strip()
+    raw = raw.strip("【】[]《》<>：:，,。.!！?？;； \t\r\n")
+    changed = True
+    while changed and raw:
+        changed = False
+        for prefix in _TOPIC_PREFIXES:
+            if raw.startswith(prefix):
+                raw = raw[len(prefix):].strip("【】[]：:，,。.!！?？ ")
+                changed = True
+                break
+    for suffix in _TOPIC_SUFFIXES:
+        if raw.endswith(suffix) and len(raw) > len(suffix):
+            raw = raw[:-len(suffix)].strip("【】[]：:，,。.!！?？ ")
+            break
+    return raw[:80] or "当前主题"
+
+
+def resolve_topic(
+    knowledge_points: list[str] | None = None,
+    learning_goal: str | None = None,
+    topic_label: str | None = None,
+) -> tuple[str, str, bool]:
+    """Resolve a request to either a known course KP or a first-class custom topic."""
+    explicit = canonical_kp_id((knowledge_points or [None])[0])
+    combined = "\n".join(part for part in (str(topic_label or ""), str(learning_goal or "")) if part)
+    inferred = infer_kp_id(combined)
+    kp = explicit if explicit and explicit != CUSTOM_TOPIC_KP else inferred
+    if kp and kp != CUSTOM_TOPIC_KP:
+        return kp, kp_name(kp), False
+    label = clean_topic_label(topic_label or learning_goal)
+    return CUSTOM_TOPIC_KP, label, True
 
 
 def infer_kp_id(text: str, kp_ids: list[str] | None = None) -> str | None:

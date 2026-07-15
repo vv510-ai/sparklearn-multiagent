@@ -16,7 +16,8 @@
     {"id": "graph_basic",   "name": "图的基础",          "difficulty": 4, "desc": "邻接矩阵/表、有向无向"},
     {"id": "graph_traverse","name": "图遍历 BFS/DFS",    "difficulty": 4, "desc": "连通性、拓扑排序"},
     {"id": "shortest_path", "name": "最短路径",          "difficulty": 5, "desc": "Dijkstra、松弛操作"},
-    {"id": "dp",            "name": "动态规划",          "difficulty": 5, "desc": "最优子结构、状态转移方程"}
+    {"id": "dp",            "name": "动态规划",          "difficulty": 5, "desc": "最优子结构、状态转移方程"},
+    {"id": "sql_basic",     "name": "SQL 基础",          "difficulty": 2, "desc": "SELECT、WHERE、ORDER BY、GROUP BY 与多表连接"}
   ],
   "edges": [
     {"from": "complexity",    "to": "array"},

@@ -12,7 +12,7 @@ from ..rag.citation import build_context
 from ..rag.ingest import load_all_chunks
 from ..rag.retriever import retrieve
 from ..services.bkt import mastery_level
-from ..services.knowledge_graph import kp_name, load_kg, prerequisites, unlockable
+from ..services.knowledge_graph import kp_name, load_kg, prerequisites, resolve_topic, unlockable
 from .emitter import agent_end, agent_start, emit
 
 def _clean_point(line: str) -> str:
@@ -173,20 +173,28 @@ def _retrieve_node_chunks(query: str, node_id: str, source_ids: list[str]) -> li
 
 async def _expand_node(
     node_id: str, *, source_ids: list[str], goal: str, guided: bool = False,
+    topic_name: str = "", custom_topic: bool = False,
 ) -> tuple[list[str], list[dict], PromptCall]:
-    name = kp_name(node_id)
+    name = topic_name or kp_name(node_id)
     node_desc = load_kg()["nodes"].get(node_id, {}).get("desc", "")
     query = (
         f"{name} {goal} 定义 最小例子 步骤"
         if guided else
         f"{name} {node_desc} 概念 性质 操作 算法 复杂度 易错点 {goal}"
     )
-    chunks = _retrieve_node_chunks(query, node_id, source_ids)
+    chunks = (
+        [] if custom_topic and not source_ids
+        else _retrieve_node_chunks(query, node_id, source_ids)
+    )
     ctx, citations = build_context(chunks)
-    prompt_call = render_mindmap_prompt_call(kp=name, context=ctx or "(无)")
+    prompt_call = render_mindmap_prompt_call(
+        kp=name,
+        context=ctx or "(无)",
+        general_knowledge=custom_topic and not source_ids,
+    )
 
     points: list[str] = _guided_goal_points(goal, chunks) if guided else []
-    if chunks and not points and not is_demo():
+    if (chunks or custom_topic) and not points and not is_demo():
         try:
             raw = await llm_complete(
                 prompt_call.prompt,
@@ -198,7 +206,9 @@ async def _expand_node(
             points = _points_from_text(raw)
         except Exception:
             points = []
-    if not points:
+    if not points and custom_topic:
+        points = ["一句话定义", "典型使用场景", "关键组成", "基本流程", "常见误区"]
+    elif not points:
         points = _fallback_points(chunks)
     return points[:5], citations, prompt_call
 
@@ -275,8 +285,11 @@ async def run(state: dict) -> dict:
     requested = state.get("kinds") or []
     if requested and "mindmap" not in requested:
         return {}
-    kp = (state.get("knowledge_points") or ["binary_tree"])[0]
-    name = kp_name(kp)
+    kp, name, custom_topic = resolve_topic(
+        state.get("knowledge_points"),
+        state.get("learning_goal"),
+        state.get("topic_label"),
+    )
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
     goal = state.get("learning_goal") or ""
     mastery, unlocked = _label_context(state.get("student_profile"))
@@ -286,15 +299,20 @@ async def run(state: dict) -> dict:
     prompt_samples: list[str] = []
     prompt_meta: dict[str, str] = {}
     guided = bool(state.get("guided_learning") or state.get("intent") == "learn")
-    outline = _outline_for_scope(kp, source_ids, guided=guided)
+    outline = (
+        [("当前主题", kp)] if custom_topic
+        else _outline_for_scope(kp, source_ids, guided=guided)
+    )
     for relation, node_id in outline:
         points, node_citations, prompt_call = await _expand_node(
             node_id,
             source_ids=source_ids,
             goal=goal,
             guided=guided,
+            topic_name=name if custom_topic else "",
+            custom_topic=custom_topic,
         )
-        expanded.append((relation, _node_label(node_id, mastery, unlocked), points))
+        expanded.append((relation, name if custom_topic else _node_label(node_id, mastery, unlocked), points))
         citations.extend(node_citations)
         prompt_meta = prompt_call.metadata()
         if relation == "当前":
@@ -302,11 +320,13 @@ async def run(state: dict) -> dict:
         elif not prompt_samples:
             prompt_samples.append(prompt_call.prompt[:600])
 
-    md = _render_markmap(_node_label(kp, mastery, unlocked), expanded)
+    md = _render_markmap(name if custom_topic else _node_label(kp, mastery, unlocked), expanded)
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "mindmap", "kp": kp,
                 "title": f"{name}·{'资料框架' if source_ids else '入门导图' if guided else '思维导图'}",
                 "payload": {"markmap": md,
+                            "topic_label": name,
+                            "custom_topic": custom_topic,
                             "prompt_skill": prompt_meta,
                             "outline_node_ids": [{"relation": rel, "id": node_id}
                                                  for rel, node_id in outline]},

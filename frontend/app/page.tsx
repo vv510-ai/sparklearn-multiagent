@@ -24,6 +24,7 @@ import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiGet, apiUpload, USER_ID } from "@/lib/api";
+import { inferKpFromTopic } from "@/lib/kp";
 import type { PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
 type PanelKey = "chat" | "profile" | "path" | "resources";
@@ -395,6 +396,7 @@ export default function Home() {
 
   const startGenerate = (goal: string, kinds: string[], promptTemplate: string) => {
     const scopedGoal = notebookTopic ? `${goal}\n\n当前学习主题：${notebookTopic}` : goal;
+    const topicKp = inferKpFromTopic(notebookTopic);
     setActivePanel("chat");
     setMobilePane(null);
     setTrace(emptyTrace());
@@ -406,7 +408,8 @@ export default function Home() {
       body: {
         user_id: USER_ID,
         goal: scopedGoal,
-        knowledge_points: [],
+        topic_label: notebookTopic,
+        knowledge_points: topicKp ? [topicKp] : [],
         kinds,
         source_ids: selectedSourceIds,
         prompt_template: promptTemplate,
@@ -555,6 +558,7 @@ export default function Home() {
               onEvent={onEvent}
               seed={seed}
               request={request}
+              topic={notebookTopic}
               sourceIds={selectedSourceIds}
               onUploadClick={() => sourceInputRef.current?.click()}
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}

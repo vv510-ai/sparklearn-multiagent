@@ -35,6 +35,7 @@ async def generate(req: GenerateRequest):
         "session_id": uuid.uuid4().hex[:8],
         "messages": [{"role": "user", "content": msg}],
         "learning_goal": req.goal,
+        "topic_label": req.topic_label,
         "knowledge_points": req.knowledge_points,
         "kinds": req.kinds,
         "source_ids": source_ids,

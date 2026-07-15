@@ -11,6 +11,8 @@ from .vector_store import get_store
 
 log = logging.getLogger("sparklearn.retriever")
 COURSE_SOURCE = "《数据结构与算法》讲义"
+SQL_SOURCE = "《SQL 入门》讲义"
+BUILTIN_COURSE_SOURCES = {COURSE_SOURCE, SQL_SOURCE}
 
 
 def _clean_ids(source_ids: list[str] | tuple[str, ...] | None) -> list[str]:
@@ -60,7 +62,7 @@ def retrieve(
         search_k = max(top_k * 4, final_k * 8, 40)
         hits = [
             hit for hit in store.search(qv, top_k=search_k)
-            if course != "ds_algo" or hit.get("source") == COURSE_SOURCE
+            if course != "ds_algo" or hit.get("source") in BUILTIN_COURSE_SOURCES
         ]
 
     if kp:

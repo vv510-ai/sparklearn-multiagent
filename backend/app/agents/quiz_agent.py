@@ -11,20 +11,13 @@ from ..config import is_demo
 from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import render_quiz_prompt_call
 from ..rag.retriever import retrieve
-from ..services.knowledge_graph import kp_name
+from ..services.knowledge_graph import infer_kp_id, resolve_topic
 from .emitter import agent_end, agent_start, emit
 
 _TYPES = {"single", "fill", "judge", "design", "complexity"}
 _TARGET_QUESTIONS = 8
 _MIN_QUESTIONS = 6
 _SEED_QUIZ_PATH = Path(__file__).resolve().parents[1] / "data" / "seed_quiz.json"
-
-_FALLBACK = {
-    "type": "judge", "stem": "任何递归算法都可以改写为迭代实现。", "options": [],
-    "answer": "对", "explain": "递归可借助显式栈改写为迭代,这是栈与递归等价性的经典结论。",
-    "difficulty": 2, "error_tags": ["概念混淆"],
-}
-
 
 def _difficulty_of(profile: dict, kp: str) -> int:
     m = float((profile.get("knowledge_mastery") or {}).get(kp, 0.3))
@@ -59,6 +52,10 @@ def _choice_answer(options: list[str], answer: object) -> str:
 
 def _validate(q: dict, kp: str) -> dict | None:
     if not isinstance(q, dict) or q.get("type") not in _TYPES or not q.get("stem"):
+        return None
+    source_grounded = bool(q.pop("_source_grounded", False) or q.pop("_trusted_topic", False))
+    detected_kp = infer_kp_id(f"{q.get('stem', '')} {q.get('explain', q.get('explanation', ''))}")
+    if not source_grounded and detected_kp and detected_kp != kp:
         return None
     q["kp"] = kp
     raw_options = q.get("options", [])
@@ -118,6 +115,7 @@ def _source_fallback_questions(
             continue
         seen.add(key)
         output.append({
+            "_source_grounded": True,
             "type": "design",
             "stem": (
                 f"阅读所选资料片段 {index}：\n“{excerpt}”\n"
@@ -135,24 +133,54 @@ def _source_fallback_questions(
     return output
 
 
+def _custom_topic_fallback_questions(name: str, kp: str, difficulty: int) -> list[dict]:
+    """Keep degraded/offline quizzes on topic without inventing domain facts."""
+    base = [
+        ("single", f"开始学习“{name}”时，最合理的第一步是什么？",
+         ["A 明确它的定义与使用场景", "B 改学其他旧主题", "C 忽略主题直接背答案", "D 只记术语不看例子"],
+         "A", "先建立主题边界，避免把其他课程内容混进来。"),
+        ("fill", f"请用一句自己的话说明“{name}”主要研究或解决什么问题。", [],
+         "围绕主题给出清楚、具体且不偷换概念的说明。", "答案应紧扣当前主题。"),
+        ("design", f"列出学习“{name}”时你最想掌握的三个问题。", [],
+         "定义、典型场景、实际应用（可按个人目标调整）。", "问题清单能帮助后续讲解保持同一主题。"),
+        ("judge", f"学习“{name}”时，可以用完全无关的旧课程内容替代当前主题。", [],
+         "错误", "资源必须围绕当前主题，不能回退到其他旧内容。"),
+        ("design", f"为“{name}”设计一个最小学习案例，并写出你要观察的关键点。", [],
+         "案例应足够小，并明确对象、步骤、结果与边界。", "最小案例用于检查是否真正理解。"),
+        ("design", f"写出“{name}”中两个容易混淆的概念或步骤，并说明准备怎样区分。", [],
+         "按当前学习内容作答，至少写出区别和适用场景。", "对照能暴露概念边界。"),
+        ("design", f"如果要把“{name}”讲给零基础同学，你会按什么顺序讲？", [],
+         "一句话结论、生活场景、最小例子、正式概念、常见误区。", "由浅入深比堆叠术语更容易理解。"),
+        ("design", f"完成本轮后，你会用哪三个证据判断自己掌握了“{name}”？", [],
+         "能复述定义、能独立完成例子、能识别常见边界。", "掌握应由可观察的学习证据判断。"),
+    ]
+    return [
+        {"_trusted_topic": True, "type": qtype, "stem": stem, "options": options, "answer": answer,
+         "explain": explain, "kp": kp, "difficulty": difficulty,
+         "error_tags": ["主题边界"]}
+        for qtype, stem, options, answer, explain in base
+    ]
+
+
 async def run(state: dict) -> dict:
     requested = state.get("kinds") or []
     if requested and "quiz" not in requested:
         return {}
-    kp = (state.get("knowledge_points") or ["binary_tree"])[0]
-    name = kp_name(kp)
+    goal = state.get("learning_goal") or ""
+    kp, name, custom_topic = resolve_topic(
+        state.get("knowledge_points"), goal, state.get("topic_label")
+    )
     profile = state.get("student_profile") or {}
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
-    goal = state.get("learning_goal") or ""
     guided = bool(state.get("guided_learning"))
     target_questions = 5 if guided else _TARGET_QUESTIONS
     min_questions = 4 if guided else _MIN_QUESTIONS
     diff = min(2, _difficulty_of(profile, kp)) if guided else _difficulty_of(profile, kp)
     await agent_start("quiz", "题库智能体", f"「{name}」难度档 {diff},生成 {target_questions} 题并本地校验")
 
-    chunks = retrieve(
+    chunks = [] if custom_topic and not source_ids else retrieve(
         f"{name} 易错点 经典题 {goal}",
-        final_k=6 if source_ids else 3,
+        final_k=6,
         source_ids=source_ids,
         kp=None if source_ids else kp,
     )
@@ -170,6 +198,7 @@ async def run(state: dict) -> dict:
         difficulty=diff,
         context=ctx,
         guided=guided,
+        general_knowledge=custom_topic and not source_ids,
     )
     if is_demo():
         items = []
@@ -188,15 +217,14 @@ async def run(state: dict) -> dict:
             items = []
     questions = []
     seen_stems: set[str] = set()
-    fallback_items = (
-        _source_fallback_questions(chunks, kp, diff, target_questions=target_questions)
-        if source_ids else _seed_questions(kp)
+    source_fallback = _source_fallback_questions(
+        chunks, kp, diff, target_questions=target_questions
     )
-    if is_demo() and not source_ids:
-        fallback_items = [
-            *fallback_items,
-            *_source_fallback_questions(chunks, kp, diff, target_questions=target_questions),
-        ]
+    fallback_items = (
+        source_fallback if source_ids else
+        _custom_topic_fallback_questions(name, kp, diff) if custom_topic else
+        [*_seed_questions(kp), *source_fallback]
+    )
     for item in [*items, *fallback_items]:
         valid = _validate(dict(item), kp) if isinstance(item, dict) else None
         stem_key = re.sub(r"\s+", "", str((valid or {}).get("stem", ""))).lower()
@@ -205,14 +233,17 @@ async def run(state: dict) -> dict:
             seen_stems.add(stem_key)
         if len(questions) >= target_questions:
             break
-    if not questions:                                          # 兜底:保证演示链路不空
-        fb = dict(_FALLBACK, kp=kp, id=uuid.uuid4().hex[:10])
-        questions = [fb]
+    if not questions:
+        raise ValueError(f"{name}没有可用的同主题题目，已阻止生成无关测验")
 
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "quiz", "kp": kp,
                 "title": f"{name}·智能习题组({len(questions)} 题)",
                 "payload": {"questions": questions, "difficulty": diff,
+                            "source_ids": source_ids,
+                            "learning_goal": goal,
+                            "topic_label": name,
+                            "custom_topic": custom_topic,
                             "prompt_skill": prompt_call.metadata()},
                 "citations": [c.get("citation", "") for c in chunks]}
     await emit({"type": "resource", "resource": resource})

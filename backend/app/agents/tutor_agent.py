@@ -16,7 +16,7 @@ from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
-from ..services.knowledge_graph import canonical_kp_id, infer_kp_id, kp_retrieval_text
+from ..services.knowledge_graph import infer_kp_id, kp_retrieval_text, resolve_topic
 from ..services.note_service import recent_note_chunks
 from .emitter import agent_end, agent_start, agent_token, emit
 
@@ -348,20 +348,21 @@ async def run(state: dict) -> dict:
             "messages": [{"role": "assistant", "content": answer}],
         }
 
-    knowledge_points = [str(item).strip() for item in (state.get("knowledge_points") or []) if str(item).strip()]
-    planned_kp = canonical_kp_id(knowledge_points[0]) if knowledge_points else None
-    retrieval_kp = None if source_ids else (planned_kp or infer_kp_id(question))
+    topic_kp, topic_name, custom_topic = resolve_topic(
+        state.get("knowledge_points"), question, state.get("topic_label")
+    )
+    retrieval_kp = None if source_ids or custom_topic else topic_kp
     retrieval_query = question
     if retrieval_kp:
         retrieval_query = f"{question}\n课程知识点：{kp_retrieval_text(retrieval_kp)}"
-    chunks = retrieve(
+    chunks = [] if custom_topic and not source_ids else retrieve(
         retrieval_query,
         final_k=8 if retrieval_kp else 4,
         source_ids=source_ids,
         kp=retrieval_kp,
     )
     chunks = _focused_kp_chunks(chunks, retrieval_kp)
-    if not source_ids and not guided:
+    if not source_ids and not guided and retrieval_kp:
         chunks = [
             *chunks,
             *recent_note_chunks(
@@ -376,8 +377,8 @@ async def run(state: dict) -> dict:
         source_ids,
         chunks,
         needed=True,
-        reason="guided_or_knowledge_question",
-        knowledge_point=retrieval_kp,
+        reason="custom_topic_general_knowledge" if custom_topic and not source_ids else "guided_or_knowledge_question",
+        knowledge_point=topic_kp,
     )
     await emit({
         "type": "progress",
@@ -406,13 +407,18 @@ async def run(state: dict) -> dict:
             "messages": [{"role": "assistant", "content": answer}],
         }
     profile = state.get("student_profile") or {}
+    effective_question = (
+        question if topic_name in question
+        else f"当前学习主题：{topic_name}\n{question}"
+    )
     prompt_call = render_tutor_prompt(
-        question,
+        effective_question,
         profile,
         ctx,
         source_ids,
         conversation=state.get("conversation") or state.get("messages") or [],
         guided=guided,
+        general_knowledge=custom_topic and not source_ids,
     )
     prompt = prompt_call.prompt
     await emit({
@@ -435,8 +441,14 @@ async def run(state: dict) -> dict:
             "reason": "demo_mode",
             "detail": "演示模式使用确定性资料整理回答",
         })
-        answer = _rag_demo_answer(question, chunks, guided=guided)
-        ground = {"grounded": True, "unsupported": [], "verdict": "演示模式直接整理检索片段"}
+        answer = (
+            f"当前学习主题已锁定为「{topic_name}」。我们会按“一句话定义 → 使用场景 → 关键组成 → 最小例子 → 常见误区”的顺序学习，"
+            "不会再混入任何旧主题。连接星火 X2 后会生成完整同主题讲解。"
+            if custom_topic and not chunks else
+            _rag_demo_answer(question, chunks, guided=guided)
+        )
+        ground = {"grounded": True, "unsupported": [],
+                  "verdict": "自定义主题离线安全回答" if custom_topic and not chunks else "演示模式直接整理检索片段"}
     else:
         parts: list[str] = []
         model_answer = True
@@ -465,20 +477,31 @@ async def run(state: dict) -> dict:
                 "error": str(error)[:160],
                 "detail": f"模型暂不可用，已切换资料内讲解：{str(error)[:80]}",
             })
-            answer = _rag_demo_answer(question, chunks, guided=guided)
+            answer = (
+                f"当前主题是「{topic_name}」，模型暂不可用；系统已停止生成，且不会回退到其他旧主题。"
+                if custom_topic and not chunks else
+                _rag_demo_answer(question, chunks, guided=guided)
+            )
 
         if model_answer:
-            try:
-                ground = await asyncio.wait_for(
-                    grounding_check(answer, [c["text"] for c in chunks]),
-                    timeout=8,
-                )
-            except TimeoutError:
+            if custom_topic and not chunks:
                 ground = {
-                    "grounded": False,
+                    "grounded": True,
                     "unsupported": [],
-                    "verdict": "grounding 校验超时",
+                    "verdict": "自定义主题使用星火通用知识生成，未声明虚构资料引用。",
                 }
+            else:
+                try:
+                    ground = await asyncio.wait_for(
+                        grounding_check(answer, [c["text"] for c in chunks]),
+                        timeout=8,
+                    )
+                except TimeoutError:
+                    ground = {
+                        "grounded": False,
+                        "unsupported": [],
+                        "verdict": "grounding 校验超时",
+                    }
             if not ground.get("grounded", False):
                 grounding_fallback_reason = str(ground.get("verdict") or "存在资料外表述")
                 failed_grounding = {

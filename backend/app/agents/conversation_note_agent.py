@@ -1,6 +1,7 @@
 """把持久化学习对话整理成可复用的个人笔记资源。"""
 from __future__ import annotations
 
+from ..services.knowledge_graph import clean_topic_label
 from . import doc_agent, eval_agent, planner_agent
 
 _LIST_FIELDS = {"messages", "retrieval_context", "citations", "safety_flags", "progress_events"}
@@ -35,9 +36,11 @@ async def run(state: dict) -> dict:
                 output[key] = value
 
     conversation = working.get("conversation") or working.get("messages") or []
-    topic_goal = _dialog_goal(conversation)
+    dialog_goal = _dialog_goal(conversation)
+    topic_goal = clean_topic_label(working.get("topic_label") or dialog_goal)
+    working["topic_label"] = topic_goal
     if not working.get("knowledge_points"):
-        working["learning_goal"] = topic_goal
+        working["learning_goal"] = dialog_goal
         working["kinds"] = ["doc"]
         absorb(await planner_agent.run(working))
 

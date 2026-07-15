@@ -27,6 +27,11 @@ _DOC_TEMPLATES = {
     "exam_guide",
 }
 DEFAULT_TEMPLATE = "complete_notes"
+_GENERAL_TOPIC_RULES = """自定义主题边界：
+
+1. 当前主题由学习者明确指定，可使用模型通用知识完成教学，不要求它属于内置课程知识图谱。
+2. 所有内容必须紧扣当前主题；禁止引用旧会话中的其他主题，尤其禁止回退到二叉树或数据结构示例。
+3. 不确定的事实要明确说明不确定性，不虚构资料编号、页码或引用。"""
 
 
 @dataclass(frozen=True)
@@ -166,6 +171,7 @@ def render_learning_prompt_call(
     persona: str,
     context: str,
     conversation: str = "",
+    general_knowledge: bool = False,
 ) -> PromptCall:
     key = supported_template(template_key)
     return invoke_learning_prompt(
@@ -175,6 +181,7 @@ def render_learning_prompt_call(
         persona=persona or "循序渐进",
         context=context or "（没有检索到可用资料）",
         conversation=conversation or "（当前没有可整理的学习对话）",
+        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
     )
 
 
@@ -207,10 +214,13 @@ def render_tutor_prompt(
     *,
     conversation: list[dict] | None = None,
     guided: bool = False,
+    general_knowledge: bool = False,
 ) -> PromptCall:
     source_scope = (
         "仅使用本次选中的学习资料"
         if source_ids
+        else "围绕当前自定义主题使用模型通用知识，不混入旧主题"
+        if general_knowledge
         else "使用课程知识库和已经沉淀的个人学习笔记"
     )
     return invoke_learning_prompt(
@@ -222,11 +232,13 @@ def render_tutor_prompt(
         source_scope=source_scope,
         conversation=_dialog_text(conversation),
         context=context or "（没有检索到可用片段）",
+        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
     )
 
 
 def render_quiz_prompt_call(
     *, kp: str, kpid: str, difficulty: int, context: str, guided: bool,
+    general_knowledge: bool = False,
 ) -> PromptCall:
     return invoke_learning_prompt(
         "quiz.guided" if guided else "quiz.standard",
@@ -234,6 +246,7 @@ def render_quiz_prompt_call(
         kpid=kpid or "unknown",
         difficulty=max(1, min(5, int(difficulty or 1))),
         context=context or "（没有可用资料）",
+        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
     )
 
 
@@ -243,9 +256,10 @@ def render_quiz_prompt(*, kp: str, kpid: str, difficulty: int, context: str, gui
     ).prompt
 
 
-def render_mindmap_prompt_call(*, kp: str, context: str) -> PromptCall:
+def render_mindmap_prompt_call(*, kp: str, context: str, general_knowledge: bool = False) -> PromptCall:
     return invoke_learning_prompt(
         "mindmap.leaf", kp=kp or "当前概念", context=context or "（无）",
+        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
     )
 
 
@@ -253,12 +267,15 @@ def render_mindmap_prompt(*, kp: str, context: str) -> str:
     return render_mindmap_prompt_call(kp=kp, context=context).prompt
 
 
-def render_video_prompt_call(*, kp: str, goal: str, context: str) -> PromptCall:
+def render_video_prompt_call(
+    *, kp: str, goal: str, context: str, general_knowledge: bool = False,
+) -> PromptCall:
     return invoke_learning_prompt(
         "media.video_script",
         kp=kp or "当前知识点",
         goal=goal or "理解并记住该知识点",
         context=context or "（无）",
+        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
     )
 
 
@@ -266,12 +283,15 @@ def render_video_prompt(*, kp: str, goal: str, context: str) -> str:
     return render_video_prompt_call(kp=kp, goal=goal, context=context).prompt
 
 
-def render_manim_prompt_call(*, kp: str, class_name: str, context: str) -> PromptCall:
+def render_manim_prompt_call(
+    *, kp: str, class_name: str, context: str, general_knowledge: bool = False,
+) -> PromptCall:
     return invoke_learning_prompt(
         "media.manim",
         kp=kp or "当前知识点",
         class_name=class_name or "LearningScene",
         context=context or "（无）",
+        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
     )
 
 

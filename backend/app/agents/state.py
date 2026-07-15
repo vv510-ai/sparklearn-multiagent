@@ -20,6 +20,8 @@ class LearningState(TypedDict, total=False):
     messages: Annotated[list[dict], operator.add]      # [{role, content}]
     conversation: list[dict]                           # 持久化会话快照，不参与并行追加
     learning_goal: str
+    topic_label: str                                   # 当前笔记本主题；支持课外自定义主题
+    custom_topic: bool
     knowledge_points: list[str]
     kinds: list[str]                                   # 期望生成的资源类型
     source_ids: list[str]                              # 指定上传资料

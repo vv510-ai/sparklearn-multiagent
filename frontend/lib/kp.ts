@@ -17,6 +17,7 @@ export const KPS: [string, string][] = [
   ["graph_traverse", "图遍历"],
   ["shortest_path", "最短路"],
   ["dp", "动态规划"],
+  ["sql_basic", "SQL 基础"],
 ];
 
 export const KP_NAME: Record<string, string> = Object.fromEntries(KPS);
@@ -27,4 +28,15 @@ export function kpName(id: string): string {
 
 export function isKnownKp(id: string): boolean {
   return id in KP_NAME;
+}
+
+export function inferKpFromTopic(topic: string): string | null {
+  const compact = topic.replace(/\s+/g, "").toLowerCase();
+  if (/sql|select|where|orderby|groupby|join|多表连接|数据库查询/.test(compact)) return "sql_basic";
+  if (/^(?:什么是)?图(?:是什么|的定义|的概念|的基础)?[？?。！!]*$/.test(compact)) return "graph_basic";
+  const matched = KPS
+    .map(([id, name]) => ({ id, name: name.replace(/\s+/g, "").toLowerCase() }))
+    .filter(({ name }) => name && compact.includes(name))
+    .sort((left, right) => right.name.length - left.name.length)[0];
+  return matched?.id || null;
 }

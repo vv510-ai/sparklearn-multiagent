@@ -64,6 +64,7 @@ async def chat(req: ChatRequest):
         "session_id": session_id,
         "messages": [current],
         "conversation": [*history, current],
+        "topic_label": req.topic_label,
         "source_ids": source_ids,
     }
     events = _persisted_events(

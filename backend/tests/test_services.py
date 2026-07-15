@@ -51,6 +51,12 @@ def test_planner_prefers_course_concept_named_in_goal():
     assert _kp_from_goal("什么是图", ids) == "graph_basic"
     assert _kp_from_goal("请解释 Dijkstra 算法", ids) == "shortest_path"
     assert _kp_from_goal("生成一张二叉树思维导图", ids) == "binary_tree"
+    assert _kp_from_goal(
+        "请根据当前学习主题生成巩固测验。当前学习主题：图是什么", ids
+    ) == "graph_basic"
+    assert _kp_from_goal(
+        "我刚开始学习 SQL，请依次讲解 SELECT、WHERE、GROUP BY 和多表连接", ids
+    ) == "sql_basic"
 
 
 def test_plan_path_thresholds():

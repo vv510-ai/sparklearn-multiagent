@@ -15,7 +15,7 @@ from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
-from ..services.knowledge_graph import kp_name
+from ..services.knowledge_graph import resolve_topic
 from .emitter import agent_end, agent_start, emit
 
 _STYLE = {
@@ -119,6 +119,22 @@ def _conversation_fallback_doc(name: str, conversation: str, chunks: list[dict])
     return "\n".join(lines)
 
 
+def _custom_topic_fallback_doc(name: str) -> str:
+    return "\n".join([
+        f"# {name}·学习笔记",
+        "",
+        "> 当前主题已锁定为自定义主题；系统没有改用内置课程或旧会话内容。",
+        "",
+        "## 学习框架",
+        f"1. 先用一句话说明「{name}」是什么。",
+        "2. 再梳理常见场景、关键组成和基本流程。",
+        "3. 用一个最小例子练习，最后检查常见误区与适用边界。",
+        "",
+        "## 下一步",
+        "当前为离线安全版本；连接星火 X2 后会补全同主题讲解，也可以上传资料生成可引用版本。",
+    ])
+
+
 def _ensure_visible_citations(md: str, n_citations: int) -> str:
     if n_citations <= 0 or used_indices(md, n_citations):
         return md
@@ -136,8 +152,12 @@ def _narration_text(name: str, markdown: str, limit: int = 240) -> str:
     return (prefix + text)[:limit]
 
 
-def _cover_prompt(name: str, *, source_bound: bool = False) -> str:
-    subject = "所选学习资料封面插画" if source_bound else "数据结构教学插画"
+def _cover_prompt(name: str, *, source_bound: bool = False, custom_topic: bool = False) -> str:
+    subject = (
+        "所选学习资料封面插画" if source_bound else
+        "自定义学习主题插画" if custom_topic else
+        "数据结构教学插画"
+    )
     return (
         f"{subject}：{name}。使用简洁抽象的学习结构视觉，"
         "浅色背景，绿色重点标注，无人物，不添加事实性文字。"
@@ -160,17 +180,19 @@ async def _gen_one(
     kp: str,
     profile: dict,
     *,
+    topic_name: str = "",
+    custom_topic: bool = False,
     source_ids: list[str],
     goal: str,
     prompt_template: str = "",
     conversation: str = "",
     trace_id: str,
 ) -> dict:
-    name = kp_name(kp)
+    name = topic_name or resolve_topic([kp])[1]
     label, capability = _STYLE.get(kind, _STYLE["doc"])
     if kind == "doc":
         label = _doc_label(label, prompt_template)
-    chunks = retrieve(
+    chunks = [] if custom_topic and not source_ids else retrieve(
         f"{name} 概念 操作 复杂度 易错点 {goal}",
         final_k=5,
         source_ids=source_ids,
@@ -185,6 +207,7 @@ async def _gen_one(
             persona=_persona(profile),
             context=ctx,
             conversation=conversation,
+            general_knowledge=custom_topic and not source_ids,
         )
     else:
         prompt_call = invoke_learning_prompt(
@@ -213,6 +236,8 @@ async def _gen_one(
         md = (
             _conversation_fallback_doc(name, conversation, chunks)
             if kind == "doc" and prompt_template == "conversation_notes"
+            else _custom_topic_fallback_doc(name)
+            if custom_topic and not chunks
             else _rag_fallback_doc(name, chunks, kind)
         )
     else:
@@ -243,6 +268,9 @@ async def _gen_one(
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
     if source_scope_missing:
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
+    elif custom_topic and not chunks:
+        ground = {"grounded": True, "unsupported": [],
+                  "verdict": "自定义主题使用星火通用知识生成，未声明虚构资料引用。"}
     elif demo_fallback:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "演示模式直接整理检索片段,未补写资料外事实。"}
@@ -290,7 +318,7 @@ async def _gen_one(
                 trace_id=trace_id,
             ),
             multimodal_gateway.text_to_image(
-                _cover_prompt(name, source_bound=bool(source_ids)),
+                _cover_prompt(name, source_bound=bool(source_ids), custom_topic=custom_topic),
                 width=768,
                 height=768,
                 trace_id=trace_id,
@@ -312,7 +340,11 @@ async def _gen_one(
 
 
 async def run(state: dict) -> dict:
-    kps = state.get("knowledge_points") or ["binary_tree"]
+    kp, topic_name, custom_topic = resolve_topic(
+        state.get("knowledge_points"),
+        state.get("learning_goal"),
+        state.get("topic_label"),
+    )
     requested = state.get("kinds") or []
     kinds = [k for k in requested if k in _STYLE]
     if requested and not kinds:
@@ -330,8 +362,10 @@ async def run(state: dict) -> dict:
     for kind in kinds:
         out = await _gen_one(
             kind,
-            kps[0],
+            kp,
             profile,
+            topic_name=topic_name,
+            custom_topic=custom_topic,
             source_ids=source_ids,
             goal=goal,
             prompt_template=prompt_template,

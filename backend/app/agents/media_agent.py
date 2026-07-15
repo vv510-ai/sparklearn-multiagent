@@ -15,7 +15,7 @@ from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import render_manim_prompt_call, render_video_prompt_call
 from ..rag.citation import build_context
 from ..rag.retriever import retrieve
-from ..services.knowledge_graph import kp_name
+from ..services.knowledge_graph import resolve_topic
 from .emitter import agent_end, agent_start, emit
 
 _LOCAL_MANIM_VIDEOS = {
@@ -119,13 +119,16 @@ async def run(state: dict) -> dict:
     requested = state.get("kinds") or []
     if requested and not any(k in requested for k in ("video", "audio", "image")):
         return {}
-    kp = (state.get("knowledge_points") or ["binary_tree"])[0]
-    name = kp_name(kp)
+    kp, name, custom_topic = resolve_topic(
+        state.get("knowledge_points"),
+        state.get("learning_goal"),
+        state.get("topic_label"),
+    )
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
     goal = str(state.get("learning_goal") or "")
     await agent_start("media", "媒体智能体", f"「{name}」分镜脚本 → 文生视频/动画 + TTS")
 
-    chunks = retrieve(
+    chunks = [] if custom_topic and not source_ids else retrieve(
         f"{name} 核心概念 关键步骤 {goal}",
         final_k=5,
         source_ids=source_ids,
@@ -160,6 +163,7 @@ async def run(state: dict) -> dict:
         kp=name,
         goal=goal or f"讲清{name}",
         context=context or "（课程知识库未检索到片段）",
+        general_knowledge=custom_topic and not source_ids,
     )
     script = {}
     if not is_demo():
@@ -211,13 +215,16 @@ async def run(state: dict) -> dict:
 
     if mode == "manim":                                            # 降级链路
         cls = "Scene" + kp.title().replace("_", "")
-        if source_ids or is_demo():
-            payload["manim_code"] = _fallback_manim_code(cls, name, source_bound=True)
+        if source_ids or custom_topic or is_demo():
+            payload["manim_code"] = _fallback_manim_code(
+                cls, name, source_bound=bool(source_ids) or custom_topic
+            )
         else:
             manim_prompt_call = render_manim_prompt_call(
                 kp=name,
                 class_name=cls,
                 context=context or "（课程知识库未检索到片段）",
+                general_knowledge=custom_topic and not source_ids,
             )
             code = await llm_complete(
                 manim_prompt_call.prompt,
@@ -226,7 +233,9 @@ async def run(state: dict) -> dict:
                 temperature=0.3,
                 max_tokens=1400,
             )
-            payload["manim_code"] = _normalize_manim_code(code, cls, name)
+            payload["manim_code"] = _normalize_manim_code(
+                code, cls, name, source_bound=custom_topic
+            )
             payload["manim_prompt_skill"] = manim_prompt_call.metadata()
         local_video = _local_manim_video(kp)
         if local_video:
@@ -257,7 +266,7 @@ async def run(state: dict) -> dict:
     rid = uuid.uuid4().hex[:12]
     resource = {"id": rid, "kind": "video", "kp": kp,
                 "title": script.get("title", f"{name}·讲解视频"),
-                "payload": payload,
+                "payload": {**payload, "topic_label": name, "custom_topic": custom_topic},
                 "citations": [item["citation"] for item in citations]}
     await emit({"type": "resource", "resource": resource})
     summaries = {

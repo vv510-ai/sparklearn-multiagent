@@ -36,6 +36,7 @@ export default function Chat({
   seed,
   request,
   sourceIds = [],
+  topic = "",
   onUploadClick,
   onSeedConsumed,
   onQuizEvaluated,
@@ -45,6 +46,7 @@ export default function Chat({
   seed?: string;
   request?: { path: string; body: Record<string, unknown>; display: string };
   sourceIds?: string[];
+  topic?: string;
   onUploadClick?: () => void;
   onSeedConsumed?: () => void;
   onQuizEvaluated?: (report: { path?: import("@/lib/types").PathPlan; profile_version?: number }) => void;
@@ -93,6 +95,7 @@ export default function Chat({
           user_id: USER_ID,
           session_id: sessionRef.current,
           message: q,
+          topic_label: topic,
           source_ids: sourceIds,
         },
         (ev) => {
@@ -128,7 +131,7 @@ export default function Chat({
         },
       );
     },
-    [busy, onEvent, sourceIds],
+    [busy, onEvent, sourceIds, topic],
   );
 
   useEffect(() => {
