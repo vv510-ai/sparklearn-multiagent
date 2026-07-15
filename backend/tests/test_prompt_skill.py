@@ -90,6 +90,12 @@ def test_all_learning_outputs_share_source_and_beginner_rules():
         [],
         guided=True,
     )
+    followup = render_tutor_prompt(
+        "图是什么",
+        {"difficulty_pref": "循序渐进"},
+        "[^1] 图由顶点和边组成",
+        [],
+    )
     quiz = render_quiz_prompt(
         kp="二叉树",
         kpid="binary_tree",
@@ -103,6 +109,8 @@ def test_all_learning_outputs_share_source_and_beginner_rules():
     assert "零基础" in note and "最小例子" in note
     assert "不照抄附件" in note and "不同来源有冲突" in note
     assert "生活里的它" in tutor.prompt and "记忆钩子" in tutor.prompt
+    assert "禁止输出 JSON" in followup.prompt
+    assert "短定义问题只用 2—4 句回答" in followup.prompt
     assert "资料不足" in tutor.system and "资料边界" in tutor.system
     assert "恰好生成 5 道" in quiz and "生活化提示" in quiz
 

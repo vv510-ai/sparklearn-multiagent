@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import re
 
 from ..config import is_demo
@@ -51,6 +52,36 @@ def _lightweight_chat_answer(question: str) -> str:
     if any(marker in compact for marker in _HELP_MARKERS):
         return "你可以先选择学习资料，再让我从零讲解、针对卡点答疑、生成练习，最后把本次对话整理成可复用笔记。"
     return "你好，我是星火学伴。你可以选中资料后问一个具体问题，或者直接说“从零学习某个主题”。"
+
+
+def _is_short_definition_question(question: str) -> bool:
+    compact = re.sub(r"\s+", "", str(question or ""))
+    return len(compact) <= 24 and bool(
+        re.search(r"(?:^什么是.+|.+是什么[？?。！!]*$|.+的定义[是？?。！!]*$)", compact)
+    )
+
+
+def _normalize_tutor_answer(answer: str, question: str, *, has_context: bool) -> str:
+    """把模型误输出的 JSON 自检表还原成面向学习者的直接回答。"""
+    text = str(answer or "").strip()
+    if not _is_short_definition_question(question):
+        return text
+
+    candidate = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.IGNORECASE).strip()
+    try:
+        data = json.loads(candidate)
+    except (TypeError, ValueError):
+        data = None
+    if isinstance(data, dict):
+        for key in ("是什么", "定义", "结论", "answer"):
+            value = str(data.get(key) or "").strip()
+            if value:
+                text = value
+                break
+
+    if has_context and text and not re.search(r"\[\^\d+\]", text):
+        text = f"{text} [^1]"
+    return text
 
 
 def _retrieval_evidence(
@@ -418,6 +449,7 @@ async def run(state: dict) -> dict:
             ):
                 parts.append(delta)
             answer = "".join(parts)
+            answer = _normalize_tutor_answer(answer, question, has_context=bool(chunks))
         except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
             model_answer = False
             await emit({

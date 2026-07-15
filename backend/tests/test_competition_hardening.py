@@ -85,6 +85,18 @@ def test_short_graph_question_uses_graph_scope_and_rejects_binary_tree_notes(mon
     assert "Dijkstra" not in result["answer"]
 
 
+def test_short_definition_unwraps_model_json_self_check():
+    answer = tutor_agent._normalize_tutor_answer(  # noqa: SLF001
+        """```json
+        {"是什么":"图由顶点和边组成。","为什么":"不应出现在短定义回答里。","易错表现":"不应展开。"}
+        ```""",
+        "图是什么",
+        has_context=True,
+    )
+
+    assert answer == "图由顶点和边组成。 [^1]"
+
+
 def test_stream_can_disable_generic_mock_fallback(monkeypatch):
     class BrokenCompletions:
         def create(self, **kwargs):
