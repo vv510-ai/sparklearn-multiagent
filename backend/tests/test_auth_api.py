@@ -64,6 +64,11 @@ def test_register_login_and_user_scope(monkeypatch):
             created_ids.append(first_id)
             first_headers = {"Authorization": f"Bearer {first_data['access_token']}"}
 
+            with session() as db:
+                stored_account = db.get(AuthAccount, first_id)
+                assert stored_account is not None
+                assert "m=19456,t=2,p=1" in stored_account.password_hash
+
             me = client.get("/api/auth/me", headers=first_headers)
             assert me.status_code == 200
             assert me.json() == {
