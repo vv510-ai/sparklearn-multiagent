@@ -17,7 +17,7 @@ commit + push origin main
 失败：恢复上一个健康 release
 ```
 
-当前公网 IP：`47.76.129.100`。生产 Compose 支持 Let’s Encrypt 的短期 IP 证书：证书尚未签发时保持 HTTP，证书落入 `/etc/letsencrypt/live/47.76.129.100/` 后，Nginx 容器重启即自动启用 HTTPS 并把 HTTP 重定向到 HTTPS。
+当前公网 IP：`47.76.129.100`。生产 Compose 支持 Let’s Encrypt 的短期 IP 证书。默认 `TLS_ENABLED=false`，即使证书已经签发也会继续提供 HTTP；只有确认安全组已放行 TCP 443，并在服务器共享 `.env` 中设置 `TLS_ENABLED=true` 后，Nginx 才会启用 HTTPS 并把 HTTP 重定向到 HTTPS。
 
 ## 哪些内容会自动更新
 
@@ -91,4 +91,11 @@ certbot certonly \
   --ip-address 47.76.129.100
 ```
 
-证书签发后重启 `sparklearn-nginx-1`。仓库中的 `deploy/certbot-renew-hook.sh` 会被自动部署到 Certbot 的 deploy hook 目录，在新证书生成后重启该容器加载证书。
+证书签发且安全组已放行 TCP 443 后，在 `/opt/sparklearn/shared/.env` 中设置 `TLS_ENABLED=true`，再重建 Nginx：
+
+```bash
+cd /opt/sparklearn/current
+docker compose --env-file /opt/sparklearn/shared/.env -f docker-compose.prod.yml up -d --force-recreate nginx
+```
+
+仓库中的 `deploy/certbot-renew-hook.sh` 会被自动部署到 Certbot 的 deploy hook 目录，在新证书生成后重启该容器加载证书。`TLS_ENABLED` 保护开关可以防止证书签发后、443 尚未放行时误把 HTTP 流量重定向到不可达的 HTTPS。
