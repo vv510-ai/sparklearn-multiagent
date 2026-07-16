@@ -3,10 +3,11 @@ from __future__ import annotations
 import uuid
 
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 
 from app import config
 from app.main import app
-from app.models.db import session
+from app.models.db import get_engine, session
 from app.models.entities import AuthAccount, User
 
 
@@ -15,6 +16,20 @@ def _enable_real_auth(monkeypatch) -> None:
     monkeypatch.setenv("AUTH_REQUIRED", "true")
     monkeypatch.setenv("AUTH_SECRET", "test-only-auth-secret-with-at-least-32-characters")
     config.get_settings.cache_clear()
+
+
+def _enable_sqlite_foreign_keys() -> None:
+    """Mirror PostgreSQL FK enforcement in the local integration test."""
+    engine = get_engine()
+    if engine.dialect.name != "sqlite":
+        return
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _connection_record):
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+    with engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
 
 
 def _delete_accounts(user_ids: list[str]) -> None:
@@ -31,6 +46,7 @@ def _delete_accounts(user_ids: list[str]) -> None:
 
 def test_register_login_and_user_scope(monkeypatch):
     _enable_real_auth(monkeypatch)
+    _enable_sqlite_foreign_keys()
     marker = uuid.uuid4().hex
     created_ids: list[str] = []
 
