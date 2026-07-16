@@ -17,6 +17,7 @@ from typing import Any
 
 from sqlalchemy import select
 
+from ..auth import enforce_user_scope
 from ..models.db import init_db, session
 from ..models.entities import EventLog, Profile, User
 from ..services.bkt import bkt_update
@@ -48,6 +49,7 @@ def default_profile() -> dict:
 
 
 def ensure_user(user_id: str, name: str = "同学") -> None:
+    enforce_user_scope(user_id)
     init_db()
     with session() as s:
         if not s.get(User, user_id):

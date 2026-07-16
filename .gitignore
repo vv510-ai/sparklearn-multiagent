@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .env
 .env.local
+.auth_secret
+backend/.auth_secret
 frontend/.env.local
 node_modules/
 .next/

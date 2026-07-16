@@ -253,6 +253,7 @@ async def upload_source(
 
 @router.get("/sources")
 async def list_sources(user_id: str = Query("demo_user")):
+    ensure_user(user_id)
     counts = _chunk_counts()
     items = []
     for _, meta in _uploaded_metas():

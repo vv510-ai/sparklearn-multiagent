@@ -22,6 +22,12 @@ services:
         fromDatabase:
           name: sparklearn-db
           property: connectionString
+      - key: AUTH_SECRET
+        sync: false
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: AUTH_TOKEN_MINUTES
+        value: "10080"
       - key: SPARK_API_PASSWORD
         sync: false
       - key: SPARK_APPID

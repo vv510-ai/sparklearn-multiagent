@@ -3,6 +3,14 @@ import type { SparkEvent } from "./types";
 /** 所有请求经 Next BFF(app/api/[...path]/route.ts)转发到后端,规避浏览器 CORS。 */
 const BASE = "/api";
 
+export const UNAUTHORIZED_EVENT = "sparklearn:unauthorized";
+
+function notifyUnauthorized(status: number) {
+  if (status === 401 && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+}
+
 /** 后端生成的 /static/* 资源继续经同一 BFF 获取，避免浏览器误请求 Next 端口。 */
 export function apiAssetUrl(url?: string): string | undefined {
   if (!url) return undefined;
@@ -25,6 +33,7 @@ export function postSSE(
         body: JSON.stringify(body),
         signal: ctrl.signal,
       });
+      notifyUnauthorized(res.status);
       if (!res.ok || !res.body) {
         let detail = `HTTP ${res.status}`;
         try {
@@ -73,6 +82,7 @@ export function postSSE(
 
 export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
+  notifyUnauthorized(res.status);
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -84,6 +94,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   const text = await res.text();
+  notifyUnauthorized(res.status);
   if (!res.ok) {
     let detail = text || `HTTP ${res.status}`;
     try {
@@ -103,6 +114,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
 
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { method: "POST", body: form });
+  notifyUnauthorized(res.status);
   if (!res.ok) {
     const text = await res.text();
     let message = text || `上传失败: HTTP ${res.status}`;
@@ -117,4 +129,5 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const USER_ID = "demo_user";
+// This sentinel is overwritten by the BFF with the authenticated JWT subject.
+export const USER_ID = "session_user";

@@ -5,6 +5,8 @@ sse-starlette>=2.1
 python-multipart>=0.0.9
 pydantic>=2.7
 pydantic-settings>=2.3
+PyJWT[crypto]>=2.9           # 登录会话 JWT 签发与校验
+pwdlib[argon2]>=0.2          # 密码 Argon2 哈希，严禁保存明文密码
 
 # ---- LLM / 多智能体 ----
 openai>=1.35                 # 讯飞星火 OpenAI 兼容接口直连

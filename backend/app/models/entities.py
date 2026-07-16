@@ -20,6 +20,17 @@ class User(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
 
 
+class AuthAccount(Base):
+    """登录凭证与学习用户分表，避免改动既有 users 表和学习数据外键。"""
+    __tablename__ = "auth_accounts"
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id"), primary_key=True,
+    )
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
 class Profile(Base):
     """≥6 维动态学生画像,JSON 形式整体存取,"随学随新"每次交互增量更新。"""
     __tablename__ = "profiles"
