@@ -1,0 +1,11 @@
+.venv
+.env
+__pycache__
+*.pyc
+.pytest_cache
+tests
+runs
+app/static/gen/*
+app/data/uploaded_sources
+app/data/vector_store.json
+app/data/vector_store_manifest.json
