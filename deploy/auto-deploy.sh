@@ -74,8 +74,21 @@ compose() {
     "$@"
 }
 
+refresh_automation() {
+  local release="$1"
+  [[ -f "${release}/deploy/auto-deploy.sh" ]] || return 0
+
+  install -D -m 0755 "${release}/deploy/auto-deploy.sh" "${APP_ROOT}/bin/auto-deploy.sh.new"
+  mv -f "${APP_ROOT}/bin/auto-deploy.sh.new" "${APP_ROOT}/bin/auto-deploy.sh"
+  install -D -m 0644 "${release}/deploy/systemd/sparklearn-auto-deploy.service" /etc/systemd/system/sparklearn-auto-deploy.service
+  install -D -m 0644 "${release}/deploy/systemd/sparklearn-auto-deploy.timer" /etc/systemd/system/sparklearn-auto-deploy.timer
+  install -D -m 0755 "${release}/deploy/certbot-renew-hook.sh" /etc/letsencrypt/renewal-hooks/deploy/50-sparklearn-nginx
+  systemctl daemon-reload
+}
+
 if [[ "${TARGET_COMMIT}" == "${CURRENT_COMMIT}" && -L "${CURRENT_LINK}" ]]; then
   if curl --fail --silent --max-time 20 http://127.0.0.1/ >/dev/null; then
+    refresh_automation "$(readlink -f "${CURRENT_LINK}")"
     log "Already running healthy release ${TARGET_COMMIT:0:12}; nothing to deploy"
     exit 0
   fi
@@ -148,12 +161,7 @@ log "Release ${TARGET_COMMIT:0:12} is healthy and active"
 
 # A successful release also refreshes the deployer itself, so future changes to
 # this repository-owned deployment chain do not require another manual install.
-install -D -m 0755 "${RELEASE_DIR}/deploy/auto-deploy.sh" "${APP_ROOT}/bin/auto-deploy.sh.new"
-mv -f "${APP_ROOT}/bin/auto-deploy.sh.new" "${APP_ROOT}/bin/auto-deploy.sh"
-install -D -m 0644 "${RELEASE_DIR}/deploy/systemd/sparklearn-auto-deploy.service" /etc/systemd/system/sparklearn-auto-deploy.service
-install -D -m 0644 "${RELEASE_DIR}/deploy/systemd/sparklearn-auto-deploy.timer" /etc/systemd/system/sparklearn-auto-deploy.timer
-install -D -m 0755 "${RELEASE_DIR}/deploy/certbot-renew-hook.sh" /etc/letsencrypt/renewal-hooks/deploy/50-sparklearn-nginx
-systemctl daemon-reload
+refresh_automation "${RELEASE_DIR}"
 
 mapfile -t release_dirs < <(find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | cut -d' ' -f2-)
 if (( ${#release_dirs[@]} > KEEP_RELEASES )); then
