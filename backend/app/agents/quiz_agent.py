@@ -217,6 +217,7 @@ async def run(state: dict) -> dict:
         source_ids=source_ids,
         kp=None if source_ids else kp,
         required_terms=required_terms or None,
+        user_id=state.get("user_id", "demo_user"),
     )
     if source_ids and not chunks:
         await agent_end("quiz", "所选资料无可用片段,已阻止无依据出题")

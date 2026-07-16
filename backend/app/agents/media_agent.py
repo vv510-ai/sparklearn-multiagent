@@ -133,6 +133,7 @@ async def run(state: dict) -> dict:
         final_k=5,
         source_ids=source_ids,
         kp=None if source_ids else kp,
+        user_id=state.get("user_id", "demo_user"),
     )
     context, citations = build_context(chunks)
     if source_ids and not chunks:

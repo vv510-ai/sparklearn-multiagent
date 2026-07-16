@@ -73,6 +73,11 @@ try:  # pydantic-settings 可用时走标准路径
         database_url: str = ""
         milvus_uri: str = ""
         redis_url: str = ""
+        object_storage_endpoint: str = ""
+        object_storage_bucket: str = ""
+        object_storage_access_key: str = ""
+        object_storage_secret_key: str = ""
+        object_storage_region: str = "auto"
 
         # 用户登录与会话
         auth_secret: str = ""
@@ -132,6 +137,11 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.database_url = g("DATABASE_URL", "")
             self.milvus_uri = g("MILVUS_URI", "")
             self.redis_url = g("REDIS_URL", "")
+            self.object_storage_endpoint = g("OBJECT_STORAGE_ENDPOINT", "")
+            self.object_storage_bucket = g("OBJECT_STORAGE_BUCKET", "")
+            self.object_storage_access_key = g("OBJECT_STORAGE_ACCESS_KEY", "")
+            self.object_storage_secret_key = g("OBJECT_STORAGE_SECRET_KEY", "")
+            self.object_storage_region = g("OBJECT_STORAGE_REGION", "auto")
             self.auth_secret = g("AUTH_SECRET", "")
             self.auth_required = _env_bool("AUTH_REQUIRED")
             self.auth_token_minutes = int(g("AUTH_TOKEN_MINUTES", "10080"))

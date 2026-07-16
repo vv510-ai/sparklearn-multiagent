@@ -112,7 +112,7 @@ def _current_manifest() -> dict[str, Any]:
             if p.is_file()
             and (p.suffix.lower() in SUPPORTED_UPLOAD or p.name.endswith(".meta.json"))
         )
-    return {"version": 2, "files": [_source_file_signature(p) for p in files]}
+    return {"version": 3, "files": [_source_file_signature(p) for p in files]}
 
 
 def _manifest_matches(current: dict[str, Any]) -> bool:
@@ -147,6 +147,7 @@ def _chunk_record(
     url: str = "",
     tags: list[str] | None = None,
     source_id: str = "",
+    user_id: str = "",
 ) -> dict[str, Any]:
     return {
         "text": text,
@@ -158,6 +159,7 @@ def _chunk_record(
         "url": url,
         "tags": tags or [],
         "source_id": source_id,
+        "user_id": user_id,
     }
 
 
@@ -340,6 +342,7 @@ def _read_pdf_pages(path: Path) -> list[tuple[int, str]]:
 
 def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
     meta = _upload_meta(path)
+    user_id = str(meta.get("user_id") or "")
     source_id = str(meta.get("id") or path.stem)
     source = str(meta.get("title") or meta.get("filename") or path.stem)
     kp = str(meta.get("kp") or "")
@@ -364,6 +367,7 @@ def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
                     url=url,
                     tags=tags,
                     source_id=source_id,
+                    user_id=user_id,
                 ))
         return chunks
 
@@ -383,6 +387,7 @@ def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
                 url=url,
                 tags=tags,
                 source_id=source_id,
+                user_id=user_id,
             ))
         return chunks
 
@@ -406,6 +411,7 @@ def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
             url=url,
             tags=tags,
             source_id=source_id,
+            user_id=user_id,
         ))
     return chunks
 
@@ -414,7 +420,7 @@ def _load_uploaded_sources() -> list[dict[str, Any]]:
     if not UPLOAD_SOURCES_DIR.exists():
         return []
     chunks: list[dict[str, Any]] = []
-    seen_hashes: set[str] = set()
+    seen_hashes: set[tuple[str, str]] = set()
     for path in sorted(p for p in UPLOAD_SOURCES_DIR.rglob("*") if p.is_file()):
         if path.name.endswith(".meta.json"):
             continue
@@ -426,18 +432,23 @@ def _load_uploaded_sources() -> list[dict[str, Any]]:
                 log.info("uploaded source quarantined, skipped: %s", path.name)
                 continue
             digest = source_sha256(path, meta)
-            if digest in seen_hashes:
+            owner_digest = (str(meta.get("user_id") or ""), digest)
+            if owner_digest in seen_hashes:
                 log.warning("duplicate uploaded source skipped: %s", path.name)
                 continue
-            seen_hashes.add(digest)
+            seen_hashes.add(owner_digest)
             chunks.extend(_load_uploaded_source(path))
         except Exception as exc:  # noqa: BLE001
             log.warning("uploaded source skipped: %s (%s)", path, exc)
     return chunks
 
 
-def chunks_for_source(source_id: str) -> list[dict[str, Any]]:
-    return [c for c in load_all_chunks() if c.get("source_id") == source_id]
+def chunks_for_source(source_id: str, user_id: str | None = None) -> list[dict[str, Any]]:
+    return [
+        chunk for chunk in load_all_chunks()
+        if chunk.get("source_id") == source_id
+        and (user_id is None or str(chunk.get("user_id") or "") == str(user_id))
+    ]
 
 
 def validate_source_scope(user_id: str, source_ids: list[str]) -> list[str]:

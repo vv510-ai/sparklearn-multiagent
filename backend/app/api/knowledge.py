@@ -25,6 +25,7 @@ from ..rag.ingest import (
 )
 from ..rag.retriever import retrieve
 from ..rag.vector_store import get_store
+from ..services.object_storage import backup_source_files
 from ..services.profile_service import ensure_user
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
@@ -113,8 +114,10 @@ def _stored_source_path(meta_path: Path) -> Path:
     return meta_path.with_name(meta_path.name.removesuffix(".meta.json"))
 
 
-def _duplicate_source(digest: str) -> dict[str, Any] | None:
+def _duplicate_source(digest: str, user_id: str) -> dict[str, Any] | None:
     for meta_path, meta in _uploaded_metas():
+        if str(meta.get("user_id") or "") != str(user_id):
+            continue
         stored = _stored_source_path(meta_path)
         if not stored.exists():
             continue
@@ -150,7 +153,7 @@ async def upload_source(
 
     UPLOAD_SOURCES_DIR.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(data).hexdigest()
-    duplicate = _duplicate_source(digest)
+    duplicate = _duplicate_source(digest, user_id)
     if duplicate:
         raise HTTPException(
             409,
@@ -236,6 +239,8 @@ async def upload_source(
         meta_path.unlink(missing_ok=True)
         ingest_corpus(force=True)
         raise HTTPException(400, f"indexing failed: {exc}") from exc
+
+    backup_source_files(user_id, stored, meta_path)
 
     sample = [
         {

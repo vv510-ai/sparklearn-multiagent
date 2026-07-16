@@ -18,6 +18,8 @@ from ..models.entities import Resource
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import AudioRetryRequest, GenerateRequest
 from ..services.profile_service import ensure_user, log_event
+from ..services.ownership_service import sync_resource_ownership, task_belongs_to_user
+from ..auth import require_current_user_id
 from .sse import sse_response
 
 router = APIRouter(prefix="/api/resources", tags=["resources"])
@@ -133,6 +135,8 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         s.refresh(resource)
         response_resource = _row_to_dict(resource)
 
+    sync_resource_ownership(req.user_id, rid, payload)
+
     log_event(req.user_id, "audio_retry", {
         "resource_id": rid,
         "status": payload["audio"]["status"],
@@ -143,6 +147,9 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
 
 @router.get("/video/task/{task_id}")
 async def video_task(task_id: str):
+    user_id = require_current_user_id()
+    if not task_belongs_to_user(user_id, task_id):
+        raise HTTPException(404, "video task not found")
     return await multimodal_gateway.video_poll(task_id)
 
 

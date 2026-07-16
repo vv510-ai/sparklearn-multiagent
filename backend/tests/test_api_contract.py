@@ -216,6 +216,7 @@ def test_knowledge_upload_search_contract():
     init_db()
     ensure_user("contract_user")
     source_id = ""
+    other_source_id = ""
     try:
         with TestClient(app) as client:
             content = (
@@ -258,6 +259,7 @@ def test_knowledge_upload_search_contract():
                 source_ids=[source_id],
                 kp="binary_tree",
                 final_k=5,
+                user_id="contract_user",
             )
             assert any(item["source_id"] == source_id for item in selected_hits), selected_hits
 
@@ -271,6 +273,35 @@ def test_knowledge_upload_search_contract():
                 files={"file": ("contract-binary-tree-copy.txt", content, "text/plain")},
             )
             assert duplicate.status_code == 409, duplicate.text
+
+            # Tenant-local dedup: another learner may upload the same textbook.
+            ensure_user("contract_other_user")
+            other = client.post(
+                "/api/knowledge/upload",
+                data={
+                    "user_id": "contract_other_user",
+                    "kp": "binary_tree",
+                    "title": "Other Learner Binary Tree Notes",
+                },
+                files={"file": ("same-content.txt", content, "text/plain")},
+            )
+            assert other.status_code == 200, other.text
+            other_source_id = other.json()["source"]["id"]
+            other_hits = retrieve(
+                "Contract upload source binary tree inorder traversal",
+                source_ids=[other_source_id],
+                user_id="contract_other_user",
+                final_k=5,
+            )
+            assert other_hits and all(
+                hit.get("user_id") == "contract_other_user" for hit in other_hits
+            )
+            assert retrieve(
+                "Contract upload source binary tree inorder traversal",
+                source_ids=[other_source_id],
+                user_id="contract_user",
+                final_k=5,
+            ) == []
 
         events = asyncio.run(_collect(dict(
             GENERATE_STATE,
@@ -294,6 +325,10 @@ def test_knowledge_upload_search_contract():
         if source_id:
             for path in UPLOAD_SOURCES_DIR.glob(f"{source_id}*"):
                 path.unlink(missing_ok=True)
+        if other_source_id:
+            for path in UPLOAD_SOURCES_DIR.glob(f"{other_source_id}*"):
+                path.unlink(missing_ok=True)
+        if source_id or other_source_id:
             ingest_corpus(force=True)
 
 

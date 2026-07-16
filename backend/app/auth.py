@@ -6,7 +6,7 @@ import logging
 import re
 import secrets
 import uuid
-from contextvars import ContextVar, Token
+from contextvars import Token
 from pathlib import Path
 
 import jwt
@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from .config import BASE_DIR, auth_required, get_settings
 from .models.db import init_db, session
 from .models.entities import AuthAccount, User
+from .tenant import current_user_context
 
 log = logging.getLogger("sparklearn.auth")
 # OWASP's memory-constrained Argon2id baseline: 19 MiB, 2 iterations, 1 lane.
@@ -28,7 +29,7 @@ log = logging.getLogger("sparklearn.auth")
 _PASSWORD_HASH = PasswordHash((
     Argon2Hasher(time_cost=2, memory_cost=19456, parallelism=1),
 ))
-_CURRENT_USER: ContextVar[str | None] = ContextVar("sparklearn_current_user", default=None)
+_CURRENT_USER = current_user_context
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 _LOCAL_SECRET_FILE = Path(BASE_DIR).parent / ".auth_secret"
 _ISSUER = "sparklearn"

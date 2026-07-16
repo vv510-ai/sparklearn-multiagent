@@ -12,7 +12,7 @@ from __future__ import annotations
 import datetime as dt
 
 from ..models.db import init_db, session
-from ..models.entities import PathPlan
+from ..models.entities import PathPlan, PersonalizationDecision, Profile
 from .knowledge_graph import kp_name, load_kg, prerequisites, topological_order
 
 DONE_T, READY_T = 0.8, 0.6
@@ -84,6 +84,35 @@ def save_path(user_id: str, path: dict) -> None:
             s.add(PathPlan(user_id=user_id, data=path))
         else:
             row.data = path
+        profile = s.get(Profile, user_id)
+        nodes = list(path.get("nodes") or [])
+        next_node = next(
+            (node for node in nodes if node.get("id") == path.get("next_kp")),
+            {},
+        )
+        profile_data = dict(profile.data) if profile and isinstance(profile.data, dict) else {}
+        s.add(PersonalizationDecision(
+            user_id=user_id,
+            kind="learning_path",
+            profile_version=int(profile.version if profile else 0),
+            inputs={
+                "knowledge_mastery": profile_data.get("knowledge_mastery", {}),
+                "difficulty_pref": profile_data.get("difficulty_pref", ""),
+                "error_prone": profile_data.get("error_prone", []),
+            },
+            output={
+                "next_kp": path.get("next_kp"),
+                "generated_by": path.get("generated_by", "rule"),
+                "top_ready": [
+                    {"id": node.get("id"), "score": node.get("score")}
+                    for node in sorted(
+                        (node for node in nodes if node.get("status") == "ready"),
+                        key=lambda item: int(item.get("order") or 9999),
+                    )[:5]
+                ],
+            },
+            reason=str(next_node.get("reason") or "no ready knowledge point"),
+        ))
         s.commit()
 
 
@@ -92,3 +121,24 @@ def get_path(user_id: str) -> dict | None:
     with session() as s:
         row = s.get(PathPlan, user_id)
         return dict(row.data) if row else None
+
+
+def list_decisions(user_id: str, limit: int = 20) -> list[dict]:
+    init_db()
+    with session() as s:
+        rows = (
+            s.query(PersonalizationDecision)
+            .filter(PersonalizationDecision.user_id == user_id)
+            .order_by(PersonalizationDecision.created_at.desc())
+            .limit(max(1, min(limit, 100)))
+            .all()
+        )
+        return [{
+            "id": row.id,
+            "kind": row.kind,
+            "profile_version": row.profile_version,
+            "inputs": row.inputs,
+            "output": row.output,
+            "reason": row.reason,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        } for row in rows]

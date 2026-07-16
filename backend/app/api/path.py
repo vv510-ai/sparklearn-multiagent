@@ -6,10 +6,16 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from ..schemas.core import ReplanRequest
-from ..services.path_service import get_path, plan_path, save_path
+from ..services.path_service import get_path, list_decisions, plan_path, save_path
 from ..services.profile_service import ensure_user, get_profile, log_event
 
 router = APIRouter(prefix="/api/path", tags=["path"])
+
+
+@router.get("/decisions")
+async def read_decisions(user_id: str = Query("demo_user"), limit: int = 20):
+    ensure_user(user_id)
+    return {"items": list_decisions(user_id, limit)}
 
 
 @router.get("")

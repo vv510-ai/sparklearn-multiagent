@@ -64,6 +64,7 @@ def test_image_upload_materializes_ocr_once(monkeypatch):
             source_ids=[source_id],
             kp="binary_tree",
             final_k=5,
+            user_id="ocr_test_user",
         )
         assert hits and any(hit["source_id"] == source_id for hit in hits)
 

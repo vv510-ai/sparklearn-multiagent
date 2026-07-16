@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from ..auth import require_current_user_id
 from ..config import RUNS_DIR
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
@@ -43,8 +44,11 @@ def _run_dir(session_id: str) -> Path:
     return path
 
 
-def read_run_report(session_id: str) -> dict[str, Any]:
+def read_run_report(session_id: str, user_id: str | None = None) -> dict[str, Any]:
     path = _run_dir(session_id)
+    state = _read_json(path / "state.summary.json", {})
+    if user_id is not None and str(state.get("user_id") or "") != str(user_id):
+        raise HTTPException(404, "debug run not found")
     summary = _read_json(path / "summary.json", {})
     timeline = _read_json(path / "timeline.json", [])
     return {
@@ -52,7 +56,7 @@ def read_run_report(session_id: str) -> dict[str, Any]:
         "run_dir": str(path),
         "debug_report": _read_text(path / "debug_report.md"),
         "summary": summary,
-        "state": _read_json(path / "state.summary.json", {}),
+        "state": state,
         "agent_status": _read_json(path / "agent_status.json", {}),
         "resources": _read_json(path / "resources" / "index.json", []),
         "timeline": timeline[:80] if isinstance(timeline, list) else [],
@@ -61,4 +65,4 @@ def read_run_report(session_id: str) -> dict[str, Any]:
 
 @router.get("/runs/{session_id}")
 async def get_run_report(session_id: str):
-    return read_run_report(session_id)
+    return read_run_report(session_id, require_current_user_id())

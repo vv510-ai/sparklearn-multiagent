@@ -15,6 +15,7 @@ from ..services.knowledge_graph import kp_name
 from ..services.metacognition_service import (apply_metacognition_calibration,
                                                calibration_signal,
                                                normalize_confidence)
+from ..services.ownership_service import sync_resource_ownership
 from ..services.path_service import plan_path, save_path
 from ..services.profile_service import get_profile, log_event, update_mastery
 from .emitter import agent_end, agent_start, emit
@@ -92,6 +93,8 @@ async def run(state: dict) -> dict:
                                                if f.get("agent") == r.get("kind")
                                                or f.get("kind") == r.get("kind")]}))
         s.commit()
+    for rid, resource in resources.items():
+        sync_resource_ownership(user_id, rid, resource.get("payload", {}) or {})
     log_event(user_id, "generate_done",
               {"n": len(resources), "kinds": sorted({r.get("kind") for r in resources.values()})})
 
