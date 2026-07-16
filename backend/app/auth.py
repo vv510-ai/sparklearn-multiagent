@@ -89,6 +89,9 @@ def register_account(email: str, password: str, name: str) -> dict:
             password_hash=_PASSWORD_HASH.hash(secret),
         )
         db.add(user)
+        # AuthAccount has a real FK to users. Explicitly flush the parent first:
+        # SQLite tests often leave FK checks off, while production PostgreSQL does not.
+        db.flush()
         db.add(account)
         try:
             db.commit()
