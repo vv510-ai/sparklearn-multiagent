@@ -11,6 +11,7 @@ import base64
 import hashlib
 import json
 import logging
+import os
 import re
 from functools import lru_cache
 
@@ -63,6 +64,33 @@ class _BGEBackend:
         del domain
         out = self.model.encode(texts)["dense_vecs"]
         return np.asarray(out, dtype=np.float32)
+
+
+class _FastEmbedBackend:
+    """Lightweight Chinese BGE embeddings backed by ONNX Runtime."""
+
+    name, dim = "bge-small-zh-v1.5", 512
+    model_name = "BAAI/bge-small-zh-v1.5"
+
+    def __init__(self) -> None:
+        from fastembed import TextEmbedding
+
+        cache_dir = os.getenv("FASTEMBED_CACHE_DIR", "").strip() or None
+        self.model = TextEmbedding(
+            model_name=self.model_name,
+            cache_dir=cache_dir,
+            threads=max(1, min(4, os.cpu_count() or 1)),
+        )
+
+    def embed(self, texts: list[str], *, domain: str = "para") -> np.ndarray:
+        values = [str(text or "") for text in texts]
+        if domain == "query":
+            values = [
+                f"为这个句子生成表示以用于检索相关文章：{query_core(text)}"
+                for text in values
+            ]
+        vectors = list(self.model.embed(values, batch_size=32))
+        return np.asarray(vectors, dtype=np.float32)
 
 
 class _IflytekBackend:
@@ -177,11 +205,14 @@ def _l2(mat: np.ndarray) -> np.ndarray:
 def get_backend():
     pref = (get_settings().embedding_backend or "auto").lower()
     order = {
+        "bge-small-zh": [_FastEmbedBackend, _HashBackend],
+        "bge-small-zh-v1.5": [_FastEmbedBackend, _HashBackend],
+        "fastembed": [_FastEmbedBackend, _HashBackend],
         "bge-m3": [_BGEBackend],
         "iflytek": [_IflytekBackend],
         "hash": [_HashBackend],
         "hash-v2": [_HashBackend],
-        "auto": [_BGEBackend, _IflytekBackend, _HashBackend],
+        "auto": [_FastEmbedBackend, _IflytekBackend, _HashBackend],
     }.get(pref, [_HashBackend])
     for backend_class in order:
         try:
