@@ -36,6 +36,8 @@ services:
       AUTH_REQUIRED: "true"
       DEMO_MODE: "false"
       TRACE_ENABLED: "true"
+      EMBEDDING_BACKEND: bge-small-zh
+      RERANK_MODE: auto
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,6 +47,7 @@ services:
       - "8000"
     volumes:
       - gen_static:/srv/app/static/gen
+      - uploaded_sources:/srv/app/data/uploaded_sources
     healthcheck:
       test:
         - CMD
@@ -87,3 +90,4 @@ volumes:
   pgdata:
   redisdata:
   gen_static:
+  uploaded_sources:

@@ -71,6 +71,20 @@ def test_small_talk_routes_to_tutor_without_calling_intent_llm(monkeypatch):
     assert orchestrator.route_task(result) == "tutor"
 
 
+def test_learning_strategy_recognizes_natural_starting_questions():
+    assert tutor_agent._is_learning_strategy_question("外贸函电怎么开始学")  # noqa: SLF001
+    assert tutor_agent._is_learning_strategy_question("数据结构从哪里入门")  # noqa: SLF001
+
+
+def test_tutor_answer_blocks_internal_prompt_echo():
+    leaked = """```\nTASK=tutor\nMODE=followup\n当前问题：外贸函电怎么学\n教学策略：先解释\n输出自检：不要输出内部分析\n```"""
+    assert tutor_agent._normalize_tutor_answer(  # noqa: SLF001
+        leaked,
+        "外贸函电怎么学",
+        has_context=False,
+    ) == ""
+
+
 def test_selected_source_gap_is_explicit_and_never_calls_the_model(monkeypatch):
     monkeypatch.setattr(tutor_agent, "retrieve", lambda *args, **kwargs: [])
 

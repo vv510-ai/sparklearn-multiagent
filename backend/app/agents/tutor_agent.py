@@ -64,6 +64,20 @@ def _is_short_definition_question(question: str) -> bool:
 def _normalize_tutor_answer(answer: str, question: str, *, has_context: bool) -> str:
     """把模型误输出的 JSON 自检表还原成面向学习者的直接回答。"""
     text = str(answer or "").strip()
+    prompt_markers = (
+        "TASK=tutor",
+        "MODE=",
+        "当前问题：",
+        "学习者画像：",
+        "资料范围：",
+        "最近学习对话：",
+        "教学策略：",
+        "输出自检：",
+    )
+    # 小模型在长提示词下偶尔会原样复述内部模板。内部提示不是教学
+    # 内容，宁可触发下方的安全降级，也不能把它展示给学习者。
+    if sum(marker in text for marker in prompt_markers) >= 2:
+        return ""
     if not _is_short_definition_question(question):
         return text
 
@@ -156,7 +170,10 @@ def _build_prompt(
 
 def _is_learning_strategy_question(question: str) -> bool:
     compact = re.sub(r"\s+", "", str(question or ""))
-    return bool(re.search(r"(?:怎么学|如何学|从哪(?:里)?学|学习顺序|学习路线|学习路径|学习计划)", compact))
+    return bool(re.search(
+        r"(?:怎么学|如何学|怎么开始|如何开始|从哪(?:里)?学|从哪(?:里)?开始|入门|学习顺序|学习路线|学习路径|学习计划)",
+        compact,
+    ))
 
 
 def _strategy_answer(topic_name: str) -> str:
@@ -505,6 +522,8 @@ async def run(state: dict) -> dict:
                 parts.append(delta)
             answer = "".join(parts)
             answer = _normalize_tutor_answer(answer, question, has_context=bool(chunks))
+            if not answer:
+                raise RuntimeError("模型返回了内部提示模板，已阻止向学习者展示")
             if learning_strategy and not _strategy_response_ok(answer):
                 await emit({
                     "type": "progress",
