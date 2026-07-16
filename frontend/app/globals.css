@@ -889,6 +889,85 @@ body::after {
   animation: fade-rise 0.8s ease-out 0.4s both;
 }
 
+/* 登录页主标语：品牌粗体 + 一次性逐字显现 */
+.auth-hero-title {
+  display: flex;
+  align-items: baseline;
+  color: rgba(255, 255, 255, 0.96);
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: clamp(3.2rem, 4.9vw, 4.65rem);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 1.08;
+  white-space: nowrap;
+  text-shadow: 0 12px 44px rgba(0, 17, 25, 0.3);
+}
+
+.auth-hero-lead {
+  animation: auth-hero-arrive 520ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.auth-hero-typed {
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  animation: auth-hero-type 1.15s steps(4, end) 420ms forwards;
+}
+
+.auth-hero-typed-text {
+  background: linear-gradient(105deg, #9de5b9 0%, #70d8ae 46%, #d8f7e4 100%);
+  background-clip: text;
+  color: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.auth-hero-cursor {
+  margin-left: 0.04em;
+  color: #9de5b9;
+  font-weight: 700;
+  opacity: 0;
+  animation: auth-hero-cursor 820ms steps(1, end) 420ms infinite;
+}
+
+@keyframes auth-hero-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-hero-type {
+  from { width: 0; }
+  to { width: 4em; }
+}
+
+@keyframes auth-hero-cursor {
+  0%, 46% { opacity: 1; }
+  47%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-hero-lead,
+  .auth-hero-typed,
+  .auth-hero-cursor {
+    animation: none !important;
+  }
+
+  .auth-hero-typed {
+    width: 4em;
+  }
+
+  .auth-hero-cursor {
+    display: none;
+  }
+}
+
 .evidence-stage {
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.035);

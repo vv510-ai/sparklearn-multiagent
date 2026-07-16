@@ -49,8 +49,12 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/80 backdrop-blur-xl">
             <Sparkles size={15} className="text-[#9DE5B9]" /> 你的学习空间，只属于你
           </div>
-          <h1 className="text-6xl font-normal leading-[1.02]" style={{ fontFamily: "var(--font-display)" }}>
-            打开你的学习大门
+          <h1 className="auth-hero-title" aria-label="打开你的学习大门">
+            <span className="auth-hero-lead" aria-hidden="true">打开你的</span>
+            <span className="auth-hero-typed" aria-hidden="true">
+              <span className="auth-hero-typed-text">学习大门</span>
+            </span>
+            <span className="auth-hero-cursor" aria-hidden="true">_</span>
           </h1>
         </section>
 
