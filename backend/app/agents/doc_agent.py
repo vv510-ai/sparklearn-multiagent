@@ -380,7 +380,7 @@ async def _gen_one(
             if interactive_audio:
                 payload["audio"] = {
                     "status": "ready",
-                    "provider": "spark_tts",
+                    "provider": str(audio["data"].get("provider") or "spark_tts"),
                     "error": "",
                     "retryable": False,
                 }

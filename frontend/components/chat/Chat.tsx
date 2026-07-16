@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, NotebookPen, Plus, Square } from "lucide-react";
-import { USER_ID, postSSE } from "@/lib/api";
+import { ArrowRight, LoaderCircle, Mic, NotebookPen, Plus, Square } from "lucide-react";
+import { USER_ID, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
 import Markdown from "./Markdown";
 import ResourceCard from "@/components/resource/ResourceCard";
@@ -13,6 +13,50 @@ interface Msg {
   resources: ResourceItem[];
   citations: string[];
   streaming?: boolean;
+}
+
+interface VoiceRecorder {
+  stream: MediaStream;
+  context: AudioContext;
+  source: MediaStreamAudioSourceNode;
+  processor: ScriptProcessorNode;
+  chunks: Float32Array[];
+  sampleRate: number;
+  startedAt: number;
+  timeoutId: number;
+}
+
+function disposeRecorder(recorder: VoiceRecorder) {
+  window.clearTimeout(recorder.timeoutId);
+  recorder.processor.onaudioprocess = null;
+  recorder.processor.disconnect();
+  recorder.source.disconnect();
+  recorder.stream.getTracks().forEach((track) => track.stop());
+  void recorder.context.close();
+}
+
+function pcm16Blob(chunks: Float32Array[], sourceRate: number, targetRate = 16000): Blob {
+  const inputLength = chunks.reduce((total, chunk) => total + chunk.length, 0);
+  const input = new Float32Array(inputLength);
+  let offset = 0;
+  chunks.forEach((chunk) => {
+    input.set(chunk, offset);
+    offset += chunk.length;
+  });
+
+  const ratio = sourceRate / targetRate;
+  const outputLength = Math.max(1, Math.floor(input.length / ratio));
+  const buffer = new ArrayBuffer(outputLength * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < outputLength; i += 1) {
+    const start = Math.floor(i * ratio);
+    const end = Math.min(input.length, Math.max(start + 1, Math.floor((i + 1) * ratio)));
+    let sum = 0;
+    for (let j = start; j < end; j += 1) sum += input[j];
+    const sample = Math.max(-1, Math.min(1, sum / Math.max(1, end - start)));
+    view.setInt16(i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+  return new Blob([buffer], { type: "audio/pcm" });
 }
 const STARTERS = [
   "我想从零开始学习二叉树",
@@ -55,11 +99,92 @@ export default function Chat({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [queuedHint, setQueuedHint] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState("");
   const abortRef = useRef<(() => void) | null>(null);
+  const voiceRecorderRef = useRef<VoiceRecorder | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef(`s-${Math.random().toString(36).slice(2, 8)}`);
   const consumedSeedRef = useRef("");
   const consumedRequestRef = useRef("");
+
+  const stopRecording = useCallback(async () => {
+    const recorder = voiceRecorderRef.current;
+    if (!recorder) return;
+    voiceRecorderRef.current = null;
+    setRecording(false);
+    disposeRecorder(recorder);
+    if (performance.now() - recorder.startedAt < 350 || recorder.chunks.length === 0) {
+      setVoiceStatus("录音时间太短，请重新说一次。");
+      return;
+    }
+
+    setTranscribing(true);
+    setVoiceStatus("正在用讯飞中文识别大模型转成文字…");
+    try {
+      const form = new FormData();
+      form.set("user_id", USER_ID);
+      form.set("encoding", "raw");
+      form.set("sample_rate", "16000");
+      form.set("file", pcm16Blob(recorder.chunks, recorder.sampleRate), "voice-question.pcm");
+      const result = await apiUpload<{ text: string; provider: string; elapsed_ms: number }>(
+        "/tutor/transcribe",
+        form,
+      );
+      const text = result.text.trim();
+      if (!text) throw new Error("没有识别到有效语音");
+      setInput(text);
+      setVoiceStatus("已转成文字，可检查后发送。");
+    } catch (error) {
+      setVoiceStatus(`语音识别失败：${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setTranscribing(false);
+    }
+  }, []);
+
+  const toggleRecording = useCallback(async () => {
+    if (recording) {
+      await stopRecording();
+      return;
+    }
+    if (busy || transcribing) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setVoiceStatus("当前浏览器不支持麦克风录音。");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
+      });
+      const context = new AudioContext();
+      await context.resume();
+      const source = context.createMediaStreamSource(stream);
+      const processor = context.createScriptProcessor(4096, 1, 1);
+      const chunks: Float32Array[] = [];
+      processor.onaudioprocess = (event) => {
+        chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+      };
+      source.connect(processor);
+      processor.connect(context.destination);
+      const recorder: VoiceRecorder = {
+        stream,
+        context,
+        source,
+        processor,
+        chunks,
+        sampleRate: context.sampleRate,
+        startedAt: performance.now(),
+        timeoutId: 0,
+      };
+      recorder.timeoutId = window.setTimeout(() => void stopRecording(), 60_000);
+      voiceRecorderRef.current = recorder;
+      setRecording(true);
+      setVoiceStatus("正在录音，再点一次麦克风结束（最长60秒）。");
+    } catch (error) {
+      setVoiceStatus(`无法使用麦克风：${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [busy, recording, stopRecording, transcribing]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -178,7 +303,11 @@ export default function Chat({
   }, [busy, onSeedConsumed, request, send]);
 
   useEffect(() => {
-    return () => abortRef.current?.();
+    return () => {
+      abortRef.current?.();
+      const recorder = voiceRecorderRef.current;
+      if (recorder) disposeRecorder(recorder);
+    };
   }, []);
 
   return (
@@ -316,6 +445,20 @@ export default function Chat({
           >
             <Plus size={20} />
           </button>
+          <button
+            type="button"
+            onClick={() => void toggleRecording()}
+            disabled={busy || transcribing}
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              recording
+                ? "bg-red-50 text-red-600 ring-2 ring-red-200"
+                : "text-[#596171] hover:bg-[#EEF0F6] hover:text-emerald-700"
+            }`}
+            aria-label={recording ? "停止录音并识别" : "语音提问"}
+            title={recording ? "停止录音并识别" : "使用讯飞中文识别大模型语音输入"}
+          >
+            {transcribing ? <LoaderCircle size={19} className="animate-spin" /> : <Mic size={19} />}
+          </button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -350,6 +493,11 @@ export default function Chat({
           )}
         </div>
         {queuedHint && <div className="mt-2 text-xs font-semibold text-orange-700">{queuedHint}</div>}
+        {voiceStatus && (
+          <div className={`mt-2 text-xs font-semibold ${recording ? "text-red-600" : "text-emerald-700"}`}>
+            {voiceStatus}
+          </div>
+        )}
       </div>
     </div>
   );

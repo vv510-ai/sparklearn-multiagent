@@ -37,6 +37,20 @@ try:  # pydantic-settings 可用时走标准路径
         spark_api_secret: str = ""
         spark_image_domain: str = "general"
 
+        # 讯飞超拟人语音合成（独立服务授权，优先于普通在线 TTS）
+        spark_super_tts_api_password: str = ""
+        spark_super_tts_appid: str = ""
+        spark_super_tts_api_key: str = ""
+        spark_super_tts_api_secret: str = ""
+        spark_super_tts_url: str = "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6"
+        spark_super_tts_voice: str = "x6_lingxiaoxuan_pro"
+
+        # 讯飞中英识别大模型（与其他讯飞服务分开授权）
+        spark_asr_appid: str = ""
+        spark_asr_api_key: str = ""
+        spark_asr_api_secret: str = ""
+        spark_asr_url: str = "wss://iat.xf-yun.com/v1"
+
         # OpenAI GPT Image 备用文生图
         openai_api_key: str = ""
         openai_base_url: str = "https://api.openai.com/v1"
@@ -55,6 +69,7 @@ try:  # pydantic-settings 可用时走标准路径
         # 多模态能力开关与单次调用预算
         mm_ocr_enabled: bool = True
         mm_local_ocr_enabled: bool = True
+        mm_asr_enabled: bool = True
         mm_tts_enabled: bool = True
         mm_image_enabled: bool = True
         mm_openai_image_enabled: bool = True
@@ -63,6 +78,7 @@ try:  # pydantic-settings 可用时走标准路径
         mm_ocr_tutor_timeout_s: float = 20
         mm_ocr_ingest_timeout_s: float = 30
         mm_local_ocr_timeout_s: float = 20
+        mm_asr_timeout_s: float = 75
         mm_tts_timeout_s: float = 15
         mm_image_timeout_s: float = 30
         mm_video_create_timeout_s: float = 15
@@ -108,6 +124,19 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_api_key = g("SPARK_API_KEY", "")
             self.spark_api_secret = g("SPARK_API_SECRET", "")
             self.spark_image_domain = g("SPARK_IMAGE_DOMAIN", "general")
+            self.spark_super_tts_api_password = g("SPARK_SUPER_TTS_API_PASSWORD", "")
+            self.spark_super_tts_appid = g("SPARK_SUPER_TTS_APPID", "")
+            self.spark_super_tts_api_key = g("SPARK_SUPER_TTS_API_KEY", "")
+            self.spark_super_tts_api_secret = g("SPARK_SUPER_TTS_API_SECRET", "")
+            self.spark_super_tts_url = g(
+                "SPARK_SUPER_TTS_URL",
+                "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6",
+            )
+            self.spark_super_tts_voice = g("SPARK_SUPER_TTS_VOICE", "x6_lingxiaoxuan_pro")
+            self.spark_asr_appid = g("SPARK_ASR_APPID", "")
+            self.spark_asr_api_key = g("SPARK_ASR_API_KEY", "")
+            self.spark_asr_api_secret = g("SPARK_ASR_API_SECRET", "")
+            self.spark_asr_url = g("SPARK_ASR_URL", "wss://iat.xf-yun.com/v1")
             self.openai_api_key = g("OPENAI_API_KEY", "")
             self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
             self.openai_image_model = g("OPENAI_IMAGE_MODEL", "gpt-image-2")
@@ -121,6 +150,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.seedance_watermark = _env_bool("SEEDANCE_WATERMARK", False)
             self.mm_ocr_enabled = _env_bool("MM_OCR_ENABLED")
             self.mm_local_ocr_enabled = _env_bool("MM_LOCAL_OCR_ENABLED")
+            self.mm_asr_enabled = _env_bool("MM_ASR_ENABLED")
             self.mm_tts_enabled = _env_bool("MM_TTS_ENABLED")
             self.mm_image_enabled = _env_bool("MM_IMAGE_ENABLED")
             self.mm_openai_image_enabled = _env_bool("MM_OPENAI_IMAGE_ENABLED")
@@ -129,6 +159,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_ocr_tutor_timeout_s = float(g("MM_OCR_TUTOR_TIMEOUT_S", "20"))
             self.mm_ocr_ingest_timeout_s = float(g("MM_OCR_INGEST_TIMEOUT_S", "30"))
             self.mm_local_ocr_timeout_s = float(g("MM_LOCAL_OCR_TIMEOUT_S", "20"))
+            self.mm_asr_timeout_s = float(g("MM_ASR_TIMEOUT_S", "75"))
             self.mm_tts_timeout_s = float(g("MM_TTS_TIMEOUT_S", "15"))
             self.mm_image_timeout_s = float(g("MM_IMAGE_TIMEOUT_S", "30"))
             self.mm_video_create_timeout_s = float(g("MM_VIDEO_CREATE_TIMEOUT_S", "15"))

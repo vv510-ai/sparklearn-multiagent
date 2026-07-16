@@ -16,7 +16,16 @@ from typing import Any, Awaitable, Callable
 
 from ..agents.emitter import emit
 from ..config import GEN_DIR, get_settings, is_demo
-from . import local_ocr, openai_image, seedance_client, spark_image, spark_ocr, spark_tts
+from . import (
+    local_ocr,
+    openai_image,
+    seedance_client,
+    spark_asr,
+    spark_image,
+    spark_ocr,
+    spark_super_tts,
+    spark_tts,
+)
 
 log = logging.getLogger("sparklearn.multimodal")
 MMResult = dict[str, Any]
@@ -121,6 +130,10 @@ def capability_status() -> dict[str, dict[str, bool]]:
     triplet = _triplet_configured()
     demo = is_demo()
     return {
+        "asr": {
+            "enabled": bool(getattr(s, "mm_asr_enabled", True)),
+            "configured": bool(spark_asr.configured(s) and not demo),
+        },
         "ocr": {
             "enabled": bool(s.mm_ocr_enabled),
             "configured": bool(
@@ -129,7 +142,10 @@ def capability_status() -> dict[str, dict[str, bool]]:
                 or (getattr(s, "mm_local_ocr_enabled", True) and local_ocr.available())
             ),
         },
-        "tts": {"enabled": bool(s.mm_tts_enabled), "configured": bool(triplet and not demo)},
+        "tts": {
+            "enabled": bool(s.mm_tts_enabled),
+            "configured": bool((spark_super_tts.configured(s) or triplet) and not demo),
+        },
         "image": {
             "enabled": bool(s.mm_image_enabled),
             "configured": bool((triplet or _openai_image_configured(s)) and not demo),
@@ -286,6 +302,38 @@ async def ocr_image(
     return result
 
 
+async def speech_to_text(
+    audio: bytes,
+    *,
+    encoding: str = "raw",
+    sample_rate: int = 16000,
+    trace_id: str = "",
+) -> MMResult:
+    s = get_settings()
+
+    def normalize(text: Any) -> dict[str, Any]:
+        value = str(text or "").strip()
+        if not value:
+            raise RuntimeError("ASR returned no text")
+        return {"text": value, "chars": len(value), "provider": "spark_asr"}
+
+    return await _run_sync(
+        "asr",
+        lambda: spark_asr.transcribe(
+            audio,
+            encoding=encoding,
+            sample_rate=sample_rate,
+            timeout_s=float(getattr(s, "mm_asr_timeout_s", 75)),
+        ),
+        normalize,
+        enabled=bool(getattr(s, "mm_asr_enabled", True)),
+        configured=bool(spark_asr.configured(s) and not is_demo()),
+        timeout_s=float(getattr(s, "mm_asr_timeout_s", 75)),
+        trace_id=trace_id,
+        agent="tutor",
+    )
+
+
 async def tts(
     text: str,
     *,
@@ -293,37 +341,99 @@ async def tts(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
-    digest = hashlib.sha1(f"{voice}\0{text}".encode("utf-8")).hexdigest()[:16]
-    filename = f"tts_{digest}.mp3"
-    cached = GEN_DIR / filename
-    if bool(s.mm_tts_enabled) and cached.exists() and cached.stat().st_size > 0:
-        started = time.monotonic()
+    started = time.monotonic()
+    trace_id = _trace_id(trace_id)
+    enabled = bool(s.mm_tts_enabled)
+    demo = is_demo()
+    super_configured = bool(spark_super_tts.configured(s) and not demo)
+    standard_configured = bool(_triplet_configured() and not demo)
+    super_voice = str(getattr(s, "spark_super_tts_voice", "") or "x6_lingxiaoxuan_pro")
+    attempts: list[tuple[str, str, Callable[[], Any]]] = []
+    if super_configured:
+        digest = hashlib.sha1(f"super\0{super_voice}\0{text}".encode("utf-8")).hexdigest()[:16]
+        filename = f"tts_super_{digest}.mp3"
+        attempts.append((
+            "spark_super_tts",
+            filename,
+            lambda target=filename: spark_super_tts.synthesize(
+                text, voice=super_voice, filename=target
+            ),
+        ))
+    if standard_configured:
+        digest = hashlib.sha1(f"standard\0{voice}\0{text}".encode("utf-8")).hexdigest()[:16]
+        filename = f"tts_standard_{digest}.mp3"
+        attempts.append((
+            "spark_tts",
+            filename,
+            lambda target=filename: spark_tts.synthesize(text, voice=voice, filename=target),
+        ))
+
+    if not enabled:
+        result = _result("tts", trace_id, started, ok=False, degraded=True, error="capability disabled")
+        await _record(result, agent="media")
+        return result
+    if demo:
+        result = _result("tts", trace_id, started, ok=False, degraded=True, error="real TTS disabled in demo mode")
+        await _record(result, agent="media")
+        return result
+    if not attempts:
+        result = _result("tts", trace_id, started, ok=False, degraded=True, error="credentials not configured")
+        await _record(result, agent="media")
+        return result
+
+    for index, (provider, filename, _call) in enumerate(attempts):
+        cached = GEN_DIR / filename
+        minimum_bytes = 1024 if provider == "spark_super_tts" else 128
+        if not (cached.exists() and cached.stat().st_size >= minimum_bytes):
+            continue
         result = _result(
             "tts",
-            _trace_id(trace_id),
+            trace_id,
             started,
             ok=True,
-            degraded=False,
-            data={"audio_url": f"/static/gen/{filename}", "cached": True},
+            degraded=index > 0,
+            data={
+                "audio_url": f"/static/gen/{filename}",
+                "cached": True,
+                "provider": provider,
+            },
         )
         await _record(result, agent="media")
         return result
 
-    def normalize(url: Any) -> dict[str, Any]:
-        if not url:
-            raise RuntimeError("TTS returned no audio")
-        return {"audio_url": str(url), "cached": False}
+    errors: list[str] = []
+    timeout_s = float(s.mm_tts_timeout_s)
+    for provider, _filename, call in attempts:
+        try:
+            url = await _run_in_mm_pool(call, timeout_s)
+            if not url:
+                raise RuntimeError("TTS returned no audio")
+            result = _result(
+                "tts",
+                trace_id,
+                started,
+                ok=True,
+                degraded=bool(errors),
+                data={"audio_url": str(url), "cached": False, "provider": provider},
+                error="; ".join(errors),
+            )
+            await _record(result, agent="media")
+            return result
+        except TimeoutError:
+            errors.append(f"{provider}: timeout after {timeout_s:g}s")
+        except Exception as error:  # noqa: BLE001
+            errors.append(f"{provider}: {_error_text(error)}")
 
-    return await _run_sync(
+    result = _result(
         "tts",
-        lambda: spark_tts.synthesize(text, voice=voice, filename=filename),
-        normalize,
-        enabled=bool(s.mm_tts_enabled),
-        configured=bool(_triplet_configured() and not is_demo()),
-        timeout_s=float(s.mm_tts_timeout_s),
-        trace_id=trace_id,
-        agent="media",
+        trace_id,
+        started,
+        ok=False,
+        degraded=True,
+        error="; ".join(errors) or "TTS unavailable",
     )
+    await _record(result, agent="media")
+    return result
 
 
 async def text_to_image(

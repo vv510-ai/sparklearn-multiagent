@@ -25,17 +25,27 @@ def _settings(**overrides):
         "spark_appid": "app",
         "spark_api_key": "key",
         "spark_api_secret": "secret",
+        "spark_super_tts_api_password": "",
+        "spark_super_tts_appid": "",
+        "spark_super_tts_api_key": "",
+        "spark_super_tts_api_secret": "",
+        "spark_super_tts_voice": "x6_lingxiaoxuan_pro",
+        "spark_asr_appid": "",
+        "spark_asr_api_key": "",
+        "spark_asr_api_secret": "",
         "openai_api_key": "",
         "openai_image_model": "gpt-image-2",
         "mm_openai_image_enabled": True,
         "mm_ocr_enabled": True,
         "mm_local_ocr_enabled": False,
+        "mm_asr_enabled": True,
         "mm_tts_enabled": True,
         "mm_image_enabled": True,
         "mm_video_enabled": True,
         "mm_ocr_tutor_timeout_s": 0.05,
         "mm_ocr_ingest_timeout_s": 0.05,
         "mm_local_ocr_timeout_s": 0.05,
+        "mm_asr_timeout_s": 0.05,
         "mm_tts_timeout_s": 0.02,
         "mm_image_timeout_s": 0.05,
         "mm_video_create_timeout_s": 0.05,
@@ -153,7 +163,7 @@ def test_tts_uses_stable_content_cache(monkeypatch, tmp_path: Path):
     def provider(text, *, voice, filename):
         nonlocal calls
         calls += 1
-        (tmp_path / filename).write_bytes(b"ID3-test-audio")
+        (tmp_path / filename).write_bytes(b"ID3-test-audio" + b"x" * 200)
         return f"/static/gen/{filename}"
 
     monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
@@ -169,6 +179,64 @@ def test_tts_uses_stable_content_cache(monkeypatch, tmp_path: Path):
     assert second["data"]["cached"] is True
     assert first["data"]["audio_url"] == second["data"]["audio_url"]
     assert calls == 1
+
+
+def test_tts_prefers_super_voice_and_reports_provider(monkeypatch, tmp_path: Path):
+    settings = _settings(
+        spark_super_tts_api_password="super-password",
+        spark_super_tts_appid="super-app",
+        mm_tts_timeout_s=0.2,
+    )
+    standard_called = False
+
+    def super_provider(text, *, voice, filename):
+        assert voice == "x6_lingxiaoxuan_pro"
+        (tmp_path / filename).write_bytes(b"ID3-super-audio")
+        return f"/static/gen/{filename}"
+
+    def standard_provider(*args, **kwargs):
+        nonlocal standard_called
+        standard_called = True
+        raise AssertionError("standard TTS should not run when super TTS succeeds")
+
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.spark_super_tts, "synthesize", super_provider)
+    monkeypatch.setattr(gateway.spark_tts, "synthesize", standard_provider)
+
+    result = asyncio.run(gateway.tts("超拟人语音", trace_id="super-tts"))
+
+    assert result["ok"] is True, result
+    assert result["degraded"] is False
+    assert result["data"]["provider"] == "spark_super_tts"
+    assert standard_called is False
+
+
+def test_tts_falls_back_to_standard_provider(monkeypatch, tmp_path: Path):
+    settings = _settings(
+        spark_super_tts_api_password="super-password",
+        spark_super_tts_appid="super-app",
+        mm_tts_timeout_s=0.2,
+    )
+
+    def broken_super(*args, **kwargs):
+        raise RuntimeError("super voice unavailable")
+
+    def standard_provider(text, *, voice, filename):
+        (tmp_path / filename).write_bytes(b"ID3-standard-audio")
+        return f"/static/gen/{filename}"
+
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.spark_super_tts, "synthesize", broken_super)
+    monkeypatch.setattr(gateway.spark_tts, "synthesize", standard_provider)
+
+    result = asyncio.run(gateway.tts("自动降级", trace_id="super-fallback"))
+
+    assert result["ok"] is True, result
+    assert result["degraded"] is True
+    assert result["data"]["provider"] == "spark_tts"
+    assert "super voice unavailable" in result["error"]
 
 
 def test_provider_exception_is_a_degraded_result(monkeypatch):

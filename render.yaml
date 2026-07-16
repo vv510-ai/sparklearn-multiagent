@@ -70,6 +70,18 @@ services:
         value: "true"
       - key: MM_TTS_ENABLED
         value: "true"
+      - key: SPARK_SUPER_TTS_API_PASSWORD
+        sync: false
+      - key: SPARK_SUPER_TTS_URL
+        value: wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6
+      - key: SPARK_SUPER_TTS_VOICE
+        value: x6_lingxiaoxuan_pro
+      - key: SPARK_ASR_URL
+        value: wss://iat.xf-yun.com/v1
+      - key: MM_ASR_ENABLED
+        value: "true"
+      - key: MM_ASR_TIMEOUT_S
+        value: "75"
       - key: MM_IMAGE_ENABLED
         value: "true"
       - key: MM_VIDEO_ENABLED

@@ -102,7 +102,7 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         payload["audio_url"] = str((result.get("data") or {}).get("audio_url") or "")
         payload["audio"] = {
             "status": "ready",
-            "provider": "spark_tts",
+            "provider": str((result.get("data") or {}).get("provider") or "spark_tts"),
             "error": "",
             "retryable": False,
         }
