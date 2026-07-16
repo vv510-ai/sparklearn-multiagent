@@ -6,7 +6,13 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 ENV FASTEMBED_CACHE_DIR=/opt/fastembed_cache
-RUN python -c "from fastembed import TextEmbedding; list(TextEmbedding(model_name='BAAI/bge-small-zh-v1.5', cache_dir='/opt/fastembed_cache').embed(['SparkLearn']))"
+ENV FASTEMBED_MODEL_PATH=/opt/bge-small-zh-int8
+ENV FASTEMBED_THREADS=1
+COPY scripts/prepare_fastembed.py /tmp/prepare_fastembed.py
+RUN pip install --no-cache-dir "onnx>=1.16,<2" \
+    && python /tmp/prepare_fastembed.py \
+    && pip uninstall -y onnx \
+    && rm -f /tmp/prepare_fastembed.py
 COPY app ./app
 EXPOSE 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

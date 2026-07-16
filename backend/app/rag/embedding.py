@@ -69,17 +69,21 @@ class _BGEBackend:
 class _FastEmbedBackend:
     """Lightweight Chinese BGE embeddings backed by ONNX Runtime."""
 
-    name, dim = "bge-small-zh-v1.5", 512
+    name, dim = "bge-small-zh-v1.5-int8", 512
     model_name = "BAAI/bge-small-zh-v1.5"
 
     def __init__(self) -> None:
         from fastembed import TextEmbedding
 
         cache_dir = os.getenv("FASTEMBED_CACHE_DIR", "").strip() or None
+        model_path = os.getenv("FASTEMBED_MODEL_PATH", "").strip() or None
         self.model = TextEmbedding(
             model_name=self.model_name,
             cache_dir=cache_dir,
-            threads=max(1, min(4, os.cpu_count() or 1)),
+            threads=max(1, int(os.getenv("FASTEMBED_THREADS", "1"))),
+            enable_cpu_mem_arena=False,
+            specific_model_path=model_path,
+            local_files_only=bool(model_path),
         )
 
     def embed(self, texts: list[str], *, domain: str = "para") -> np.ndarray:
