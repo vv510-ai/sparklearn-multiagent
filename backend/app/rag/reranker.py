@@ -10,7 +10,7 @@ from typing import Any
 import requests
 
 from ..config import get_settings
-from .embedding import query_core
+from .embedding import embed_texts, embedding_status, query_core
 
 log = logging.getLogger("sparklearn.reranker")
 
@@ -114,6 +114,28 @@ def _normalize_scores(values: list[float]) -> list[float]:
     return [(value - low) / (high - low) for value in values]
 
 
+def _local_semantic_scores(query: str, docs: list[dict]) -> tuple[list[float], str] | None:
+    """Re-encode candidate evidence with metadata for a genuine second-stage rank."""
+
+    try:
+        backend = str(embedding_status().get("backend") or "")
+        if backend.startswith("hash"):
+            return None
+        query_vector = embed_texts([query], domain="query")[0]
+        evidence = [
+            "\n".join(filter(None, [
+                _metadata_text(doc),
+                str(doc.get("text", ""))[:1800],
+            ]))
+            for doc in docs
+        ]
+        document_vectors = embed_texts(evidence, domain="para")
+        return [float(score) for score in document_vectors @ query_vector], backend
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Local semantic reranker failed; using lexical hybrid: %s", exc)
+        return None
+
+
 def _local_hybrid_rerank(query: str, docs: list[dict], top_k: int) -> list[dict]:
     core = query_core(query)
     query_terms = list(dict.fromkeys(_terms(core)))
@@ -155,28 +177,45 @@ def _local_hybrid_rerank(query: str, docs: list[dict], top_k: int) -> list[dict]
         lexical_scores.append(score)
 
     vector_scores = [float(doc.get("score", 0.0)) for doc in docs]
+    semantic_result = _local_semantic_scores(query, docs)
+    semantic_scores = semantic_result[0] if semantic_result else vector_scores
     normalized_vectors = _normalize_scores(vector_scores)
+    normalized_semantic = _normalize_scores(semantic_scores)
     normalized_lexical = _normalize_scores(lexical_scores)
     lexical_has_signal = max(lexical_scores, default=0.0) > 0.0
 
     ranked = []
-    for doc, vector, lexical, norm_vector, norm_lexical in zip(
-        docs, vector_scores, lexical_scores, normalized_vectors, normalized_lexical
+    for doc, vector, semantic, lexical, norm_vector, norm_semantic, norm_lexical in zip(
+        docs,
+        vector_scores,
+        semantic_scores,
+        lexical_scores,
+        normalized_vectors,
+        normalized_semantic,
+        normalized_lexical,
     ):
-        combined = (
-            0.35 * norm_vector + 0.65 * norm_lexical
-            if lexical_has_signal
-            else norm_vector
-        )
+        if semantic_result and lexical_has_signal:
+            combined = 0.20 * norm_vector + 0.55 * norm_semantic + 0.25 * norm_lexical
+        elif semantic_result:
+            combined = 0.30 * norm_vector + 0.70 * norm_semantic
+        elif lexical_has_signal:
+            combined = 0.35 * norm_vector + 0.65 * norm_lexical
+        else:
+            combined = norm_vector
         ranked.append({
             **doc,
             "vector_score": vector,
+            "semantic_score": semantic,
             "lexical_score": lexical,
             "rerank_score": combined,
             "score": combined,
         })
     ranked.sort(key=lambda item: item.get("rerank_score", 0.0), reverse=True)
-    return ranked[:top_k]
+    selected_mode = "semantic-hybrid" if semantic_result else "hybrid"
+    return [
+        {**doc, "local_rerank_mode": selected_mode}
+        for doc in ranked[:top_k]
+    ]
 
 
 def rerank(query: str, docs: list[dict], top_k: int | None = None) -> tuple[list[dict], str]:
@@ -194,7 +233,8 @@ def rerank(query: str, docs: list[dict], top_k: int | None = None) -> tuple[list
     elif mode == "vector":
         ranked, selected_mode = docs[:limit], "vector"
     else:
-        ranked, selected_mode = _local_hybrid_rerank(query, docs, limit), "hybrid"
+        ranked = _local_hybrid_rerank(query, docs, limit)
+        selected_mode = str(ranked[0].get("local_rerank_mode") or "hybrid") if ranked else "hybrid"
 
     return [{**doc, "rerank_mode": selected_mode} for doc in ranked], selected_mode
 
@@ -203,5 +243,17 @@ def reranker_status() -> dict[str, str | bool]:
     settings = get_settings()
     configured = bool(settings.rerank_api_url)
     mode = (settings.rerank_mode or "auto").lower()
-    active = "api-with-hybrid-fallback" if configured and mode in {"auto", "api"} else mode
-    return {"mode": active, "api_configured": configured}
+    local_backend = str(embedding_status().get("backend") or "unknown")
+    local_mode = "hybrid" if local_backend.startswith("hash") else "semantic-hybrid"
+    active = (
+        f"api-with-{local_mode}-fallback"
+        if configured and mode in {"auto", "api"}
+        else "vector"
+        if mode == "vector"
+        else local_mode
+    )
+    return {
+        "mode": active,
+        "api_configured": configured,
+        "local_model": local_backend,
+    }

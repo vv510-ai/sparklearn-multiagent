@@ -45,7 +45,7 @@ services:
       - key: SPARK_IMAGE_DOMAIN
         value: general
       - key: EMBEDDING_BACKEND
-        value: auto
+        value: bge-small-zh
       - key: RERANK_MODE
         value: auto
       - key: DEMO_MODE

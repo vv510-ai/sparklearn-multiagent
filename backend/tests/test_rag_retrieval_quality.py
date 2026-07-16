@@ -2,8 +2,33 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import sys
+import types
 
 import numpy as np
+
+
+def test_fastembed_backend_uses_chinese_bge_and_query_instruction(monkeypatch):
+    from app.rag.embedding import _FastEmbedBackend
+
+    captured = {}
+
+    class FakeTextEmbedding:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def embed(self, texts, **kwargs):
+            captured["texts"] = list(texts)
+            captured.update(kwargs)
+            return [np.ones(512, dtype=np.float32)]
+
+    monkeypatch.setitem(sys.modules, "fastembed", types.SimpleNamespace(TextEmbedding=FakeTextEmbedding))
+    backend = _FastEmbedBackend()
+    result = backend.embed(["图是什么"], domain="query")
+
+    assert captured["model_name"] == "BAAI/bge-small-zh-v1.5"
+    assert captured["texts"][0].startswith("为这个句子生成表示以用于检索相关文章：")
+    assert result.shape == (1, 512)
 
 
 def test_hash_embedding_keeps_single_character_topic():
@@ -47,6 +72,31 @@ def test_hybrid_reranker_corrects_wrong_vector_order(monkeypatch):
     assert ranked[0]["kp"] == "graph_basic"
     assert ranked[0]["lexical_score"] > ranked[1]["lexical_score"]
     assert ranked[0]["vector_score"] == 0.10
+
+
+def test_semantic_hybrid_reranker_is_active_with_bge(monkeypatch):
+    from app import config
+    from app.rag import reranker
+
+    monkeypatch.setenv("RERANK_MODE", "semantic")
+    config.get_settings.cache_clear()
+    monkeypatch.setattr(reranker, "embedding_status", lambda: {"backend": "bge-small-zh-v1.5"})
+
+    def fake_embed(texts, *, domain="para"):
+        if domain == "query":
+            return np.asarray([[1.0, 0.0]], dtype=np.float32)
+        return np.asarray([[0.0, 1.0], [1.0, 0.0]], dtype=np.float32)
+
+    monkeypatch.setattr(reranker, "embed_texts", fake_embed)
+    docs = [
+        {"text": "二叉树节点", "chapter": "二叉树", "score": 0.95},
+        {"text": "国际贸易中的英文书信", "chapter": "外贸函电", "score": 0.10},
+    ]
+    ranked, mode = reranker.rerank("怎样写外贸函电", docs, top_k=2)
+
+    assert mode == "semantic-hybrid"
+    assert ranked[0]["chapter"] == "外贸函电"
+    assert ranked[0]["semantic_score"] > ranked[1]["semantic_score"]
 
 
 def test_real_course_short_queries_rank_the_correct_chapter(monkeypatch):
