@@ -50,11 +50,8 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
             <Sparkles size={15} className="text-[#9DE5B9]" /> 你的学习空间，只属于你
           </div>
           <h1 className="text-6xl font-normal leading-[1.02]" style={{ fontFamily: "var(--font-display)" }}>
-            学习会积累，<br /><span className="text-white/55">进步有证据。</span>
+            打开你的学习大门
           </h1>
-          <p className="mt-6 max-w-lg text-base leading-8 text-white/65">
-            登录后，你上传的资料、学习记录、测验结果与知识路径会安全地保存在自己的账户中。
-          </p>
         </section>
 
         <section className="mx-auto w-full max-w-[430px] rounded-[28px] border border-white/20 bg-white/[0.12] p-3 shadow-[0_35px_100px_rgba(0,12,22,0.38)] backdrop-blur-2xl">
