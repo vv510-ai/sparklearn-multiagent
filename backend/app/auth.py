@@ -13,6 +13,7 @@ import jwt
 from fastapi import HTTPException
 from jwt import InvalidTokenError
 from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -21,7 +22,12 @@ from .models.db import init_db, session
 from .models.entities import AuthAccount, User
 
 log = logging.getLogger("sparklearn.auth")
-_PASSWORD_HASH = PasswordHash.recommended()
+# OWASP's memory-constrained Argon2id baseline: 19 MiB, 2 iterations, 1 lane.
+# The default 64 MiB profile can OOM a 512 MiB inference container that also
+# keeps ONNX embedding models resident, making registration return 502.
+_PASSWORD_HASH = PasswordHash((
+    Argon2Hasher(time_cost=2, memory_cost=19456, parallelism=1),
+))
 _CURRENT_USER: ContextVar[str | None] = ContextVar("sparklearn_current_user", default=None)
 _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 _LOCAL_SECRET_FILE = Path(BASE_DIR).parent / ".auth_secret"
