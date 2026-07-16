@@ -1,0 +1,12 @@
+[Unit]
+Description=Check GitHub main for a new SparkLearn release every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+AccuracySec=10s
+Persistent=true
+Unit=sparklearn-auto-deploy.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=Deploy the latest healthy SparkLearn main commit
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0027
+EnvironmentFile=-/etc/default/sparklearn-auto-deploy
+ExecStart=/opt/sparklearn/bin/auto-deploy.sh
+TimeoutStartSec=45min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

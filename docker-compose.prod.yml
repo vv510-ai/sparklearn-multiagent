@@ -24,6 +24,7 @@ services:
     restart: unless-stopped
 
   backend:
+    image: sparklearn-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
     env_file:
@@ -62,6 +63,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: sparklearn-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
     environment:
