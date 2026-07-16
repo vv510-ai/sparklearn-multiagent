@@ -32,6 +32,7 @@ def test_fastembed_backend_uses_chinese_bge_and_query_instruction(monkeypatch):
     assert captured["enable_cpu_mem_arena"] is False
     assert captured["specific_model_path"] is None
     assert captured["local_files_only"] is False
+    assert captured["batch_size"] == 2
     assert captured["texts"][0].startswith("为这个句子生成表示以用于检索相关文章：")
     assert result.shape == (1, 512)
 

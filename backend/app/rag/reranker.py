@@ -125,7 +125,7 @@ def _local_semantic_scores(query: str, docs: list[dict]) -> tuple[list[float], s
         evidence = [
             "\n".join(filter(None, [
                 _metadata_text(doc),
-                str(doc.get("text", ""))[:1800],
+                str(doc.get("text", ""))[:480],
             ]))
             for doc in docs
         ]

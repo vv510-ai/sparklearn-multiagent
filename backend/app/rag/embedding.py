@@ -85,6 +85,7 @@ class _FastEmbedBackend:
             specific_model_path=model_path,
             local_files_only=bool(model_path),
         )
+        self.batch_size = max(1, int(os.getenv("FASTEMBED_BATCH_SIZE", "2")))
 
     def embed(self, texts: list[str], *, domain: str = "para") -> np.ndarray:
         values = [str(text or "") for text in texts]
@@ -93,7 +94,7 @@ class _FastEmbedBackend:
                 f"为这个句子生成表示以用于检索相关文章：{query_core(text)}"
                 for text in values
             ]
-        vectors = list(self.model.embed(values, batch_size=32))
+        vectors = list(self.model.embed(values, batch_size=self.batch_size))
         return np.asarray(vectors, dtype=np.float32)
 
 
