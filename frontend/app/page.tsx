@@ -4,6 +4,7 @@ import {
   ArrowRight,
   BookOpen,
   FolderOpen,
+  LogOut,
   PanelLeftOpen,
   PanelRightOpen,
   Plus,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgentTrace, { applyTraceEvent, emptyTrace, type TraceState } from "@/components/agent/AgentTrace";
+import AuthGate, { type AuthUser } from "@/components/auth/AuthGate";
 import Chat from "@/components/chat/Chat";
 import SourcePanel, { isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
 import StudioPanel from "@/components/notebook/StudioPanel";
@@ -23,7 +25,7 @@ import ProfileRadar from "@/components/profile/ProfileRadar";
 import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
 import CinematicBackground from "@/components/ui/CinematicBackground";
-import { apiGet, apiUpload, USER_ID } from "@/lib/api";
+import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic } from "@/lib/kp";
 import type { PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
@@ -107,11 +109,15 @@ function SparkMark({ light = false, running = false }: { light?: boolean; runnin
 function LearningGate({
   onStart,
   onUpload,
+  onLogout,
   uploading,
+  user,
 }: {
   onStart: (goal: string) => void;
   onUpload: (file: File) => void;
+  onLogout: () => void;
   uploading: boolean;
+  user: AuthUser;
 }) {
   const [goal, setGoal] = useState("");
   const [transitioning, setTransitioning] = useState(false);
@@ -144,9 +150,18 @@ function LearningGate({
               SparkLearn<sup className="ml-0.5 text-[9px]">®</sup>
             </span>
           </div>
-          <button disabled={transitioning} onClick={() => document.getElementById("learning-goal")?.focus()} className="liquid-glass flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03] disabled:pointer-events-none">
-            开始学习 <ArrowRight size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="hidden text-right sm:block">
+              <div className="max-w-32 truncate text-sm font-semibold text-white">{user.name}</div>
+              <div className="max-w-40 truncate text-[10px] text-white/50">{user.email}</div>
+            </div>
+            <button disabled={transitioning} onClick={onLogout} className="liquid-glass grid h-10 w-10 place-items-center rounded-full text-white/75 transition hover:text-white disabled:pointer-events-none" aria-label="退出登录" title="退出登录">
+              <LogOut size={17} />
+            </button>
+            <button disabled={transitioning} onClick={() => document.getElementById("learning-goal")?.focus()} className="liquid-glass hidden items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03] disabled:pointer-events-none sm:flex">
+              开始学习 <ArrowRight size={16} />
+            </button>
+          </div>
         </nav>
 
         <section className="learning-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
@@ -253,6 +268,8 @@ function EvidenceSummary({
 }
 
 export default function Home() {
+  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "anonymous">("loading");
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [entered, setEntered] = useState(false);
   const [notebookTopic, setNotebookTopic] = useState("");
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
@@ -276,6 +293,32 @@ export default function Home() {
   const [uploadNote, setUploadNote] = useState("");
   const [uploadError, setUploadError] = useState(false);
   const sourceInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    void apiGet<AuthUser>("/auth/me")
+      .then((user) => {
+        if (!active) return;
+        setAuthUser(user);
+        setAuthStatus("authenticated");
+      })
+      .catch(() => {
+        if (!active) return;
+        setAuthUser(null);
+        setAuthStatus("anonymous");
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const expireSession = () => {
+      setAuthUser(null);
+      setAuthStatus("anonymous");
+      setEntered(false);
+    };
+    window.addEventListener(UNAUTHORIZED_EVENT, expireSession);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, expireSession);
+  }, []);
 
   const running = useMemo(() => Object.values(trace).some((node) => node.status === "running"), [trace]);
   const finished = useMemo(() => Object.values(trace).some((node) => node.status === "done"), [trace]);
@@ -325,8 +368,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    void loadSources();
-  }, [loadSources]);
+    if (authStatus === "authenticated") void loadSources();
+  }, [authStatus, loadSources]);
 
   const uploadSource = async (file: File) => {
     setUploading(true);
@@ -374,6 +417,23 @@ export default function Home() {
     setRequest(undefined);
     setEvidenceOpen(false);
     setMobilePane(null);
+  };
+
+  const logout = async () => {
+    try {
+      await apiPost<{ ok: boolean }>("/auth/logout", {});
+    } finally {
+      setAuthUser(null);
+      setAuthStatus("anonymous");
+      setEntered(false);
+      setNotebookTopic("");
+      setSources([]);
+      setSelectedSourceIds([]);
+      setResources([]);
+      setProfile(null);
+      setPathPlan(null);
+      setSessionId(null);
+    }
   };
 
   const startGenerate = (goal: string, kinds: string[], promptTemplate: string) => {
@@ -461,12 +521,36 @@ export default function Home() {
     });
   }, [filteredResources]);
 
+  if (authStatus === "loading") {
+    return (
+      <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#062B38] text-white">
+        <CinematicBackground subdued />
+        <div className="relative z-10 flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm backdrop-blur-xl">
+          <SparkMark light running /> 正在恢复你的学习空间…
+        </div>
+      </main>
+    );
+  }
+
+  if (authStatus === "anonymous" || !authUser) {
+    return (
+      <AuthGate
+        onAuthenticated={(user) => {
+          setAuthUser(user);
+          setAuthStatus("authenticated");
+        }}
+      />
+    );
+  }
+
   if (!entered) {
     return (
       <LearningGate
         onStart={startNotebook}
         onUpload={(file) => void uploadSource(file)}
+        onLogout={() => void logout()}
         uploading={uploading}
+        user={authUser}
       />
     );
   }
@@ -522,6 +606,10 @@ export default function Home() {
           </button>
           <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button">
             <ShieldCheck size={16} /><span className="hidden sm:inline">依据</span>
+          </button>
+          <div className="hidden max-w-28 truncate text-xs font-semibold text-[#626978] lg:block" title={authUser.email}>{authUser.name}</div>
+          <button onClick={() => void logout()} className="notebook-icon-button" aria-label="退出登录" title="退出登录">
+            <LogOut size={17} />
           </button>
         </div>
       </header>

@@ -5,12 +5,14 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import chat, debug, evaluate, knowledge, meta, path, resources, tutor
-from .config import GEN_DIR, STATIC_DIR, get_settings, is_demo
+from .api import auth, chat, debug, evaluate, knowledge, meta, path, resources, tutor
+from .auth import bind_request_user, decode_access_token, reset_request_user
+from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
 
 
@@ -30,15 +32,46 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SparkLearn 星火学伴 · 多智能体个性化学习系统",
               version="1.0.0", lifespan=lifespan)
 
+_PUBLIC_PATHS = {
+    "/",
+    "/api/health",
+    "/api/auth/login",
+    "/api/auth/register",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+}
+
+
+@app.middleware("http")
+async def authenticate_request(request: Request, call_next):
+    if not auth_required() or request.url.path in _PUBLIC_PATHS:
+        return await call_next(request)
+    header = request.headers.get("authorization", "")
+    scheme, _, token = header.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return JSONResponse({"detail": "请先登录"}, status_code=401)
+    try:
+        payload = decode_access_token(token.strip())
+    except Exception as exc:  # FastAPI HTTPException cannot be raised across middleware reliably
+        detail = getattr(exc, "detail", "登录已失效，请重新登录")
+        return JSONResponse({"detail": detail}, status_code=401)
+    context_token = bind_request_user(str(payload["sub"]))
+    try:
+        request.state.user_id = str(payload["sub"])
+        return await call_next(request)
+    finally:
+        reset_request_user(context_token)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[get_settings().frontend_origin, "http://localhost:3000", "*"],
+    allow_origins=list(dict.fromkeys([get_settings().frontend_origin, "http://localhost:3000"])),
     allow_credentials=False, allow_methods=["*"], allow_headers=["*"],
 )
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-for r in (chat.router, resources.router, path.router, debug.router, knowledge.router,
+for r in (auth.router, chat.router, resources.router, path.router, debug.router, knowledge.router,
           tutor.router, evaluate.router, meta.router):
     app.include_router(r)
 

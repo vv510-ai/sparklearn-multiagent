@@ -74,6 +74,11 @@ try:  # pydantic-settings 可用时走标准路径
         milvus_uri: str = ""
         redis_url: str = ""
 
+        # 用户登录与会话
+        auth_secret: str = ""
+        auth_required: bool = True
+        auth_token_minutes: int = 10080
+
         embedding_backend: str = "auto"  # auto | bge-m3 | iflytek | hash
         iflytek_embedding_url: str = "https://emb-cn-huabei-1.xf-yun.com/"
         embedding_timeout_s: float = 12.0
@@ -127,6 +132,9 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.database_url = g("DATABASE_URL", "")
             self.milvus_uri = g("MILVUS_URI", "")
             self.redis_url = g("REDIS_URL", "")
+            self.auth_secret = g("AUTH_SECRET", "")
+            self.auth_required = _env_bool("AUTH_REQUIRED")
+            self.auth_token_minutes = int(g("AUTH_TOKEN_MINUTES", "10080"))
             self.embedding_backend = g("EMBEDDING_BACKEND", "auto")
             self.iflytek_embedding_url = g(
                 "IFLYTEK_EMBEDDING_URL", "https://emb-cn-huabei-1.xf-yun.com/"
@@ -196,6 +204,11 @@ def is_demo() -> bool:
     if flag in {"0", "false", "no", "off"}:
         return False
     return not bool(s.spark_api_password)
+
+
+def auth_required() -> bool:
+    """离线 demo 保持一键可用；真实模式默认必须经过登录认证。"""
+    return False if is_demo() else bool(get_settings().auth_required)
 
 
 def sqlite_default_url() -> str:

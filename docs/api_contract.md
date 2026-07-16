@@ -8,7 +8,7 @@
 - 后端地址：`http://127.0.0.1:8000`
 - 后端 Swagger：`http://127.0.0.1:8000/docs`
 - 前端统一通过 `/api/*` 请求后端，由 `frontend/app/api/[...path]/route.ts` 代理到 FastAPI。
-- 默认用户：`demo_user`
+- 真实模式的用户身份来自登录 JWT；`demo_user` 仅用于显式离线演示模式。
 - JSON 字段使用 `snake_case`，例如 `user_id`、`quiz_resource_id`。
 - 流式接口使用 SSE，返回 `Content-Type: text/event-stream`。
 - 非流式接口返回普通 JSON。
@@ -33,6 +33,41 @@ frontend/lib/types.ts
 ```text
 backend/app/schemas/core.py
 ```
+
+### 1.1 登录与用户边界
+
+真实模式下，除健康检查、注册、登录和 API 文档外，后端接口都要求：
+
+```http
+Authorization: Bearer <access_token>
+```
+
+浏览器不会直接保存或读取 `access_token`。Next.js BFF 在注册/登录成功后把令牌写入
+`sparklearn_session` HttpOnly Cookie，并在服务端代理请求时添加 Bearer 头。BFF 会把路径、
+查询参数、JSON 和 multipart 表单中的 `user_id` 强制替换为 JWT 的 `sub`，后端还会再次校验，
+所以客户端传来的 `user_id` 不能作为可信身份。
+
+```http
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+POST /api/auth/logout   # Next.js BFF 本地会话接口
+```
+
+注册请求：
+
+```json
+{"name":"小明","email":"student@example.com","password":"至少八个字符"}
+```
+
+登录请求：
+
+```json
+{"email":"student@example.com","password":"至少八个字符"}
+```
+
+`register` 与 `login` 的 FastAPI 原始响应含 JWT；经浏览器 BFF 后只返回 `user`。密码使用
+Argon2 哈希保存，不保存明文。`GET /api/auth/me` 返回 `{ id, email, name, demo }`。
 
 ## 2. SSE 事件契约
 

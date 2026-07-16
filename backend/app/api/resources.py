@@ -66,6 +66,7 @@ def _row_to_dict(r: Resource) -> dict:
 async def list_resources(user_id: str = Query("demo_user"),
                          kind: str | None = None, kp: str | None = None,
                          limit: int = 50):
+    ensure_user(user_id)
     with session() as s:
         q = s.query(Resource).filter(Resource.user_id == user_id)
         if kind:
@@ -147,8 +148,10 @@ async def video_task(task_id: str):
 
 @router.get("/{rid}")
 async def get_resource(rid: str):
+    from ..auth import current_user_id
+
     with session() as s:
         r = s.get(Resource, rid)
-        if not r:
+        if not r or (current_user_id() and r.user_id != current_user_id()):
             raise HTTPException(404, "resource not found")
         return _row_to_dict(r)
