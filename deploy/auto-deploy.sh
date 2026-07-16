@@ -35,6 +35,7 @@ die() {
 [[ -s /root/.ssh/known_hosts ]] || die "SSH known_hosts is missing"
 
 install -d -m 0750 "${APP_ROOT}" "${RELEASES_DIR}" "${SHARED_DIR}"
+install -d -m 0755 "${SHARED_DIR}/letsencrypt-webroot"
 install -d -m 0755 "$(dirname "${LOCK_FILE}")"
 exec 9>"${LOCK_FILE}"
 if ! flock -n 9; then
@@ -151,6 +152,7 @@ install -D -m 0755 "${RELEASE_DIR}/deploy/auto-deploy.sh" "${APP_ROOT}/bin/auto-
 mv -f "${APP_ROOT}/bin/auto-deploy.sh.new" "${APP_ROOT}/bin/auto-deploy.sh"
 install -D -m 0644 "${RELEASE_DIR}/deploy/systemd/sparklearn-auto-deploy.service" /etc/systemd/system/sparklearn-auto-deploy.service
 install -D -m 0644 "${RELEASE_DIR}/deploy/systemd/sparklearn-auto-deploy.timer" /etc/systemd/system/sparklearn-auto-deploy.timer
+install -D -m 0755 "${RELEASE_DIR}/deploy/certbot-renew-hook.sh" /etc/letsencrypt/renewal-hooks/deploy/50-sparklearn-nginx
 systemctl daemon-reload
 
 mapfile -t release_dirs < <(find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | cut -d' ' -f2-)

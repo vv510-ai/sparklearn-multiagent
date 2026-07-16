@@ -83,8 +83,16 @@ services:
       - backend
     ports:
       - "80:80"
+      - "443:443"
+    environment:
+      TLS_CERT_NAME: ${TLS_CERT_NAME:-47.76.129.100}
+    command: ["/bin/sh", "/usr/local/bin/sparklearn-nginx-start.sh"]
     volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx.conf:/etc/sparklearn/nginx.http.conf:ro
+      - ./deploy/nginx.https.conf:/etc/sparklearn/nginx.https.conf:ro
+      - ./deploy/nginx-start.sh:/usr/local/bin/sparklearn-nginx-start.sh:ro
+      - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
+      - ${LETSENCRYPT_WEBROOT:-/opt/sparklearn/shared/letsencrypt-webroot}:/var/www/certbot:ro
     mem_limit: 128m
     restart: unless-stopped
 

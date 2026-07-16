@@ -74,7 +74,10 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const subject = tokenSubject(token);
   const isStatic = path[0] === "static";
-  if (!token && !isStatic) return jsonError("请先登录", 401);
+  // Audio/image/video elements request the BFF URL directly. They still send
+  // the HttpOnly session cookie, so require it here and forward the JWT to the
+  // backend ownership check instead of treating generated assets as public.
+  if (!token) return jsonError("请先登录", 401);
 
   // Keep legacy frontend calls working while making the server-side identity canonical.
   if (subject && path[0] === "profile" && path.length > 1) path[1] = subject;

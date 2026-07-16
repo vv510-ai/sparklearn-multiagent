@@ -17,7 +17,7 @@ commit + push origin main
 失败：恢复上一个健康 release
 ```
 
-当前公网入口：`http://47.76.129.100`。没有域名与 HTTPS 时，浏览器麦克风等安全上下文功能可能受限；代码自动部署不受影响。
+当前公网 IP：`47.76.129.100`。生产 Compose 支持 Let’s Encrypt 的短期 IP 证书：证书尚未签发时保持 HTTP，证书落入 `/etc/letsencrypt/live/47.76.129.100/` 后，Nginx 容器重启即自动启用 HTTPS 并把 HTTP 重定向到 HTTPS。
 
 ## 哪些内容会自动更新
 
@@ -36,6 +36,8 @@ commit + push origin main
 | `/opt/sparklearn/shared/.env` | 生产密钥与环境变量，仅服务器保存 |
 | `/opt/sparklearn/shared/deployed_commit` | 当前已部署提交号 |
 | `/root/.ssh/sparklearn_github_deploy_ed25519` | GitHub 只读部署私钥 |
+| `/opt/sparklearn/shared/letsencrypt-webroot` | Let’s Encrypt HTTP-01 验证目录 |
+| `/etc/letsencrypt` | 短期 IP 证书与自动续期状态 |
 
 ## 常用检查命令
 
@@ -76,3 +78,17 @@ sudo bash deploy/install-auto-deploy.sh
 3. 只提交本任务文件，不顺带提交其他工作区改动或 `.env`。
 4. 推送后必须核对服务器的 `deployed_commit` 与 GitHub 提交一致，并检查公网入口及本轮真实功能。
 5. Vercel / Render 在阿里云最终验收前保留为回退入口，确认迁移完成后再单独下线。
+
+## 无域名 HTTPS
+
+Let’s Encrypt IP 证书有效期约 6 天，因此必须依赖 Certbot 自动续期。服务器需安装 Certbot 5.4 或更高版本，并确保安全组同时放行 TCP 80 与 TCP 443。首次签发使用 webroot：
+
+```bash
+certbot certonly \
+  --preferred-profile shortlived \
+  --webroot \
+  --webroot-path /opt/sparklearn/shared/letsencrypt-webroot \
+  --ip-address 47.76.129.100
+```
+
+证书签发后重启 `sparklearn-nginx-1`。仓库中的 `deploy/certbot-renew-hook.sh` 会被自动部署到 Certbot 的 deploy hook 目录，在新证书生成后重启该容器加载证书。
