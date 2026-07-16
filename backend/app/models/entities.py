@@ -43,7 +43,9 @@ class Profile(Base):
 class Resource(Base):
     __tablename__ = "resources"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
     kind: Mapped[str] = mapped_column(String(16))      # doc|mindmap|quiz|code|video|audio|image
     kp: Mapped[str] = mapped_column(String(64), default="")
     title: Mapped[str] = mapped_column(String(200), default="")
@@ -57,7 +59,9 @@ class ConversationMessage(Base):
     """可跨进程恢复的学习对话，供追问和阶段性笔记整理使用。"""
     __tablename__ = "conversation_messages"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
     session_id: Mapped[str] = mapped_column(String(64), index=True)
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
@@ -66,7 +70,9 @@ class ConversationMessage(Base):
 
 class PathPlan(Base):
     __tablename__ = "path_plans"
-    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True,
+    )
     data: Mapped[dict] = mapped_column(JSON, default=dict)   # {nodes:[], edges:[], generated_by}
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)
 
@@ -75,7 +81,9 @@ class EventLog(Base):
     """学习行为日志:答题/停留/重看/求助……Eval Agent 与画像更新的数据底座。"""
     __tablename__ = "event_logs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
     etype: Mapped[str] = mapped_column(String(32))   # answer|dwell|replay|ask|open_resource
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
@@ -84,7 +92,9 @@ class EventLog(Base):
 class QuizAttempt(Base):
     __tablename__ = "quiz_attempts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
     quiz_resource_id: Mapped[str] = mapped_column(String(64))
     kp: Mapped[str] = mapped_column(String(64), default="")
     score: Mapped[float] = mapped_column(Float, default=0.0)
@@ -101,7 +111,9 @@ class ReviewItem(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
     quiz_resource_id: Mapped[str] = mapped_column(String(64), index=True)
     question_id: Mapped[str] = mapped_column(String(64))
     kp: Mapped[str] = mapped_column(String(64), default="")
@@ -114,3 +126,49 @@ class ReviewItem(Base):
     data: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class UserAsset(Base):
+    """Ownership index for generated files served from /static/gen."""
+    __tablename__ = "user_assets"
+    __table_args__ = (
+        UniqueConstraint("user_id", "path", name="uq_user_asset_path"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
+    path: Mapped[str] = mapped_column(String(500), index=True)
+    kind: Mapped[str] = mapped_column(String(32), default="generated")
+    resource_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class ExternalTask(Base):
+    """Ownership mapping for asynchronous provider jobs such as video tasks."""
+    __tablename__ = "external_tasks"
+
+    id: Mapped[str] = mapped_column(String(200), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), default="video")
+    resource_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class PersonalizationDecision(Base):
+    """Auditable evidence explaining why a learner received a recommendation."""
+    __tablename__ = "personalization_decisions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    profile_version: Mapped[int] = mapped_column(Integer, default=0)
+    inputs: Mapped[dict] = mapped_column(JSON, default=dict)
+    output: Mapped[dict] = mapped_column(JSON, default=dict)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, index=True)

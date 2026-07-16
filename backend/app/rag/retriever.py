@@ -59,10 +59,17 @@ def hit_matches_required_terms(hit: dict, required_terms: list[str] | None) -> b
     return any(term in haystack for term in terms)
 
 
-def _hits_from_sources(query: str, source_ids: list[str], top_k: int) -> list[dict]:
+def _hits_from_sources(
+    query: str,
+    source_ids: list[str],
+    top_k: int,
+    user_id: str | None,
+) -> list[dict]:
     chunks: list[dict] = []
     for source_id in source_ids:
-        chunks.extend(chunks_for_source(source_id))
+        # Missing tenant context is allowed to see only built-in (ownerless)
+        # chunks. Uploaded sources always require their exact authenticated id.
+        chunks.extend(chunks_for_source(source_id, user_id=user_id or ""))
     if not chunks:
         return []
 
@@ -82,16 +89,22 @@ def retrieve(
     source_ids: list[str] | None = None,
     kp: str | None = None,
     required_terms: list[str] | None = None,
+    user_id: str | None = None,
 ) -> list[dict]:
     selected_sources = _clean_ids(source_ids)
     if selected_sources:
-        hits = _hits_from_sources(query, selected_sources, top_k=max(top_k, final_k * 4))
+        hits = _hits_from_sources(
+            query,
+            selected_sources,
+            top_k=max(top_k, final_k * 4),
+            user_id=user_id,
+        )
     else:
         store = get_store()
         qv = embed_texts([query], domain="query")[0]
         search_k = max(top_k * 4, final_k * 8, 40)
         hits = [
-            hit for hit in store.search(qv, top_k=search_k)
+            hit for hit in store.search(qv, top_k=search_k, user_id=user_id)
             if course != "ds_algo" or hit.get("source") in BUILTIN_COURSE_SOURCES
         ]
 

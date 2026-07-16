@@ -396,6 +396,7 @@ async def run(state: dict) -> dict:
         final_k=8 if retrieval_kp else 4,
         source_ids=source_ids,
         kp=retrieval_kp,
+        user_id=state.get("user_id", "demo_user"),
     )
     chunks = _focused_kp_chunks(chunks, retrieval_kp)
     if not source_ids and not guided and retrieval_kp:

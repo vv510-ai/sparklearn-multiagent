@@ -59,12 +59,37 @@ class MemoryStore:
     def count(self) -> int:
         return len(self.meta)
 
-    def search(self, qvec: np.ndarray, top_k: int = 20) -> list[dict]:
+    def search(
+        self,
+        qvec: np.ndarray,
+        top_k: int = 20,
+        *,
+        user_id: str | None = None,
+        source_ids: list[str] | None = None,
+        include_builtin: bool = True,
+    ) -> list[dict]:
         if self.mat is None or not len(self.meta):
             return []
+        selected = {str(value) for value in (source_ids or []) if str(value)}
+        allowed = []
+        for index, meta in enumerate(self.meta):
+            owner = str(meta.get("user_id") or "")
+            tenant_ok = (include_builtin and not owner) or (
+                user_id is not None and owner == str(user_id)
+            )
+            source_ok = not selected or str(meta.get("source_id") or "") in selected
+            if tenant_ok and source_ok:
+                allowed.append(index)
+        if not allowed:
+            return []
+        allowed_idx = np.asarray(allowed, dtype=np.int64)
         scores = self.mat @ qvec  # 已归一化 → 余弦
+        scores = scores[allowed_idx]
         idx = np.argsort(-scores)[:top_k]
-        return [{**self.meta[i], "score": float(scores[i])} for i in idx]
+        return [
+            {**self.meta[int(allowed_idx[i])], "score": float(scores[i])}
+            for i in idx
+        ]
 
 
 class MilvusStore:
@@ -98,14 +123,32 @@ class MilvusStore:
         except Exception:  # noqa: BLE001
             return self._n
 
-    def search(self, qvec: np.ndarray, top_k: int = 20) -> list[dict]:
+    def search(
+        self,
+        qvec: np.ndarray,
+        top_k: int = 20,
+        *,
+        user_id: str | None = None,
+        source_ids: list[str] | None = None,
+        include_builtin: bool = True,
+    ) -> list[dict]:
+        tenant_parts = []
+        if include_builtin:
+            tenant_parts.append('user_id == ""')
+        if user_id is not None:
+            tenant_parts.append(f"user_id == {json.dumps(str(user_id))}")
+        filters = [f"({' or '.join(tenant_parts)})" if tenant_parts else "false"]
+        selected = [str(value) for value in (source_ids or []) if str(value)]
+        if selected:
+            filters.append(f"source_id in {json.dumps(selected)}")
         hits = self.mc.search(
             collection_name=COLLECTION,
             data=[qvec.tolist()],
             limit=top_k,
+            filter=" and ".join(filters),
             output_fields=[
                 "text", "source", "chapter", "page", "kp",
-                "source_type", "url", "tags", "source_id",
+                "source_type", "url", "tags", "source_id", "user_id",
             ],
         )[0]
         return [{**h["entity"], "score": float(h["distance"])} for h in hits]

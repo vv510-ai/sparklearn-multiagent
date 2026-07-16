@@ -24,6 +24,7 @@ fastembed>=0.8,<1            # 轻量 ONNX 中文 BGE Embedding，无需外部�
 # ---- 数据 ----
 sqlalchemy>=2.0
 psycopg2-binary>=2.9         # docker-compose 下连接 PostgreSQL;本地 SQLite 不需要
+boto3>=1.35                  # S3/R2/Supabase Storage compatible object storage
 numpy>=1.26
 
 # ---- RAG 可选重依赖(无 GPU/无网时自动降级,不装也能跑)----

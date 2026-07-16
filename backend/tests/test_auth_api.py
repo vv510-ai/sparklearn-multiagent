@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import json
+import shutil
 import uuid
 
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 
 from app import config
+from app.api import resources as resources_api
+from app.config import GEN_DIR, RUNS_DIR
 from app.main import app
 from app.models.db import get_engine, session
-from app.models.entities import AuthAccount, User
+from app.models.entities import AuthAccount, ExternalTask, Resource, User, UserAsset
+from app.services.ownership_service import sync_resource_ownership
 
 
 def _enable_real_auth(monkeypatch) -> None:
@@ -49,6 +54,8 @@ def test_register_login_and_user_scope(monkeypatch):
     _enable_sqlite_foreign_keys()
     marker = uuid.uuid4().hex
     created_ids: list[str] = []
+    generated_file = None
+    debug_dir = None
 
     try:
         with TestClient(app) as client:
@@ -91,6 +98,7 @@ def test_register_login_and_user_scope(monkeypatch):
             assert second.status_code == 201, second.text
             second_id = second.json()["user"]["id"]
             created_ids.append(second_id)
+            second_headers = {"Authorization": f"Bearer {second.json()['access_token']}"}
 
             # A valid token cannot be paired with another user's query parameter.
             cross_user = client.get(
@@ -98,6 +106,55 @@ def test_register_login_and_user_scope(monkeypatch):
                 headers=first_headers,
             )
             assert cross_user.status_code == 403
+
+            # Generated files, provider tasks, and trace bundles are tenant-owned.
+            generated_file = GEN_DIR / f"tenant-{marker}.txt"
+            generated_file.write_text("private learning artifact", encoding="utf-8")
+            asset_url = f"/static/gen/{generated_file.name}"
+            resource_id = f"security-{marker}"
+            task_id = f"task-{marker}"
+            payload = {"cover_url": asset_url, "video": {"task_id": task_id}}
+            with session() as db:
+                db.add(Resource(
+                    id=resource_id,
+                    user_id=first_id,
+                    kind="doc",
+                    kp="",
+                    title="private",
+                    payload=payload,
+                    citations=[],
+                    safety={},
+                ))
+                db.commit()
+            sync_resource_ownership(first_id, resource_id, payload)
+
+            first_asset = client.get(asset_url, headers=first_headers)
+            assert first_asset.status_code == 200
+            assert first_asset.text == "private learning artifact"
+            assert client.get(asset_url, headers=second_headers).status_code == 404
+
+            async def fake_video_poll(value: str):
+                return {"task_id": value, "status": "running"}
+
+            monkeypatch.setattr(resources_api.multimodal_gateway, "video_poll", fake_video_poll)
+            assert client.get(
+                f"/api/resources/video/task/{task_id}", headers=first_headers,
+            ).status_code == 200
+            assert client.get(
+                f"/api/resources/video/task/{task_id}", headers=second_headers,
+            ).status_code == 404
+
+            debug_dir = RUNS_DIR / f"tenant-{marker}"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            (debug_dir / "state.summary.json").write_text(
+                json.dumps({"user_id": first_id}), encoding="utf-8",
+            )
+            assert client.get(
+                f"/api/debug/runs/{debug_dir.name}", headers=first_headers,
+            ).status_code == 200
+            assert client.get(
+                f"/api/debug/runs/{debug_dir.name}", headers=second_headers,
+            ).status_code == 404
 
             wrong_password = client.post(
                 "/api/auth/login",
@@ -112,5 +169,14 @@ def test_register_login_and_user_scope(monkeypatch):
             assert login.status_code == 200
             assert login.json()["user"]["id"] == first_id
     finally:
+        with session() as db:
+            db.query(UserAsset).filter(UserAsset.user_id.in_(created_ids)).delete()
+            db.query(ExternalTask).filter(ExternalTask.user_id.in_(created_ids)).delete()
+            db.query(Resource).filter(Resource.user_id.in_(created_ids)).delete()
+            db.commit()
+        if generated_file is not None:
+            generated_file.unlink(missing_ok=True)
+        if debug_dir is not None:
+            shutil.rmtree(debug_dir, ignore_errors=True)
         _delete_accounts(created_ids)
         config.get_settings.cache_clear()

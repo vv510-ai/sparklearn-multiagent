@@ -147,12 +147,18 @@ def _seed_chunks_by_kp(node_id: str, limit: int = 3) -> list[dict]:
     return chunks
 
 
-def _retrieve_node_chunks(query: str, node_id: str, source_ids: list[str]) -> list[dict]:
+def _retrieve_node_chunks(
+    query: str,
+    node_id: str,
+    source_ids: list[str],
+    user_id: str,
+) -> list[dict]:
     hits = retrieve(
         query,
         top_k=80,
         final_k=50,
         source_ids=source_ids,
+        user_id=user_id,
     )
     strict = [_with_citation(hit) for hit in hits if _has_kp(hit, node_id) and _allowed_source(hit, source_ids)]
     if not source_ids and len(strict) < 2:
@@ -173,7 +179,7 @@ def _retrieve_node_chunks(query: str, node_id: str, source_ids: list[str]) -> li
 
 async def _expand_node(
     node_id: str, *, source_ids: list[str], goal: str, guided: bool = False,
-    topic_name: str = "", custom_topic: bool = False,
+    topic_name: str = "", custom_topic: bool = False, user_id: str = "demo_user",
 ) -> tuple[list[str], list[dict], PromptCall]:
     name = topic_name or kp_name(node_id)
     node_desc = load_kg()["nodes"].get(node_id, {}).get("desc", "")
@@ -184,7 +190,7 @@ async def _expand_node(
     )
     chunks = (
         [] if custom_topic and not source_ids
-        else _retrieve_node_chunks(query, node_id, source_ids)
+        else _retrieve_node_chunks(query, node_id, source_ids, user_id)
     )
     ctx, citations = build_context(chunks)
     prompt_call = render_mindmap_prompt_call(
@@ -311,6 +317,7 @@ async def run(state: dict) -> dict:
             guided=guided,
             topic_name=name if custom_topic else "",
             custom_topic=custom_topic,
+            user_id=state.get("user_id", "demo_user"),
         )
         expanded.append((relation, name if custom_topic else _node_label(node_id, mastery, unlocked), points))
         citations.extend(node_citations)

@@ -21,6 +21,10 @@ async def lifespan(app: FastAPI):
     init_db()
     GEN_DIR.mkdir(parents=True, exist_ok=True)
     try:
+        from .services.object_storage import restore_all_sources
+        restored = restore_all_sources()
+        if restored:
+            print(f"[SparkLearn] restored {restored} source files from object storage")
         from .rag.ingest import ingest_corpus
         n = ingest_corpus()
         print(f"[SparkLearn] 语料入库完成:{n} 个 chunk;demo_mode={is_demo()}")
@@ -59,6 +63,10 @@ async def authenticate_request(request: Request, call_next):
     context_token = bind_request_user(str(payload["sub"]))
     try:
         request.state.user_id = str(payload["sub"])
+        if request.url.path.startswith("/static/gen/"):
+            from .services.ownership_service import asset_belongs_to_user
+            if not asset_belongs_to_user(str(payload["sub"]), request.url.path):
+                return JSONResponse({"detail": "asset not found"}, status_code=404)
         return await call_next(request)
     finally:
         reset_request_user(context_token)

@@ -202,6 +202,7 @@ async def _gen_one(
     prompt_template: str = "",
     conversation: str = "",
     trace_id: str,
+    user_id: str = "demo_user",
     skip_multimodal: bool = False,
     required_retrieval_terms: list[str] | None = None,
 ) -> dict:
@@ -215,6 +216,7 @@ async def _gen_one(
         source_ids=source_ids,
         kp=None if source_ids else kp,
         required_terms=required_retrieval_terms,
+        user_id=user_id,
     )
     ctx, citations = build_context(chunks)
     if kind == "doc":
@@ -458,6 +460,7 @@ async def run(state: dict) -> dict:
             prompt_template=prompt_template,
             conversation=conversation,
             trace_id=trace_id,
+            user_id=state.get("user_id", "demo_user"),
             skip_multimodal=skip_multimodal,
             required_retrieval_terms=required_retrieval_terms,
         )
