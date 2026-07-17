@@ -12,7 +12,14 @@ from ..rag.citation import build_context
 from ..rag.ingest import load_all_chunks
 from ..rag.retriever import retrieve
 from ..services.bkt import mastery_level
-from ..services.knowledge_graph import kp_name, load_kg, prerequisites, resolve_topic, unlockable
+from ..services.knowledge_graph import (
+    kp_name,
+    load_kg,
+    prerequisites,
+    resolve_topic,
+    topological_order,
+    unlockable,
+)
 from .emitter import agent_end, agent_start, emit
 
 def _clean_point(line: str) -> str:
@@ -228,6 +235,68 @@ def _render_markmap(root_name: str, expanded: list[tuple[str, str, list[str]]]) 
     return "\n".join(lines)
 
 
+def _ordered_conversation_topics(raw_topics: list | None) -> list[dict]:
+    """Normalize and order conversation topics by the course prerequisite graph."""
+    kg = load_kg()
+    rank = {node_id: index for index, node_id in enumerate(topological_order())}
+    normalized: list[dict] = []
+    seen: set[str] = set()
+    for index, item in enumerate(raw_topics or []):
+        if not isinstance(item, dict):
+            continue
+        node_id = str(item.get("id") or "").strip()
+        custom = bool(item.get("custom")) or node_id not in kg["nodes"]
+        name = str(item.get("name") or (kp_name(node_id) if not custom else "")).strip()
+        if not name:
+            continue
+        key = f"custom:{name.casefold()}" if custom else f"kp:{node_id}"
+        if key in seen:
+            continue
+        seen.add(key)
+        questions = [
+            str(question).strip() for question in (item.get("questions") or [])
+            if str(question).strip()
+        ][:4]
+        normalized.append({
+            "id": node_id or "custom_topic",
+            "name": name[:80],
+            "custom": custom,
+            "questions": questions,
+            "first_index": int(item.get("first_index", index)),
+        })
+
+    return sorted(
+        normalized,
+        key=lambda topic: (
+            1 if topic["custom"] else 0,
+            topic["first_index"] if topic["custom"] else rank.get(topic["id"], 10_000),
+            topic["first_index"],
+        ),
+    )
+
+
+def _conversation_relation_points(
+    node_id: str,
+    selected_ids: set[str],
+    position: int,
+) -> list[str]:
+    points = [f"建议顺序：第 {position} 个"]
+    if node_id not in selected_ids:
+        return points
+    edges = load_kg()["edges"]
+    before = [kp_name(edge["from"]) for edge in edges if edge["to"] == node_id and edge["from"] in selected_ids]
+    after = [kp_name(edge["to"]) for edge in edges if edge["from"] == node_id and edge["to"] in selected_ids]
+    if before:
+        points.append(f"先修关联：{'、'.join(before)}")
+    if after:
+        points.append(f"后续关联：{'、'.join(after)}")
+    return points
+
+
+def _render_conversation_markmap(expanded: list[tuple[str, str, list[str]]]) -> str:
+    return _render_markmap(f"本次对话学习全景（{len(expanded)} 个知识点）", expanded)
+
+
 def _outline_from_meta(kp: str, outline_node_ids: list | None) -> list[tuple[str, str]]:
     if isinstance(outline_node_ids, list):
         out: list[tuple[str, str]] = []
@@ -299,6 +368,86 @@ async def run(state: dict) -> dict:
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
     goal = state.get("learning_goal") or ""
     mastery, unlocked = _label_context(state.get("student_profile"))
+    conversation_topics = (
+        _ordered_conversation_topics(state.get("conversation_topics"))
+        if state.get("artifact_scope") == "conversation" else []
+    )
+    if conversation_topics:
+        await agent_start(
+            "mindmap",
+            "思维导图智能体",
+            f"整合本次会话的 {len(conversation_topics)} 个知识点",
+        )
+        selected_ids = {
+            topic["id"] for topic in conversation_topics if not topic["custom"]
+        }
+        expanded: list[tuple[str, str, list[str]]] = []
+        citations: list[dict] = []
+        outline_meta: list[dict] = []
+        prompt_samples: list[str] = []
+        prompt_meta: dict[str, str] = {}
+        for position, topic in enumerate(conversation_topics, start=1):
+            topic_goal = "；".join(topic["questions"]) or goal
+            points, node_citations, prompt_call = await _expand_node(
+                topic["id"],
+                source_ids=source_ids,
+                goal=topic_goal,
+                topic_name=topic["name"] if topic["custom"] else "",
+                custom_topic=topic["custom"],
+                user_id=state.get("user_id", "demo_user"),
+            )
+            relation_points = _conversation_relation_points(
+                topic["id"], selected_ids, position,
+            )
+            if topic["questions"]:
+                relation_points.insert(0, f"你问过：{topic['questions'][-1][:36]}")
+            combined_points = list(dict.fromkeys([*points, *relation_points]))[:8]
+            node_label = (
+                topic["name"] if topic["custom"]
+                else _node_label(topic["id"], mastery, unlocked)
+            )
+            relation = f"第 {position} 步"
+            expanded.append((relation, node_label, combined_points))
+            citations.extend(node_citations)
+            outline_meta.append({
+                "relation": relation,
+                "id": topic["id"],
+                "label": topic["name"],
+            })
+            prompt_meta = prompt_call.metadata()
+            if not prompt_samples:
+                prompt_samples.append(prompt_call.prompt[:600])
+
+        md = _render_conversation_markmap(expanded)
+        rid = uuid.uuid4().hex[:12]
+        resource = {
+            "id": rid,
+            "kind": "mindmap",
+            "kp": kp,
+            "title": "本次对话·知识全景导图",
+            "payload": {
+                "markmap": md,
+                "topic_label": "本次对话学习全景",
+                "custom_topic": all(topic["custom"] for topic in conversation_topics),
+                "conversation_map": True,
+                "topic_count": len(conversation_topics),
+                "topics": conversation_topics,
+                "prompt_skill": prompt_meta,
+                "outline_node_ids": outline_meta,
+            },
+            "citations": list(dict.fromkeys(
+                citation.get("citation", "")
+                for citation in citations if citation.get("citation")
+            )),
+        }
+        await emit({"type": "resource", "resource": resource})
+        await agent_end(
+            "mindmap",
+            f"已整合 {len(conversation_topics)} 个会话知识点并推送导图",
+            {"id": rid, "nodes": len(expanded), "prompt_sample": prompt_samples[:1]},
+        )
+        return {"generated_resources": {rid: resource}}
+
     await agent_start("mindmap", "思维导图智能体", f"「{name}」→ markmap 交互脑图")
     expanded: list[tuple[str, str, list[str]]] = []
     citations: list[dict] = []

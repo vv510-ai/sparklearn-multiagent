@@ -65,6 +65,9 @@ def _refresh_mindmap_labels(user_id: str, affected_kps: set[str], profile: dict)
         for row in rows:
             try:
                 payload = row.payload if isinstance(row.payload, dict) else {}
+                if payload.get("conversation_map"):
+                    # 会话全景导图的标题表达学习顺序，不应被单知识点掌握度重写。
+                    continue
                 markmap = payload.get("markmap")
                 if not isinstance(markmap, str) or not markmap.strip():
                     skipped += 1

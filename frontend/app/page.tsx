@@ -453,7 +453,8 @@ export default function Home() {
   const startGenerate = (label: string, goal: string, kinds: string[], promptTemplate: string) => {
     const focus = conversationFocus.trim() || notebookTopic.trim();
     const topicKp = inferKpFromTopic(focus);
-    const scopedGoal = focus
+    const conversationWide = promptTemplate === "framework";
+    const scopedGoal = !conversationWide && focus
       ? `${goal}\n\n请以最近学习对话中的实际问题为准：${focus}`
       : goal;
     setActivePanel("chat");
@@ -463,7 +464,9 @@ export default function Home() {
     setSeed(undefined);
     setRequest({
       path: "/resources/generate",
-      display: focus ? `把刚才讨论的内容做成${label}` : `生成${label}`,
+      display: conversationWide
+        ? "把本次学习对话整理成框架导图"
+        : focus ? `把刚才讨论的内容做成${label}` : `生成${label}`,
       body: {
         user_id: USER_ID,
         session_id: chatSessionId,
@@ -474,6 +477,7 @@ export default function Home() {
         kinds,
         source_ids: selectedSourceIds,
         prompt_template: promptTemplate,
+        artifact_scope: conversationWide ? "conversation" : "current_topic",
       },
     });
   };

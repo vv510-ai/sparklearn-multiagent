@@ -18,7 +18,7 @@ from ..models.entities import Resource
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import AudioRetryRequest, GenerateRequest
 from ..services.conversation_service import get_session_messages
-from ..services.knowledge_graph import resolve_conversation_topic
+from ..services.knowledge_graph import collect_conversation_topics, resolve_conversation_topic
 from ..services.profile_service import ensure_user, log_event
 from ..services.ownership_service import (
     sync_resource_ownership,
@@ -39,7 +39,18 @@ async def generate(req: GenerateRequest):
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     session_id = req.session_id or uuid.uuid4().hex[:8]
-    history = get_session_messages(req.user_id, session_id) if req.session_id else []
+    conversation_map = (
+        "mindmap" in req.kinds
+        and (req.artifact_scope == "conversation" or req.prompt_template == "framework")
+    )
+    if req.session_id:
+        history = (
+            get_session_messages(req.user_id, session_id, limit=80)
+            if conversation_map else
+            get_session_messages(req.user_id, session_id)
+        )
+    else:
+        history = []
     topic_kp, topic_name, custom_topic = resolve_conversation_topic(
         req.conversation_focus or req.goal,
         history,
@@ -47,6 +58,10 @@ async def generate(req: GenerateRequest):
         topic_label=req.topic_label,
     )
     msg = req.goal or f"请为我生成 {topic_name} 的学习资源"
+    conversation_topics = (
+        collect_conversation_topics(history, req.conversation_focus)
+        if conversation_map else []
+    )
     state = {
         "user_id": req.user_id,
         "session_id": session_id,
@@ -59,6 +74,8 @@ async def generate(req: GenerateRequest):
         "kinds": req.kinds,
         "source_ids": source_ids,
         "prompt_template": req.prompt_template,
+        "artifact_scope": "conversation" if conversation_map else req.artifact_scope,
+        "conversation_topics": conversation_topics,
         "intent": "generate",                  # 显式生成,Orchestrator 将尊重该意图
     }
     return sse_response(run_with_events(state))

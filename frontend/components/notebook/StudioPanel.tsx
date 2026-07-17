@@ -38,10 +38,10 @@ const GENERATORS = [
   },
   {
     title: "框架导图",
-    desc: "从先修到后续",
+    desc: "整合本次全部知识点",
     icon: Network,
     tone: "violet",
-    goal: "请根据最近的学习对话自动识别内容焦点，生成一张基于知识图谱骨架和所选资料的框架导图。",
+    goal: "请整合本次学习对话中出现的全部知识点：去重归类后，按照从基础到进阶的先修关系组织，并结合所选资料生成一张完整的框架导图。不要只围绕最后一个问题。",
     kinds: ["mindmap"],
     template: "framework",
   },

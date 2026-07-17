@@ -26,6 +26,8 @@ class LearningState(TypedDict, total=False):
     kinds: list[str]                                   # 期望生成的资源类型
     source_ids: list[str]                              # 指定上传资料
     prompt_template: str                              # 白名单学习模板键
+    artifact_scope: str                               # current_topic|conversation
+    conversation_topics: list[dict]                   # 会话级产物覆盖的去重知识点
     guided_learning: bool                             # 新主题由浅入深教学模式
     artifact_policy: str                              # on_demand:仅生成用户明确点名的学习产物
     skip_multimodal: bool                             # 补救等短流程跳过耗时媒体增强

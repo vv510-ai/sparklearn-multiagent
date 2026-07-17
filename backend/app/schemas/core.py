@@ -24,6 +24,10 @@ class GenerateRequest(BaseModel):
     kinds: list[str] = Field(default_factory=lambda: ["doc", "mindmap", "quiz", "code", "video"])
     source_ids: list[str] = Field(default_factory=list)
     prompt_template: str = Field(default="", description="后端白名单学习模板键")
+    artifact_scope: Literal["current_topic", "conversation"] = Field(
+        default="current_topic",
+        description="学习产物覆盖当前主题或整段会话",
+    )
 
 
 class AudioRetryRequest(BaseModel):

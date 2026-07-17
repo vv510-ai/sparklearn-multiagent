@@ -59,7 +59,13 @@ _CONTEXT_DEPENDENT_TOPIC_RE = re.compile(
     re.IGNORECASE,
 )
 _PRODUCT_HELP_RE = re.compile(
-    r"(?:你能|可以)(?:帮助我|帮我)?(?:做|干)什么|怎么使用|如何使用|^help$",
+    r"(?:你能|可以)(?:帮助我|帮我)?(?:(?:做|干)什么|干嘛)|怎么使用|如何使用|^help$",
+    re.IGNORECASE,
+)
+_ARTIFACT_REQUEST_RE = re.compile(
+    r"^(?:请)?(?:把|将)?(?:上面|前面|刚才|本次|当前|这些)?[^。！？?]{0,24}"
+    r"(?:生成|整理|制作|做成|画|创建)[^。！？?]{0,24}"
+    r"(?:思维导图|框架导图|知识导图|学习笔记|笔记|测验|PPT|课件|视频|讲解)",
     re.IGNORECASE,
 )
 
@@ -205,8 +211,8 @@ def resolve_conversation_topic(
     return resolve_topic(knowledge_points, current, topic_label)
 
 
-def infer_kp_id(text: str, kp_ids: list[str] | None = None) -> str | None:
-    """从自然语言中识别课程知识点，短词只在明确的学习语境中命中。"""
+def infer_kp_ids(text: str, kp_ids: list[str] | None = None) -> list[str]:
+    """按出现顺序识别文本中的全部课程知识点，并避免短别名重复命中。"""
     raw = str(text or "").casefold()
     compact = re.sub(r"\s+", "", raw)
     candidates = set(kp_ids or all_kp_ids())
@@ -225,14 +231,91 @@ def infer_kp_id(text: str, kp_ids: list[str] | None = None) -> str | None:
                 continue
             position = compact.find(normalized)
             if position >= 0:
-                matches.append((position, -len(normalized), kp))
+                matches.append((position, position + len(normalized), kp))
 
     if "graph_basic" in candidates:
         graph_match = _STANDALONE_GRAPH_RE.search(compact)
         if graph_match:
-            matches.append((graph_match.start(), -1, "graph_basic"))
+            graph_position = compact.find("图", graph_match.start(), graph_match.end())
+            if graph_position >= 0:
+                matches.append((graph_position, graph_position + 1, "graph_basic"))
 
-    return min(matches)[2] if matches else None
+    selected: list[tuple[int, int, str]] = []
+    for start, end, kp in sorted(matches, key=lambda item: (item[0], -(item[1] - item[0]))):
+        if any(existing_kp == kp for _, _, existing_kp in selected):
+            continue
+        if any(start < existing_end and end > existing_start for existing_start, existing_end, _ in selected):
+            continue
+        selected.append((start, end, kp))
+    return [kp for _, _, kp in sorted(selected)]
+
+
+def infer_kp_id(text: str, kp_ids: list[str] | None = None) -> str | None:
+    """从自然语言中识别第一个课程知识点，兼容原有单主题调用。"""
+    matches = infer_kp_ids(text, kp_ids)
+    return matches[0] if matches else None
+
+
+def collect_conversation_topics(
+    conversation: list[dict] | None,
+    current_text: str | None = None,
+    *,
+    max_topics: int = 24,
+) -> list[dict]:
+    """提取整段学习会话中的知识点，而不是只取最后一轮主题。
+
+    已知课程知识点使用稳定的知识图谱 id；课外主题保留学习者原话。
+    寒暄、上下文依赖追问和生成工具指令不会被误当成知识点。
+    """
+    messages = [dict(item) for item in (conversation or []) if isinstance(item, dict)]
+    current = str(current_text or "").strip()
+    if current and not any(
+        item.get("role") == "user" and str(item.get("content") or "").strip() == current
+        for item in messages
+    ):
+        messages.append({"role": "user", "content": current})
+
+    topics: dict[str, dict] = {}
+    for index, item in enumerate(messages):
+        if item.get("role") != "user":
+            continue
+        content = " ".join(str(item.get("content") or "").strip().split())
+        if not content or _PRODUCT_HELP_RE.search(content):
+            continue
+
+        known_ids = infer_kp_ids(content)
+        if known_ids:
+            for kp in known_ids:
+                key = f"kp:{kp}"
+                topic = topics.setdefault(key, {
+                    "id": kp,
+                    "name": kp_name(kp),
+                    "custom": False,
+                    "questions": [],
+                    "first_index": index,
+                })
+                if content not in topic["questions"] and len(topic["questions"]) < 4:
+                    topic["questions"].append(content)
+            continue
+
+        if _ARTIFACT_REQUEST_RE.search(content) or _CONTEXT_DEPENDENT_TOPIC_RE.match(content):
+            continue
+        label = explicit_topic_label(content)
+        if not label or label == "当前主题":
+            continue
+        key = f"custom:{label.casefold()}"
+        topic = topics.setdefault(key, {
+            "id": CUSTOM_TOPIC_KP,
+            "name": label,
+            "custom": True,
+            "questions": [],
+            "first_index": index,
+        })
+        if content not in topic["questions"] and len(topic["questions"]) < 4:
+            topic["questions"].append(content)
+
+    ordered = sorted(topics.values(), key=lambda topic: int(topic.get("first_index", 0)))
+    return ordered[:max(1, min(max_topics, 24))]
 
 
 def kp_retrieval_text(kp_id: str) -> str:
