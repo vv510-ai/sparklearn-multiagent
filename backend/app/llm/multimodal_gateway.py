@@ -386,29 +386,31 @@ async def tts(
         await _record(result, agent="media")
         return result
 
-    for index, (provider, filename, _call) in enumerate(attempts):
-        cached = GEN_DIR / filename
-        minimum_bytes = 1024 if provider == "spark_super_tts" else 128
-        if not (cached.exists() and cached.stat().st_size >= minimum_bytes):
-            continue
-        result = _result(
-            "tts",
-            trace_id,
-            started,
-            ok=True,
-            degraded=index > 0,
-            data={
-                "audio_url": f"/static/gen/{filename}",
-                "cached": True,
-                "provider": provider,
-            },
-        )
-        await _record(result, agent="media")
-        return result
-
     errors: list[str] = []
     timeout_s = float(s.mm_tts_timeout_s)
-    for provider, _filename, call in attempts:
+    for provider, filename, call in attempts:
+        # Cache lookup must follow provider priority. A cached standard voice
+        # from an earlier outage must not permanently mask a recovered super
+        # TTS service. Only inspect the fallback cache after the preferred
+        # provider has been attempted and failed in this request.
+        cached = GEN_DIR / filename
+        minimum_bytes = 1024 if provider == "spark_super_tts" else 128
+        if cached.exists() and cached.stat().st_size >= minimum_bytes:
+            result = _result(
+                "tts",
+                trace_id,
+                started,
+                ok=True,
+                degraded=bool(errors),
+                data={
+                    "audio_url": f"/static/gen/{filename}",
+                    "cached": True,
+                    "provider": provider,
+                },
+                error="; ".join(errors),
+            )
+            await _record(result, agent="media")
+            return result
         try:
             url = await _run_in_mm_pool(call, timeout_s)
             if not url:

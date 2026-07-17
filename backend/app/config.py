@@ -84,7 +84,7 @@ try:  # pydantic-settings 可用时走标准路径
         mm_ocr_ingest_timeout_s: float = 30
         mm_local_ocr_timeout_s: float = 20
         mm_asr_timeout_s: float = 75
-        mm_tts_timeout_s: float = 15
+        mm_tts_timeout_s: float = 60
         mm_image_timeout_s: float = 30
         mm_video_create_timeout_s: float = 15
         mm_video_wait_budget_s: float = 45
@@ -171,7 +171,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_ocr_ingest_timeout_s = float(g("MM_OCR_INGEST_TIMEOUT_S", "30"))
             self.mm_local_ocr_timeout_s = float(g("MM_LOCAL_OCR_TIMEOUT_S", "20"))
             self.mm_asr_timeout_s = float(g("MM_ASR_TIMEOUT_S", "75"))
-            self.mm_tts_timeout_s = float(g("MM_TTS_TIMEOUT_S", "15"))
+            self.mm_tts_timeout_s = float(g("MM_TTS_TIMEOUT_S", "60"))
             self.mm_image_timeout_s = float(g("MM_IMAGE_TIMEOUT_S", "30"))
             self.mm_video_create_timeout_s = float(g("MM_VIDEO_CREATE_TIMEOUT_S", "15"))
             self.mm_video_wait_budget_s = float(g("MM_VIDEO_WAIT_BUDGET_S", "45"))

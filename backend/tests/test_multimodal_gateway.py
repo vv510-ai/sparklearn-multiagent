@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import sys
 import threading
@@ -211,6 +212,46 @@ def test_tts_prefers_super_voice_and_reports_provider(monkeypatch, tmp_path: Pat
     assert result["degraded"] is False
     assert result["data"]["provider"] == "spark_super_tts"
     assert standard_called is False
+
+
+def test_standard_cache_does_not_mask_recovered_super_tts(monkeypatch, tmp_path: Path):
+    settings = _settings(
+        spark_super_tts_api_password="super-password",
+        spark_super_tts_appid="super-app",
+        mm_tts_timeout_s=0.2,
+    )
+    text = "recovered super voice"
+    standard_digest = hashlib.sha1(
+        f"standard\0xiaoyan\0{text}".encode("utf-8")
+    ).hexdigest()[:16]
+    (tmp_path / f"tts_standard_{standard_digest}.mp3").write_bytes(
+        b"ID3-cached-standard" + b"x" * 200
+    )
+    super_calls = 0
+
+    def super_provider(value, *, voice, filename):
+        nonlocal super_calls
+        super_calls += 1
+        assert value == text
+        assert voice == "x6_lingxiaoxuan_pro"
+        (tmp_path / filename).write_bytes(b"ID3-super-audio" + b"x" * 1200)
+        return f"/static/gen/{filename}"
+
+    def standard_provider(*args, **kwargs):
+        raise AssertionError("cached standard TTS should only be used after super TTS fails")
+
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.spark_super_tts, "synthesize", super_provider)
+    monkeypatch.setattr(gateway.spark_tts, "synthesize", standard_provider)
+
+    result = asyncio.run(gateway.tts(text, trace_id="super-cache-recovery"))
+
+    assert result["ok"] is True, result
+    assert result["degraded"] is False
+    assert result["data"]["provider"] == "spark_super_tts"
+    assert result["data"]["cached"] is False
+    assert super_calls == 1
 
 
 def test_tts_falls_back_to_standard_provider(monkeypatch, tmp_path: Path):
