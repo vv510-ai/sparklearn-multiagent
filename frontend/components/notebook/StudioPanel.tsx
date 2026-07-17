@@ -22,7 +22,7 @@ const GENERATORS = [
     desc: "边听边问，回答后继续",
     icon: Headphones,
     tone: "green",
-    goal: "请把当前学习主题整理成适合零基础学习者收听的短讲解：先用一句白话给结论，再讲一个最小例子和一个易错点。内容必须基于所选资料，方便我在播放中随时暂停提问。",
+    goal: "请根据最近的学习对话识别我此刻正在学的内容，整理成适合零基础学习者收听的短讲解：先用一句白话给结论，再讲一个最小例子和一个易错点。内容必须基于所选资料，方便我在播放中随时暂停提问。",
     kinds: ["doc"],
     template: "interactive_audio",
   },
@@ -31,7 +31,7 @@ const GENERATORS = [
     desc: "先结论，再看框架",
     icon: BrainCircuit,
     tone: "blue",
-    goal: "请把当前学习主题整理成一份一页看懂：先给直接结论，再给知识框架、核心步骤和三分钟回顾。",
+    goal: "请根据最近的学习对话自动识别内容焦点，整理成一份一页看懂：先给直接结论，再给知识框架、核心步骤和三分钟回顾。",
     kinds: ["doc"],
     template: "one_page",
   },
@@ -40,7 +40,7 @@ const GENERATORS = [
     desc: "从先修到后续",
     icon: Network,
     tone: "violet",
-    goal: "请为当前学习主题生成一张基于知识图谱骨架和所选资料的框架导图。",
+    goal: "请根据最近的学习对话自动识别内容焦点，生成一张基于知识图谱骨架和所选资料的框架导图。",
     kinds: ["mindmap"],
     template: "framework",
   },
@@ -49,7 +49,7 @@ const GENERATORS = [
     desc: "定义、原理与步骤",
     icon: BookMarked,
     tone: "sand",
-    goal: "请根据当前问题和所选资料生成结构清楚、适合复习的完整学习笔记。",
+    goal: "请根据最近的学习对话和所选资料，自动识别需要整理的内容，生成结构清楚、适合复习的完整学习笔记。",
     kinds: ["doc"],
     template: "complete_notes",
   },
@@ -58,7 +58,7 @@ const GENERATORS = [
     desc: "错误原因与概念对照",
     icon: AlertTriangle,
     tone: "rose",
-    goal: "请聚焦当前主题的易错知识点和易混淆概念，用错误表现、原因、改法和对照表整理。",
+    goal: "请根据最近的学习对话自动识别内容焦点，整理其中的易错知识点和易混淆概念，包含错误表现、原因、改法和对照表。",
     kinds: ["doc"],
     template: "error_confusion",
   },
@@ -67,7 +67,7 @@ const GENERATORS = [
     desc: "按薄弱点出题",
     icon: CircleHelp,
     tone: "cyan",
-    goal: "请根据当前学习主题、学习者薄弱点和所选资料生成一组巩固测验。",
+    goal: "请根据最近的学习对话自动识别内容焦点，结合学习者薄弱点和所选资料生成一组巩固测验。",
     kinds: ["quiz"],
     template: "quiz",
   },
@@ -76,7 +76,7 @@ const GENERATORS = [
     desc: "形成分镜与讲稿",
     icon: PlaySquare,
     tone: "green",
-    goal: "请为当前学习主题生成一份简洁清楚的讲解视频脚本与可用的降级讲稿。",
+    goal: "请根据最近的学习对话自动识别内容焦点，生成一份简洁清楚的讲解视频脚本与可用的降级讲稿。",
     kinds: ["video"],
     template: "video",
   },
@@ -92,7 +92,7 @@ export default function StudioPanel({
   onGenerate,
   onOpen,
 }: {
-  onGenerate: (goal: string, kinds: string[], template: string) => void;
+  onGenerate: (label: string, goal: string, kinds: string[], template: string) => void;
   onOpen: (panel: StudioPanelKey) => void;
 }) {
   return (
@@ -110,7 +110,7 @@ export default function StudioPanel({
           {GENERATORS.map((tool) => {
             const Icon = tool.icon;
             return (
-              <button key={tool.title} onClick={() => onGenerate(tool.goal, [...tool.kinds], tool.template)} className={`studio-tile is-${tool.tone}`}>
+              <button key={tool.title} onClick={() => onGenerate(tool.title, tool.goal, [...tool.kinds], tool.template)} className={`studio-tile is-${tool.tone}`}>
                 <span className="studio-tile-icon"><Icon size={18} /></span>
                 <span>
                   <strong>{tool.title}</strong>

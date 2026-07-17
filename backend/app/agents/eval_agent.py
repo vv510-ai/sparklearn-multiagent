@@ -21,6 +21,30 @@ from ..services.profile_service import get_profile, log_event, update_mastery
 from .emitter import agent_end, agent_start, emit
 
 
+_ARTIFACT_READY_TEXT = {
+    "interactive_audio": "互动讲解已经准备好了，点开下面的卡片就能边听边问。",
+    "one_page": "一页速览已经整理好了，打开下面的卡片即可回顾。",
+    "framework": "知识框架已经整理好了，打开下面的导图查看。",
+    "complete_notes": "学习笔记已经整理好了，打开下面的卡片查看。",
+    "error_confusion": "易错易混要点已经整理好了，打开下面的卡片查看。",
+    "quiz": "巩固练习已经准备好了，可以直接在下面开始作答。",
+    "video": "讲解内容已经准备好了，打开下面的卡片开始学习。",
+}
+
+
+def _learner_summary(resources: dict, flags: list, prompt_template: str = "") -> str:
+    """Return a learner-facing handoff; technical checks remain in trace evidence."""
+    if not resources:
+        return "这次还没有生成可用内容，可以换一种说法或重新选择学习资料后再试。"
+    text = _ARTIFACT_READY_TEXT.get(
+        prompt_template,
+        "学习内容已经准备好了，打开下面的卡片继续学习。",
+    )
+    if flags:
+        text += " 有需要留意的地方已在卡片里标出。"
+    return text
+
+
 def _refresh_mindmap_labels(user_id: str, affected_kps: set[str], profile: dict) -> dict:
     """Best-effort relabeling; never block quiz grading or path replan."""
     if not affected_kps:
@@ -98,10 +122,7 @@ async def run(state: dict) -> dict:
     log_event(user_id, "generate_done",
               {"n": len(resources), "kinds": sorted({r.get("kind") for r in resources.values()})})
 
-    kinds = "、".join(sorted({r.get("kind", "?") for r in resources.values()})) or "—"
-    verdict = "全部通过双层校验" if not flags else f"{len(flags)} 处标记待复核(已在卡片内提示)"
-    summary = (f"本轮共生成 {len(resources)} 份个性化资源(类型:{kinds}),{verdict};"
-               f"资源已入库并同步到学习路径。")
+    summary = _learner_summary(resources, flags, str(state.get("prompt_template") or ""))
     await emit({"type": "summary", "agent": "eval", "text": summary,
                 "n_resources": len(resources), "n_flags": len(flags)})
     await agent_end("eval", summary)

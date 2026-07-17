@@ -16,7 +16,7 @@ from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
-from ..services.knowledge_graph import clean_topic_label, infer_kp_id, kp_retrieval_text, resolve_topic
+from ..services.knowledge_graph import kp_retrieval_text, resolve_conversation_topic
 from ..services.note_service import recent_note_chunks
 from .emitter import agent_end, agent_start, agent_token, emit
 
@@ -26,20 +26,6 @@ _SMALL_TALK_RE = re.compile(
     re.IGNORECASE,
 )
 _HELP_MARKERS = ("你能做什么", "可以做什么", "怎么用", "如何使用", "使用说明", "help")
-_TOPIC_INTRO_PATTERNS = (
-    re.compile(r"^(?:请|能否|可以)?(?:先)?(?:给我)?(?:解释|介绍|讲解|讲讲|说说|教我|学习|了解)(?:一下)?\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
-    re.compile(r"^(?:什么是|何为)\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
-    re.compile(
-        r"^(?P<topic>[^，。！？?\n]{2,60}?)(?:是什么|的定义(?:是什么)?|怎么(?:工作|运行|实现|使用|学习|理解)?|如何(?:工作|运行|实现|使用|学习|理解)?|为什么)",
-        re.IGNORECASE,
-    ),
-)
-_CONTEXT_DEPENDENT_TOPIC_RE = re.compile(
-    r"^(?:它|这个|这(?:个|种)?|那个|那(?:个|种)?|其|上面|前面|刚才|继续|再|然后|为什么(?:会|要)?(?:这样)?[？?]?$|怎么(?:会)?(?:这样)?[？?]?$)",
-    re.IGNORECASE,
-)
-
-
 def _needs_retrieval(question: str, *, guided: bool = False, has_image: bool = False) -> bool:
     """Only skip retrieval for deterministic small-talk and product-help turns."""
 
@@ -162,55 +148,13 @@ def _focused_kp_chunks(chunks: list[dict], kp: str | None, limit: int = 4) -> li
     return (specific or matching or chunks)[:limit]
 
 
-def _explicit_topic_label(question: str) -> str | None:
-    """Return a self-contained topic introduced by this turn, not a pronoun-only follow-up."""
-    text = " ".join(str(question or "").strip().split())
-    probe = re.sub(r"^(?:请问|我想问一下|能问一下)\s*", "", text).strip()
-    if not probe or _CONTEXT_DEPENDENT_TOPIC_RE.match(probe):
-        return None
-    for pattern in _TOPIC_INTRO_PATTERNS:
-        match = pattern.search(probe)
-        if not match:
-            continue
-        label = clean_topic_label(match.group("topic"))
-        if label not in {"当前主题", "这个主题", "这个", "那个", "为什么", "怎么", "如何"}:
-            return label
-    # A self-contained question about a custom subject should still override the notebook title.
-    # Referential turns were filtered above and will instead inherit the most recent conversation focus.
-    return clean_topic_label(probe) if len(probe) >= 2 else None
-
-
 def _resolve_turn_topic(state: dict, question: str) -> tuple[str, str, bool]:
     """Resolve the current turn without permanently binding a conversation to its opening topic."""
-    current_kp = infer_kp_id(question)
-    if current_kp:
-        return resolve_topic([current_kp], question, "")
-
-    current_label = _explicit_topic_label(question)
-    if current_label:
-        return resolve_topic([], current_label, "")
-
-    skipped_current = False
-    for item in reversed(state.get("conversation") or []):
-        if item.get("role") != "user":
-            continue
-        content = str(item.get("content") or "").strip()
-        if not content:
-            continue
-        if not skipped_current and content == str(question or "").strip():
-            skipped_current = True
-            continue
-        recent_kp = infer_kp_id(content)
-        if recent_kp:
-            return resolve_topic([recent_kp], content, "")
-        recent_label = _explicit_topic_label(content)
-        if recent_label:
-            return resolve_topic([], recent_label, "")
-
-    return resolve_topic(
-        state.get("knowledge_points"),
+    return resolve_conversation_topic(
         question,
-        state.get("topic_label"),
+        state.get("conversation"),
+        knowledge_points=state.get("knowledge_points"),
+        topic_label=state.get("topic_label"),
     )
 
 def _build_prompt(

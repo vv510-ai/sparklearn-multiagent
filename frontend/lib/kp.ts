@@ -36,7 +36,7 @@ export function inferKpFromTopic(topic: string): string | null {
   // “优先队列”在课程图谱中属于堆。若只按中文名长度匹配，
   // “堆与优先队列”会被更长的“队列”误判为 queue。
   if (/堆与优先队列|优先队列|heap|top-?k/.test(compact)) return "heap";
-  if (/^(?:什么是)?图(?:是什么|的定义|的概念|的基础)?[？?。！!]*$/.test(compact)) return "graph_basic";
+  if (/(?:^|学习|了解|解释|教我|什么是)图(?:是什么|的定义|的概念|的基础|怎么(?:办|学|学习|入门|开始)|如何(?:学|学习|入门|开始)|从哪里开始)?[？?。！!]*$/.test(compact)) return "graph_basic";
   const matched = KPS
     .map(([id, name]) => ({ id, name: name.replace(/\s+/g, "").toLowerCase() }))
     .filter(({ name }) => name && compact.includes(name))

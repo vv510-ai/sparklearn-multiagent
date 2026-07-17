@@ -17,6 +17,8 @@ from ..models.db import session
 from ..models.entities import Resource
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import AudioRetryRequest, GenerateRequest
+from ..services.conversation_service import get_session_messages
+from ..services.knowledge_graph import resolve_conversation_topic
 from ..services.profile_service import ensure_user, log_event
 from ..services.ownership_service import sync_resource_ownership, task_belongs_to_user
 from ..auth import require_current_user_id
@@ -32,14 +34,24 @@ async def generate(req: GenerateRequest):
         source_ids = validate_source_scope(req.user_id, req.source_ids)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    msg = req.goal or f"请为我生成 {','.join(req.knowledge_points) or '推荐知识点'} 的学习资源"
+    session_id = req.session_id or uuid.uuid4().hex[:8]
+    history = get_session_messages(req.user_id, session_id) if req.session_id else []
+    topic_kp, topic_name, custom_topic = resolve_conversation_topic(
+        req.conversation_focus or req.goal,
+        history,
+        knowledge_points=req.knowledge_points,
+        topic_label=req.topic_label,
+    )
+    msg = req.goal or f"请为我生成 {topic_name} 的学习资源"
     state = {
         "user_id": req.user_id,
-        "session_id": uuid.uuid4().hex[:8],
+        "session_id": session_id,
         "messages": [{"role": "user", "content": msg}],
+        "conversation": history,
         "learning_goal": req.goal,
-        "topic_label": req.topic_label,
-        "knowledge_points": req.knowledge_points,
+        "topic_label": topic_name,
+        "custom_topic": custom_topic,
+        "knowledge_points": [topic_kp],
         "kinds": req.kinds,
         "source_ids": source_ids,
         "prompt_template": req.prompt_template,

@@ -83,6 +83,8 @@ export default function Chat({
   topic = "",
   onUploadClick,
   onSeedConsumed,
+  onLearningTurn,
+  onSessionReady,
   onQuizEvaluated,
 }: {
   onEvent?: (ev: SparkEvent) => void;
@@ -93,6 +95,8 @@ export default function Chat({
   topic?: string;
   onUploadClick?: () => void;
   onSeedConsumed?: () => void;
+  onLearningTurn?: (text: string) => void;
+  onSessionReady?: (sessionId: string) => void;
   onQuizEvaluated?: (report: { path?: import("@/lib/types").PathPlan; profile_version?: number }) => void;
 }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -108,6 +112,10 @@ export default function Chat({
   const sessionRef = useRef(`s-${Math.random().toString(36).slice(2, 8)}`);
   const consumedSeedRef = useRef("");
   const consumedRequestRef = useRef("");
+
+  useEffect(() => {
+    onSessionReady?.(sessionRef.current);
+  }, [onSessionReady]);
 
   const stopRecording = useCallback(async () => {
     const recorder = voiceRecorderRef.current;
@@ -195,6 +203,7 @@ export default function Chat({
       text: string,
       directRequest?: { path: string; body: Record<string, unknown>; display: string },
       displayText?: string,
+      captureLearningTurn = true,
     ): Promise<boolean> => {
       const q = text.trim();
       if (!q) return Promise.resolve(false);
@@ -205,6 +214,7 @@ export default function Chat({
       setQueuedHint("");
       setInput("");
       setBusy(true);
+      if (captureLearningTurn) onLearningTurn?.(displayText?.trim() || q);
       setMsgs((m) => [
         ...m,
         { role: "user", text: displayText?.trim() || q, resources: [], citations: [] },
@@ -273,7 +283,7 @@ export default function Chat({
         );
       });
     },
-    [busy, onEvent, sourceIds, topic],
+    [busy, onEvent, onLearningTurn, sourceIds, topic],
   );
 
   useEffect(() => {
@@ -296,7 +306,7 @@ export default function Chat({
     const timer = window.setTimeout(() => {
       if (consumedRequestRef.current === key) return;
       consumedRequestRef.current = key;
-      send(request.display, request);
+      send(request.display, request, undefined, false);
       onSeedConsumed?.();
     }, 0);
     return () => window.clearTimeout(timer);
@@ -324,7 +334,7 @@ export default function Chat({
             {msgs.length > 0 && (
               <button
                 type="button"
-                onClick={() => send("请把本次学习对话整理成一份可复习、可继续使用的个人笔记。")}
+                onClick={() => send("请把本次学习对话整理成一份可复习、可继续使用的个人笔记。", undefined, undefined, false)}
                 disabled={busy}
                 className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
               >

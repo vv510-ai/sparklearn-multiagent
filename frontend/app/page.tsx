@@ -26,7 +26,7 @@ import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
-import { inferKpFromTopic } from "@/lib/kp";
+import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
 type PanelKey = "chat" | "profile" | "path" | "resources";
@@ -272,6 +272,8 @@ export default function Home() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [entered, setEntered] = useState(false);
   const [notebookTopic, setNotebookTopic] = useState("");
+  const [conversationFocus, setConversationFocus] = useState("");
+  const [chatSessionId, setChatSessionId] = useState("");
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
   const [mobilePane, setMobilePane] = useState<"sources" | "studio" | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -322,6 +324,11 @@ export default function Home() {
 
   const running = useMemo(() => Object.values(trace).some((node) => node.status === "running"), [trace]);
   const finished = useMemo(() => Object.values(trace).some((node) => node.status === "done"), [trace]);
+  const currentTopicTitle = useMemo(() => {
+    const focus = conversationFocus.trim() || notebookTopic.trim();
+    const kp = inferKpFromTopic(focus);
+    return kp ? kpName(kp) : focus || "新的学习笔记";
+  }, [conversationFocus, notebookTopic]);
 
   const loadProfile = useCallback(async () => {
     setPanelError("");
@@ -401,6 +408,8 @@ export default function Home() {
   const startNotebook = (goal: string) => {
     setEntered(true);
     setNotebookTopic(goal.trim());
+    setConversationFocus(goal.trim());
+    setChatSessionId("");
     setActivePanel("chat");
     setTrace(emptyTrace());
     setQualityEvidence(emptyQualityEvidence());
@@ -415,6 +424,8 @@ export default function Home() {
     setQualityEvidence(emptyQualityEvidence());
     setSeed(undefined);
     setRequest(undefined);
+    setConversationFocus("");
+    setChatSessionId("");
     setEvidenceOpen(false);
     setMobilePane(null);
   };
@@ -427,6 +438,8 @@ export default function Home() {
       setAuthStatus("anonymous");
       setEntered(false);
       setNotebookTopic("");
+      setConversationFocus("");
+      setChatSessionId("");
       setSources([]);
       setSelectedSourceIds([]);
       setResources([]);
@@ -436,9 +449,12 @@ export default function Home() {
     }
   };
 
-  const startGenerate = (goal: string, kinds: string[], promptTemplate: string) => {
-    const scopedGoal = notebookTopic ? `${goal}\n\n当前学习主题：${notebookTopic}` : goal;
-    const topicKp = inferKpFromTopic(notebookTopic);
+  const startGenerate = (label: string, goal: string, kinds: string[], promptTemplate: string) => {
+    const focus = conversationFocus.trim() || notebookTopic.trim();
+    const topicKp = inferKpFromTopic(focus);
+    const scopedGoal = focus
+      ? `${goal}\n\n请以最近学习对话中的实际问题为准：${focus}`
+      : goal;
     setActivePanel("chat");
     setMobilePane(null);
     setTrace(emptyTrace());
@@ -446,11 +462,13 @@ export default function Home() {
     setSeed(undefined);
     setRequest({
       path: "/resources/generate",
-      display: scopedGoal,
+      display: focus ? `把刚才讨论的内容做成${label}` : `生成${label}`,
       body: {
         user_id: USER_ID,
+        session_id: chatSessionId,
         goal: scopedGoal,
-        topic_label: notebookTopic,
+        conversation_focus: focus,
+        topic_label: "",
         knowledge_points: topicKp ? [topicKp] : [],
         kinds,
         source_ids: selectedSourceIds,
@@ -590,7 +608,7 @@ export default function Home() {
         </button>
         <span className="hidden h-5 w-px bg-[#DDE0E8] sm:block" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[#343944]">{notebookTopic || "新的学习笔记"}</div>
+          <div className="truncate text-sm font-semibold text-[#343944]">{currentTopicTitle}</div>
           <div className="hidden text-[11px] text-[#818795] sm:block">{selectedSourceIds.length ? `${selectedSourceIds.length} 份个人资料参与回答` : "课程知识库参与回答"}</div>
         </div>
 
@@ -620,18 +638,20 @@ export default function Home() {
         <section className="notebook-column min-h-0 overflow-hidden">
           {panelError && <div className="m-3 rounded-[8px] border border-[#F1D6C9] bg-[#FFF6F1] px-4 py-3 text-sm text-[#9E4B2D]">{panelError}</div>}
 
-          {activePanel === "chat" && (
+          <div className={`h-full min-h-0 ${activePanel === "chat" ? "block" : "hidden"}`} aria-hidden={activePanel !== "chat"}>
             <Chat
               onEvent={onEvent}
               seed={seed}
               request={request}
-              topic={notebookTopic}
+              topic={conversationFocus || notebookTopic}
               sourceIds={selectedSourceIds}
               onUploadClick={() => sourceInputRef.current?.click()}
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}
+              onLearningTurn={setConversationFocus}
+              onSessionReady={setChatSessionId}
               onQuizEvaluated={refreshAfterEvaluation}
             />
-          )}
+          </div>
 
           {activePanel === "profile" && (
             <div className="notebook-content-scroll">

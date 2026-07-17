@@ -41,7 +41,25 @@ _KP_ALIASES: dict[str, tuple[str, ...]] = {
 
 _STANDALONE_GRAPH_RE = re.compile(
     r"(?:^|请问|什么是|学习|了解|讲讲|解释|教我|(?:当前)?(?:学习)?主题[：:]?)图"
-    r"(?:是什么|的定义|的概念|怎么表示|如何表示|有哪些|[？?。！!]|$)",
+    r"(?:是什么|的定义|的概念|怎么(?:表示|学|学习|入门|开始|办)|"
+    r"如何(?:表示|学|学习|入门|开始)|从哪里开始|有哪些|[？?。！!]|$)",
+    re.IGNORECASE,
+)
+
+_TOPIC_INTRO_PATTERNS = (
+    re.compile(r"^(?:请|能否|可以)?(?:先)?(?:给我)?(?:解释|介绍|讲解|讲讲|说说|教我|学习|了解)(?:一下)?\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
+    re.compile(r"^(?:什么是|何为)\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
+    re.compile(
+        r"^(?P<topic>[^，。！？?\n]{2,60}?)(?:是什么|的定义(?:是什么)?|怎么(?:工作|运行|实现|使用|学习|理解)?|如何(?:工作|运行|实现|使用|学习|理解)?|为什么)",
+        re.IGNORECASE,
+    ),
+)
+_CONTEXT_DEPENDENT_TOPIC_RE = re.compile(
+    r"^(?:它|这个|这(?:个|种)?|那个|那(?:个|种)?|其|上面|前面|刚才|继续|再|然后|为什么(?:会|要)?(?:这样)?[？?]?$|怎么(?:会)?(?:这样)?[？?]?$)",
+    re.IGNORECASE,
+)
+_PRODUCT_HELP_RE = re.compile(
+    r"(?:你能|可以)(?:帮助我|帮我)?(?:做|干)什么|怎么使用|如何使用|^help$",
     re.IGNORECASE,
 )
 
@@ -89,7 +107,11 @@ _TOPIC_PREFIXES = (
     "请用完全零基础、由浅入深的方式教我", "请从零开始教我", "请从零讲解",
     "我刚开始学习", "我想要学习", "我想学习", "我想学", "想学习", "学习", "了解",
 )
-_TOPIC_SUFFIXES = ("方面的知识", "相关知识", "的知识", "是什么", "入门")
+_TOPIC_SUFFIXES = (
+    "从哪里开始", "怎么学习", "如何学习", "怎么入门", "如何入门",
+    "怎么开始", "如何开始", "怎么学", "如何学", "怎么办",
+    "方面的知识", "相关知识", "的知识", "是什么", "入门",
+)
 
 
 def clean_topic_label(value: str | None) -> str:
@@ -128,6 +150,59 @@ def resolve_topic(
         return kp, kp_name(kp), False
     label = clean_topic_label(topic_label or learning_goal)
     return CUSTOM_TOPIC_KP, label, True
+
+
+def explicit_topic_label(question: str | None) -> str | None:
+    """Extract a self-contained topic while rejecting help and pronoun-only turns."""
+    text = " ".join(str(question or "").strip().split())
+    probe = re.sub(r"^(?:请问|我想问一下|能问一下)\s*", "", text).strip()
+    if not probe or _PRODUCT_HELP_RE.search(probe) or _CONTEXT_DEPENDENT_TOPIC_RE.match(probe):
+        return None
+    for pattern in _TOPIC_INTRO_PATTERNS:
+        match = pattern.search(probe)
+        if not match:
+            continue
+        label = clean_topic_label(match.group("topic"))
+        if label not in {"当前主题", "这个主题", "这个", "那个", "为什么", "怎么", "如何"}:
+            return label
+    return clean_topic_label(probe) if len(probe) >= 2 else None
+
+
+def resolve_conversation_topic(
+    current_text: str | None,
+    conversation: list[dict] | None = None,
+    *,
+    knowledge_points: list[str] | None = None,
+    topic_label: str | None = None,
+) -> tuple[str, str, bool]:
+    """Resolve the current conversational focus without binding it to the opening title."""
+    current = str(current_text or "").strip()
+    current_kp = infer_kp_id(current)
+    if current_kp:
+        return resolve_topic([current_kp], current, "")
+
+    current_label = explicit_topic_label(current)
+    if current_label:
+        return resolve_topic([], current_label, "")
+
+    skipped_current = False
+    for item in reversed(conversation or []):
+        if item.get("role") != "user":
+            continue
+        content = str(item.get("content") or "").strip()
+        if not content:
+            continue
+        if not skipped_current and current and content == current:
+            skipped_current = True
+            continue
+        recent_kp = infer_kp_id(content)
+        if recent_kp:
+            return resolve_topic([recent_kp], content, "")
+        recent_label = explicit_topic_label(content)
+        if recent_label:
+            return resolve_topic([], recent_label, "")
+
+    return resolve_topic(knowledge_points, current, topic_label)
 
 
 def infer_kp_id(text: str, kp_ids: list[str] | None = None) -> str | None:

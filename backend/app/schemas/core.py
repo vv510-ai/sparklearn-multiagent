@@ -16,7 +16,9 @@ class ChatRequest(BaseModel):
 
 class GenerateRequest(BaseModel):
     user_id: str = "demo_user"
+    session_id: str = ""
     goal: str = Field(default="", description="学习目标自然语言,如:两周后期末考,先攻克二叉树")
+    conversation_focus: str = Field(default="", description="最近一轮真实学习问题，用于工坊产物随对话切换主题")
     topic_label: str = Field(default="", description="当前学习笔记本的主题")
     knowledge_points: list[str] = Field(default_factory=list)
     kinds: list[str] = Field(default_factory=lambda: ["doc", "mindmap", "quiz", "code", "video"])
