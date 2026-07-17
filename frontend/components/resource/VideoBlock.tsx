@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Notice } from "@/components/ui";
 import { apiAssetUrl, apiGet } from "@/lib/api";
 import type { ResourceItem } from "@/lib/types";
@@ -10,29 +10,50 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
   const [polling, setPolling] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pollError, setPollError] = useState("");
+  const [playbackError, setPlaybackError] = useState("");
+  const attempts = useRef(0);
   const script = payload.script;
   const scenes = script?.scenes || [];
-  const videoUrl = apiAssetUrl(video?.url);
+  const providerUrl = String(video?.url || "");
+  const isManagedVideo = providerUrl.startsWith("/static/gen/");
+  const shouldMaterialize = Boolean(video?.task_id && providerUrl && !isManagedVideo);
+  const videoUrl = apiAssetUrl(isManagedVideo || !video?.task_id ? providerUrl : undefined);
   const coverUrl = apiAssetUrl(payload.cover_url);
   const audioUrl = apiAssetUrl(payload.audio_url);
 
   useEffect(() => {
     setVideo(payload.video);
+    setPlaybackError("");
+    attempts.current = 0;
   }, [payload.video]);
 
-  async function poll() {
-    if (!video?.task_id) return;
+  const poll = useCallback(async () => {
+    if (!video?.task_id || polling) return;
     setPolling(true);
     setPollError("");
     try {
-      const r = await apiGet<{ status: string; url?: string }>(`/resources/video/task/${video.task_id}`);
+      const r = await apiGet<NonNullable<ResourceItem["payload"]["video"]>>(
+        `/resources/video/task/${video.task_id}`,
+      );
       setVideo((v) => ({ ...v, ...r }));
+      if (r.url?.startsWith("/static/gen/")) setPlaybackError("");
+      if (r.retryable && r.error) setPollError(r.error);
     } catch {
-      setPollError("状态查询失败,稍后再试。");
+      setPollError("暂时没有查到视频进度，系统会继续重试。");
     } finally {
       setPolling(false);
     }
-  }
+  }, [polling, video?.task_id]);
+
+  useEffect(() => {
+    const terminal = video?.status === "failed" || video?.status === "timeout";
+    if (!video?.task_id || polling || terminal || videoUrl || attempts.current >= 120) return;
+    const timer = window.setTimeout(() => {
+      attempts.current += 1;
+      void poll();
+    }, attempts.current === 0 ? 800 : 3500);
+    return () => window.clearTimeout(timer);
+  }, [poll, polling, shouldMaterialize, video?.status, video?.task_id, videoUrl]);
 
   function copyManim() {
     if (!payload.manim_code) return;
@@ -54,28 +75,43 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
 
   return (
     <div className="space-y-3">
-      {videoUrl ? (
-        <video src={videoUrl} controls poster={coverUrl} className="w-full rounded-xl border border-slate-200 bg-black" />
+      {video?.status === "failed" || video?.status === "timeout" ? (
+        <Notice
+          tone="error"
+          title={`视频生成${video.status === "timeout" ? "超时" : "失败"}`}
+          desc={`${video.error || video.reason || "请查看后端任务日志"}。下方分镜脚本与动画代码不受影响,可直接用于讲解。`}
+        />
+      ) : videoUrl ? (
+        <video
+          key={videoUrl}
+          src={videoUrl}
+          controls
+          preload="metadata"
+          poster={coverUrl}
+          onError={() => {
+            setPlaybackError("视频文件暂时读取失败，系统正在重新获取。");
+            if (video?.task_id) {
+              setVideo((current) => ({ ...current, status: "running", url: undefined }));
+            }
+          }}
+          className="w-full rounded-xl border border-slate-200 bg-black"
+        />
       ) : video?.task_id ? (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs">
           <span className="min-w-0 text-slate-700">
-            视频云端生成中,可先阅读下方分镜脚本
+            {shouldMaterialize || video.status === "succeeded"
+              ? "视频已生成，正在安全保存到 SparkLearn"
+              : "视频云端生成中，可先阅读下方分镜脚本"}
             <span className="ml-2 font-mono text-[10px] text-slate-500">任务 {video.task_id.slice(0, 10)}...</span>
           </span>
           <button
-            onClick={poll}
+            onClick={() => void poll()}
             disabled={polling}
             className="shrink-0 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
           >
             {polling ? "查询中..." : "刷新状态"}
           </button>
         </div>
-      ) : video?.status === "failed" || video?.status === "timeout" ? (
-        <Notice
-          tone="error"
-          title={`视频生成${video.status === "timeout" ? "超时" : "失败"}`}
-          desc={`${video.error || video.reason || "请查看后端任务日志"}。下方分镜脚本与动画代码不受影响,可直接用于讲解。`}
-        />
       ) : video?.status === "degraded" ? (
         <Notice
           tone="info"
@@ -87,7 +123,8 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         <img src={coverUrl} alt="视频封面" className="w-full rounded-xl border border-slate-200" />
       ) : null}
 
-      {pollError && <Notice tone="error" title={pollError} />}
+      {pollError && <Notice tone="warn" title="视频保存稍有延迟" desc={pollError} />}
+      {playbackError && <Notice tone="warn" title="视频暂时无法播放" desc={playbackError} />}
 
       {script && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">

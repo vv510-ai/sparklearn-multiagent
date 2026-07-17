@@ -52,6 +52,8 @@ def _settings(**overrides):
         "mm_video_create_timeout_s": 0.05,
         "mm_video_wait_budget_s": 0.02,
         "mm_video_poll_timeout_s": 0.01,
+        "mm_video_download_timeout_s": 0.2,
+        "mm_video_max_mb": 8,
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -422,6 +424,117 @@ def test_video_budget_hands_running_task_to_frontend(monkeypatch):
         "task_id": "task-1",
         "provider": "xiaoyunque",
     }
+
+
+def test_video_poll_materializes_and_reuses_provider_mp4(monkeypatch, tmp_path: Path):
+    settings = _settings(mm_video_poll_timeout_s=0.2, mm_video_download_timeout_s=0.2)
+    task_id = "xyq:test-materialize"
+    provider_url = "https://video.example.test/signed/video.mp4"
+    media = b"\x00\x00\x00\x20ftypisom" + b"x" * 2048
+    downloads = 0
+
+    class FakeResponse:
+        headers = {"content-length": str(len(media)), "content-type": "video/mp4"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def raise_for_status():
+            return None
+
+        @staticmethod
+        def iter_content(_size):
+            yield media
+
+    def fake_download(*_args, **_kwargs):
+        nonlocal downloads
+        downloads += 1
+        return FakeResponse()
+
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
+    monkeypatch.setattr(
+        gateway.xiaoyunque_client,
+        "poll_task",
+        lambda value: {
+            "status": "succeeded",
+            "task_id": value,
+            "provider": "xiaoyunque",
+            "url": provider_url,
+            "urls": [provider_url],
+        },
+    )
+    monkeypatch.setattr(gateway.requests, "get", fake_download)
+
+    first = asyncio.run(gateway.video_poll(task_id, trace_id="video-materialize"))
+
+    assert first["status"] == "succeeded"
+    assert first["url"].startswith("/static/gen/xiaoyunque_")
+    assert first["stored"] is True
+    assert first["cached"] is False
+    assert provider_url not in str(first)
+    assert gateway._video_target(task_id).read_bytes() == media
+    assert downloads == 1
+
+    monkeypatch.setattr(
+        gateway.xiaoyunque_client,
+        "poll_task",
+        lambda _value: (_ for _ in ()).throw(AssertionError("cached video must not poll provider")),
+    )
+    second = asyncio.run(gateway.video_poll(task_id, trace_id="video-cache"))
+
+    assert second["url"] == first["url"]
+    assert second["cached"] is True
+    assert downloads == 1
+
+
+def test_video_poll_rejects_non_mp4_response(monkeypatch, tmp_path: Path):
+    settings = _settings(mm_video_poll_timeout_s=0.2, mm_video_download_timeout_s=0.2)
+    body = b"<html>forbidden</html>" + b"x" * 2048
+
+    class FakeResponse:
+        headers = {"content-length": str(len(body)), "content-type": "text/html"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        @staticmethod
+        def raise_for_status():
+            return None
+
+        @staticmethod
+        def iter_content(_size):
+            yield body
+
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
+    monkeypatch.setattr(
+        gateway.xiaoyunque_client,
+        "poll_task",
+        lambda value: {
+            "status": "succeeded",
+            "task_id": value,
+            "provider": "xiaoyunque",
+            "url": "https://video.example.test/not-a-video",
+        },
+    )
+    monkeypatch.setattr(gateway.requests, "get", lambda *_args, **_kwargs: FakeResponse())
+
+    result = asyncio.run(gateway.video_poll("xyq:invalid-video", trace_id="video-invalid"))
+
+    assert result["status"] == "running"
+    assert result["retryable"] is True
+    assert "invalid MP4" in result["error"]
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_demo_ocr_keeps_existing_sample_behavior(monkeypatch):

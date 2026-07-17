@@ -89,6 +89,8 @@ try:  # pydantic-settings 可用时走标准路径
         mm_video_create_timeout_s: float = 15
         mm_video_wait_budget_s: float = 45
         mm_video_poll_timeout_s: float = 15
+        mm_video_download_timeout_s: float = 90
+        mm_video_max_mb: int = 256
         mm_ppt_create_timeout_s: float = 30
         mm_ppt_poll_timeout_s: float = 15
         mm_ppt_download_timeout_s: float = 45
@@ -176,6 +178,8 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_video_create_timeout_s = float(g("MM_VIDEO_CREATE_TIMEOUT_S", "15"))
             self.mm_video_wait_budget_s = float(g("MM_VIDEO_WAIT_BUDGET_S", "45"))
             self.mm_video_poll_timeout_s = float(g("MM_VIDEO_POLL_TIMEOUT_S", "15"))
+            self.mm_video_download_timeout_s = float(g("MM_VIDEO_DOWNLOAD_TIMEOUT_S", "90"))
+            self.mm_video_max_mb = int(g("MM_VIDEO_MAX_MB", "256"))
             self.mm_ppt_create_timeout_s = float(g("MM_PPT_CREATE_TIMEOUT_S", "30"))
             self.mm_ppt_poll_timeout_s = float(g("MM_PPT_POLL_TIMEOUT_S", "15"))
             self.mm_ppt_download_timeout_s = float(g("MM_PPT_DOWNLOAD_TIMEOUT_S", "45"))

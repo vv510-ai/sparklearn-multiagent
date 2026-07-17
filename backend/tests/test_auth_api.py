@@ -113,12 +113,20 @@ def test_register_login_and_user_scope(monkeypatch):
             asset_url = f"/static/gen/{generated_file.name}"
             resource_id = f"security-{marker}"
             task_id = f"task-{marker}"
-            payload = {"cover_url": asset_url, "video": {"task_id": task_id}}
+            payload = {
+                "cover_url": asset_url,
+                "video": {
+                    "task_id": task_id,
+                    "status": "succeeded",
+                    "url": "https://provider.example.test/expired.mp4",
+                    "urls": ["https://provider.example.test/expired.mp4"],
+                },
+            }
             with session() as db:
                 db.add(Resource(
                     id=resource_id,
                     user_id=first_id,
-                    kind="doc",
+                    kind="video",
                     kp="",
                     title="private",
                     payload=payload,
@@ -133,16 +141,24 @@ def test_register_login_and_user_scope(monkeypatch):
             assert first_asset.text == "private learning artifact"
             assert client.get(asset_url, headers=second_headers).status_code == 404
 
-            async def fake_video_poll(value: str):
-                return {"task_id": value, "status": "running"}
+            async def fake_video_poll(value: str, *, trace_id: str = ""):
+                assert trace_id.startswith("video-poll-")
+                return {"task_id": value, "status": "succeeded", "url": asset_url, "stored": True}
 
             monkeypatch.setattr(resources_api.multimodal_gateway, "video_poll", fake_video_poll)
-            assert client.get(
+            first_video = client.get(
                 f"/api/resources/video/task/{task_id}", headers=first_headers,
-            ).status_code == 200
+            )
+            assert first_video.status_code == 200
+            assert first_video.json()["url"] == asset_url
             assert client.get(
                 f"/api/resources/video/task/{task_id}", headers=second_headers,
             ).status_code == 404
+            with session() as db:
+                stored_resource = db.get(Resource, resource_id)
+                assert stored_resource.payload["video"]["status"] == "succeeded"
+                assert stored_resource.payload["video"]["url"] == asset_url
+                assert "urls" not in stored_resource.payload["video"]
 
             debug_dir = RUNS_DIR / f"tenant-{marker}"
             debug_dir.mkdir(parents=True, exist_ok=True)

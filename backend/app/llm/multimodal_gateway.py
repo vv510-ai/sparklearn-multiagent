@@ -14,6 +14,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+import requests
+
 from ..agents.emitter import emit
 from ..config import GEN_DIR, get_settings, is_demo
 from . import (
@@ -33,10 +35,123 @@ MMResult = dict[str, Any]
 _MM_POOL_SIZE = 4
 _MM_POOL = ThreadPoolExecutor(max_workers=_MM_POOL_SIZE, thread_name_prefix="sparklearn-mm")
 _MM_SLOTS = threading.BoundedSemaphore(_MM_POOL_SIZE)
+_VIDEO_DOWNLOAD_LOCK = threading.Lock()
+_DEFAULT_MAX_VIDEO_BYTES = 256 * 1024 * 1024
 
 
 class _MMPoolSaturated(RuntimeError):
     pass
+
+
+def _video_target(task_id: str) -> Path:
+    digest = hashlib.sha256(str(task_id).encode("utf-8")).hexdigest()[:24]
+    return GEN_DIR / f"xiaoyunque_{digest}.mp4"
+
+
+def _valid_mp4(path: Path) -> bool:
+    try:
+        if path.stat().st_size < 1024:
+            return False
+        with path.open("rb") as handle:
+            return b"ftyp" in handle.read(64)
+    except OSError:
+        return False
+
+
+def _download_video(
+    source_url: str,
+    target: Path,
+    *,
+    timeout_s: float,
+    max_bytes: int,
+) -> Path:
+    """Atomically copy a provider MP4 into SparkLearn-owned storage."""
+    source = str(source_url or "").strip()
+    if not source.startswith("https://"):
+        raise ValueError("video download URL must use HTTPS")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partial = target.with_suffix(f"{target.suffix}.{uuid.uuid4().hex}.part")
+    total = 0
+    try:
+        with requests.get(
+            source,
+            stream=True,
+            timeout=max(1.0, float(timeout_s)),
+            headers={
+                "Accept": "video/mp4,video/*;q=0.9,*/*;q=0.1",
+                "Accept-Encoding": "identity",
+                "User-Agent": "SparkLearn-Asset-Worker/1.0",
+            },
+        ) as response:
+            response.raise_for_status()
+            content_length = response.headers.get("content-length")
+            if content_length and int(content_length) > max_bytes:
+                raise RuntimeError("video file exceeds configured size limit")
+            with partial.open("wb") as handle:
+                for chunk in response.iter_content(256 * 1024):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise RuntimeError("video file exceeds configured size limit")
+                    handle.write(chunk)
+        if not _valid_mp4(partial):
+            raise RuntimeError("video provider returned an invalid MP4 file")
+        partial.replace(target)
+        return target
+    finally:
+        partial.unlink(missing_ok=True)
+
+
+def _poll_and_materialize_video(task_id: str, settings: Any) -> dict[str, Any]:
+    """Return only a durable local URL after the provider task succeeds."""
+    target = _video_target(task_id)
+    local_url = f"/static/gen/{target.name}"
+    if _valid_mp4(target):
+        return {
+            "status": "succeeded",
+            "task_id": task_id,
+            "provider": "xiaoyunque",
+            "url": local_url,
+            "stored": True,
+            "cached": True,
+        }
+
+    state = dict(xiaoyunque_client.poll_task(task_id))
+    if state.get("status") != "succeeded":
+        return state
+
+    with _VIDEO_DOWNLOAD_LOCK:
+        if _valid_mp4(target):
+            return {
+                "status": "succeeded",
+                "task_id": task_id,
+                "provider": str(state.get("provider") or "xiaoyunque"),
+                "url": local_url,
+                "stored": True,
+                "cached": True,
+            }
+        target.unlink(missing_ok=True)
+        source_url = str(state.get("url") or "")
+        if not source_url:
+            raise RuntimeError("video task succeeded without a download URL")
+        max_mb = max(1, int(getattr(settings, "mm_video_max_mb", 256)))
+        _download_video(
+            source_url,
+            target,
+            timeout_s=float(getattr(settings, "mm_video_download_timeout_s", 90)),
+            max_bytes=min(max_mb * 1024 * 1024, _DEFAULT_MAX_VIDEO_BYTES),
+        )
+        durable = {key: value for key, value in state.items() if key not in {"url", "urls"}}
+        durable.update({
+            "status": "succeeded",
+            "task_id": task_id,
+            "provider": str(state.get("provider") or "xiaoyunque"),
+            "url": local_url,
+            "stored": True,
+            "cached": False,
+        })
+        return durable
 
 
 async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float) -> Any:
@@ -665,8 +780,12 @@ async def video_wait(
             remaining = max(0.01, budget - (time.monotonic() - started))
             try:
                 state = await _run_in_mm_pool(
-                    lambda: xiaoyunque_client.poll_task(task_id),
-                    min(float(s.mm_video_poll_timeout_s), remaining),
+                    lambda: _poll_and_materialize_video(task_id, s),
+                    min(
+                        float(s.mm_video_poll_timeout_s)
+                        + float(getattr(s, "mm_video_download_timeout_s", 90)),
+                        remaining,
+                    ),
                 )
             except TimeoutError:
                 break
@@ -727,18 +846,23 @@ async def video_poll(task_id: str, *, trace_id: str = "") -> dict[str, Any]:
     s = get_settings()
     result = await _run_sync(
         "video",
-        lambda: xiaoyunque_client.poll_task(task_id),
+        lambda: _poll_and_materialize_video(task_id, s),
         lambda state: dict(state),
         enabled=bool(s.mm_video_enabled),
         configured=bool(xiaoyunque_client.available() and not is_demo()),
-        timeout_s=float(s.mm_video_poll_timeout_s),
+        timeout_s=(
+            float(s.mm_video_poll_timeout_s)
+            + float(getattr(s, "mm_video_download_timeout_s", 90))
+        ),
         trace_id=trace_id,
         agent="media",
     )
     if result["ok"]:
         return result["data"]
     return {
-        "status": "degraded",
+        "status": "running",
         "task_id": task_id,
-        "reason": result["error"],
+        "phase": "saving",
+        "error": result["error"],
+        "retryable": True,
     }

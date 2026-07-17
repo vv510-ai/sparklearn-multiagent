@@ -183,7 +183,30 @@ async def video_task(task_id: str):
     user_id = require_current_user_id()
     if not task_belongs_to_user(user_id, task_id):
         raise HTTPException(404, "video task not found")
-    return await multimodal_gateway.video_poll(task_id)
+    resource_id = task_resource_id(user_id, task_id)
+    state = await multimodal_gateway.video_poll(
+        task_id,
+        trace_id=f"video-poll-{task_id[:12]}",
+    )
+    if not resource_id:
+        return state
+
+    updated_payload: dict | None = None
+    with session() as db:
+        resource = db.get(Resource, resource_id)
+        if resource and resource.user_id == user_id and resource.kind == "video":
+            payload = dict(_as_json(resource.payload, {}))
+            previous_video = dict(payload.get("video") or {})
+            if str(state.get("url") or "").startswith("/static/gen/"):
+                previous_video.pop("urls", None)
+            payload["video"] = {**previous_video, **state}
+            resource.payload = payload
+            db.commit()
+            db.refresh(resource)
+            updated_payload = payload
+    if state.get("url") and updated_payload:
+        sync_resource_ownership(user_id, resource_id, updated_payload)
+    return state
 
 
 @router.get("/ppt/task/{task_id}")
