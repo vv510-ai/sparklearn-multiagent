@@ -9,6 +9,7 @@ import Markmap from "./Markmap";
 import QuizPlayer from "./QuizPlayer";
 import VideoBlock from "./VideoBlock";
 import InteractiveAudioPlayer from "./InteractiveAudioPlayer";
+import PptBlock from "./PptBlock";
 import { apiAssetUrl, apiPost, USER_ID } from "@/lib/api";
 
 const KIND_META: Record<
@@ -27,6 +28,7 @@ const KIND_META: Record<
   mindmap: { label: "知识导图", code: "导图", icon: "图", variant: "info", hint: "按掌握情况标注：已掌握✅ 待巩固⚠️ 未解锁🔒" },
   quiz: { label: "巩固练习", code: "练习", icon: "练", variant: "warn", hint: "提交后更新掌握情况、错因与后续路线" },
   video: { label: "讲解稿", code: "讲稿", icon: "影", variant: "neutral", hint: "适合录制讲解视频的分镜与旁白素材" },
+  ppt: { label: "复习演示", code: "PPT", icon: "演", variant: "info", hint: "仅在你明确要求时生成；完成后可下载并继续编辑" },
 };
 
 const TEXT_KINDS = new Set(["doc", "code", "reading"]);
@@ -49,6 +51,7 @@ function resourceIssue(r: ResourceItem): string {
   ) {
     return "讲解资源为空";
   }
+  if (r.kind === "ppt" && !payload.ppt) return "PPT 任务为空";
   return "";
 }
 
@@ -58,6 +61,7 @@ function resourcePreview(r: ResourceItem): string {
   const markmap = payload.markmap;
   const questions = payload.questions;
   const script = payload.script;
+  const ppt = payload.ppt as ResourceItem["payload"]["ppt"];
   if (typeof markdown === "string") {
     return markdown
       .replace(/[#>*_`\[\]\(\)]/g, "")
@@ -76,6 +80,9 @@ function resourcePreview(r: ResourceItem): string {
   }
   if (Array.isArray(questions)) return `${questions.length} 道题，提交后会更新掌握情况与错因。`;
   if (typeof script === "string") return script.replace(/\s+/g, " ").trim().slice(0, 86);
+  if (ppt?.status === "ready") return `${ppt.total_pages || ""} 页复习演示已生成，可以下载。`;
+  if (ppt?.status === "building") return "正在生成大纲、排版与配图。";
+  if (ppt?.error) return ppt.error.slice(0, 86);
   return "";
 }
 
@@ -216,6 +223,8 @@ export default function ResourceCard({
             <QuizPlayer resourceId={r.id} questions={payload.questions} onEvaluated={onQuizEvaluated} />
           ) : r.kind === "video" ? (
             <VideoBlock payload={payload} />
+          ) : r.kind === "ppt" ? (
+            <PptBlock payload={payload} />
           ) : payload.markdown ? (
             <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} />
           ) : (

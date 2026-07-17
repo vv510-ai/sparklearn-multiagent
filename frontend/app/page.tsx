@@ -30,7 +30,7 @@ import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
 type PanelKey = "chat" | "profile" | "path" | "resources";
-type ResourceFilter = "all" | "doc" | "mindmap" | "quiz" | "video";
+type ResourceFilter = "all" | "doc" | "mindmap" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
 type UploadResult = { source: KnowledgeSource; sample?: { text: string; citation: string }[] };
@@ -84,6 +84,7 @@ const RESOURCE_FILTERS: { key: ResourceFilter; label: string }[] = [
   { key: "mindmap", label: "导图" },
   { key: "quiz", label: "测验" },
   { key: "video", label: "讲解" },
+  { key: "ppt", label: "PPT" },
 ];
 
 const TRACE_FLOW = [

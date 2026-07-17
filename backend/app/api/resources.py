@@ -20,7 +20,11 @@ from ..schemas.core import AudioRetryRequest, GenerateRequest
 from ..services.conversation_service import get_session_messages
 from ..services.knowledge_graph import resolve_conversation_topic
 from ..services.profile_service import ensure_user, log_event
-from ..services.ownership_service import sync_resource_ownership, task_belongs_to_user
+from ..services.ownership_service import (
+    sync_resource_ownership,
+    task_belongs_to_user,
+    task_resource_id,
+)
 from ..auth import require_current_user_id
 from .sse import sse_response
 
@@ -163,6 +167,31 @@ async def video_task(task_id: str):
     if not task_belongs_to_user(user_id, task_id):
         raise HTTPException(404, "video task not found")
     return await multimodal_gateway.video_poll(task_id)
+
+
+@router.get("/ppt/task/{task_id}")
+async def ppt_task(task_id: str):
+    user_id = require_current_user_id()
+    if not task_belongs_to_user(user_id, task_id):
+        raise HTTPException(404, "PPT task not found")
+    resource_id = task_resource_id(user_id, task_id)
+    state = await multimodal_gateway.ppt_poll(task_id, trace_id=f"ppt-poll-{task_id[:12]}")
+    if not resource_id:
+        return state
+
+    updated_payload: dict | None = None
+    with session() as db:
+        resource = db.get(Resource, resource_id)
+        if resource and resource.user_id == user_id and resource.kind == "ppt":
+            payload = dict(_as_json(resource.payload, {}))
+            payload["ppt"] = {**dict(payload.get("ppt") or {}), **state}
+            resource.payload = payload
+            db.commit()
+            db.refresh(resource)
+            updated_payload = payload
+    if state.get("url") and updated_payload:
+        sync_resource_ownership(user_id, resource_id, updated_payload)
+    return state
 
 
 @router.get("/{rid}")

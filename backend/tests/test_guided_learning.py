@@ -89,6 +89,7 @@ def test_only_explicitly_named_artifacts_are_selected():
     assert requested_resource_kinds("数据结构怎么学？") == []
     assert requested_resource_kinds("请画一张数据结构思维导图") == ["mindmap"]
     assert requested_resource_kinds("请给我出题，不需要导图") == ["quiz"]
+    assert requested_resource_kinds("帮我生成一份复习PPT") == ["ppt"]
     assert requested_resource_kinds("只讲怎么学，不要题目和思维导图") == []
 
 

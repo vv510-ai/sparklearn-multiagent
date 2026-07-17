@@ -11,6 +11,7 @@ import {
   Headphones,
   Network,
   PlaySquare,
+  Presentation,
   Route,
 } from "lucide-react";
 
@@ -70,6 +71,15 @@ const GENERATORS = [
     goal: "请根据最近的学习对话自动识别内容焦点，结合学习者薄弱点和所选资料生成一组巩固测验。",
     kinds: ["quiz"],
     template: "quiz",
+  },
+  {
+    title: "复习PPT",
+    desc: "明确需要时再生成",
+    icon: Presentation,
+    tone: "blue",
+    goal: "请根据当前学习主题和所选资料生成一份约 8—10 页、结构清楚、适合考前复习的 PPT。只生成当前主题，不联网扩展；普通问答时不要自动生成。",
+    kinds: ["ppt"],
+    template: "review_ppt",
   },
   {
     title: "讲解视频",

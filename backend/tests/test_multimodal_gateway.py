@@ -117,6 +117,7 @@ def test_slow_tts_times_out_without_blocking_event_loop(monkeypatch):
         return result
 
     monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.spark_super_tts, "configured", lambda _settings=None: False)
     monkeypatch.setattr(gateway.spark_tts, "synthesize", slow_provider)
     result = asyncio.run(scenario())
 

@@ -64,6 +64,23 @@ export interface ResourceItem {
       retryable?: boolean;
     };
     cover_url?: string;
+    ppt?: {
+      status?: "building" | "ready" | "failed" | "blocked" | string;
+      task_id?: string;
+      url?: string;
+      title?: string;
+      subtitle?: string;
+      cover_url?: string;
+      total_pages?: number;
+      done_pages?: number;
+      provider_status?: string;
+      image_status?: string;
+      provider?: string;
+      error?: string;
+      retryable?: boolean;
+    };
+    explicit_only?: boolean;
+    source_bound?: boolean;
     grounded?: boolean;
     remediation?: {
       origin_attempt_id?: number;

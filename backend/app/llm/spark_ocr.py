@@ -59,7 +59,16 @@ def image_to_question(
         }},
         "payload": {"message": {"text": [
             {"role": "user", "content": base64.b64encode(image_bytes).decode(), "content_type": "image"},
-            {"role": "user", "content": "请完整转写图中题目文字,保留公式与代码。" + hint, "content_type": "text"},
+            {
+                "role": "user",
+                "content": (
+                    "请先完整转写图片中的文字、公式与代码，再准确描述图表、流程、连线、"
+                    "标注和空间关系等仅靠 OCR 无法表达的信息。只陈述图片中可以确认的内容，"
+                    "不要猜测，不要替用户作答。"
+                    + (f"用户补充：{hint}" if hint else "")
+                ),
+                "content_type": "text",
+            },
         ]}},
     }
 

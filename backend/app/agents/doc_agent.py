@@ -1,6 +1,7 @@
 """文档智能体(Doc Agent):基于 RAG 的图文教程生成,带 [^n] 引用溯源,
 经 grounding_check(X2 答案-证据一致性)与 safety_filter 双层防幻觉校验。
-泛化承担三类文本资源:doc(图文教程)/ code(代码示例)/ reading(拓展阅读)。"""
+泛化承担文本资源与显式复习 PPT:doc(图文教程)/ code(代码示例)/
+reading(拓展阅读)/ ppt(讯飞智能 PPT 异步任务)。"""
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +23,7 @@ _STYLE = {
     "doc": ("学习笔记", "doc.complete_notes"),
     "code": ("代码示例", "doc.code"),
     "reading": ("拓展阅读", "doc.reading"),
+    "ppt": ("复习PPT", "doc.complete_notes"),
 }
 
 _DOC_TIMEOUT_S = 75
@@ -177,6 +179,94 @@ def _cover_prompt(name: str, *, source_bound: bool = False, custom_topic: bool =
     )
 
 
+def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound: bool) -> str:
+    scope = (
+        "只允许使用下方所选资料与课程片段，不得补写资料外的事实。"
+        if source_bound
+        else "围绕当前主题使用可靠的通用知识，不得切换到其他课程或旧会话主题。"
+    )
+    material = context.strip() or "（本次没有选定资料，请紧扣当前主题制作基础复习版。）"
+    return (
+        f"请为学习者制作一份约 8—10 页的中文复习 PPT。\n"
+        f"主题：{name}\n学习目标：{goal or f'复习{name}'}\n学习偏好：{persona}\n"
+        f"约束：{scope} 不联网搜索；表达亲切、准确、适合学生复习，不写代码出处或系统实现信息。\n"
+        "建议结构：封面→本次要会什么→核心概念→关键步骤→最小例子→易错点→三分钟回顾。\n"
+        f"可用学习资料：\n{material}"
+    )[:12000]
+
+
+async def _gen_ppt_resource(
+    *,
+    name: str,
+    kp: str,
+    profile: dict,
+    goal: str,
+    chunks: list[dict],
+    citations: list[dict],
+    source_ids: list[str],
+    trace_id: str,
+) -> dict:
+    source_scope_missing = bool(source_ids and not chunks)
+    flags: list[dict] = []
+    if source_scope_missing:
+        ppt = {
+            "status": "blocked",
+            "error": "当前选中的资料没有可检索内容，请更换资料后再生成复习 PPT。",
+            "provider": "iflytek_ppt_v2",
+        }
+        flags.append({
+            "agent": "doc",
+            "kind": "ppt",
+            "type": "source_scope_empty",
+            "detail": "所选资料没有可检索内容，已阻止无依据生成 PPT",
+        })
+    else:
+        context, _ = build_context(chunks)
+        result = await multimodal_gateway.ppt_create(
+            _ppt_query(
+                name,
+                goal,
+                _persona(profile),
+                context,
+                source_bound=bool(chunks),
+            ),
+            trace_id=trace_id,
+        )
+        if result.get("ok"):
+            ppt = dict(result.get("data") or {})
+        else:
+            error = str(result.get("error") or "PPT 服务暂时不可用")[:240]
+            ppt = {"status": "failed", "error": error, "provider": "iflytek_ppt_v2"}
+            flags.append({
+                "agent": "doc",
+                "kind": "ppt",
+                "type": "ppt_provider_error",
+                "detail": error,
+            })
+
+    rid = uuid.uuid4().hex[:12]
+    payload = {
+        "template": "review_ppt",
+        "explicit_only": True,
+        "source_bound": bool(chunks),
+        "ppt": ppt,
+    }
+    if ppt.get("cover_url"):
+        payload["cover_url"] = ppt["cover_url"]
+    resource = {
+        "id": rid,
+        "kind": "ppt",
+        "kp": kp,
+        "title": f"{name}·复习PPT",
+        "payload": payload,
+        "citations": [item["citation"] for item in citations[:5]],
+    }
+    await emit({"type": "resource", "resource": resource})
+    if resource["citations"]:
+        await emit({"type": "citations", "agent": "doc", "items": resource["citations"]})
+    return {"resource": resource, "flags": flags}
+
+
 def _doc_label(default: str, template_key: str) -> str:
     return {
         "one_page": "一页看懂",
@@ -219,6 +309,17 @@ async def _gen_one(
         user_id=user_id,
     )
     ctx, citations = build_context(chunks)
+    if kind == "ppt":
+        return await _gen_ppt_resource(
+            name=name,
+            kp=kp,
+            profile=profile,
+            goal=goal,
+            chunks=chunks,
+            citations=citations,
+            source_ids=source_ids,
+            trace_id=trace_id,
+        )
     if kind == "doc":
         prompt_call = render_learning_prompt_call(
             prompt_template,

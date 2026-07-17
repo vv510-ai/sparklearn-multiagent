@@ -51,6 +51,11 @@ try:  # pydantic-settings 可用时走标准路径
         spark_asr_api_secret: str = ""
         spark_asr_url: str = "wss://iat.xf-yun.com/v1"
 
+        # 讯飞星火智能 PPT（新版；可复用 WebAPI APPID/APISecret）
+        spark_ppt_appid: str = ""
+        spark_ppt_api_secret: str = ""
+        spark_ppt_base_url: str = "https://zwapi.xfyun.cn"
+
         # OpenAI GPT Image 备用文生图
         openai_api_key: str = ""
         openai_base_url: str = "https://api.openai.com/v1"
@@ -74,6 +79,7 @@ try:  # pydantic-settings 可用时走标准路径
         mm_image_enabled: bool = True
         mm_openai_image_enabled: bool = True
         mm_video_enabled: bool = True
+        mm_ppt_enabled: bool = True
         mm_ocr_max_pages: int = 6
         mm_ocr_tutor_timeout_s: float = 20
         mm_ocr_ingest_timeout_s: float = 30
@@ -84,6 +90,9 @@ try:  # pydantic-settings 可用时走标准路径
         mm_video_create_timeout_s: float = 15
         mm_video_wait_budget_s: float = 45
         mm_video_poll_timeout_s: float = 15
+        mm_ppt_create_timeout_s: float = 30
+        mm_ppt_poll_timeout_s: float = 15
+        mm_ppt_download_timeout_s: float = 45
 
         # 存储
         database_url: str = ""
@@ -137,6 +146,9 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_asr_api_key = g("SPARK_ASR_API_KEY", "")
             self.spark_asr_api_secret = g("SPARK_ASR_API_SECRET", "")
             self.spark_asr_url = g("SPARK_ASR_URL", "wss://iat.xf-yun.com/v1")
+            self.spark_ppt_appid = g("SPARK_PPT_APPID", "")
+            self.spark_ppt_api_secret = g("SPARK_PPT_API_SECRET", "")
+            self.spark_ppt_base_url = g("SPARK_PPT_BASE_URL", "https://zwapi.xfyun.cn")
             self.openai_api_key = g("OPENAI_API_KEY", "")
             self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
             self.openai_image_model = g("OPENAI_IMAGE_MODEL", "gpt-image-2")
@@ -155,6 +167,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_image_enabled = _env_bool("MM_IMAGE_ENABLED")
             self.mm_openai_image_enabled = _env_bool("MM_OPENAI_IMAGE_ENABLED")
             self.mm_video_enabled = _env_bool("MM_VIDEO_ENABLED")
+            self.mm_ppt_enabled = _env_bool("MM_PPT_ENABLED")
             self.mm_ocr_max_pages = int(g("MM_OCR_MAX_PAGES", "6"))
             self.mm_ocr_tutor_timeout_s = float(g("MM_OCR_TUTOR_TIMEOUT_S", "20"))
             self.mm_ocr_ingest_timeout_s = float(g("MM_OCR_INGEST_TIMEOUT_S", "30"))
@@ -165,6 +178,9 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_video_create_timeout_s = float(g("MM_VIDEO_CREATE_TIMEOUT_S", "15"))
             self.mm_video_wait_budget_s = float(g("MM_VIDEO_WAIT_BUDGET_S", "45"))
             self.mm_video_poll_timeout_s = float(g("MM_VIDEO_POLL_TIMEOUT_S", "15"))
+            self.mm_ppt_create_timeout_s = float(g("MM_PPT_CREATE_TIMEOUT_S", "30"))
+            self.mm_ppt_poll_timeout_s = float(g("MM_PPT_POLL_TIMEOUT_S", "15"))
+            self.mm_ppt_download_timeout_s = float(g("MM_PPT_DOWNLOAD_TIMEOUT_S", "45"))
             self.database_url = g("DATABASE_URL", "")
             self.milvus_uri = g("MILVUS_URI", "")
             self.redis_url = g("REDIS_URL", "")

@@ -60,7 +60,7 @@ def sync_resource_ownership(user_id: str, resource_id: str, payload: object) -> 
                 id=task_id,
                 user_id=user_id,
                 resource_id=resource_id,
-                kind="video",
+                kind="ppt" if isinstance(payload, dict) and "ppt" in payload else "video",
             ))
         db.commit()
     for path in assets:
@@ -119,3 +119,25 @@ def task_belongs_to_user(user_id: str, task_id: str) -> bool:
         sync_resource_ownership(user_id, legacy[0], legacy[1])
         return True
     return False
+
+
+def task_resource_id(user_id: str, task_id: str) -> str:
+    """Return the owned resource for an external task, migrating legacy rows if needed."""
+    with session() as db:
+        owned = db.execute(
+            select(ExternalTask.resource_id).where(
+                ExternalTask.id == task_id,
+                ExternalTask.user_id == user_id,
+            ),
+        ).first()
+        if owned and owned[0]:
+            return str(owned[0])
+
+        rows = db.execute(
+            select(Resource.id, Resource.payload).where(Resource.user_id == user_id),
+        ).all()
+        for resource_id, payload in rows:
+            if task_id in external_task_ids(payload):
+                sync_resource_ownership(user_id, str(resource_id), payload)
+                return str(resource_id)
+    return ""

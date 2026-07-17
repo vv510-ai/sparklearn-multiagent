@@ -176,6 +176,41 @@ def test_doc_template_has_a_distinct_resource_label():
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
 
 
+def test_review_ppt_is_an_explicit_source_bound_async_resource(monkeypatch):
+    monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [_chunk()])
+    captured: dict[str, str] = {}
+
+    async def fake_ppt_create(query: str, **kwargs):
+        captured["query"] = query
+        return {
+            "ok": True,
+            "data": {
+                "task_id": "ppt-task-123",
+                "status": "building",
+                "provider": "iflytek_ppt_v2",
+            },
+        }
+
+    monkeypatch.setattr(doc_agent.multimodal_gateway, "ppt_create", fake_ppt_create)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "ppt",
+        "binary_tree",
+        {"difficulty_pref": "循序渐进"},
+        source_ids=["binary-tree-notes"],
+        goal="生成考前复习PPT",
+        prompt_template="review_ppt",
+        trace_id="ppt-doc-test",
+    ))
+
+    resource = result["resource"]
+    assert resource["kind"] == "ppt"
+    assert resource["payload"]["explicit_only"] is True
+    assert resource["payload"]["source_bound"] is True
+    assert resource["payload"]["ppt"]["task_id"] == "ppt-task-123"
+    assert "不联网搜索" in captured["query"]
+    assert "二叉树每个节点最多有两个孩子" in captured["query"]
+
+
 def test_remediation_disables_unrelated_generic_mock_fallback(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False)
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)

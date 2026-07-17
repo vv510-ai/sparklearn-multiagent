@@ -23,6 +23,7 @@ from . import (
     spark_asr,
     spark_image,
     spark_ocr,
+    spark_ppt,
     spark_super_tts,
     spark_tts,
 )
@@ -153,6 +154,10 @@ def capability_status() -> dict[str, dict[str, bool]]:
         "video": {
             "enabled": bool(s.mm_video_enabled),
             "configured": bool(seedance_client.available() and not demo),
+        },
+        "ppt": {
+            "enabled": bool(getattr(s, "mm_ppt_enabled", True)),
+            "configured": bool(spark_ppt.configured(s) and not demo),
         },
     }
 
@@ -570,6 +575,66 @@ async def video_create(
         trace_id=trace_id,
         agent="media",
     )
+
+
+async def ppt_create(query: str, *, trace_id: str = "") -> MMResult:
+    s = get_settings()
+    return await _run_sync(
+        "ppt",
+        lambda: spark_ppt.create_task(
+            query,
+            timeout_s=float(getattr(s, "mm_ppt_create_timeout_s", 30)),
+        ),
+        lambda state: dict(state),
+        enabled=bool(getattr(s, "mm_ppt_enabled", True)),
+        configured=bool(spark_ppt.configured(s) and not is_demo()),
+        timeout_s=float(getattr(s, "mm_ppt_create_timeout_s", 30)),
+        trace_id=trace_id,
+        agent="doc",
+    )
+
+
+async def ppt_poll(task_id: str, *, trace_id: str = "") -> dict[str, Any]:
+    s = get_settings()
+    digest = hashlib.sha1(str(task_id).encode("utf-8")).hexdigest()[:20]
+    target = GEN_DIR / f"review_ppt_{digest}.pptx"
+
+    def fetch() -> dict[str, Any]:
+        state = spark_ppt.poll_task(
+            task_id,
+            timeout_s=float(getattr(s, "mm_ppt_poll_timeout_s", 15)),
+        )
+        if state.get("status") == "ready" and state.get("url"):
+            if not (target.exists() and target.stat().st_size >= 1024):
+                spark_ppt.download_ppt(
+                    str(state["url"]),
+                    target,
+                    timeout_s=float(getattr(s, "mm_ppt_download_timeout_s", 45)),
+                )
+            state["url"] = f"/static/gen/{target.name}"
+        return state
+
+    result = await _run_sync(
+        "ppt",
+        fetch,
+        lambda state: dict(state),
+        enabled=bool(getattr(s, "mm_ppt_enabled", True)),
+        configured=bool(spark_ppt.configured(s) and not is_demo()),
+        timeout_s=(
+            float(getattr(s, "mm_ppt_poll_timeout_s", 15))
+            + float(getattr(s, "mm_ppt_download_timeout_s", 45))
+        ),
+        trace_id=trace_id,
+        agent="doc",
+    )
+    if result["ok"]:
+        return result["data"]
+    return {
+        "status": "building",
+        "task_id": task_id,
+        "error": result["error"],
+        "retryable": True,
+    }
 
 
 async def video_wait(
