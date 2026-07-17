@@ -152,9 +152,112 @@ def test_custom_topic_uses_general_topic_mode_without_retrieving_binary_tree(mon
     }))
 
     assert "Rust 所有权" in result["answer"]
-    assert "主题已锁定" in result["answer"]
-    assert "旧主题" in result["answer"]
+    assert "主题已锁定" not in result["answer"]
+    assert "旧主题" not in result["answer"]
     assert result["safety_flags"] == []
+
+
+def test_tutor_switches_from_binary_tree_to_queue_without_reopening(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_retrieve(query: str, **kwargs):
+        captured["query"] = query
+        captured.update(kwargs)
+        return [{
+            "text": "队列是一种先进先出（FIFO）的线性数据结构。",
+            "source": "《数据结构与算法》讲义",
+            "source_id": "seed-queue",
+            "chapter": "第3章 栈与队列",
+            "page": 2,
+            "kp": "queue",
+            "citation": "《数据结构与算法》讲义 · 第3章 栈与队列 p.2",
+        }]
+
+    monkeypatch.setattr(tutor_agent, "retrieve", fake_retrieve)
+    monkeypatch.setattr(tutor_agent, "recent_note_chunks", lambda *args, **kwargs: [])
+    monkeypatch.setattr(tutor_agent, "is_demo", lambda: True)
+    result = asyncio.run(tutor_agent.run({
+        "user_id": "topic-switch-user",
+        "session_id": "same-page",
+        "messages": [{"role": "user", "content": "什么是队列"}],
+        "conversation": [
+            {"role": "user", "content": "什么是完全二叉树"},
+            {"role": "assistant", "content": "完全二叉树按层从左到右排列节点。"},
+            {"role": "user", "content": "什么是队列"},
+        ],
+        "topic_label": "完全二叉树",
+        "source_ids": [],
+        "student_profile": {},
+    }))
+
+    assert captured["kp"] == "queue"
+    assert "课程知识点：队列" in str(captured["query"])
+    assert "先进先出" in result["answer"]
+    assert "完全二叉树" not in result["answer"]
+
+
+def test_referential_followup_uses_most_recent_switched_topic(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_retrieve(query: str, **kwargs):
+        captured.update(kwargs)
+        return [{
+            "text": "队列从队尾加入元素，从队头移除元素，因此保持先进先出。",
+            "source": "《数据结构与算法》讲义",
+            "source_id": "seed-queue",
+            "chapter": "第3章 栈与队列",
+            "page": 2,
+            "kp": "queue",
+            "citation": "《数据结构与算法》讲义 · 第3章 栈与队列 p.2",
+        }]
+
+    monkeypatch.setattr(tutor_agent, "retrieve", fake_retrieve)
+    monkeypatch.setattr(tutor_agent, "recent_note_chunks", lambda *args, **kwargs: [])
+    monkeypatch.setattr(tutor_agent, "is_demo", lambda: True)
+    asyncio.run(tutor_agent.run({
+        "user_id": "topic-switch-user",
+        "session_id": "same-page",
+        "messages": [{"role": "user", "content": "它为什么这样工作？"}],
+        "conversation": [
+            {"role": "user", "content": "什么是完全二叉树"},
+            {"role": "assistant", "content": "完全二叉树按层从左到右排列节点。"},
+            {"role": "user", "content": "什么是队列"},
+            {"role": "assistant", "content": "队列遵循先进先出。"},
+            {"role": "user", "content": "它为什么这样工作？"},
+        ],
+        "topic_label": "完全二叉树",
+        "source_ids": [],
+        "student_profile": {},
+    }))
+
+    assert captured["kp"] == "queue"
+
+
+def test_custom_topic_switch_does_not_fall_back_to_notebook_topic(monkeypatch):
+    monkeypatch.setattr(
+        tutor_agent,
+        "retrieve",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("custom topic must not retrieve old course topic")),
+    )
+    monkeypatch.setattr(tutor_agent, "is_demo", lambda: True)
+
+    result = asyncio.run(tutor_agent.run({
+        "user_id": "topic-switch-user",
+        "session_id": "same-page",
+        "messages": [{"role": "user", "content": "什么是量子纠缠"}],
+        "conversation": [
+            {"role": "user", "content": "什么是完全二叉树"},
+            {"role": "assistant", "content": "完全二叉树按层从左到右排列节点。"},
+            {"role": "user", "content": "什么是量子纠缠"},
+        ],
+        "topic_label": "完全二叉树",
+        "source_ids": [],
+        "student_profile": {},
+    }))
+
+    assert "量子纠缠" in result["answer"]
+    assert "完全二叉树" not in result["answer"]
+    assert "锁定" not in result["answer"]
 
 
 def test_foreign_trade_topic_plans_as_custom_topic_for_every_studio_tool():

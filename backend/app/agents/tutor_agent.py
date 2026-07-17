@@ -16,7 +16,7 @@ from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
-from ..services.knowledge_graph import infer_kp_id, kp_retrieval_text, resolve_topic
+from ..services.knowledge_graph import clean_topic_label, infer_kp_id, kp_retrieval_text, resolve_topic
 from ..services.note_service import recent_note_chunks
 from .emitter import agent_end, agent_start, agent_token, emit
 
@@ -26,6 +26,18 @@ _SMALL_TALK_RE = re.compile(
     re.IGNORECASE,
 )
 _HELP_MARKERS = ("你能做什么", "可以做什么", "怎么用", "如何使用", "使用说明", "help")
+_TOPIC_INTRO_PATTERNS = (
+    re.compile(r"^(?:请|能否|可以)?(?:先)?(?:给我)?(?:解释|介绍|讲解|讲讲|说说|教我|学习|了解)(?:一下)?\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
+    re.compile(r"^(?:什么是|何为)\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
+    re.compile(
+        r"^(?P<topic>[^，。！？?\n]{2,60}?)(?:是什么|的定义(?:是什么)?|怎么(?:工作|运行|实现|使用|学习|理解)?|如何(?:工作|运行|实现|使用|学习|理解)?|为什么)",
+        re.IGNORECASE,
+    ),
+)
+_CONTEXT_DEPENDENT_TOPIC_RE = re.compile(
+    r"^(?:它|这个|这(?:个|种)?|那个|那(?:个|种)?|其|上面|前面|刚才|继续|再|然后|为什么(?:会|要)?(?:这样)?[？?]?$|怎么(?:会)?(?:这样)?[？?]?$)",
+    re.IGNORECASE,
+)
 
 
 def _needs_retrieval(question: str, *, guided: bool = False, has_image: bool = False) -> bool:
@@ -148,6 +160,58 @@ def _focused_kp_chunks(chunks: list[dict], kp: str | None, limit: int = 4) -> li
         if len(values) <= 3:
             specific.append(chunk)
     return (specific or matching or chunks)[:limit]
+
+
+def _explicit_topic_label(question: str) -> str | None:
+    """Return a self-contained topic introduced by this turn, not a pronoun-only follow-up."""
+    text = " ".join(str(question or "").strip().split())
+    probe = re.sub(r"^(?:请问|我想问一下|能问一下)\s*", "", text).strip()
+    if not probe or _CONTEXT_DEPENDENT_TOPIC_RE.match(probe):
+        return None
+    for pattern in _TOPIC_INTRO_PATTERNS:
+        match = pattern.search(probe)
+        if not match:
+            continue
+        label = clean_topic_label(match.group("topic"))
+        if label not in {"当前主题", "这个主题", "这个", "那个", "为什么", "怎么", "如何"}:
+            return label
+    # A self-contained question about a custom subject should still override the notebook title.
+    # Referential turns were filtered above and will instead inherit the most recent conversation focus.
+    return clean_topic_label(probe) if len(probe) >= 2 else None
+
+
+def _resolve_turn_topic(state: dict, question: str) -> tuple[str, str, bool]:
+    """Resolve the current turn without permanently binding a conversation to its opening topic."""
+    current_kp = infer_kp_id(question)
+    if current_kp:
+        return resolve_topic([current_kp], question, "")
+
+    current_label = _explicit_topic_label(question)
+    if current_label:
+        return resolve_topic([], current_label, "")
+
+    skipped_current = False
+    for item in reversed(state.get("conversation") or []):
+        if item.get("role") != "user":
+            continue
+        content = str(item.get("content") or "").strip()
+        if not content:
+            continue
+        if not skipped_current and content == str(question or "").strip():
+            skipped_current = True
+            continue
+        recent_kp = infer_kp_id(content)
+        if recent_kp:
+            return resolve_topic([recent_kp], content, "")
+        recent_label = _explicit_topic_label(content)
+        if recent_label:
+            return resolve_topic([], recent_label, "")
+
+    return resolve_topic(
+        state.get("knowledge_points"),
+        question,
+        state.get("topic_label"),
+    )
 
 def _build_prompt(
     question: str,
@@ -401,9 +465,7 @@ async def run(state: dict) -> dict:
             "messages": [{"role": "assistant", "content": answer}],
         }
 
-    topic_kp, topic_name, custom_topic = resolve_topic(
-        state.get("knowledge_points"), question, state.get("topic_label")
-    )
+    topic_kp, topic_name, custom_topic = _resolve_turn_topic(state, question)
     retrieval_kp = None if source_ids or custom_topic else topic_kp
     retrieval_query = question
     if retrieval_kp:
@@ -463,7 +525,7 @@ async def run(state: dict) -> dict:
     profile = state.get("student_profile") or {}
     effective_question = (
         question if topic_name in question
-        else f"当前学习主题：{topic_name}\n{question}"
+        else f"本轮问题焦点：{topic_name}\n{question}"
     )
     prompt_call = render_tutor_prompt(
         effective_question,
@@ -499,8 +561,8 @@ async def run(state: dict) -> dict:
         answer = (
             _strategy_answer(topic_name)
             if learning_strategy else
-            f"当前学习主题已锁定为「{topic_name}」。我们会按“一句话定义 → 使用场景 → 关键组成 → 最小例子 → 常见误区”的顺序学习，"
-            "不会再混入任何旧主题。连接星火 X2 后会生成完整同主题讲解。"
+            f"「{topic_name}」不在当前课程知识库里；离线演示模式下我不补写无法核对的资料外答案。"
+            "连接星火模型后可以直接继续提问，下一轮也可以随时换到别的知识点。"
             if custom_topic and not chunks else
             _rag_demo_answer(question, chunks, guided=guided)
         )
@@ -550,7 +612,7 @@ async def run(state: dict) -> dict:
             answer = (
                 _strategy_answer(topic_name)
                 if learning_strategy else
-                f"当前主题是「{topic_name}」，模型暂不可用；系统已停止生成，且不会回退到其他旧主题。"
+                f"暂时无法连接讲解模型，并且课程资料中没有「{topic_name}」的可核对内容。请稍后重试。"
                 if custom_topic and not chunks else
                 _rag_demo_answer(question, chunks, guided=guided)
             )
