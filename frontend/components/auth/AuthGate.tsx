@@ -12,6 +12,9 @@ export type AuthUser = {
   demo?: boolean;
 };
 
+const AUTH_HERO_LEAD = Array.from("打开你的");
+const AUTH_HERO_ACCENT = Array.from("学习大门");
+
 export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: AuthUser) => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
@@ -50,11 +53,31 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
             <Sparkles size={15} className="text-[#9DE5B9]" /> 你的学习空间，只属于你
           </div>
           <h1 className="auth-hero-title" aria-label="打开你的学习大门">
-            <span className="auth-hero-lead" aria-hidden="true">打开你的</span>
-            <span className="auth-hero-typed" aria-hidden="true">
-              <span className="auth-hero-typed-text">学习大门</span>
+            <span className="auth-hero-visual" aria-hidden="true">
+              <span className="auth-hero-word">
+                {AUTH_HERO_LEAD.map((character, index) => (
+                  <span
+                    key={`lead-${character}-${index}`}
+                    className="auth-hero-character"
+                    style={{ animationDelay: `${180 + index * 72}ms` }}
+                  >
+                    {character}
+                  </span>
+                ))}
+              </span>
+              <span className="auth-hero-accent">
+                {AUTH_HERO_ACCENT.map((character, index) => (
+                  <span
+                    key={`accent-${character}-${index}`}
+                    className="auth-hero-character"
+                    style={{ animationDelay: `${180 + (AUTH_HERO_LEAD.length + index) * 72}ms` }}
+                  >
+                    {character}
+                  </span>
+                ))}
+              </span>
+              <span className="auth-hero-cursor" />
             </span>
-            <span className="auth-hero-cursor" aria-hidden="true">_</span>
           </h1>
         </section>
 
