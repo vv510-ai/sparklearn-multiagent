@@ -124,7 +124,7 @@ async def _run_golden() -> None:
 async def main() -> None:
     parser = argparse.ArgumentParser(description="SparkLearn multimodal live smoke")
     parser.add_argument("--image", type=Path, help="OCR 测试图片路径")
-    parser.add_argument("--video", action="store_true", help="创建并短时轮询真实 Seedance 任务")
+    parser.add_argument("--video", action="store_true", help="创建并短时轮询真实小云雀视频任务")
     parser.add_argument("--video-budget", type=float, default=15, help="请求内视频等待预算(秒)")
     parser.add_argument("--golden", action="store_true", help="运行仓库内多模态金样验收")
     args = parser.parse_args()

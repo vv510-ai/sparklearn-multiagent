@@ -65,7 +65,7 @@ def test_selected_source_mindmap_does_not_add_course_graph_relations():
 
 
 def test_source_bound_video_prompt_ignores_unsourced_model_prompt():
-    prompt = media_agent._seedance_prompt(
+    prompt = media_agent._video_prompt(
         {
             "video_prompt": "Add an unrelated red-black tree proof.",
             "narration": "递归函数必须有终止条件。",

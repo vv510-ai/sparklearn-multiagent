@@ -1,7 +1,7 @@
 """媒体智能体(Media Agent):
 1) 星火生成分镜视频脚本(video_script JSON);
-2) 首选火山方舟 Seedance 文生视频(异步任务 + progress 事件轮询);
-3) 无 Seedance 密钥时优雅降级:生成 Manim 动画场景代码(可本地渲染)+ 讯飞 TTS 旁白音频;
+2) 首选小云雀文生视频（异步任务 + progress 事件轮询）;
+3) 云端视频不可用时优雅降级:生成 Manim 动画场景代码(可本地渲染)+ 讯飞 TTS 旁白音频;
 4) 讯飞文生图生成课程封面(可选)。"""
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def _normalize_manim_code(
     return _fallback_manim_code(cls, name, source_bound=source_bound)
 
 
-def _seedance_prompt(script: dict, *, source_bound: bool) -> str:
+def _video_prompt(script: dict, *, source_bound: bool) -> str:
     base = str(script.get("video_prompt") or "").strip()
     if not source_bound:
         return base or str(script.get("title") or "educational animation")
@@ -195,10 +195,11 @@ async def run(state: dict) -> dict:
     mode = "manim"
     try:
         created = await multimodal_gateway.video_create(
-            _seedance_prompt(script, source_bound=bool(source_ids)), trace_id=trace_id,
+            _video_prompt(script, source_bound=bool(source_ids)), trace_id=trace_id,
         )
         if created["ok"]:
             task_id = str(created["data"]["task_id"])
+            provider = str(created["data"].get("provider") or "video")
             waited = await multimodal_gateway.video_wait(
                 task_id,
                 on_progress=on_progress,
@@ -206,7 +207,7 @@ async def run(state: dict) -> dict:
             )
             payload["video"] = waited["data"]
             if waited["ok"]:
-                mode = "seedance"
+                mode = provider
         elif created["data"]:
             payload["video"] = created["data"]
     except Exception:  # noqa: BLE001
@@ -243,8 +244,8 @@ async def run(state: dict) -> dict:
             payload["video"] = local_video
             mode = "local_manim"
         await emit({"type": "progress", "agent": "media", "stage": "manim", "percent": 70,
-                    "detail": "Seedance 未配置/失败,已使用预渲染 Manim 教学动画"
-                    if local_video else "Seedance 未配置/失败,已降级为 Manim 动画代码(可本地渲染)"})
+                    "detail": "云端视频未配置/失败,已使用预渲染 Manim 教学动画"
+                    if local_video else "云端视频未配置/失败,已降级为 Manim 动画代码(可本地渲染)"})
 
     audio, cover = await asyncio.gather(
         multimodal_gateway.tts(script["narration"][:260], trace_id=trace_id),
@@ -271,7 +272,8 @@ async def run(state: dict) -> dict:
                 "citations": [item["citation"] for item in citations]}
     await emit({"type": "resource", "resource": resource})
     summaries = {
-        "seedance": "Seedance 视频任务已提交",
+        "xiaoyunque": "小云雀视频任务已提交",
+        "video": "云端视频任务已提交",
         "local_manim": "已产出预渲染 Manim 教学动画 + 旁白脚本",
         "manim": "已产出 Manim 动画代码 + 旁白脚本(降级模式)",
     }

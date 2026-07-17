@@ -16,7 +16,7 @@ flowchart TD
     PTH --> DOC[文档智能体\nRAG 引用]
     PTH --> MAP[思维导图\nmarkmap]
     PTH --> QUZ[题库智能体]
-    PTH --> MED[媒体智能体\nSeedance/Manim+TTS]
+    PTH --> MED[媒体智能体\n小云雀/Manim+TTS]
     DOC & MAP & QUZ & MED --> EVL[评估智能体\n质检+落库]
     ORC -->|tutor| TUT[答疑导师\nOCR+流式+图解]
     EVL & TUT --> U
@@ -30,7 +30,7 @@ flowchart TD
 2. **8 维动态学生画像**:掌握度(BKT)、认知风格、易错点、目标、节奏、难度偏好、资源偏好、元认知;每次对话与答题"随学随新"。
 3. **个性化路径规划**:课程知识图谱(16 节点 19 先修边)拓扑排序 + 掌握度阈值解锁 + 难度偏好打分,答题后自动重排。
 4. **引用溯源防幻觉双层校验**:RAG 检索教材语料,正文 [^n] 脚注;星火 X2 做"答案-证据一致性"判定 + 本地敏感词/讯飞内容审核。
-5. **多模态资源**:图文教程、交互脑图、智能题组、代码示例、讲解视频(火山 Seedance 文生视频,失败自动降级 Manim 动画代码 + 讯飞 TTS 旁白)。
+5. **多模态资源**:图文教程、交互脑图、智能题组、代码示例、讲解视频(小云雀文生视频,失败自动降级 Manim 动画代码 + 讯飞 TTS 旁白)。
 6. **学习闭环**:答题 → 提示/揭晓与错因复盘 → 无提示恢复测 → 1/3/7/14/30 天间隔复习 → BKT 更新掌握度 → 证据账本解释变化 → 路径重排。
 7. **离线演示模式**:不配任何密钥也能完整跑通五大功能(MockEngine 模拟流式输出,内容标注演示数据),评委一键体验。
 
@@ -39,7 +39,7 @@ flowchart TD
 ### 方式一:Docker 一键部署(推荐)
 
 ```bash
-cp .env.example .env        # 按需填写讯飞/火山密钥;留空 = 离线演示模式
+cp .env.example .env        # 按需填写讯飞/小云雀密钥;留空 = 离线演示模式
 docker compose up -d --build
 # 前端 http://localhost:3000   后端文档 http://localhost:8000/docs
 # 如需 Milvus 向量库:docker compose --profile vector up -d
@@ -76,7 +76,7 @@ python tests/test_e2e_graph.py     # 端到端:生成 / 答疑 / 评估三链路
 │   ├── app/rag/             语料切片 / 三级降级 Embedding / 向量库 / 检索引用
 │   ├── app/safety/          grounding 一致性校验 + 内容安全过滤
 │   ├── app/services/        BKT / 知识图谱 / 画像 / 路径规划
-│   ├── app/llm/             星火统一封装 / TTS / 文生图 / OCR / Seedance
+│   ├── app/llm/             星火统一封装 / TTS / 文生图 / OCR / 小云雀视频
 │   ├── app/api/             SSE 接口层(chat / resources / path / tutor / eval)
 │   └── app/data/            知识图谱 + 10 篇种子讲义 + 24 题种子题库
 ├── frontend/                Next.js 14 前端(深空蓝黑 · AgentTrace 遥测面板)
@@ -96,6 +96,6 @@ python tests/test_e2e_graph.py     # 端到端:生成 / 答疑 / 评估三链路
 
 ## 致谢与声明
 
-- 核心学习问答默认使用 **讯飞星火 X2**（自动深度思考），权限或服务异常时回退至 4.0 Ultra；轻量任务使用 Lite，视频能力由 **火山方舟 Seedance** 提供。
+- 核心学习问答默认使用 **讯飞星火 X2**（自动深度思考），权限或服务异常时回退至 4.0 Ultra；轻量任务使用 Lite，视频能力由 **小云雀 OpenAPI** 提供。
 - 开发过程使用 AI 辅助编码工具(讯飞 iFlyCode 等),最终代码经人工审查与测试。
 - 开源组件许可清单见 [docs/代码结构说明.md](docs/代码结构说明.md)。

@@ -19,13 +19,13 @@ from ..config import GEN_DIR, get_settings, is_demo
 from . import (
     local_ocr,
     openai_image,
-    seedance_client,
     spark_asr,
     spark_image,
     spark_ocr,
     spark_ppt,
     spark_super_tts,
     spark_tts,
+    xiaoyunque_client,
 )
 
 log = logging.getLogger("sparklearn.multimodal")
@@ -153,7 +153,7 @@ def capability_status() -> dict[str, dict[str, bool]]:
         },
         "video": {
             "enabled": bool(s.mm_video_enabled),
-            "configured": bool(seedance_client.available() and not demo),
+            "configured": bool(xiaoyunque_client.available() and not demo),
         },
         "ppt": {
             "enabled": bool(getattr(s, "mm_ppt_enabled", True)),
@@ -567,10 +567,14 @@ async def video_create(
     s = get_settings()
     return await _run_sync(
         "video",
-        lambda: seedance_client.create_task(prompt, image_url),
-        lambda task_id: {"task_id": str(task_id), "status": "running"},
+        lambda: xiaoyunque_client.create_task(prompt, image_url),
+        lambda task_id: {
+            "task_id": str(task_id),
+            "status": "running",
+            "provider": "xiaoyunque",
+        },
         enabled=bool(s.mm_video_enabled),
-        configured=bool(seedance_client.available() and not is_demo()),
+        configured=bool(xiaoyunque_client.available() and not is_demo()),
         timeout_s=float(s.mm_video_create_timeout_s),
         trace_id=trace_id,
         agent="media",
@@ -648,7 +652,7 @@ async def video_wait(
     started = time.monotonic()
     trace_id = _trace_id(trace_id)
     budget = float(budget_s if budget_s is not None else s.mm_video_wait_budget_s)
-    if is_demo() or not s.mm_video_enabled or not seedance_client.available():
+    if is_demo() or not s.mm_video_enabled or not xiaoyunque_client.available():
         result = _result("video", trace_id, started, ok=False, degraded=True, error="video unavailable")
         await _record(result, agent="media")
         return result
@@ -659,7 +663,7 @@ async def video_wait(
             remaining = max(0.01, budget - (time.monotonic() - started))
             try:
                 state = await _run_in_mm_pool(
-                    lambda: seedance_client.poll_task(task_id),
+                    lambda: xiaoyunque_client.poll_task(task_id),
                     min(float(s.mm_video_poll_timeout_s), remaining),
                 )
             except TimeoutError:
@@ -667,10 +671,11 @@ async def video_wait(
             tick += 1
             status = str(state.get("status", "running"))
             if on_progress:
+                provider = str(state.get("provider") or "xiaoyunque")
                 await on_progress({
                     "percent": min(95, tick * 7),
                     "status": status,
-                    "detail": f"Seedance task {status}",
+                    "detail": f"{provider} task {status}",
                     "task_id": task_id,
                 })
             if status == "succeeded":
@@ -685,7 +690,7 @@ async def video_wait(
                     ok=False,
                     degraded=True,
                     data=state,
-                    error=_error_text(state.get("error", "Seedance failed")),
+                    error=_error_text(state.get("error", "video provider failed")),
                 )
                 await _record(result, agent="media")
                 return result
@@ -696,7 +701,11 @@ async def video_wait(
             started,
             ok=True,
             degraded=False,
-            data={"status": "running", "task_id": task_id},
+            data={
+                "status": "running",
+                "task_id": task_id,
+                "provider": "xiaoyunque",
+            },
         )
     except Exception as error:  # noqa: BLE001
         result = _result(
@@ -716,10 +725,10 @@ async def video_poll(task_id: str, *, trace_id: str = "") -> dict[str, Any]:
     s = get_settings()
     result = await _run_sync(
         "video",
-        lambda: seedance_client.poll_task(task_id),
+        lambda: xiaoyunque_client.poll_task(task_id),
         lambda state: dict(state),
         enabled=bool(s.mm_video_enabled),
-        configured=bool(seedance_client.available() and not is_demo()),
+        configured=bool(xiaoyunque_client.available() and not is_demo()),
         timeout_s=float(s.mm_video_poll_timeout_s),
         trace_id=trace_id,
         agent="media",

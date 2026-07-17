@@ -85,7 +85,7 @@ def test_media_survives_unexpected_video_and_postprocess_errors(monkeypatch, tmp
     assert resource["payload"]["script"]
 
 
-def test_media_uses_pre_rendered_video_when_seedance_is_unavailable(monkeypatch, tmp_path):
+def test_media_uses_pre_rendered_video_when_cloud_video_is_unavailable(monkeypatch, tmp_path):
     _install_llm(monkeypatch)
     monkeypatch.setattr(media_agent, "GEN_DIR", tmp_path)
     (tmp_path / "manim_binary_tree_traversal.mp4").write_bytes(b"fixed-manim-video")

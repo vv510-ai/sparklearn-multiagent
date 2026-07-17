@@ -164,7 +164,7 @@ payload.cover_url
 
 ```text
 前端只用 payload.video.url 播放视频。
-没有真实 Seedance key 时，应该降级到 manim_code / script，不应该报错中断。
+没有真实小云雀 Access Key 时，应该降级到 manim_code / script，不应该报错中断。
 ```
 
 ### 答题后画像没变

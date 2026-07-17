@@ -62,14 +62,13 @@ try:  # pydantic-settings 可用时走标准路径
         openai_image_model: str = "gpt-image-2"
         openai_image_quality: str = "low"
 
-        # 火山方舟 Seedance
-        ark_api_key: str = ""
-        ark_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
-        seedance_model: str = ""
-        seedance_ratio: str = "16:9"
-        seedance_duration: int = 5
-        seedance_generate_audio: bool = True
-        seedance_watermark: bool = False
+        # 小云雀（剪映）视频生成
+        xyq_access_key: str = ""
+        xyq_base_url: str = "https://xyq.jianying.com"
+        xyq_video_model: str = "Seedance_2.0_mini_lite"
+        xyq_video_ratio: str = "16:9"
+        xyq_video_duration: int = 5
+        xyq_video_resolution: str = "720p"
 
         # 多模态能力开关与单次调用预算
         mm_ocr_enabled: bool = True
@@ -153,13 +152,12 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
             self.openai_image_model = g("OPENAI_IMAGE_MODEL", "gpt-image-2")
             self.openai_image_quality = g("OPENAI_IMAGE_QUALITY", "low")
-            self.ark_api_key = g("ARK_API_KEY", "")
-            self.ark_base_url = g("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
-            self.seedance_model = g("SEEDANCE_MODEL", "")
-            self.seedance_ratio = g("SEEDANCE_RATIO", "16:9")
-            self.seedance_duration = int(g("SEEDANCE_DURATION", "5"))
-            self.seedance_generate_audio = _env_bool("SEEDANCE_GENERATE_AUDIO")
-            self.seedance_watermark = _env_bool("SEEDANCE_WATERMARK", False)
+            self.xyq_access_key = g("XYQ_ACCESS_KEY", "")
+            self.xyq_base_url = g("XYQ_BASE_URL", "https://xyq.jianying.com")
+            self.xyq_video_model = g("XYQ_VIDEO_MODEL", "Seedance_2.0_mini_lite")
+            self.xyq_video_ratio = g("XYQ_VIDEO_RATIO", "16:9")
+            self.xyq_video_duration = int(g("XYQ_VIDEO_DURATION", "5"))
+            self.xyq_video_resolution = g("XYQ_VIDEO_RESOLUTION", "720p")
             self.mm_ocr_enabled = _env_bool("MM_OCR_ENABLED")
             self.mm_local_ocr_enabled = _env_bool("MM_LOCAL_OCR_ENABLED")
             self.mm_asr_enabled = _env_bool("MM_ASR_ENABLED")

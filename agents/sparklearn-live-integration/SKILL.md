@@ -1,6 +1,6 @@
 ---
 name: sparklearn-live-integration
-description: 把 SparkLearn 从离线 demo 模式切到真实服务并逐项验证时使用——填 .env、关闭 demo_mode,对讯飞星火文本、OCR、TTS、文生图、火山 Seedance 视频逐个跑真实 smoke test,确认没有静默降级回 Mock,并在 docker 全链路上复验。只要任务涉及「真实密钥联调 / 填 .env / 关 demo / 上线前验证 / 答辩前真机验证 / 验证星火或 OCR 或 TTS 或文生图或 Seedance 真实调用 / docker 全链路复验」,就使用本 skill,即使用户没说「联调」也要触发。仅用于真实服务接入与验证;离线开发、加功能、跑单元测试请保持 demo 模式,不需要本 skill。
+description: 把 SparkLearn 从离线 demo 模式切到真实服务并逐项验证时使用——填 .env、关闭 demo_mode,对讯飞星火文本、OCR、TTS、文生图、小云雀视频逐个跑真实 smoke test,确认没有静默降级回 Mock,并在 docker 全链路上复验。只要任务涉及「真实密钥联调 / 填 .env / 关 demo / 上线前验证 / 答辩前真机验证 / 验证星火或 OCR 或 TTS 或文生图或小云雀真实调用 / docker 全链路复验」,就使用本 skill,即使用户没说「联调」也要触发。仅用于真实服务接入与验证;离线开发、加功能、跑单元测试请保持 demo 模式,不需要本 skill。
 ---
 
 # 真实服务联调与冒烟验证(SparkLearn Live Integration)
@@ -23,7 +23,7 @@ description: 把 SparkLearn 从离线 demo 模式切到真实服务并逐项验�
 | 语音合成 TTS(WebSocket) | `llm/spark_tts.py` + `llm/signing.py` | 讯飞三元组(APPID / APIKey / APISecret)+ HMAC 签名 |
 | 拍照识题 OCR | `llm/spark_ocr.py` + `llm/signing.py` | 讯飞三元组 + HMAC |
 | 文生图 | `llm/spark_image.py` + `llm/signing.py` | 讯飞三元组 + HMAC |
-| Seedance 视频(异步) | `llm/seedance_client.py` | 火山方舟 key |
+| 小云雀视频(异步) | `llm/xiaoyunque_client.py` | Bearer Access Key |
 | (可选)向量化讯飞档位 | `rag/embedding.py` | 视配置;否则降级到 BGE-M3 / 哈希 |
 | (可选)Milvus 向量库 | `rag/vector_store.py` | 连接串;否则用内存后端 |
 
@@ -42,7 +42,7 @@ description: 把 SparkLearn 从离线 demo 模式切到真实服务并逐项验�
 2. **OCR**:把测试题目图喂给拍照识题(或 `tutor` 链路),返回识别文本。判据:文本与图片内容相符。
 3. **TTS**:合成一段短文本(WebSocket),拿到音频。判据:音频可播放、时长合理。
 4. **文生图**:生成一张图。判据:返回真实图片 URL / 字节,可打开。
-5. **Seedance 视频(异步)**:提交视频任务 → **轮询**至完成 → 拿到视频。判据:任务状态走到完成、视频可播;注意它是异步任务,要处理排队 / 超时;失败时系统会降级到 Manim+TTS,要能区分"真实 Seedance 成功"与"走了降级"。
+5. **小云雀视频(异步)**:提交视频任务 → **轮询**至完成 → 拿到视频。判据:任务状态走到完成、视频可播且 `provider=xiaoyunque`;注意它是异步任务,要处理排队 / 超时;失败时系统会降级到 Manim+TTS,要能区分"真实小云雀成功"与"走了降级"。
 6. **(可选)embedding 档位**:若配了讯飞向量化,确认实际走的是讯飞档而非哈希兜底(`embedding.py` 是 BGE-M3 → 讯飞 → 哈希三级降级)。
 7. **(可选)Milvus**:若用 Milvus,确认连接成功而非回退内存后端。
 
@@ -55,7 +55,7 @@ description: 把 SparkLearn 从离线 demo 模式切到真实服务并逐项验�
 ## 通过判据(checklist)
 
 - [ ] 健康 / 元信息接口显示 `demo_mode=False` 且引擎为真实星火(非 MockEngine)。
-- [ ] 文本 / OCR / TTS / 文生图 / Seedance 五项各自返回真实产物,且确认**未静默降级**。
+- [ ] 文本 / OCR / TTS / 文生图 / 小云雀五项各自返回真实产物,且确认**未静默降级**。
 - [ ] 默认 `pytest` 仍离线全过(没被真实调用污染)。
 - [ ] `docker compose up -d --build` 后容器健康,容器内冒烟同样通过。
 - [ ] `git status` 无 `.env`;日志无完整密钥。

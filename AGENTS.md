@@ -12,7 +12,7 @@
 - **后端测试**(离线可跑,基于 `backend/tests/_stubs.py`):通常 `cd backend && pytest`。任何后端改动后必须跑通。
 - **前端构建**:`cd frontend && npm run build`。前端改动后必须通过。
 - **全链路**:`docker compose up -d --build`(PostgreSQL / Redis / 前后端)。
-- **运行模式**:无 `.env` 时 `app/config.py` 自动判定 `demo_mode=True`,LLM 走 `MockEngine` 离线引擎,**无需任何密钥即可跑测试与演示**。真实服务(星火 / OCR / TTS / 文生图 / Seedance)需在 `.env` 填密钥后启用;密钥不入库、不写进代码。
+- **运行模式**:无 `.env` 时 `app/config.py` 自动判定 `demo_mode=True`,LLM 走 `MockEngine` 离线引擎,**无需任何密钥即可跑测试与演示**。真实服务(星火 / OCR / TTS / 文生图 / 小云雀视频)需在 `.env` 填密钥后启用;密钥不入库、不写进代码。
 
 ## 不可破坏的铁律(违反会静默损坏并行 / 事件 / Mock 三件套)
 
@@ -29,7 +29,7 @@
 ## 目录速览
 
 - `backend/app/agents/`:多智能体层(每个 agent 一个文件 + `state.py` + `emitter.py` + `graph.py` + `orchestrator.py`)。
-- `backend/app/llm/`:星火封装与多模态网关(`spark_client.py` 是**唯一** LLM 入口;另有 `spark_tts / spark_image / spark_ocr / seedance_client / signing`)。
+- `backend/app/llm/`:星火封装与多模态网关(`spark_client.py` 是**唯一** LLM 入口;另有 `spark_tts / spark_image / spark_ocr / xiaoyunque_client / signing`)。
 - `backend/app/rag/`:`ingest / embedding / vector_store / retriever / citation`。
 - `backend/app/services/`:`bkt`(贝叶斯知识追踪)/ `knowledge_graph` / `profile_service` / `path_service`。
 - `backend/app/safety/`:`grounding`(答案-证据一致性)/ `guard`(敏感词 + 审核挂接 + PII 脱敏)。

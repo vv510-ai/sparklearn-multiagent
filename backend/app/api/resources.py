@@ -2,7 +2,7 @@
 POST /api/resources/generate —— 显式资源生成(SSE 全流水线,intent 固定 generate);
 GET  /api/resources           —— 我的资源列表(支持 kind/kp 过滤);
 GET  /api/resources/{rid}     —— 资源详情;
-GET  /api/resources/video/task/{task_id} —— Seedance 视频任务状态轮询。"""
+GET  /api/resources/video/task/{task_id} —— 小云雀视频任务状态轮询。"""
 from __future__ import annotations
 
 import json

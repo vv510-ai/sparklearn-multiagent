@@ -86,5 +86,17 @@ services:
         value: "true"
       - key: MM_VIDEO_ENABLED
         value: "true"
+      - key: XYQ_ACCESS_KEY
+        sync: false
+      - key: XYQ_BASE_URL
+        value: https://xyq.jianying.com
+      - key: XYQ_VIDEO_MODEL
+        value: Seedance_2.0_mini_lite
+      - key: XYQ_VIDEO_RATIO
+        value: "16:9"
+      - key: XYQ_VIDEO_DURATION
+        value: "5"
+      - key: XYQ_VIDEO_RESOLUTION
+        value: 720p
       - key: PYTHONUNBUFFERED
         value: "1"

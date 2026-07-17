@@ -348,12 +348,20 @@ def test_openai_image_provider_writes_base64_response(monkeypatch, tmp_path: Pat
 def test_video_budget_hands_running_task_to_frontend(monkeypatch):
     settings = _settings(mm_video_wait_budget_s=0.015)
     monkeypatch.setattr(gateway, "get_settings", lambda: settings)
-    monkeypatch.setattr(gateway.seedance_client, "available", lambda: True)
-    monkeypatch.setattr(gateway.seedance_client, "create_task", lambda prompt, image_url=None: "task-1")
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
     monkeypatch.setattr(
-        gateway.seedance_client,
+        gateway.xiaoyunque_client,
+        "create_task",
+        lambda prompt, image_url=None: "task-1",
+    )
+    monkeypatch.setattr(
+        gateway.xiaoyunque_client,
         "poll_task",
-        lambda task_id: {"status": "running", "task_id": task_id},
+        lambda task_id: {
+            "status": "running",
+            "task_id": task_id,
+            "provider": "xiaoyunque",
+        },
     )
 
     created = asyncio.run(gateway.video_create("demo", trace_id="video-create"))
@@ -368,7 +376,11 @@ def test_video_budget_hands_running_task_to_frontend(monkeypatch):
     assert created["ok"] is True
     assert waited["ok"] is True
     assert waited["degraded"] is False
-    assert waited["data"] == {"status": "running", "task_id": "task-1"}
+    assert waited["data"] == {
+        "status": "running",
+        "task_id": "task-1",
+        "provider": "xiaoyunque",
+    }
 
 
 def test_demo_ocr_keeps_existing_sample_behavior(monkeypatch):
