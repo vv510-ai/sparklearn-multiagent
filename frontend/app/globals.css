@@ -1270,25 +1270,26 @@ body::after {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-color: rgba(215, 220, 231, 0.76);
+  border-color: rgba(255, 255, 255, 0.88);
   background:
-    radial-gradient(circle at 92% -8%, rgba(111, 126, 255, 0.13), transparent 34%),
-    radial-gradient(circle at -16% 46%, rgba(35, 184, 132, 0.1), transparent 38%),
-    radial-gradient(circle at 88% 88%, rgba(219, 103, 159, 0.08), transparent 34%),
-    linear-gradient(155deg, rgba(255, 255, 255, 0.97), rgba(244, 247, 252, 0.92));
+    radial-gradient(circle at 104% -8%, rgba(109, 127, 255, 0.14), transparent 33%),
+    radial-gradient(circle at -18% 43%, rgba(40, 177, 132, 0.1), transparent 36%),
+    radial-gradient(circle at 108% 82%, rgba(216, 116, 171, 0.08), transparent 33%),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.92), rgba(243, 246, 251, 0.78));
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 1px 2px rgba(29, 32, 40, 0.04),
-    0 18px 42px rgba(55, 65, 94, 0.075);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 1px 0 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(29, 32, 40, 0.035),
+    0 20px 46px rgba(55, 65, 94, 0.07);
 }
 
 .studio-panel .notebook-column-header {
   position: relative;
   z-index: 1;
-  border-bottom-color: rgba(215, 220, 231, 0.72);
-  background: rgba(255, 255, 255, 0.54);
-  backdrop-filter: blur(20px) saturate(135%);
-  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  border-bottom-color: rgba(204, 211, 224, 0.56);
+  background: rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(24px) saturate(128%);
+  -webkit-backdrop-filter: blur(24px) saturate(128%);
 }
 
 .studio-panel-heading-icon {
@@ -1296,13 +1297,14 @@ body::after {
   width: 34px;
   height: 34px;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.62);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.82), rgba(238, 242, 249, 0.5));
   color: #657083;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 7px 18px rgba(59, 68, 91, 0.09);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(93, 105, 130, 0.06),
+    0 8px 20px rgba(59, 68, 91, 0.075);
 }
 
 .studio-panel-body {
@@ -1323,22 +1325,25 @@ body::after {
   align-items: flex-start;
   justify-content: space-between;
   gap: 13px;
-  border: 1px solid rgba(255, 255, 255, 0.84);
-  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 15px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.76), rgba(var(--studio-rgb), 0.13) 62%, rgba(var(--studio-rgb), 0.2));
+    radial-gradient(100% 90% at 112% 112%, rgba(var(--studio-rgb), 0.2), rgba(var(--studio-rgb), 0.075) 52%, transparent 74%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.52) 56%, rgba(246, 248, 252, 0.48));
   padding: 12px 12px 11px;
-  color: var(--studio-ink);
+  color: #303540;
   text-align: left;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    inset 0 -1px 0 rgba(var(--studio-rgb), 0.08),
-    0 8px 22px rgba(48, 56, 78, 0.065),
-    0 1px 2px rgba(48, 56, 78, 0.055);
-  backdrop-filter: blur(18px) saturate(135%);
-  -webkit-backdrop-filter: blur(18px) saturate(135%);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 1px 0 0 rgba(255, 255, 255, 0.46),
+    inset 0 -1px 0 rgba(var(--studio-rgb), 0.09),
+    0 9px 24px rgba(48, 56, 78, 0.055),
+    0 1px 2px rgba(48, 56, 78, 0.045);
+  backdrop-filter: blur(20px) saturate(128%);
+  -webkit-backdrop-filter: blur(20px) saturate(128%);
+  animation: studio-card-settle 440ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   transition:
-    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 220ms ease,
     background 220ms ease,
     box-shadow 220ms ease;
@@ -1351,11 +1356,29 @@ body::after {
   inset: 0;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 16% -8%, rgba(255, 255, 255, 0.98), transparent 42%),
-    linear-gradient(115deg, rgba(255, 255, 255, 0.28), transparent 42%);
-  opacity: 0.74;
+    radial-gradient(circle at 12% -10%, rgba(255, 255, 255, 0.98), transparent 38%),
+    linear-gradient(118deg, rgba(255, 255, 255, 0.34), transparent 39%);
+  opacity: 0.66;
   pointer-events: none;
   transition: opacity 220ms ease;
+}
+
+.studio-tile:nth-child(2) { animation-delay: 22ms; }
+.studio-tile:nth-child(3) { animation-delay: 44ms; }
+.studio-tile:nth-child(4) { animation-delay: 66ms; }
+.studio-tile:nth-child(5) { animation-delay: 88ms; }
+.studio-tile:nth-child(6) { animation-delay: 110ms; }
+.studio-tile:nth-child(7) { animation-delay: 132ms; }
+.studio-tile:nth-child(8) { animation-delay: 154ms; }
+.studio-tile:nth-child(9) { animation-delay: 176ms; }
+.studio-tile:nth-child(10) { animation-delay: 198ms; }
+.studio-tile:nth-child(11) { animation-delay: 220ms; }
+
+@keyframes studio-card-settle {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
 }
 
 .studio-tile-icon {
@@ -1365,14 +1388,16 @@ body::after {
   width: 32px;
   height: 32px;
   place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.94);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.64);
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(var(--studio-rgb), 0.1));
   color: var(--studio-ink);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.98),
-    0 6px 15px rgba(var(--studio-rgb), 0.13);
-  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 220ms ease;
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(var(--studio-rgb), 0.08),
+    0 7px 16px rgba(var(--studio-rgb), 0.11);
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease;
 }
 
 .studio-tile-content {
@@ -1386,7 +1411,7 @@ body::after {
 }
 
 .studio-tile strong {
-  color: var(--studio-ink);
+  color: #303540;
   font-size: 13.5px;
   font-weight: 750;
   letter-spacing: -0.01em;
@@ -1394,10 +1419,9 @@ body::after {
 
 .studio-tile small {
   margin-top: 4px;
-  color: var(--studio-ink);
+  color: #6f7785;
   font-size: 10.5px;
   line-height: 1.45;
-  opacity: 0.64;
 }
 
 .studio-tile.is-blue { --studio-rgb: 77, 108, 207; --studio-ink: #284789; }
@@ -1409,26 +1433,29 @@ body::after {
 
 @media (hover: hover) {
   .studio-tile:hover {
-    transform: translateY(-3px) scale(1.012);
+    transform: translateY(-2px) scale(1.006);
     border-color: rgba(255, 255, 255, 0.98);
     background:
-      linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(var(--studio-rgb), 0.16) 62%, rgba(var(--studio-rgb), 0.25));
+      radial-gradient(100% 90% at 112% 112%, rgba(var(--studio-rgb), 0.25), rgba(var(--studio-rgb), 0.095) 54%, transparent 74%),
+      linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.58) 56%, rgba(247, 249, 252, 0.5));
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 1),
-      inset 0 -1px 0 rgba(var(--studio-rgb), 0.12),
-      0 15px 30px rgba(var(--studio-rgb), 0.14),
-      0 6px 13px rgba(48, 56, 78, 0.09);
+      inset 1px 0 0 rgba(255, 255, 255, 0.58),
+      inset 0 -1px 0 rgba(var(--studio-rgb), 0.14),
+      0 14px 30px rgba(var(--studio-rgb), 0.105),
+      0 6px 14px rgba(48, 56, 78, 0.07);
   }
 
   .studio-tile:hover::before {
-    opacity: 0.96;
+    opacity: 0.88;
   }
 
   .studio-tile:hover .studio-tile-icon {
-    transform: translateY(-1px) scale(1.045);
+    transform: translateY(-1px) scale(1.025);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 1),
-      0 9px 18px rgba(var(--studio-rgb), 0.2);
+      inset 0 -1px 0 rgba(var(--studio-rgb), 0.1),
+      0 9px 18px rgba(var(--studio-rgb), 0.16);
   }
 }
 
@@ -1463,17 +1490,20 @@ body::after {
   min-height: 58px;
   align-items: center;
   gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.88);
   border-radius: 13px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(var(--studio-view-rgb), 0.085));
+  background:
+    radial-gradient(80% 130% at 106% 100%, rgba(var(--studio-view-rgb), 0.12), transparent 68%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.78), rgba(248, 249, 252, 0.52));
   padding: 8px 10px;
   color: var(--studio-view-ink);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    0 5px 16px rgba(50, 58, 78, 0.05);
-  backdrop-filter: blur(16px) saturate(125%);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
-  transition: transform 190ms ease, border-color 190ms ease, background 190ms ease, box-shadow 190ms ease;
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 0 rgba(var(--studio-view-rgb), 0.055),
+    0 6px 18px rgba(50, 58, 78, 0.045);
+  backdrop-filter: blur(18px) saturate(122%);
+  -webkit-backdrop-filter: blur(18px) saturate(122%);
+  transition: transform 210ms cubic-bezier(0.22, 1, 0.36, 1), border-color 190ms ease, background 190ms ease, box-shadow 190ms ease;
 }
 
 .studio-view.is-indigo { --studio-view-rgb: 92, 104, 195; --studio-view-ink: #414b91; }
@@ -1483,12 +1513,14 @@ body::after {
 
 @media (hover: hover) {
   .studio-view:hover {
-    transform: translateX(2px);
+    transform: translateX(1px);
     border-color: rgba(255, 255, 255, 0.98);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(var(--studio-view-rgb), 0.13));
+    background:
+      radial-gradient(80% 130% at 106% 100%, rgba(var(--studio-view-rgb), 0.16), transparent 68%),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(248, 249, 252, 0.58));
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 1),
-      0 9px 20px rgba(var(--studio-view-rgb), 0.1);
+      0 9px 22px rgba(var(--studio-view-rgb), 0.085);
   }
 
   .studio-view:hover .studio-view-arrow {
@@ -1505,7 +1537,7 @@ body::after {
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.78);
   border-radius: 10px;
-  background: rgba(var(--studio-view-rgb), 0.12);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.88), rgba(var(--studio-view-rgb), 0.13));
   color: var(--studio-view-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
@@ -1516,7 +1548,7 @@ body::after {
 }
 
 .studio-view strong { color: #333844; font-size: 12px; }
-.studio-view small { margin-top: 2px; color: #77808f; font-size: 10px; }
+.studio-view small { margin-top: 2px; color: #747d8b; font-size: 10px; }
 
 .studio-view-arrow {
   flex: 0 0 auto;
