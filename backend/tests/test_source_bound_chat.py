@@ -78,13 +78,16 @@ def test_source_bound_video_prompt_ignores_unsourced_model_prompt():
     assert "red-black tree" not in prompt
 
 
-def test_source_fallback_quiz_shows_the_excerpt_and_citation():
+def test_source_fallback_quiz_hides_raw_excerpt_answer_and_keeps_citation():
     questions = quiz_agent._source_fallback_questions(
-        [{"text": "递归函数必须有终止条件，否则调用不会停止。", "citation": "用户讲义 p.1"}],
+        [{"text": "递归函数必须有终止条件，否则调用不会停止。答案：必须有终止条件。", "citation": "用户讲义 p.1"}],
         "recursion",
         2,
+        topic_name="递归",
     )
-    assert "递归函数必须有终止条件" in questions[0]["stem"]
+    assert "递归" in questions[0]["stem"]
+    assert "答案" not in questions[0]["stem"]
+    assert "递归函数必须有终止条件" not in questions[0]["stem"]
     assert "用户讲义 p.1" in questions[0]["explain"]
 
 
@@ -157,5 +160,9 @@ def test_validate_source_scope_enforces_owner_and_normalizes(monkeypatch, tmp_pa
     )
 
     assert ingest.validate_source_scope("alice", [" source-a ", "source-a"]) == ["source-a"]
+    assert ingest.validate_source_scope("alice", [ingest.COURSE_SCOPE_ID, "source-a"]) == [
+        ingest.COURSE_SCOPE_ID,
+        "source-a",
+    ]
     with pytest.raises(ValueError, match="selected sources are unavailable"):
         ingest.validate_source_scope("alice", ["source-b"])

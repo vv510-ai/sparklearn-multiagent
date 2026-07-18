@@ -44,6 +44,7 @@ try:  # pydantic-settings 可用时走标准路径
         spark_super_tts_api_secret: str = ""
         spark_super_tts_url: str = "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6"
         spark_super_tts_voice: str = "x6_lingxiaoxuan_pro"
+        spark_tts_speed: int = 42
 
         # 讯飞中英识别大模型（与其他讯飞服务分开授权）
         spark_asr_appid: str = ""
@@ -67,7 +68,7 @@ try:  # pydantic-settings 可用时走标准路径
         xyq_base_url: str = "https://xyq.jianying.com"
         xyq_video_model: str = "Seedance_2.0_mini_lite"
         xyq_video_ratio: str = "16:9"
-        xyq_video_duration: int = 5
+        xyq_video_duration: int = 10
         xyq_video_resolution: str = "720p"
 
         # 多模态能力开关与单次调用预算
@@ -91,7 +92,7 @@ try:  # pydantic-settings 可用时走标准路径
         mm_video_poll_timeout_s: float = 15
         mm_video_download_timeout_s: float = 90
         mm_video_max_mb: int = 256
-        mm_ppt_create_timeout_s: float = 30
+        mm_ppt_create_timeout_s: float = 75
         mm_ppt_poll_timeout_s: float = 15
         mm_ppt_download_timeout_s: float = 45
 
@@ -143,6 +144,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
                 "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6",
             )
             self.spark_super_tts_voice = g("SPARK_SUPER_TTS_VOICE", "x6_lingxiaoxuan_pro")
+            self.spark_tts_speed = int(g("SPARK_TTS_SPEED", "42"))
             self.spark_asr_appid = g("SPARK_ASR_APPID", "")
             self.spark_asr_api_key = g("SPARK_ASR_API_KEY", "")
             self.spark_asr_api_secret = g("SPARK_ASR_API_SECRET", "")
@@ -158,7 +160,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.xyq_base_url = g("XYQ_BASE_URL", "https://xyq.jianying.com")
             self.xyq_video_model = g("XYQ_VIDEO_MODEL", "Seedance_2.0_mini_lite")
             self.xyq_video_ratio = g("XYQ_VIDEO_RATIO", "16:9")
-            self.xyq_video_duration = int(g("XYQ_VIDEO_DURATION", "5"))
+            self.xyq_video_duration = int(g("XYQ_VIDEO_DURATION", "10"))
             self.xyq_video_resolution = g("XYQ_VIDEO_RESOLUTION", "720p")
             self.mm_ocr_enabled = _env_bool("MM_OCR_ENABLED")
             self.mm_local_ocr_enabled = _env_bool("MM_LOCAL_OCR_ENABLED")
@@ -180,7 +182,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_video_poll_timeout_s = float(g("MM_VIDEO_POLL_TIMEOUT_S", "15"))
             self.mm_video_download_timeout_s = float(g("MM_VIDEO_DOWNLOAD_TIMEOUT_S", "90"))
             self.mm_video_max_mb = int(g("MM_VIDEO_MAX_MB", "256"))
-            self.mm_ppt_create_timeout_s = float(g("MM_PPT_CREATE_TIMEOUT_S", "30"))
+            self.mm_ppt_create_timeout_s = float(g("MM_PPT_CREATE_TIMEOUT_S", "75"))
             self.mm_ppt_poll_timeout_s = float(g("MM_PPT_POLL_TIMEOUT_S", "15"))
             self.mm_ppt_download_timeout_s = float(g("MM_PPT_DOWNLOAD_TIMEOUT_S", "45"))
             self.database_url = g("DATABASE_URL", "")

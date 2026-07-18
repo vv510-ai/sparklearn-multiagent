@@ -179,6 +179,54 @@ def _video_prompt(script: dict, *, source_bound: bool) -> str:
     )
 
 
+def _clean_script_text(value: object, limit: int = 360) -> str:
+    text = re.sub(r"[\x00-\x1f\ufffd\ue000-\uf8ff]", " ", str(value or ""))
+    text = re.split(r"(?:答案|参考答案|解析)\s*[:：]", text, maxsplit=1)[0]
+    text = " ".join(text.split()).strip()
+    return text[:limit].rstrip("，；、 ")
+
+
+def _normalize_script(script: dict, chunks: list[dict], name: str) -> dict:
+    normalized = dict(script)
+    narration = _clean_script_text(normalized.get("narration"), 360)
+    additions = list(dict.fromkeys(
+        item
+        for item in (_clean_script_text(chunk.get("text"), 150) for chunk in chunks)
+        if len(item) >= 24 and item not in narration
+    ))
+    scaffolds = [
+        f"先明确{name}要解决的具体问题，以及输入和输出分别是什么",
+        "再把关键对象按顺序摆出来，不跳步骤，也不把多个概念一次塞给初学者",
+        "接着用一个最小例子观察状态怎样变化，并在每一步说清为什么这样做",
+        "完成例子后回到正式定义，把生活化理解和资料中的术语一一对应",
+        "随后检查时间与空间代价，说明这种方法在数据规模变大时会发生什么",
+        "还要特别指出一个常见错误，并用成立条件和不成立条件做清楚对照",
+        "最后用一句记忆钩子收束：先看目标，再走步骤，用例子验证，按边界检查",
+    ]
+    if len(narration) < 280:
+        parts = [narration.rstrip("。")] if narration else []
+        for item in [*additions, *scaffolds]:
+            if item and item not in parts and item not in narration:
+                parts.append(item.rstrip("。"))
+            if len("。".join(parts)) >= 300:
+                break
+        narration = "。".join(parts).strip("。") + "。"
+    normalized["narration"] = narration[:360] or f"本节用一分钟讲清{name}的核心概念、最小例子和易错边界。"
+
+    scenes = [scene for scene in normalized.get("scenes") or [] if isinstance(scene, dict)]
+    if len(scenes) < 4:
+        scenes = [
+            {"t": "0-15s", "visual": f"用一句话呈现{name}的学习目标", "caption": "先抓核心结论"},
+            {"t": "15-30s", "visual": "按顺序演示关键对象和步骤", "caption": "跟着步骤走一遍"},
+            {"t": "30-45s", "visual": "展示一个最小案例的状态变化", "caption": "用最小例子验证"},
+            {"t": "45-60s", "visual": "对照正确做法与常见错误", "caption": "最后检查适用边界"},
+        ]
+    normalized["scenes"] = scenes[:6]
+    normalized["target_seconds"] = 60
+    normalized["video_clip_seconds"] = 10
+    return normalized
+
+
 def _local_manim_video(kp: str) -> dict | None:
     filename = _LOCAL_MANIM_VIDEOS.get(kp)
     if not filename or not (GEN_DIR / filename).is_file():
@@ -270,6 +318,7 @@ async def run(state: dict) -> dict:
                       {"t": "40-60s", "visual": "对比正常情况与边界情况", "caption": "检查边界"},
                   ],
                   "video_prompt": f"educational 2D animation explaining {kp}, clean diagram style"}
+    script = _normalize_script(script, chunks, name)
     await emit({"type": "progress", "agent": "media", "stage": "script", "percent": 25,
                 "detail": f"分镜脚本就绪,共 {len(script.get('scenes', []))} 个镜头"})
 
@@ -348,7 +397,7 @@ async def run(state: dict) -> dict:
                     if local_video else "云端视频未配置/失败,已降级为 Manim 动画代码(可本地渲染)"})
 
     audio, cover = await asyncio.gather(
-        multimodal_gateway.tts(script["narration"][:260], trace_id=trace_id),
+        multimodal_gateway.tts(script["narration"][:360], trace_id=trace_id),
         multimodal_gateway.text_to_image(
             f"学习资料主题封面插画:{name},蓝橙科技风,简洁抽象示意图,不添加事实性标签",
             trace_id=trace_id,

@@ -133,20 +133,25 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
           desc={`${video.error || video.reason || "请查看后端任务日志"}。下方动态预览、分镜与代码不受影响。`}
         />
       ) : videoUrl ? (
-        <video
-          key={videoUrl}
-          src={videoUrl}
-          controls
-          preload="metadata"
-          poster={coverUrl}
-          onError={() => {
-            setPlaybackError("视频文件暂时读取失败，系统正在重新获取。");
-            if (video?.task_id) {
-              setVideo((current) => ({ ...current, status: "running", url: undefined }));
-            }
-          }}
-          className="w-full rounded-xl border border-slate-200 bg-black"
-        />
+        <div className="space-y-2">
+          <video
+            key={videoUrl}
+            src={videoUrl}
+            controls
+            preload="metadata"
+            poster={coverUrl}
+            onError={() => {
+              setPlaybackError("视频文件暂时读取失败，系统正在重新获取。");
+              if (video?.task_id) {
+                setVideo((current) => ({ ...current, status: "running", url: undefined }));
+              }
+            }}
+            className="w-full rounded-xl border border-slate-200 bg-black"
+          />
+          <p className="text-[11px] leading-5 text-slate-500">
+            上方是约 {script?.video_clip_seconds || 10} 秒的关键概念动画；完整 {script?.target_seconds || 60} 秒讲解请结合下方分镜与稍慢语速旁白收听。
+          </p>
+        </div>
       ) : video?.task_id ? (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs">
           <span className="min-w-0 text-slate-700">

@@ -34,9 +34,10 @@ def synthesize(text: str, *, voice: str = "xiaoyan", filename: str | None = None
     audio = bytearray()
     url = assemble_auth_url(TTS_URL.replace("wss://", "https://"), s.spark_api_key, s.spark_api_secret)
     url = url.replace("https://", "wss://")
+    speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
     payload = {
         "common": {"app_id": s.spark_appid},
-        "business": {"aue": "lame", "sfl": 1, "vcn": voice, "tte": "UTF8", "speed": 50},
+        "business": {"aue": "lame", "sfl": 1, "vcn": voice, "tte": "UTF8", "speed": speed},
         "data": {"status": 2, "text": base64.b64encode(text.encode("utf-8")).decode()},
     }
     done: list[bool] = []

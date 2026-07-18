@@ -3,6 +3,8 @@
 import {
   ArrowRight,
   BookOpen,
+  Check,
+  FileText,
   FolderOpen,
   LogOut,
   PanelLeftOpen,
@@ -17,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgentTrace, { applyTraceEvent, emptyTrace, type TraceState } from "@/components/agent/AgentTrace";
 import AuthGate, { type AuthUser } from "@/components/auth/AuthGate";
 import Chat from "@/components/chat/Chat";
-import SourcePanel, { isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
+import SourcePanel, { COURSE_SOURCE_ID, isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
 import StudioPanel from "@/components/notebook/StudioPanel";
 import PathDag from "@/components/path/PathDag";
 import LearningEvidence from "@/components/profile/LearningEvidence";
@@ -113,12 +115,24 @@ function LearningGate({
   onUpload,
   onLogout,
   uploading,
+  sources,
+  selectedIds,
+  uploadNote,
+  uploadError,
+  onToggleCourse,
+  onToggleSource,
   user,
 }: {
   onStart: (goal: string) => void;
-  onUpload: (file: File) => void;
+  onUpload: (files: File[]) => void;
   onLogout: () => void;
   uploading: boolean;
+  sources: KnowledgeSource[];
+  selectedIds: string[];
+  uploadNote: string;
+  uploadError: boolean;
+  onToggleCourse: () => void;
+  onToggleSource: (sourceId: string) => void;
   user: AuthUser;
 }) {
   const [goal, setGoal] = useState("");
@@ -176,12 +190,13 @@ function LearningGate({
             <input
               ref={fileRef}
               type="file"
-              accept=".txt,.md,.pdf,.png,.jpg,.jpeg,text/plain,text/markdown,application/pdf,image/png,image/jpeg"
+              multiple
+              accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg"
               className="hidden"
               onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
+                const files = Array.from(event.currentTarget.files || []);
                 event.currentTarget.value = "";
-                if (file) onUpload(file);
+                if (files.length) onUpload(files);
               }}
             />
             <button onClick={() => fileRef.current?.click()} disabled={uploading || transitioning} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/75 transition hover:bg-white/10 hover:text-white disabled:cursor-wait" aria-label="添加学习资料" title="添加学习资料">
@@ -200,6 +215,40 @@ function LearningGate({
               <ArrowRight size={20} />
             </button>
           </div>
+
+          <div className="glass-readable mt-4 w-full max-w-[760px] rounded-[18px] border border-white/15 bg-[#062C3A]/35 px-4 py-3 text-left backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-semibold text-white/80">本次学习资料范围（可多选）</span>
+              <span className="text-[11px] text-white/55">已选 {selectedIds.length} 项</span>
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onToggleCourse}
+                className={`learning-gate-source-chip ${selectedIds.includes(COURSE_SOURCE_ID) ? "is-selected" : ""}`}
+              >
+                <BookOpen size={14} />课程知识库{selectedIds.includes(COURSE_SOURCE_ID) && <Check size={13} />}
+              </button>
+              {sources.map((source) => {
+                const selected = selectedIds.includes(source.id);
+                const selectable = isSourceSelectable(source);
+                return (
+                  <button
+                    key={source.id}
+                    type="button"
+                    disabled={!selectable}
+                    onClick={() => selectable && onToggleSource(source.id)}
+                    className={`learning-gate-source-chip ${selected ? "is-selected" : ""}`}
+                    title={source.status_detail}
+                  >
+                    <FileText size={14} /><span className="max-w-48 truncate">{source.title || source.filename}</span>{selected && <Check size={13} />}
+                  </button>
+                );
+              })}
+            </div>
+            {sources.length === 0 && !uploadNote && <p className="mt-2 text-[11px] text-white/55">还没有个人资料；可点击输入框左侧的“＋”批量上传。</p>}
+            {uploadNote && <p className={`mt-2 text-[11px] ${uploadError ? "text-[#FFD0C5]" : "text-[#B8F3D4]"}`}>{uploadNote}</p>}
+          </div>
         </section>
 
       </div>
@@ -217,14 +266,20 @@ function LearningGate({
 function EvidenceSummary({
   trace,
   quality,
-  selectedSourceCount,
+  selectedSourceIds,
 }: {
   trace: TraceState;
   quality: QualityEvidence;
-  selectedSourceCount: number;
+  selectedSourceIds: string[];
 }) {
+  const personalCount = selectedSourceIds.filter((id) => id !== COURSE_SOURCE_ID).length;
+  const courseSelected = selectedSourceIds.includes(COURSE_SOURCE_ID);
+  const sourceLabel = [
+    courseSelected ? "课程知识库" : "",
+    personalCount ? `${personalCount} 份个人资料` : "",
+  ].filter(Boolean).join(" + ") || "尚未选择";
   const qualityRows = [
-    { label: "资料范围", value: selectedSourceCount ? `已选 ${selectedSourceCount} 份个人资料` : "课程知识库" },
+    { label: "资料范围", value: sourceLabel },
     { label: "检索片段", value: quality.retrievalCount == null ? "等待检索" : `${quality.retrievalCount} 个可核对片段` },
     { label: "回答溯源", value: quality.grounded == null ? "等待检查" : quality.grounded ? "已通过" : "需要复核" },
     { label: "引用来源", value: quality.citationCount == null ? "等待生成" : `${quality.citationCount} 处` },
@@ -295,7 +350,7 @@ export default function Home() {
   const [resourceFilter, setResourceFilter] = useState<ResourceFilter>("all");
   const [panelError, setPanelError] = useState("");
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
-  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([COURSE_SOURCE_ID]);
   const [uploading, setUploading] = useState(false);
   const [uploadNote, setUploadNote] = useState("");
   const [uploadError, setUploadError] = useState(false);
@@ -372,7 +427,14 @@ export default function Home() {
       const data = await apiGet<{ items: KnowledgeSource[] }>(`/knowledge/sources?user_id=${USER_ID}`);
       const items = dedupeSources(data.items || []);
       setSources(items);
-      setSelectedSourceIds((ids) => ids.filter((id) => items.some((item) => item.id === id && isSourceSelectable(item))));
+      setSelectedSourceIds((ids) => {
+        const available = new Set([
+          COURSE_SOURCE_ID,
+          ...items.filter(isSourceSelectable).map((item) => item.id),
+        ]);
+        const valid = ids.filter((id) => available.has(id));
+        return valid.length ? valid : [COURSE_SOURCE_ID];
+      });
     } catch (error) {
       setUploadError(true);
       setUploadNote(`学习资料暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
@@ -383,32 +445,55 @@ export default function Home() {
     if (authStatus === "authenticated") void loadSources();
   }, [authStatus, loadSources]);
 
-  const uploadSource = async (file: File) => {
+  const uploadSources = async (files: File[]) => {
+    if (!files.length || uploading) return;
     setUploading(true);
     setUploadNote("");
     setUploadError(false);
+    const completed: KnowledgeSource[] = [];
+    const failures: string[] = [];
     try {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("user_id", USER_ID);
-      form.append("title", file.name.replace(/\.[^.]+$/, ""));
-      const result = await apiUpload<UploadResult>("/knowledge/upload", form);
-      setSources((items) => dedupeSources([result.source, ...items.filter((item) => item.id !== result.source.id)]));
-      if (isSourceSelectable(result.source)) {
-        setSelectedSourceIds((ids) => Array.from(new Set([...ids, result.source.id])));
+      for (const file of files) {
+        setUploadNote(`正在解析「${file.name}」…`);
+        try {
+          const form = new FormData();
+          form.append("file", file);
+          form.append("user_id", USER_ID);
+          form.append("title", file.name.replace(/\.[^.]+$/, ""));
+          const result = await apiUpload<UploadResult>("/knowledge/upload", form);
+          completed.push(result.source);
+        } catch (error) {
+          failures.push(`${file.name}：${error instanceof Error ? error.message : String(error)}`);
+        }
       }
-      setUploadNote(
-        result.source.status === "degraded"
-          ? `已加入「${result.source.title}」· ${result.source.chunk_count} 个片段，当前使用降级解析`
-          : `已加入「${result.source.title}」· ${result.source.chunk_count} 个可引用片段`,
-      );
-    } catch (error) {
-      setUploadError(true);
-      setUploadNote(error instanceof Error ? error.message : String(error));
+      if (completed.length) {
+        setSources((items) => dedupeSources([...completed.reverse(), ...items]));
+        setSelectedSourceIds((ids) => Array.from(new Set([
+          ...ids,
+          ...completed.filter(isSourceSelectable).map((source) => source.id),
+        ])));
+      }
+      setUploadError(failures.length > 0);
+      setUploadNote([
+        completed.length ? `已加入 ${completed.length} 份资料并自动选中` : "",
+        ...failures,
+      ].filter(Boolean).join("；"));
     } finally {
       setUploading(false);
     }
   };
+
+  const toggleCourseSource = () => setSelectedSourceIds((ids) => (
+    ids.includes(COURSE_SOURCE_ID)
+      ? ids.length > 1 ? ids.filter((id) => id !== COURSE_SOURCE_ID) : ids
+      : [COURSE_SOURCE_ID, ...ids]
+  ));
+
+  const togglePersonalSource = (sourceId: string) => setSelectedSourceIds((ids) => (
+    ids.includes(sourceId)
+      ? ids.length > 1 ? ids.filter((id) => id !== sourceId) : ids
+      : [...ids, sourceId]
+  ));
 
   const startNotebook = (goal: string) => {
     setEntered(true);
@@ -465,7 +550,7 @@ export default function Home() {
       setConversationFocus("");
       setChatSessionId("");
       setSources([]);
-      setSelectedSourceIds([]);
+      setSelectedSourceIds([COURSE_SOURCE_ID]);
       setResources([]);
       setProfile(null);
       setPathPlan(null);
@@ -595,9 +680,15 @@ export default function Home() {
     return (
       <LearningGate
         onStart={startNotebook}
-        onUpload={(file) => void uploadSource(file)}
+        onUpload={(files) => void uploadSources(files)}
         onLogout={() => void logout()}
         uploading={uploading}
+        sources={sources}
+        selectedIds={selectedSourceIds}
+        uploadNote={uploadNote}
+        uploadError={uploadError}
+        onToggleCourse={toggleCourseSource}
+        onToggleSource={togglePersonalSource}
         user={authUser}
       />
     );
@@ -611,8 +702,8 @@ export default function Home() {
       uploadNote={uploadNote}
       uploadError={uploadError}
       onAdd={() => sourceInputRef.current?.click()}
-      onUseCourse={() => setSelectedSourceIds([])}
-      onToggle={(sourceId) => setSelectedSourceIds((ids) => ids.includes(sourceId) ? ids.filter((id) => id !== sourceId) : [...ids, sourceId])}
+      onToggleCourse={toggleCourseSource}
+      onToggle={togglePersonalSource}
     />
   );
   const studioPanel = <StudioPanel onGenerate={startGenerate} onOpen={openPanel} />;
@@ -622,29 +713,30 @@ export default function Home() {
       <input
         ref={sourceInputRef}
         type="file"
-        accept=".txt,.md,.pdf,.png,.jpg,.jpeg,text/plain,text/markdown,application/pdf,image/png,image/jpeg"
+        multiple
+        accept=".txt,.md,.pdf,.docx,.png,.jpg,.jpeg,text/plain,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg"
         className="hidden"
         onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
+          const files = Array.from(event.currentTarget.files || []);
           event.currentTarget.value = "";
-          if (file) void uploadSource(file);
+          if (files.length) void uploadSources(files);
         }}
       />
 
       <header className="notebook-topbar relative z-20 flex h-[68px] shrink-0 items-center gap-3 px-4 sm:px-5">
         <button onClick={() => setActivePanel("chat")} className="flex items-center gap-2.5" title="返回学习对话">
           <SparkMark running={running} />
-          <strong className="text-lg tracking-tight">SparkLearn</strong>
+          <strong className="hidden text-lg tracking-tight sm:block">SparkLearn</strong>
         </button>
         <span className="hidden h-5 w-px bg-[#DDE0E8] sm:block" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-[#343944]">{currentTopicTitle}</div>
-          <div className="hidden text-[11px] text-[#818795] sm:block">{selectedSourceIds.length ? `${selectedSourceIds.length} 份个人资料参与回答` : "课程知识库参与回答"}</div>
+          <div className="hidden text-[11px] text-[#818795] sm:block">已选 {selectedSourceIds.length} 项学习资料</div>
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => setMobilePane("sources")} className="notebook-icon-button xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
-          <button onClick={() => setMobilePane("studio")} className="notebook-icon-button xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
+          <button onClick={() => setMobilePane("sources")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
+          <button onClick={() => setMobilePane("studio")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
           </span>
@@ -777,6 +869,12 @@ export default function Home() {
         <aside className="hidden min-h-0 xl:block">{studioPanel}</aside>
       </div>
 
+      <nav className="notebook-mobile-nav xl:hidden" aria-label="移动端学习工作台导航">
+        <button type="button" onClick={() => setMobilePane("sources")}><PanelLeftOpen size={17} /><span>学习来源</span></button>
+        <button type="button" className="is-active" onClick={() => { setActivePanel("chat"); setMobilePane(null); }}><BookOpen size={17} /><span>学习对话</span></button>
+        <button type="button" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
+      </nav>
+
       {mobilePane && (
         <div className="fixed inset-0 z-40 bg-[#151821]/25 backdrop-blur-[2px] xl:hidden" onClick={() => setMobilePane(null)}>
           <div className={`absolute inset-y-0 w-[min(88vw,360px)] bg-[#F7F8FC] p-3 shadow-2xl ${mobilePane === "sources" ? "left-0" : "right-0"}`} onClick={(event) => event.stopPropagation()}>
@@ -792,7 +890,7 @@ export default function Home() {
           <button onClick={() => setEvidenceOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-white/5 text-white/70 hover:bg-white/10" aria-label="关闭依据面板"><X size={18} /></button>
         </div>
         <div className="h-[calc(100dvh-68px)] overflow-y-auto p-4">
-          <EvidenceSummary trace={trace} quality={qualityEvidence} selectedSourceCount={selectedSourceIds.length} />
+          <EvidenceSummary trace={trace} quality={qualityEvidence} selectedSourceIds={selectedSourceIds} />
           <button onClick={() => setTraceDetailsOpen((open) => !open)} className="mt-3 flex w-full items-center justify-between rounded-[8px] border border-white/10 bg-white/[0.05] px-3 py-2.5 text-left text-sm font-semibold text-white">
             <span>{traceDetailsOpen ? "收起详细过程" : "查看详细过程"}</span><span>⌄</span>
           </button>

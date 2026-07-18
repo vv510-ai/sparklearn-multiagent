@@ -115,7 +115,7 @@ def create_task(prompt: str, image_url: str | None = None) -> str:
         raise ValueError("Xiaoyunque reference images must be uploaded as asset ids")
 
     settings = get_settings()
-    duration = int(getattr(settings, "xyq_video_duration", 5))
+    duration = max(10, int(getattr(settings, "xyq_video_duration", 10)))
     if duration <= 0:
         raise ValueError("XYQ_VIDEO_DURATION must be greater than zero")
     param: dict[str, Any] = {"prompt": text, "duration_sec": duration}

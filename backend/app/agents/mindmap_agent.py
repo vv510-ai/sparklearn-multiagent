@@ -48,9 +48,22 @@ def _fallback_points(chunks: list[dict]) -> list[str]:
         point = _clean_point(part)
         if 4 <= len(point) <= 24 and point not in points:
             points.append(point)
-        if len(points) >= 3:
+        if len(points) >= 5:
             break
     return points or ["资料片段不足"]
+
+
+def _complete_learning_branches(points: list[str], *, has_sources: bool) -> list[str]:
+    if not has_sources:
+        return points
+    scaffolds = [
+        "关键步骤：按资料顺序走一遍",
+        "最小例子：把概念落到具体过程",
+        "复杂度：核对时间与空间代价",
+        "易错边界：区分成立与不成立条件",
+        "核心定义：先说清对象与目标",
+    ]
+    return list(dict.fromkeys([*points, *scaffolds]))[:5]
 
 
 def _guided_goal_points(goal: str, chunks: list[dict]) -> list[str]:
@@ -223,6 +236,7 @@ async def _expand_node(
         points = ["一句话定义", "典型使用场景", "关键组成", "基本流程", "常见误区"]
     elif not points:
         points = _fallback_points(chunks)
+    points = _complete_learning_branches(points, has_sources=bool(chunks))
     return points[:5], citations, prompt_call
 
 

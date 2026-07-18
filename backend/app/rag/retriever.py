@@ -5,7 +5,7 @@ import logging
 import numpy as np
 
 from .embedding import embed_texts
-from .ingest import chunks_for_source
+from .ingest import COURSE_SCOPE_ID, chunks_for_source
 from .reranker import rerank
 from .vector_store import get_store
 
@@ -92,21 +92,24 @@ def retrieve(
     user_id: str | None = None,
 ) -> list[dict]:
     selected_sources = _clean_ids(source_ids)
-    if selected_sources:
-        hits = _hits_from_sources(
+    uploaded_sources = [source_id for source_id in selected_sources if source_id != COURSE_SCOPE_ID]
+    include_course = not selected_sources or COURSE_SCOPE_ID in selected_sources
+    hits: list[dict] = []
+    if uploaded_sources:
+        hits.extend(_hits_from_sources(
             query,
-            selected_sources,
+            uploaded_sources,
             top_k=max(top_k, final_k * 4),
             user_id=user_id,
-        )
-    else:
+        ))
+    if include_course:
         store = get_store()
         qv = embed_texts([query], domain="query")[0]
         search_k = max(top_k * 4, final_k * 8, 40)
-        hits = [
+        hits.extend([
             hit for hit in store.search(qv, top_k=search_k, user_id=user_id)
             if course != "ds_algo" or hit.get("source") in BUILTIN_COURSE_SOURCES
-        ]
+        ])
 
     if kp:
         hits = [hit for hit in hits if hit_matches_kp(hit, kp)]

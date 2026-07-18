@@ -69,7 +69,7 @@ def _json(response: requests.Response) -> dict[str, Any]:
     return data
 
 
-def create_task(query: str, *, timeout_s: float = 30.0) -> dict[str, Any]:
+def create_task(query: str, *, timeout_s: float = 75.0) -> dict[str, Any]:
     s = get_settings()
     value = str(query or "").strip()
     if not value:
@@ -82,8 +82,9 @@ def create_task(query: str, *, timeout_s: float = 30.0) -> dict[str, Any]:
         "author": (None, "SparkLearn 星火学伴"),
         "search": (None, "false"),
         "isCardNote": (None, "false"),
-        "isFigure": (None, "true"),
-        "aiImage": (None, "normal"),
+        # Provider-side AI figures add a second long-running stage. Keep the
+        # study deck responsive; learners can still edit and add figures later.
+        "isFigure": (None, "false"),
     }
     response = requests.post(
         f"{base_url}/api/ppt/v2/create",

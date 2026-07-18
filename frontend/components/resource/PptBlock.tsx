@@ -18,6 +18,7 @@ export default function PptBlock({ payload }: { payload: ResourceItem["payload"]
 
   useEffect(() => {
     setPpt(payload.ppt || {});
+    attempts.current = 0;
   }, [payload.ppt]);
 
   const poll = useCallback(async () => {
@@ -76,7 +77,7 @@ export default function PptBlock({ payload }: { payload: ResourceItem["payload"]
           <div className="min-w-0 text-slate-700">
             <div className="font-bold text-blue-900">星火正在整理复习 PPT</div>
             <div className="mt-1">
-              {ppt.total_pages ? `已完成 ${ppt.done_pages || 0}/${ppt.total_pages} 页` : "先生成大纲，再排版与配图"}
+              {ppt.total_pages ? `已完成 ${ppt.done_pages || 0}/${ppt.total_pages} 页` : "先生成大纲，再完成轻量排版"}
             </div>
           </div>
           <button

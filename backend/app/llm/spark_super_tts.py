@@ -79,12 +79,13 @@ def synthesize(
     completed = threading.Event()
     errors: list[str] = []
 
+    speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
     payload = {
         "header": {"app_id": appid, "status": 2},
         "parameter": {
             "tts": {
                 "vcn": chosen_voice,
-                "speed": 50,
+                "speed": speed,
                 "volume": 50,
                 "pitch": 50,
                 "bgs": 0,

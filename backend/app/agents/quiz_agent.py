@@ -73,9 +73,28 @@ def _choice_answer(options: list[str], answer: object) -> str:
     return ""
 
 
+def _clean_source_claim(value: object, limit: int = 220) -> str:
+    text = str(value or "")
+    text = re.sub(r"[\x00-\x1f\ufffd\ue000-\uf8ff]", " ", text)
+    text = re.split(r"(?:答案|参考答案|解析)\s*[:：]", text, maxsplit=1)[0]
+    text = re.sub(r"(?:^|\s)[A-D][.、:：]\s*", " ", text, flags=re.IGNORECASE)
+    text = " ".join(text.split()).strip(" -•")
+    if len(text) > limit:
+        text = text[:limit].rsplit(" ", 1)[0] or text[:limit]
+    return text.strip()
+
+
 def _validate(q: dict, kp: str) -> dict | None:
     if not isinstance(q, dict) or q.get("type") not in _TYPES or not q.get("stem"):
         return None
+    stem = " ".join(str(q.get("stem") or "").split())
+    if (
+        len(stem) > 320
+        or re.search(r"(?:参考?答案|正确答案|解析)\s*[:：]", stem)
+        or len(re.findall(r"(?:^|\s)\(?\d{1,2}\)?[.、)]", stem)) >= 3
+    ):
+        return None
+    q["stem"] = re.sub(r"^(?:Q\d+|第\s*\d+\s*题)\s*[.、:：-]*\s*", "", stem, flags=re.IGNORECASE)
     source_grounded = bool(q.pop("_source_grounded", False) or q.pop("_trusted_topic", False))
     detected_kp = infer_kp_id(f"{q.get('stem', '')} {q.get('explain', q.get('explanation', ''))}")
     if not source_grounded and detected_kp and detected_kp != kp:
@@ -116,43 +135,56 @@ def _source_fallback_questions(
     kp: str,
     difficulty: int,
     *,
+    topic_name: str = "当前主题",
     target_questions: int = _TARGET_QUESTIONS,
 ) -> list[dict]:
-    """Create traceable open questions from selected-source excerpts only."""
+    """Create traceable questions without exposing raw excerpts or their answers."""
     candidates: list[tuple[str, str]] = []
     for chunk in chunks:
-        text = " ".join(str(chunk.get("text") or "").split())
+        text = _clean_source_claim(chunk.get("text") or "", 360)
         citation = str(chunk.get("citation") or chunk.get("source") or "所选资料")
         if text:
-            candidates.append((text[:360], citation))
+            candidates.append((text, citation))
             candidates.extend(
-                (part.strip()[:260], citation)
+                (_clean_source_claim(part, 220), citation)
                 for part in re.split(r"[。！？；\n]", text)
                 if len(part.strip()) >= 18
             )
-    output: list[dict] = []
+    prompts = [
+        f"用自己的话概括「{topic_name}」在这段资料中的核心结论，并说明一个成立条件。",
+        f"资料怎样解释「{topic_name}」的关键步骤？请按先后顺序写出要点。",
+        f"为「{topic_name}」设计一个最小例子，并指出每一步对应的概念。",
+        f"资料中有哪些容易混淆的概念或做法？请写出区分依据。",
+        f"说明「{topic_name}」的适用边界：什么情况下能用，什么情况下需要换方法？",
+        f"如果要检查自己是否掌握「{topic_name}」，可以观察哪两个学习证据？",
+        f"把资料里的这一要点讲给零基础同学：先给结论，再给一句原因。",
+        f"结合资料说明「{topic_name}」的一个常见错误，并给出修正办法。",
+    ]
+    unique_candidates: list[tuple[str, str]] = []
     seen: set[str] = set()
-    for index, (excerpt, citation) in enumerate(candidates, 1):
+    for excerpt, citation in candidates:
         key = re.sub(r"\s+", "", excerpt).lower()
         if not key or key in seen:
             continue
         seen.add(key)
+        unique_candidates.append((excerpt, citation))
+
+    output: list[dict] = []
+    for index in range(min(target_questions, len(prompts))):
+        if not unique_candidates:
+            break
+        excerpt, citation = unique_candidates[index % len(unique_candidates)]
         output.append({
             "_source_grounded": True,
             "type": "design",
-            "stem": (
-                f"阅读所选资料片段 {index}：\n“{excerpt}”\n"
-                "请概括其核心结论，并说明其中的关键条件。"
-            ),
+            "stem": prompts[index],
             "options": [],
             "answer": excerpt,
-            "explain": f"答案严格依据：{citation}。作答时应同时保留结论和条件。",
+            "explain": f"核对依据：{citation}。参考要点会在提交后显示。",
             "kp": kp,
             "difficulty": difficulty,
             "error_tags": ["遗漏条件"],
         })
-        if len(output) >= target_questions:
-            break
     return output
 
 
@@ -259,7 +291,7 @@ async def run(state: dict) -> dict:
     questions = []
     seen_stems: set[str] = set()
     source_fallback = _source_fallback_questions(
-        chunks, kp, diff, target_questions=target_questions
+        chunks, kp, diff, topic_name=name, target_questions=target_questions
     )
     fallback_items = (
         source_fallback if source_ids else

@@ -97,7 +97,7 @@ export default function InteractiveAudioPlayer({
     const voices = synth.getVoices();
     utterance.voice = voices.find((voice) => voice.lang.toLowerCase().startsWith("zh")) || null;
     utterance.lang = "zh-CN";
-    utterance.rate = 0.95;
+    utterance.rate = 0.88;
     utterance.pitch = 1;
     utterance.onstart = () => setSpeechState("playing");
     utterance.onpause = () => setSpeechState("paused");

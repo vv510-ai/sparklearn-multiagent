@@ -19,6 +19,8 @@ export interface KnowledgeSource {
   indexed_at?: string;
 }
 
+export const COURSE_SOURCE_ID = "__course__";
+
 export function isSourceSelectable(source: KnowledgeSource): boolean {
   return source.selectable ?? ["indexed", "degraded"].includes(source.status);
 }
@@ -48,7 +50,7 @@ export default function SourcePanel({
   uploadNote,
   uploadError,
   onAdd,
-  onUseCourse,
+  onToggleCourse,
   onToggle,
 }: {
   sources: KnowledgeSource[];
@@ -57,10 +59,11 @@ export default function SourcePanel({
   uploadNote: string;
   uploadError: boolean;
   onAdd: () => void;
-  onUseCourse: () => void;
+  onToggleCourse: () => void;
   onToggle: (sourceId: string) => void;
 }) {
-  const usingCourse = selectedIds.length === 0;
+  const usingCourse = selectedIds.includes(COURSE_SOURCE_ID);
+  const selectedCount = selectedIds.length;
 
   return (
     <div className="notebook-column flex h-full min-h-0 flex-col" aria-label="学习来源">
@@ -69,7 +72,7 @@ export default function SourcePanel({
           <div className="notebook-column-kicker">LEARNING SOURCES</div>
           <h2>学习来源</h2>
         </div>
-        <span className="source-count">{selectedIds.length || 1}</span>
+        <span className="source-count">{selectedCount}</span>
       </div>
 
       <div className="border-b border-[#E1E4EC] p-3">
@@ -78,16 +81,16 @@ export default function SourcePanel({
           {uploading ? "正在建立索引" : "添加学习资料"}
         </button>
         <p className="mt-2 px-1 text-[11px] leading-5 text-[#777D8B]">
-          支持 PDF、图片、Markdown 和文本。选中后，回答与学习产物只依据这些资料。
+          支持 Word、PDF、图片、Markdown 和文本，可同时选择课程知识库与多份资料。
         </p>
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        <button onClick={onUseCourse} className={`source-row ${usingCourse ? "is-selected" : ""}`}>
+        <button onClick={onToggleCourse} className={`source-row ${usingCourse ? "is-selected" : ""}`}>
           <span className="source-icon is-course"><BookOpen size={17} /></span>
           <span className="min-w-0 flex-1 text-left">
             <strong>课程知识库</strong>
-            <small>未选择附件时使用内置教材</small>
+            <small>可与个人资料一起参与回答</small>
           </span>
           <span className={`source-check ${usingCourse ? "is-checked" : ""}`}>
             {usingCourse && <Check size={13} />}

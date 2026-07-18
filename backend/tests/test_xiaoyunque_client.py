@@ -69,7 +69,7 @@ def test_create_task_uses_official_video_part_contract(monkeypatch):
         "message": "生成 一个 教学 视频",
         "video_part_tool_param": {
             "prompt": "生成 一个 教学 视频",
-            "duration_sec": 5,
+            "duration_sec": 10,
             "ratio": "16:9",
             "model": "Seedance_2.0_mini_lite",
             "resolution": "720p",

@@ -468,9 +468,10 @@ async def tts(
     super_configured = bool(spark_super_tts.configured(s) and not demo)
     standard_configured = bool(_triplet_configured() and not demo)
     super_voice = str(getattr(s, "spark_super_tts_voice", "") or "x6_lingxiaoxuan_pro")
+    speech_speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
     attempts: list[tuple[str, str, Callable[[], Any]]] = []
     if super_configured:
-        digest = hashlib.sha1(f"super\0{super_voice}\0{text}".encode("utf-8")).hexdigest()[:16]
+        digest = hashlib.sha1(f"super\0{super_voice}\0{speech_speed}\0{text}".encode("utf-8")).hexdigest()[:16]
         filename = f"tts_super_{digest}.mp3"
         attempts.append((
             "spark_super_tts",
@@ -480,7 +481,7 @@ async def tts(
             ),
         ))
     if standard_configured:
-        digest = hashlib.sha1(f"standard\0{voice}\0{text}".encode("utf-8")).hexdigest()[:16]
+        digest = hashlib.sha1(f"standard\0{voice}\0{speech_speed}\0{text}".encode("utf-8")).hexdigest()[:16]
         filename = f"tts_standard_{digest}.mp3"
         attempts.append((
             "spark_tts",
@@ -700,16 +701,23 @@ async def video_create(
 
 async def ppt_create(query: str, *, trace_id: str = "") -> MMResult:
     s = get_settings()
+    # Existing deployments may still carry the old 30-second environment value.
+    # PPT generation is an asynchronous provider job, so keep the create request
+    # alive long enough even before operators refresh their environment file.
+    create_timeout_s = max(
+        75.0,
+        float(getattr(s, "mm_ppt_create_timeout_s", 75)),
+    )
     return await _run_sync(
         "ppt",
         lambda: spark_ppt.create_task(
             query,
-            timeout_s=float(getattr(s, "mm_ppt_create_timeout_s", 30)),
+            timeout_s=create_timeout_s,
         ),
         lambda state: dict(state),
         enabled=bool(getattr(s, "mm_ppt_enabled", True)),
         configured=bool(spark_ppt.configured(s) and not is_demo()),
-        timeout_s=float(getattr(s, "mm_ppt_create_timeout_s", 30)),
+        timeout_s=create_timeout_s,
         trace_id=trace_id,
         agent="doc",
     )

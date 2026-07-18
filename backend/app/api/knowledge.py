@@ -30,7 +30,7 @@ from ..services.profile_service import ensure_user
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
-MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+MAX_UPLOAD_BYTES = 30 * 1024 * 1024
 MAX_IMAGE_UPLOAD_BYTES = 4 * 1024 * 1024
 
 
@@ -141,24 +141,34 @@ async def upload_source(
     suffix = Path(filename).suffix.lower()
     if suffix not in supported_upload_suffixes():
         allowed = ", ".join(sorted(supported_upload_suffixes()))
-        raise HTTPException(400, f"unsupported file type, allowed: {allowed}")
+        raise HTTPException(400, f"暂不支持这种文件；可上传 Word、PDF、图片、Markdown 或文本（{allowed}）")
 
     max_bytes = MAX_IMAGE_UPLOAD_BYTES if suffix in IMAGE_UPLOAD_SUFFIXES else MAX_UPLOAD_BYTES
     data = await file.read(max_bytes + 1)
     if len(data) > max_bytes:
         max_mb = max_bytes // (1024 * 1024)
-        raise HTTPException(413, f"file too large, max {max_mb}MB")
+        raise HTTPException(413, f"文件过大，当前上限为 {max_mb}MB")
     if not data:
-        raise HTTPException(400, "empty file")
+        raise HTTPException(400, "文件内容为空")
 
     UPLOAD_SOURCES_DIR.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(data).hexdigest()
     duplicate = _duplicate_source(digest, user_id)
     if duplicate:
-        raise HTTPException(
-            409,
-            f"duplicate source already exists: {duplicate.get('title') or duplicate.get('filename') or duplicate.get('id')}",
-        )
+        existing_chunks = chunks_for_source(str(duplicate.get("id") or ""), user_id=user_id)
+        return {
+            "source": _source_response(duplicate, len(existing_chunks)),
+            "vector_count": get_store().count(),
+            "duplicate": True,
+            "sample": [
+                {
+                    "text": chunk.get("text", "")[:240],
+                    "citation": chunk.get("citation")
+                    or f"{duplicate.get('title') or duplicate.get('filename')} p.{chunk.get('page', '?')}",
+                }
+                for chunk in existing_chunks[:3]
+            ],
+        }
     source_id = f"{user_id}_{uuid.uuid4().hex[:8]}_{_safe_stem(filename)}"
     stored = UPLOAD_SOURCES_DIR / f"{source_id}{suffix}"
     stored.write_bytes(data)
@@ -172,7 +182,9 @@ async def upload_source(
         "source_type": (
             "uploaded_image"
             if suffix in IMAGE_UPLOAD_SUFFIXES
-            else "uploaded_pdf" if suffix == ".pdf" else "uploaded_text"
+            else "uploaded_pdf" if suffix == ".pdf"
+            else "uploaded_word" if suffix == ".docx"
+            else "uploaded_text"
         ),
         "bytes": len(data),
         "sha256": digest,
@@ -221,7 +233,12 @@ async def upload_source(
             stored.unlink(missing_ok=True)
             meta_path.unlink(missing_ok=True)
             ingest_corpus(force=True)
-            raise HTTPException(400, "no readable text extracted from file")
+            detail = (
+                "PDF 中没有可提取的文字；扫描版 PDF 请先转为清晰图片上传，或使用带文本层的 PDF"
+                if suffix == ".pdf"
+                else "文件中没有读取到可建立索引的正文"
+            )
+            raise HTTPException(400, detail)
         meta["chunk_count"] = len(chunks)
         meta["indexed_at"] = datetime.now(timezone.utc).isoformat()
         meta["updated_at"] = meta["indexed_at"]
@@ -238,7 +255,7 @@ async def upload_source(
         stored.unlink(missing_ok=True)
         meta_path.unlink(missing_ok=True)
         ingest_corpus(force=True)
-        raise HTTPException(400, f"indexing failed: {exc}") from exc
+        raise HTTPException(400, f"资料解析或索引失败：{exc}") from exc
 
     backup_source_files(user_id, stored, meta_path)
 

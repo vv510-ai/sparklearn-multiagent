@@ -198,6 +198,23 @@ def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
         ],
         "steps": ["先看对象", "再抓规则", "走最小例子", "最后查边界"],
     }
+def _clean_source_excerpt(value: object, limit: int = 180) -> str:
+    """Turn PDF/OCR fragments into readable learning notes instead of raw dumps."""
+    text = str(value or "")
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ufffd]", " ", text)
+    text = re.sub(r"[\ue000-\uf8ff]", " ", text)
+    text = re.split(r"(?:答案|参考答案|解析)\s*[:：]", text, maxsplit=1)[0]
+    text = " ".join(text.split())
+    if len(re.findall(r"(?:^|\s)[A-D][.、:：]", text, flags=re.IGNORECASE)) >= 2:
+        text = re.split(r"(?:^|\s)A[.、:：]", text, maxsplit=1, flags=re.IGNORECASE)[0]
+    parts = [part.strip(" -•\t") for part in re.split(r"(?<=[。！？；])", text)]
+    readable = [
+        part for part in parts
+        if 8 <= len(part) <= 220
+        and len(re.findall(r"[\u4e00-\u9fffA-Za-z0-9]", part)) >= max(4, len(part) // 3)
+    ]
+    clean = "".join(readable[:2]).strip() or text.strip()
+    return _compact(clean, limit)
 
 
 def _remediation_on_topic(markdown: str, topic_name: str, kp: str) -> bool:
@@ -226,7 +243,9 @@ def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
         lines += ["", "- 当前知识库没有检索到可用片段，请补充课程资料后重新生成。"]
     else:
         for i, chunk in enumerate(chunks[:5], 1):
-            lines.append(f"- {_compact(chunk.get('text', ''))} [^{i}]")
+            excerpt = _clean_source_excerpt(chunk.get("text", ""))
+            if excerpt:
+                lines.append(f"- {excerpt} [^{i}]")
     lines += [
         "",
         "## 学习建议",
@@ -260,7 +279,11 @@ def _conversation_fallback_doc(name: str, conversation: str, chunks: list[dict])
     lines += [f"- {_compact(item, 260)}" for item in assistant_lines[-5:]] or ["- 当前还没有完成可沉淀的讲解。"]
     lines += ["", "## 资料中的核心知识", ""]
     if chunks:
-        lines += [f"- {_compact(chunk.get('text', ''), 260)} [^{index}]" for index, chunk in enumerate(chunks[:5], 1)]
+        lines += [
+            f"- {_clean_source_excerpt(chunk.get('text', ''), 220)} [^{index}]"
+            for index, chunk in enumerate(chunks[:5], 1)
+            if _clean_source_excerpt(chunk.get("text", ""), 220)
+        ]
     else:
         lines.append("- 当前没有检索到可引用资料，暂不补写资料外事实。")
     lines += [
@@ -305,12 +328,12 @@ def _ensure_visible_citations(md: str, n_citations: int) -> str:
     return md.rstrip() + f"\n\n## 引用说明\n本文核心概念、算法操作和复杂度说明来自检索到的课程资料 {refs}。"
 
 
-def _narration_text(name: str, markdown: str, limit: int = 240) -> str:
+def _narration_text(name: str, markdown: str, limit: int = 320) -> str:
     text = re.sub(r"```.*?```", "", markdown, flags=re.S)
     text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"\[\^\d+\]", "", text)
     text = re.sub(r"[#>*_`|~-]+", " ", text)
-    text = " ".join(text.split())
+    text = _clean_source_excerpt(text, limit=max(limit - 16, 120))
     prefix = f"本节讲解{name}。"
     return (prefix + text)[:limit]
 
@@ -701,6 +724,12 @@ async def _gen_one(
     if kind == "doc" and prompt_template == "one_page":
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
     interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
+    if interactive_audio:
+        md = re.sub(
+            r"口播脚本\s*[（(][^）)\n]*[）)]",
+            "口播脚本（约 60—90 秒，以播放器实际时长为准）",
+            md,
+        )
     narration = _narration_text(name, md)
     if interactive_audio and not source_scope_missing:
         payload["audio_narration"] = narration

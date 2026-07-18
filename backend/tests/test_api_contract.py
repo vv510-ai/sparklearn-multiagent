@@ -272,7 +272,9 @@ def test_knowledge_upload_search_contract():
                 },
                 files={"file": ("contract-binary-tree-copy.txt", content, "text/plain")},
             )
-            assert duplicate.status_code == 409, duplicate.text
+            assert duplicate.status_code == 200, duplicate.text
+            assert duplicate.json()["duplicate"] is True
+            assert duplicate.json()["source"]["id"] == source_id
 
             # Tenant-local dedup: another learner may upload the same textbook.
             ensure_user("contract_other_user")

@@ -79,7 +79,7 @@ export interface ResourceItem {
       steps?: string[];
     };
     difficulty?: number;
-    script?: { title?: string; narration?: string; scenes?: { t: string; visual: string; caption?: string }[]; video_prompt?: string };
+    script?: { title?: string; narration?: string; scenes?: { t: string; visual: string; caption?: string }[]; video_prompt?: string; target_seconds?: number; video_clip_seconds?: number };
     video?: {
       status?: string;
       url?: string;

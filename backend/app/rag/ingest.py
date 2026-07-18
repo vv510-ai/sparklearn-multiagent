@@ -23,8 +23,9 @@ CHUNK = 420
 OVERLAP = 50
 MANIFEST = DATA_DIR / "vector_store_manifest.json"
 SUPPORTED_EXTRA = {".md", ".txt", ".json"}
-SUPPORTED_UPLOAD = {".md", ".txt", ".pdf", ".png", ".jpg", ".jpeg"}
+SUPPORTED_UPLOAD = {".md", ".txt", ".pdf", ".docx", ".png", ".jpg", ".jpeg"}
 IMAGE_UPLOAD_SUFFIXES = {".png", ".jpg", ".jpeg"}
+COURSE_SCOPE_ID = "__course__"
 SOURCE_STATUSES = {"processing", "indexed", "degraded", "failed", "quarantined", "inactive"}
 SELECTABLE_SOURCE_STATUSES = {"indexed", "degraded"}
 INACTIVE_SOURCE_STATUSES = {"failed", "quarantined", "inactive"}
@@ -340,6 +341,23 @@ def _read_pdf_pages(path: Path) -> list[tuple[int, str]]:
     return pages
 
 
+def _read_docx(path: Path) -> str:
+    try:
+        from docx import Document
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError("Word parsing requires python-docx. Run: pip install python-docx") from exc
+
+    document = Document(str(path))
+    blocks: list[str] = []
+    blocks.extend(paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip())
+    for table in document.tables:
+        for row in table.rows:
+            cells = [" ".join(cell.text.split()) for cell in row.cells if cell.text.strip()]
+            if cells:
+                blocks.append(" | ".join(cells))
+    return "\n\n".join(blocks)
+
+
 def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
     meta = _upload_meta(path)
     user_id = str(meta.get("user_id") or "")
@@ -371,7 +389,9 @@ def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
                 ))
         return chunks
 
-    if suffix in IMAGE_UPLOAD_SUFFIXES:
+    if suffix == ".docx":
+        body = _read_docx(path)
+    elif suffix in IMAGE_UPLOAD_SUFFIXES:
         ocr = meta.get("ocr") if isinstance(meta.get("ocr"), dict) else {}
         body = str(ocr.get("text") or "").strip()
         if not body:
@@ -391,7 +411,8 @@ def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
             ))
         return chunks
 
-    body = _read_text(path)
+    else:
+        body = _read_text(path)
     if suffix == ".md":
         front, body = _front_matter(body)
         source = str(meta.get("title") or front.get("source") or front.get("title") or source)
@@ -473,9 +494,10 @@ def validate_source_scope(user_id: str, source_ids: list[str]) -> list[str]:
     invalid = [
         source_id
         for source_id in normalized
-        if source_id not in metas
+        if source_id != COURSE_SCOPE_ID
+        and (source_id not in metas
         or str(metas[source_id].get("user_id") or "") != user_id
-        or not source_is_selectable(metas[source_id], 1 if source_id in indexed else 0)
+        or not source_is_selectable(metas[source_id], 1 if source_id in indexed else 0))
     ]
     if invalid:
         raise ValueError("one or more selected sources are unavailable")

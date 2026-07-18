@@ -17,6 +17,7 @@ websocket-client>=1.8        # 讯飞 TTS WebSocket
 requests>=2.32
 httpx>=0.27
 pypdf>=4.2
+python-docx>=1.1
 rapidocr>=3.9,<4             # 本地 OCR 兜底,模型随包安装,无需外部密钥
 onnxruntime>=1.20,<2         # RapidOCR CPU 推理引擎
 fastembed>=0.8,<1            # 轻量 ONNX 中文 BGE Embedding，无需外部密钥
