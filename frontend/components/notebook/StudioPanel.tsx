@@ -5,6 +5,7 @@ import {
   BookMarked,
   BrainCircuit,
   ChartNoAxesColumn,
+  ChevronRight,
   CircleHelp,
   CreditCard,
   FileText,
@@ -138,23 +139,25 @@ export default function StudioPanel({
   onOpen: (panel: StudioPanelKey) => void;
 }) {
   return (
-    <div className="notebook-column flex h-full min-h-0 flex-col" aria-label="学习工坊">
+    <div className="notebook-column studio-panel flex h-full min-h-0 flex-col" aria-label="学习工坊">
       <div className="notebook-column-header">
         <div>
           <div className="notebook-column-kicker">LEARNING STUDIO</div>
           <h2>学习工坊</h2>
         </div>
-        <FileText size={18} className="text-[#747B88]" />
+        <span className="studio-panel-heading-icon" aria-hidden>
+          <FileText size={17} />
+        </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="studio-panel-body min-h-0 flex-1 overflow-y-auto p-3">
         <div className="grid grid-cols-2 gap-2">
           {GENERATORS.map((tool) => {
             const Icon = tool.icon;
             return (
-              <button key={tool.title} onClick={() => onGenerate(tool.title, tool.goal, [...tool.kinds], tool.template)} className={`studio-tile is-${tool.tone}`}>
+              <button type="button" key={tool.title} onClick={() => onGenerate(tool.title, tool.goal, [...tool.kinds], tool.template)} className={`studio-tile is-${tool.tone}`}>
                 <span className="studio-tile-icon"><Icon size={18} /></span>
-                <span>
+                <span className="studio-tile-content">
                   <strong>{tool.title}</strong>
                   <small>{tool.desc}</small>
                 </span>
@@ -169,13 +172,13 @@ export default function StudioPanel({
           {VIEWS.map((item) => {
             const Icon = item.icon;
             return (
-              <button key={item.title} onClick={() => onOpen(item.panel)} className={`studio-view is-${item.tone}`}>
+              <button type="button" key={item.title} onClick={() => onOpen(item.panel)} className={`studio-view is-${item.tone}`}>
                 <span className="studio-view-icon"><Icon size={17} /></span>
                 <span className="min-w-0 flex-1 text-left">
                   <strong>{item.title}</strong>
                   <small>{item.desc}</small>
                 </span>
-                <span aria-hidden>→</span>
+                <ChevronRight size={16} className="studio-view-arrow" aria-hidden />
               </button>
             );
           })}
