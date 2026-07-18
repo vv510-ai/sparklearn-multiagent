@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  ArrowRight,
   BookOpen,
   FolderOpen,
   LogOut,
   PanelLeftOpen,
   PanelRightOpen,
+  Plus,
   Route,
   ShieldCheck,
   X,
@@ -14,7 +16,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgentTrace, { applyTraceEvent, emptyTrace, type TraceState } from "@/components/agent/AgentTrace";
 import AuthGate, { type AuthUser } from "@/components/auth/AuthGate";
 import Chat from "@/components/chat/Chat";
-import NotebookLibrary from "@/components/notebook/NotebookLibrary";
 import SourcePanel, { COURSE_SOURCE_ID, isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
 import StudioPanel from "@/components/notebook/StudioPanel";
 import PathDag from "@/components/path/PathDag";
@@ -103,6 +104,105 @@ function SparkMark({ light = false, running = false }: { light?: boolean; runnin
         />
       </svg>
     </span>
+  );
+}
+
+function LearningGate({
+  onStart,
+  onManageSources,
+  onLogout,
+  user,
+}: {
+  onStart: (goal: string) => void;
+  onManageSources: () => void;
+  onLogout: () => void;
+  user: AuthUser;
+}) {
+  const [goal, setGoal] = useState("");
+  const [transitioning, setTransitioning] = useState(false);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+  }, []);
+
+  const start = () => {
+    const next = goal.trim();
+    if (!next || transitioning) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTransitioning(true);
+    transitionTimerRef.current = setTimeout(() => onStart(next), reduceMotion ? 40 : 820);
+  };
+
+  return (
+    <main
+      className={`learning-gate-shell relative min-h-dvh overflow-hidden text-white ${transitioning ? "is-transitioning" : ""}`}
+      aria-busy={transitioning}
+    >
+      <CinematicBackground />
+      <div className="learning-gate-stage relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-5 sm:px-8 sm:py-6">
+        <nav className="learning-gate-nav liquid-glass glass-readable flex items-center justify-between rounded-full px-5 py-3 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <SparkMark light />
+            <span className="text-xl text-white" style={{ fontFamily: "var(--font-display)" }}>
+              SparkLearn<sup className="ml-0.5 text-[9px]">®</sup>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="hidden text-right sm:block">
+              <div className="max-w-32 truncate text-sm font-semibold text-white">{user.name}</div>
+              <div className="max-w-40 truncate text-[10px] text-white/50">{user.email}</div>
+            </div>
+            <button disabled={transitioning} onClick={onLogout} className="liquid-glass grid h-10 w-10 place-items-center rounded-full text-white/75 transition hover:text-white disabled:pointer-events-none" aria-label="退出登录" title="退出登录">
+              <LogOut size={17} />
+            </button>
+            <button disabled={transitioning} onClick={() => document.getElementById("learning-goal")?.focus()} className="liquid-glass hidden items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03] disabled:pointer-events-none sm:flex">
+              开始学习 <ArrowRight size={16} />
+            </button>
+          </div>
+        </nav>
+
+        <section className="learning-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
+          <h1 className="animate-fade-rise max-w-6xl text-[43px] font-normal leading-[0.98] text-white sm:text-7xl md:text-[82px]" style={{ fontFamily: "var(--font-display)" }}>
+            <span className="block">SparkLearn，</span>
+            <em className="mt-1 block whitespace-nowrap text-[37px] not-italic text-white/70 sm:text-7xl md:text-[82px]">学习的左膀右臂。</em>
+          </h1>
+
+          <div className="liquid-glass glass-readable animate-fade-rise-delay mt-7 flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
+            <button
+              type="button"
+              onClick={onManageSources}
+              disabled={transitioning}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-white/75 transition hover:bg-white/10 hover:text-white disabled:pointer-events-none"
+              aria-label="进入工作台管理科目与资料"
+              title="管理科目与资料"
+            >
+              <Plus size={21} />
+            </button>
+            <input
+              id="learning-goal"
+              value={goal}
+              disabled={transitioning}
+              onChange={(event) => setGoal(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && start()}
+              placeholder="你今天想学什么？"
+              className="min-w-0 flex-1 bg-transparent px-1 text-base text-white outline-none placeholder:text-white/45 sm:text-lg"
+            />
+            <button onClick={start} disabled={!goal.trim() || transitioning} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#092B38] transition hover:scale-[1.04] disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-white/35" aria-label="开始学习">
+              <ArrowRight size={20} />
+            </button>
+          </div>
+          <p className="glass-readable mt-3 text-xs text-white/55">科目书本与学习资料在进入工作台后统一管理</p>
+        </section>
+      </div>
+      <div className="workspace-transition" aria-hidden={!transitioning}>
+        <div className="workspace-transition-surface" />
+        <div className="workspace-transition-label">
+          <SparkMark running={transitioning} />
+          <span>正在铺开你的学习工作台</span>
+        </div>
+      </div>
+    </main>
   );
 }
 
@@ -218,7 +318,6 @@ export default function Home() {
   const [newBookTitle, setNewBookTitle] = useState("");
   const [creatingNotebook, setCreatingNotebook] = useState(false);
   const [createNotebookError, setCreateNotebookError] = useState("");
-  const [sourceOnboardingOpen, setSourceOnboardingOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
   const [mobilePane, setMobilePane] = useState<"sources" | "studio" | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -333,7 +432,13 @@ export default function Home() {
     setLibraryError("");
     try {
       const data = await apiGet<{ items: LearningNotebook[] }>(`/notebooks?user_id=${USER_ID}`);
-      setNotebooks(data.items || []);
+      const items = data.items || [];
+      setNotebooks(items);
+      setActiveNotebook((current) => {
+        if (!current) return items[0] || null;
+        const refreshed = items.find((item) => item.id === current.id);
+        return refreshed ? { ...current, ...refreshed, messages: current.messages } : items[0] || null;
+      });
     } catch (error) {
       setLibraryError(`书本列表暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -384,7 +489,6 @@ export default function Home() {
         ...failures,
       ].filter(Boolean).join("；"));
       if (completed.length) {
-        setSourceOnboardingOpen(false);
         void loadNotebooks();
       }
     } finally {
@@ -404,11 +508,12 @@ export default function Home() {
       : [...ids, sourceId]
   ));
 
-  const enterNotebook = (notebook: LearningNotebook) => {
+  const enterNotebook = (notebook: LearningNotebook, initialGoal = "") => {
+    const goal = initialGoal.trim();
     setActiveNotebook(notebook);
     setEntered(true);
     setNotebookTopic(notebook.title);
-    setConversationFocus(notebook.title);
+    setConversationFocus(goal || notebook.title);
     setChatSessionId(notebook.session_id);
     setInitialChatMessages(notebook.messages || []);
     setSources([]);
@@ -417,27 +522,59 @@ export default function Home() {
     setActivePanel("chat");
     setTrace(emptyTrace());
     setQualityEvidence(emptyQualityEvidence());
-    setSeed(undefined);
+    setSeed(goal || undefined);
     setRequest(undefined);
     setPanelError("");
     setMobilePane(null);
     setChatInstance((value) => value + 1);
   };
 
-  const openNotebook = async (notebook: LearningNotebook) => {
-    if (openingNotebookId) return;
+  const openNotebook = async (notebook: LearningNotebook, initialGoal = ""): Promise<boolean> => {
+    if (openingNotebookId) return false;
     setOpeningNotebookId(notebook.id);
     setLibraryError("");
     try {
       const detail = await apiGet<LearningNotebook>(`/notebooks/${encodeURIComponent(notebook.id)}?user_id=${USER_ID}`);
-      enterNotebook(detail);
-      setSourceOnboardingOpen(detail.source_count === 0);
+      enterNotebook(detail, initialGoal);
       await loadSources(detail.id);
+      return true;
     } catch (error) {
       setLibraryError(`这本书暂时无法打开：${error instanceof Error ? error.message : String(error)}`);
+      return false;
     } finally {
       setOpeningNotebookId("");
     }
+  };
+
+  const enterCourseWorkspace = (goal = "", sendGoal = false) => {
+    const next = goal.trim();
+    setEntered(true);
+    setNotebookTopic(next || "课程学习");
+    setConversationFocus(next);
+    setChatSessionId("");
+    setInitialChatMessages([]);
+    setSources([]);
+    setSelectedSourceIds([COURSE_SOURCE_ID]);
+    setResources([]);
+    setActivePanel("chat");
+    setTrace(emptyTrace());
+    setQualityEvidence(emptyQualityEvidence());
+    setSeed(sendGoal ? next || undefined : undefined);
+    setRequest(undefined);
+    setPanelError("");
+    setMobilePane(null);
+    setChatInstance((value) => value + 1);
+  };
+
+  const startLearning = async (goal: string) => {
+    if (activeNotebook && await openNotebook(activeNotebook, goal)) return;
+    enterCourseWorkspace(goal, true);
+  };
+
+  const manageSources = async () => {
+    if (activeNotebook) await openNotebook(activeNotebook);
+    else enterCourseWorkspace();
+    setMobilePane("sources");
   };
 
   const createNotebook = async () => {
@@ -451,7 +588,6 @@ export default function Home() {
       setNewBookTitle("");
       setNewBookOpen(false);
       enterNotebook(notebook);
-      setSourceOnboardingOpen(true);
     } catch (error) {
       setCreateNotebookError(`创建失败：${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -461,7 +597,6 @@ export default function Home() {
 
   const leave = () => {
     setEntered(false);
-    setActiveNotebook(null);
     setActivePanel("chat");
     setTrace(emptyTrace());
     setQualityEvidence(emptyQualityEvidence());
@@ -474,7 +609,6 @@ export default function Home() {
     setSelectedSourceIds([COURSE_SOURCE_ID]);
     setEvidenceOpen(false);
     setMobilePane(null);
-    setSourceOnboardingOpen(false);
     void loadNotebooks();
   };
 
@@ -500,7 +634,11 @@ export default function Home() {
   };
 
   const startGenerate = (label: string, goal: string, kinds: string[], promptTemplate: string) => {
-    if (!activeNotebook) return;
+    if (!activeNotebook) {
+      setCreateNotebookError("请先在左侧学习来源中新建或选择一个科目书本。");
+      setNewBookOpen(true);
+      return;
+    }
     const focus = conversationFocus.trim() || notebookTopic.trim();
     const topicKp = inferKpFromTopic(focus);
     const conversationWide = promptTemplate === "framework";
@@ -619,41 +757,34 @@ export default function Home() {
     );
   }
 
-  if (!entered || !activeNotebook) {
+  if (!entered) {
     return (
-      <>
-        <NotebookLibrary
-          user={authUser}
-          notebooks={notebooks}
-          loading={notebookLoading}
-          error={libraryError}
-          openingId={openingNotebookId}
-          onCreate={() => { setCreateNotebookError(""); setNewBookOpen(true); }}
-          onOpen={(notebook) => void openNotebook(notebook)}
-          onRefresh={() => void loadNotebooks()}
-          onLogout={() => void logout()}
-        />
-        <NotebookCreateDialog
-          open={newBookOpen}
-          title={newBookTitle}
-          creating={creatingNotebook}
-          error={createNotebookError}
-          onTitleChange={setNewBookTitle}
-          onClose={() => setNewBookOpen(false)}
-          onCreate={() => void createNotebook()}
-        />
-      </>
+      <LearningGate
+        user={authUser}
+        onStart={(goal) => void startLearning(goal)}
+        onManageSources={() => void manageSources()}
+        onLogout={() => void logout()}
+      />
     );
   }
 
   const sourcePanel = (
     <SourcePanel
+      notebooks={notebooks}
+      activeNotebookId={activeNotebook?.id}
+      notebookLoading={notebookLoading || Boolean(openingNotebookId)}
+      notebookError={libraryError}
       sources={sources}
       selectedIds={selectedSourceIds}
       uploading={uploading}
       uploadNote={uploadNote}
       uploadError={uploadError}
-      onAdd={() => sourceInputRef.current?.click()}
+      onAdd={() => activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true)}
+      onCreateNotebook={() => { setCreateNotebookError(""); setNewBookOpen(true); }}
+      onSelectNotebook={(notebookId) => {
+        const notebook = notebooks.find((item) => item.id === notebookId);
+        if (notebook) void openNotebook(notebook);
+      }}
       onToggleCourse={toggleCourseSource}
       onToggle={togglePersonalSource}
     />
@@ -671,10 +802,7 @@ export default function Home() {
         onChange={(event) => {
           const files = Array.from(event.currentTarget.files || []);
           event.currentTarget.value = "";
-          if (files.length) {
-            setSourceOnboardingOpen(false);
-            void uploadSources(files);
-          }
+          if (files.length) void uploadSources(files);
         }}
       />
 
@@ -685,7 +813,7 @@ export default function Home() {
         </button>
         <span className="hidden h-5 w-px bg-[#DDE0E8] sm:block" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[#343944]">{activeNotebook.emoji} {activeNotebook.title}</div>
+          <div className="truncate text-sm font-semibold text-[#343944]">{activeNotebook ? `${activeNotebook.emoji} ${activeNotebook.title}` : "课程学习工作台"}</div>
           <div className="hidden text-[11px] text-[#818795] sm:block">当前主题：{currentTopicTitle} · 已选 {selectedSourceIds.length} 项资料</div>
         </div>
 
@@ -695,9 +823,9 @@ export default function Home() {
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
           </span>
-          <button onClick={leave} className="notebook-home-button" title="返回全部科目书本">
+          <button onClick={leave} className="notebook-home-button" title="返回学习首页">
             <BookOpen size={16} />
-            <span className="hidden sm:inline">全部书本</span>
+            <span className="hidden sm:inline">学习首页</span>
           </button>
           <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button">
             <ShieldCheck size={16} /><span className="hidden sm:inline">依据</span>
@@ -717,16 +845,16 @@ export default function Home() {
 
           <div className={`h-full min-h-0 ${activePanel === "chat" ? "block" : "hidden"}`} aria-hidden={activePanel !== "chat"}>
             <Chat
-              key={`${activeNotebook.id}-${chatInstance}`}
+              key={`${activeNotebook?.id || "course"}-${chatInstance}`}
               onEvent={onEvent}
               seed={seed}
               request={request}
-              notebookId={activeNotebook.id}
-              sessionId={activeNotebook.session_id}
+              notebookId={activeNotebook?.id}
+              sessionId={activeNotebook?.session_id || chatSessionId}
               initialMessages={initialChatMessages}
               topic={conversationFocus || notebookTopic}
               sourceIds={selectedSourceIds}
-              onUploadClick={() => sourceInputRef.current?.click()}
+              onUploadClick={() => activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true)}
               onCreateNotebook={() => { setCreateNotebookError(""); setNewBookOpen(true); }}
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}
               onLearningTurn={setConversationFocus}
@@ -866,17 +994,6 @@ export default function Home() {
         onCreate={() => void createNotebook()}
       />
 
-      {sourceOnboardingOpen && (
-        <div className="fixed inset-0 z-[65] grid place-items-center bg-[#151821]/30 p-4 backdrop-blur-sm" onMouseDown={() => setSourceOnboardingOpen(false)}>
-          <div className="w-full max-w-lg rounded-[28px] border border-white/80 bg-white p-7 text-center shadow-[0_28px_90px_rgba(30,42,60,0.24)]" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#EEF5F1] text-4xl">{activeNotebook.emoji}</div>
-            <h2 className="mt-5 text-2xl font-black text-[#242733]">“{activeNotebook.title}”已创建</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[#737B8B]">现在把这门科目的讲义、PDF、Word、图片或笔记添加进来。它们只会出现在当前书本中。</p>
-            <button type="button" onClick={() => sourceInputRef.current?.click()} className="primary-action mt-6 inline-flex items-center gap-2 px-5 py-3"><FolderOpen size={18} />添加第一份资料</button>
-            <button type="button" onClick={() => setSourceOnboardingOpen(false)} className="mt-3 block w-full text-sm font-semibold text-[#7C8492] hover:text-[#4B5361]">稍后再添加</button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
