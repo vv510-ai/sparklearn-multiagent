@@ -7,6 +7,7 @@ from app.agents import doc_agent, tutor_agent
 from app.api import chat
 from app.llm import spark_client
 from app.prompt_templates import _dialog_text
+from app.safety import grounding
 from app.services.knowledge_graph import collect_conversation_topics
 from app.services.path_service import plan_conversation_path
 
@@ -116,3 +117,18 @@ def test_deepseek_v4_pro_is_the_primary_openai_compatible_model(monkeypatch):
     assert captured["model"] == "deepseek-v4-pro"
     assert captured["extra_body"]["thinking"] == {"type": "enabled"}
     assert captured["extra_body"]["reasoning_effort"] == "high"
+
+
+def test_grounding_judge_uses_fast_non_thinking_budget(monkeypatch):
+    captured = {}
+
+    async def fake_complete(prompt, **kwargs):
+        captured.update(kwargs)
+        return '{"grounded": true, "unsupported": [], "verdict": "通过"}'
+
+    monkeypatch.setattr(grounding, "llm_complete", fake_complete)
+    result = asyncio.run(grounding.grounding_check("二叉树最多两个孩子。", ["二叉树最多两个孩子。"]))
+
+    assert result["grounded"] is True
+    assert captured["max_tokens"] == 600
+    assert captured["allow_mock_fallback"] is False

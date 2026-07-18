@@ -24,6 +24,11 @@ async def grounding_check(answer: str, contexts: list[str]) -> dict:
             role="reasoner",
             temperature=0,
             json_mode=True,
+            # The judge only returns a tiny JSON object.  Keeping this below
+            # the DeepSeek thinking threshold makes it a fast verification
+            # call instead of a second long reasoning pass after every answer.
+            max_tokens=600,
+            allow_mock_fallback=False,
         )
         data = parse_json(raw)
         if isinstance(data, list):
