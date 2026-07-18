@@ -20,7 +20,22 @@ def append_message(user_id: str, session_id: str, role: str, content: str) -> No
         s.commit()
 
 
-def get_session_messages(user_id: str, session_id: str, *, limit: int = 24) -> list[dict]:
+def clear_session_messages(user_id: str, session_id: str) -> int:
+    """Delete only the authenticated user's current notebook conversation."""
+    with session() as s:
+        deleted = (
+            s.query(ConversationMessage)
+            .filter(
+                ConversationMessage.user_id == user_id,
+                ConversationMessage.session_id == session_id,
+            )
+            .delete(synchronize_session=False)
+        )
+        s.commit()
+        return int(deleted or 0)
+
+
+def get_session_messages(user_id: str, session_id: str, *, limit: int = 120) -> list[dict]:
     with session() as s:
         rows = (
             s.query(ConversationMessage)
@@ -29,7 +44,7 @@ def get_session_messages(user_id: str, session_id: str, *, limit: int = 24) -> l
                 ConversationMessage.session_id == session_id,
             )
             .order_by(ConversationMessage.id.desc())
-            .limit(max(1, min(limit, 80)))
+            .limit(max(1, min(limit, 200)))
             .all()
         )
     rows.reverse()

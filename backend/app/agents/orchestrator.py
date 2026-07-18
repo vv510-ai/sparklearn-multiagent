@@ -1,4 +1,4 @@
-"""编排智能体(Orchestrator/Supervisor):星火 X2 意图识别 + 任务规划,
+"""编排智能体(Orchestrator/Supervisor):统一文本主脑意图识别 + 任务规划,
 决定调用哪些下游智能体、串行还是并行;路由结果写入 state.intent 供条件边分发。"""
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def requested_resource_kinds(message: str) -> list[str]:
 
 
 async def run(state: dict) -> dict:
-    await agent_start("orchestrator", "编排智能体", "意图识别与任务分发(星火 X2)")
+    await agent_start("orchestrator", "编排智能体", "意图识别与任务分发（统一文本主脑）")
     msg = (state.get("messages") or [{}])[-1].get("content", "") or state.get("learning_goal", "")
     intent = state.get("intent") or ""
     caller_selected_kinds = [str(kind) for kind in (state.get("kinds") or []) if str(kind).strip()]

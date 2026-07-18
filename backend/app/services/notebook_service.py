@@ -112,7 +112,7 @@ def get_notebook(user_id: str, notebook_id: str, *, include_messages: bool = Fal
                 ConversationMessage.session_id == row.session_id,
             )
             .order_by(ConversationMessage.id.asc())
-            .limit(80)
+            .limit(120)
             .all()
         )
         result = _serialize(

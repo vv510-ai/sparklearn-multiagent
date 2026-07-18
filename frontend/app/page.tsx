@@ -400,13 +400,16 @@ export default function Home() {
   const loadPath = useCallback(async () => {
     setPanelError("");
     try {
-      const plan = await apiGet<PathPlan>(`/path?user_id=${USER_ID}`);
+      const notebookQuery = activeNotebook?.id
+        ? `&notebook_id=${encodeURIComponent(activeNotebook.id)}`
+        : "";
+      const plan = await apiGet<PathPlan>(`/path?user_id=${USER_ID}${notebookQuery}`);
       setPathPlan(plan);
       setSelectedPathNode(plan.next_kp || plan.nodes[0]?.id || null);
     } catch (error) {
       setPanelError(`知识关系暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     }
-  }, []);
+  }, [activeNotebook]);
 
   const loadResources = useCallback(async () => {
     if (!activeNotebook) return;
@@ -430,11 +433,15 @@ export default function Home() {
       const items = dedupeSources(data.items || []);
       setSources(items);
       setSelectedSourceIds((ids) => {
+        const personal = items.filter(isSourceSelectable).map((item) => item.id);
         const available = new Set([
           COURSE_SOURCE_ID,
           ...items.filter(isSourceSelectable).map((item) => item.id),
         ]);
         const valid = ids.filter((id) => available.has(id));
+        if (personal.length && valid.length === 1 && valid[0] === COURSE_SOURCE_ID) {
+          return personal;
+        }
         return valid.length ? valid : [COURSE_SOURCE_ID];
       });
     } catch (error) {
@@ -494,7 +501,7 @@ export default function Home() {
         const completedSources = completed.map((item) => item.source).reverse();
         setSources((items) => dedupeSources([...completedSources, ...items]));
         setSelectedSourceIds((ids) => Array.from(new Set([
-          ...ids,
+          ...ids.filter((id) => id !== COURSE_SOURCE_ID),
           ...completedSources.filter(isSourceSelectable).map((source) => source.id),
         ])));
       }

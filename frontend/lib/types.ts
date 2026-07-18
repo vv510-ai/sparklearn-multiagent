@@ -8,7 +8,7 @@ export interface SparkEvent {
     | "agent_start" | "agent_end" | "agent_token"
     | "token" | "resource" | "profile" | "path"
     | "progress" | "citations" | "safety" | "summary" | "trace"
-    | "error" | "done";
+    | "conversation_cleared" | "error" | "done";
   ts?: string;
   agent?: AgentId | string;
   label?: string;

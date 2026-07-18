@@ -151,11 +151,43 @@ def _focused_kp_chunks(chunks: list[dict], kp: str | None, limit: int = 4) -> li
 
 def _resolve_turn_topic(state: dict, question: str) -> tuple[str, str, bool]:
     """Resolve the current turn without permanently binding a conversation to its opening topic."""
+    interaction_resource = state.get("interaction_resource") or {}
+    if interaction_resource:
+        return resolve_conversation_topic(
+            str(interaction_resource.get("title") or question),
+            [],
+            knowledge_points=[str(interaction_resource.get("kp") or "")],
+            topic_label=str(interaction_resource.get("title") or ""),
+        )
     return resolve_conversation_topic(
         question,
         state.get("conversation"),
         knowledge_points=state.get("knowledge_points"),
         topic_label=state.get("topic_label"),
+    )
+
+
+def _interaction_request(action: str, question: str, resource_title: str) -> str:
+    instructions = {
+        "rephrase": (
+            "把刚才讲解的同一个核心点真正换一种说法：不得复述原句；先用更口语的白话，"
+            "再换一个全新的贴切类比，最后用一句正式表述把含义校准。控制在 180—320 字。"
+        ),
+        "example": (
+            "只举一个具体、可跟着走的最小例子。必须逐步指出例子中的对象分别对应概念里的什么，"
+            "最后说明这个例子能证明什么、不能推出什么。控制在 180—320 字。"
+        ),
+        "quiz": (
+            "只出一道能够检查刚才核心理解的问题。不要给答案、提示或解析；题目后只说“你先回答，我再帮你判断”。"
+            "题目必须能由刚才讲解和所选资料直接回答。"
+        ),
+        "question": "直接回答学习者在播放中提出的具体问题，先解决卡点，再补最少的必要解释。",
+    }
+    instruction = instructions.get(action, instructions["question"])
+    return (
+        f"这是对互动讲解《{resource_title}》的资源级追问。\n"
+        f"动作要求：{instruction}\n"
+        f"学习者原始请求：{question}"
     )
 
 def _build_prompt(
@@ -430,6 +462,8 @@ async def run(state: dict) -> dict:
     await agent_start("tutor", "答疑导师智能体", detail)
 
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
+    interaction_action = str(state.get("interaction_action") or "")
+    interaction_resource = dict(state.get("interaction_resource") or {})
     guided = bool(state.get("guided_learning") or state.get("intent") == "learn")
     if not _needs_retrieval(question, guided=guided, has_image=has_image):
         retrieval = _retrieval_evidence(
@@ -464,10 +498,25 @@ async def run(state: dict) -> dict:
         }
 
     topic_kp, topic_name, custom_topic = _resolve_turn_topic(state, question)
+    await emit({
+        "type": "progress",
+        "agent": "tutor",
+        "stage": "learning_focus",
+        "percent": 100,
+        "text": topic_name,
+        "knowledge_point": topic_kp,
+        "detail": f"本轮学习焦点：{topic_name}",
+    })
     # Selected sources narrow ownership, but must not disable the current-topic
-    # filter.  Uploaded chunks without kp metadata still pass hit_matches_kp.
+    # filter. Uploaded chunks without kp metadata still pass hit_matches_kp.
     retrieval_kp = None if custom_topic else topic_kp
     retrieval_query = question
+    if interaction_resource:
+        retrieval_query = "\n".join(filter(None, [
+            str(interaction_resource.get("title") or ""),
+            str(interaction_resource.get("narration") or "")[:1200],
+            question,
+        ]))
     if retrieval_kp:
         retrieval_query = f"{question}\n课程知识点：{kp_retrieval_text(retrieval_kp)}"
     chunks = [] if custom_topic and not source_ids else retrieve(
@@ -506,7 +555,7 @@ async def run(state: dict) -> dict:
         "retrieval": retrieval,
     })
     ctx, citations = build_context(chunks)
-    if source_ids and not chunks:
+    if source_ids and not chunks and not interaction_resource:
         answer = "在你当前选中的资料中没有检索到可用内容，所以我没有补充资料之外的答案。请换一份资料，或检查上传文件是否已完成索引。"
         await agent_token("tutor", answer)
         await emit({"type": "token", "delta": answer})
@@ -525,9 +574,28 @@ async def run(state: dict) -> dict:
         }
     profile = state.get("student_profile") or {}
     effective_question = (
+        _interaction_request(
+            interaction_action,
+            question,
+            str(interaction_resource.get("title") or topic_name),
+        )
+        if interaction_resource else
         question if topic_name in question
         else f"本轮问题焦点：{topic_name}\n{question}"
     )
+    if interaction_resource:
+        lecture = str(
+            interaction_resource.get("markdown")
+            or interaction_resource.get("narration")
+            or ""
+        ).strip()
+        if lecture:
+            ctx = (
+                "[刚才的互动讲解原文]\n"
+                f"{lecture}\n\n"
+                "[所选资料检索片段]\n"
+                f"{ctx or '（本轮未命中额外片段，请只使用上面的互动讲解原文。）'}"
+            )
     prompt_call = render_tutor_prompt(
         effective_question,
         profile,
@@ -599,7 +667,11 @@ async def run(state: dict) -> dict:
                     "detail": "路线回答过长、机械或含多余任务，已替换为简洁教学路线",
                 })
                 answer = _strategy_answer(topic_name)
-            if not learning_strategy and not _answer_matches_current_question(answer, question, topic_kp):
+            if (
+                not learning_strategy
+                and not interaction_resource
+                and not _answer_matches_current_question(answer, question, topic_kp)
+            ):
                 answer_scope_fallback_reason = f"模型回答未严格围绕当前问题「{topic_name}」"
                 await emit({
                     "type": "progress",
@@ -639,12 +711,18 @@ async def run(state: dict) -> dict:
                 ground = {
                     "grounded": True,
                     "unsupported": [],
-                    "verdict": "自定义主题使用星火通用知识生成，未声明虚构资料引用。",
+                    "verdict": "自定义主题使用当前文本主脑的通用知识生成，未声明虚构资料引用。",
                 }
             else:
                 try:
                     ground = await asyncio.wait_for(
-                        grounding_check(answer, [c["text"] for c in chunks]),
+                        grounding_check(
+                            answer,
+                            [
+                                str(interaction_resource.get("markdown") or ""),
+                                *[c["text"] for c in chunks],
+                            ] if interaction_resource else [c["text"] for c in chunks],
+                        ),
                         timeout=8,
                     )
                 except TimeoutError:

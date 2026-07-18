@@ -422,7 +422,7 @@ def _ensure_visible_citations(md: str, n_citations: int) -> str:
     return md.rstrip() + f"\n\n## 引用说明\n本文核心概念、算法操作和复杂度说明来自检索到的课程资料 {refs}。"
 
 
-def _narration_text(name: str, markdown: str, limit: int = 320) -> str:
+def _narration_text(name: str, markdown: str, limit: int = 900) -> str:
     text = re.sub(r"```.*?```", "", markdown, flags=re.S)
     text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"\[\^\d+\]", "", text)

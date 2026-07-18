@@ -158,11 +158,27 @@ def supported_template(value: str) -> str:
 
 
 def _dialog_text(conversation: list[dict] | None) -> str:
-    return "\n".join(
-        f"{('学习者' if item.get('role') == 'user' else '学伴')}: {str(item.get('content') or '').strip()}"
-        for item in (conversation or [])[-10:]
-        if str(item.get("content") or "").strip()
-    ) or "（这是本主题的第一次交流）"
+    """Keep the whole useful conversation up to a generous character budget.
+
+    Older code kept only ten turns, which made pronouns, corrections and the
+    learner's earlier misconceptions disappear even though the database still
+    had them. DeepSeek-V4 supports a long context, but an explicit budget keeps
+    prompts predictable when a notebook grows for months.
+    """
+    budget = 24000
+    selected: list[str] = []
+    used = 0
+    for item in reversed(conversation or []):
+        content = " ".join(str(item.get("content") or "").strip().split())
+        if not content:
+            continue
+        line = f"{('学习者' if item.get('role') == 'user' else '学伴')}: {content}"
+        if selected and used + len(line) + 1 > budget:
+            break
+        selected.append(line[:budget] if not selected else line)
+        used += len(selected[-1]) + 1
+    selected.reverse()
+    return "\n".join(selected) or "（这是本主题的第一次交流）"
 
 
 def render_learning_prompt_call(

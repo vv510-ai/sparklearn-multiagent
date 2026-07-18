@@ -233,7 +233,6 @@ export default function Chat({
       setQueuedHint("");
       setInput("");
       setBusy(true);
-      if (captureLearningTurn) onLearningTurn?.(displayText?.trim() || q);
       setMsgs((m) => [
         ...m,
         { role: "user", text: displayText?.trim() || q, resources: [], citations: [] },
@@ -265,6 +264,7 @@ export default function Chat({
             message: q,
             topic_label: topic,
             source_ids: sourceIds,
+            display_message: displayText?.trim() || q,
           },
           (ev) => {
             onEvent?.(ev);
@@ -282,6 +282,20 @@ export default function Chat({
                 break;
               case "summary":
                 patchLast((a) => ({ ...a, text: a.text || (ev.text as string) || "" }));
+                break;
+              case "progress":
+                if (captureLearningTurn && ev.stage === "learning_focus" && ev.text?.trim()) {
+                  onLearningTurn?.(ev.text.trim());
+                }
+                break;
+              case "conversation_cleared":
+                setMsgs([{
+                  role: "assistant",
+                  text: ev.text || "当前科目里的聊天记录已经清空。",
+                  resources: [],
+                  citations: [],
+                  streaming: false,
+                }]);
                 break;
               case "error":
                 patchLast((a) => ({ ...a, text: a.text + `\n\n> 服务异常:${ev.detail || "请稍后重试"}`, streaming: false }));
@@ -459,7 +473,26 @@ export default function Chat({
                     r={r}
                     onQuizEvaluated={onQuizEvaluated}
                     interactionBusy={busy}
-                    onAudioQuestion={(prompt, display) => send(prompt, undefined, display)}
+                    onAudioQuestion={(prompt, display, action) => send(
+                      prompt,
+                      {
+                        path: "/chat",
+                        display,
+                        body: {
+                          user_id: USER_ID,
+                          session_id: sessionRef.current,
+                          notebook_id: notebookId,
+                          message: prompt,
+                          display_message: display,
+                          topic_label: topic,
+                          source_ids: sourceIds,
+                          resource_id: r.id,
+                          interaction_action: action,
+                        },
+                      },
+                      display,
+                      false,
+                    )}
                     onOpenMistakes={onOpenMistakes}
                   />
                 ))}

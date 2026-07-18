@@ -13,6 +13,9 @@ class ChatRequest(BaseModel):
     message: str
     topic_label: str = ""
     source_ids: list[str] = Field(default_factory=list)
+    display_message: str = Field(default="", description="前端可见且持久化的用户原话")
+    resource_id: str = Field(default="", description="互动讲解所对应的资源")
+    interaction_action: Literal["", "rephrase", "example", "quiz", "question"] = ""
 
 
 class GenerateRequest(BaseModel):

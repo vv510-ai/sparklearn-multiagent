@@ -1,8 +1,8 @@
 """全局配置:读取环境变量,集中管理密钥占位与运行模式。
 
 设计原则(对应赛题"可演示性"硬指标):
-- 任何外部密钥缺失都不应让系统崩溃,而是逐级降级(真实 API → 讯飞备选 → 本地模拟);
-- DEMO_MODE=auto 时,只要未配置 SPARK_API_PASSWORD 就进入演示模式,
+- 任何外部密钥缺失都不应让系统崩溃,而是逐级降级(真实 API → 备选模型 → 本地模拟);
+- DEMO_MODE=auto 时,只要未配置任何文本模型密钥就进入演示模式,
   全链路(画像→规划→并行生成→质检→评估)仍可离线跑通,便于评委一键体验。
 """
 from __future__ import annotations
@@ -30,6 +30,14 @@ try:  # pydantic-settings 可用时走标准路径
         spark_base_url: str = "https://spark-api-open.xf-yun.com/v1/"
         spark_x2_base_url: str = "https://spark-api-open.xf-yun.com/x2/"
         spark_reasoning_mode: str = "auto"  # enabled | disabled | auto
+
+        # 统一文本大模型路由。deepseek 为当前主脑，spark 保留为可控降级。
+        llm_provider: str = "auto"  # auto | deepseek | spark
+        deepseek_api_key: str = ""
+        deepseek_base_url: str = "https://api.deepseek.com"
+        deepseek_model: str = "deepseek-v4-pro"
+        deepseek_thinking: str = "enabled"  # enabled | disabled
+        deepseek_reasoning_effort: str = "high"  # high | max
 
         # 讯飞三元组(WebSocket/HTTP 旧鉴权:TTS、文生图、OCR)
         spark_appid: str = ""
@@ -136,6 +144,12 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_base_url = g("SPARK_BASE_URL", "https://spark-api-open.xf-yun.com/v1/")
             self.spark_x2_base_url = g("SPARK_X2_BASE_URL", "https://spark-api-open.xf-yun.com/x2/")
             self.spark_reasoning_mode = g("SPARK_REASONING_MODE", "auto")
+            self.llm_provider = g("LLM_PROVIDER", "auto")
+            self.deepseek_api_key = g("DEEPSEEK_API_KEY", "")
+            self.deepseek_base_url = g("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+            self.deepseek_model = g("DEEPSEEK_MODEL", "deepseek-v4-pro")
+            self.deepseek_thinking = g("DEEPSEEK_THINKING", "enabled")
+            self.deepseek_reasoning_effort = g("DEEPSEEK_REASONING_EFFORT", "high")
             self.spark_appid = g("SPARK_APPID", "")
             self.spark_api_key = g("SPARK_API_KEY", "")
             self.spark_api_secret = g("SPARK_API_SECRET", "")
@@ -267,14 +281,14 @@ def get_settings() -> "Settings":
 
 
 def is_demo() -> bool:
-    """无星火密钥 → 自动演示模式;可用 DEMO_MODE 显式覆盖。"""
+    """无任何文本模型密钥 → 自动演示模式;可用 DEMO_MODE 显式覆盖。"""
     s = get_settings()
     flag = (s.demo_mode or "auto").lower()
     if flag in {"1", "true", "yes", "on"}:
         return True
     if flag in {"0", "false", "no", "off"}:
         return False
-    return not bool(s.spark_api_password)
+    return not bool(s.deepseek_api_key or s.spark_api_password)
 
 
 def auth_required() -> bool:

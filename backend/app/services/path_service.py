@@ -10,12 +10,68 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 
 from ..models.db import init_db, session
 from ..models.entities import PathPlan, PersonalizationDecision, Profile
 from .knowledge_graph import kp_name, load_kg, prerequisites, topological_order
 
 DONE_T, READY_T = 0.8, 0.6
+
+
+def plan_conversation_path(profile: dict, topics: list[dict]) -> dict:
+    """Build a durable learning map from every substantive topic in a notebook.
+
+    This is intentionally conversation-wide: tool labels such as “换种说法”
+    are filtered before this function, and custom topics receive stable ids so
+    later learning adds nodes instead of replacing the previous one.
+    """
+    mastery: dict[str, float] = profile.get("knowledge_mastery", {})
+    nodes: list[dict] = []
+    topic_ids: list[str] = []
+    for index, topic in enumerate(topics, 1):
+        custom = bool(topic.get("custom"))
+        name = str(topic.get("name") or "当前主题").strip()[:80]
+        raw_id = str(topic.get("id") or "")
+        node_id = (
+            f"custom_{hashlib.sha1(name.casefold().encode('utf-8')).hexdigest()[:12]}"
+            if custom else raw_id
+        )
+        if not node_id or node_id in topic_ids:
+            continue
+        question_count = max(1, len(topic.get("questions") or []))
+        value = (
+            min(0.65, 0.3 + 0.08 * question_count)
+            if custom else float(mastery.get(node_id, 0.3))
+        )
+        status = "done" if value >= DONE_T else "ready"
+        topic_ids.append(node_id)
+        nodes.append({
+            "id": node_id,
+            "name": name,
+            "mastery": round(value, 3),
+            "status": status,
+            "difficulty": 1 if custom else int(load_kg()["nodes"].get(node_id, {}).get("difficulty", 3)),
+            "score": round(1 - value, 3),
+            "order": index,
+            "reason": f"本书对话中已围绕该主题学习 {question_count} 次",
+        })
+
+    # Chronological edges make the learner's actual progression visible and
+    # ensure the map has no isolated collage nodes.
+    edges = [
+        {"from": topic_ids[index - 1], "to": topic_ids[index]}
+        for index in range(1, len(topic_ids))
+    ]
+    ready = [node for node in nodes if node["status"] != "done"]
+    next_node = min(ready, key=lambda node: (node["mastery"], -int(node["order"]))) if ready else None
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "next_kp": next_node["id"] if next_node else None,
+        "generated_by": "conversation_history",
+        "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
 
 
 def plan_path(profile: dict, goal_kps: list[str] | None = None,

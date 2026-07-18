@@ -132,7 +132,6 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
       <figure className="mb-4 overflow-hidden rounded-2xl border border-emerald-200 bg-[#FAF9F6] shadow-sm" aria-label={`${visual.title || "当前主题"}一图看懂`}>
         <div className="flex items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3">
           <div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-700">一图看懂</div><h3 className="mt-1 text-lg font-black text-slate-950">{visual.title || "知识图"}</h3></div>
-          <Badge variant="success">{visual.provider === "xiaoyunque" ? "小云雀生成" : "AI 知识图"}</Badge>
         </div>
         <a href={imageUrl} target="_blank" rel="noreferrer" className="block bg-[#FAF9F6]" title="打开高清原图">
           {/* eslint-disable-next-line @next/next/no-img-element */}

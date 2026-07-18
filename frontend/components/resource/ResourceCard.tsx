@@ -119,7 +119,11 @@ export default function ResourceCard({
   defaultOpen?: boolean;
   versionCount?: number;
   onQuizEvaluated?: (report: { path?: PathPlan; profile_version?: number }) => void;
-  onAudioQuestion?: (prompt: string, display: string) => Promise<boolean>;
+  onAudioQuestion?: (
+    prompt: string,
+    display: string,
+    action: "rephrase" | "example" | "quiz" | "question",
+  ) => Promise<boolean>;
   onOpenMistakes?: () => void;
   interactionBusy?: boolean;
 }) {

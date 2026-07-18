@@ -5,16 +5,19 @@ import { LoaderCircle, Pause, Play, RefreshCw, RotateCcw, Send, Volume2 } from "
 
 const QUICK_ACTIONS = [
   {
+    action: "rephrase",
     label: "换种说法",
     question: "请把刚才听到的核心概念换成更简单、更口语化的说法，先讲结论，再给一个最小解释。",
     resumeAfterAnswer: true,
   },
   {
+    action: "example",
     label: "举个例子",
     question: "请针对刚才听到的内容举一个贴近日常或编程实践的最小例子，并说明例子和概念如何对应。",
     resumeAfterAnswer: true,
   },
   {
+    action: "quiz",
     label: "考考我",
     question: "请只针对刚才听到的内容出一道基础检查题，先不要给答案，等我回答后再判断我的理解。",
     resumeAfterAnswer: false,
@@ -50,7 +53,7 @@ export default function InteractiveAudioPlayer({
   audioState?: AudioState;
   resourceTitle: string;
   disabled?: boolean;
-  onAsk?: (prompt: string, display: string) => Promise<boolean>;
+  onAsk?: (prompt: string, display: string, action: "rephrase" | "example" | "quiz" | "question") => Promise<boolean>;
   onRetry?: () => Promise<boolean>;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -118,7 +121,12 @@ export default function InteractiveAudioPlayer({
     }
   }
 
-  const ask = async (rawQuestion: string, display: string, resumeAfterAnswer = true) => {
+  const ask = async (
+    rawQuestion: string,
+    display: string,
+    resumeAfterAnswer = true,
+    action: "rephrase" | "example" | "quiz" | "question" = "question",
+  ) => {
     const clean = rawQuestion.trim();
     if (!clean || !onAsk || disabled || asking) return;
 
@@ -138,7 +146,7 @@ export default function InteractiveAudioPlayer({
     ].join("\n");
 
     try {
-      const completed = await onAsk(prompt, display);
+      const completed = await onAsk(prompt, display, action);
       if (!completed) {
         setStatus("回答未完成，讲解保持暂停。可以重试，或手动继续播放。");
         return;
@@ -185,7 +193,7 @@ export default function InteractiveAudioPlayer({
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void ask(question, question);
+    void ask(question, question, true, "question");
   };
 
   return (
@@ -255,7 +263,7 @@ export default function InteractiveAudioPlayer({
                 key={action.label}
                 type="button"
                 disabled={disabled || asking}
-                onClick={() => void ask(action.question, action.label, action.resumeAfterAnswer)}
+                onClick={() => void ask(action.question, action.label, action.resumeAfterAnswer, action.action)}
                 className="rounded-full border border-[#D7DED8] bg-[#F7F9F7] px-2.5 py-1 text-[11px] font-bold text-[#425248] transition hover:border-emerald-300 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {action.label}

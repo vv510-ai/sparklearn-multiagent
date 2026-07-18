@@ -59,7 +59,13 @@ _CONTEXT_DEPENDENT_TOPIC_RE = re.compile(
     re.IGNORECASE,
 )
 _PRODUCT_HELP_RE = re.compile(
-    r"(?:你能|可以)(?:帮助我|帮我)?(?:(?:做|干)什么|干嘛)|怎么使用|如何使用|^help$",
+    r"(?:你能|可以)(?:帮助我|帮我)?(?:(?:做|干)什么|干嘛)|怎么使用|如何使用|^help$"
+    r"|(?:清空|清除|删除|重置).*(?:聊天|对话|记录)"
+    r"|(?:看见|看(?:得|的)?到|读取|知道|识别).*(?:上传|添加|选中|选择).*(?:资料|文件)",
+    re.IGNORECASE,
+)
+_INTERACTION_ACTION_RE = re.compile(
+    r"^(?:换种说法|换个说法|换一种说法|举个例子|再举个例子|考考我|出道题)$",
     re.IGNORECASE,
 )
 _ARTIFACT_REQUEST_RE = re.compile(
@@ -280,7 +286,7 @@ def collect_conversation_topics(
         if item.get("role") != "user":
             continue
         content = " ".join(str(item.get("content") or "").strip().split())
-        if not content or _PRODUCT_HELP_RE.search(content):
+        if not content or _PRODUCT_HELP_RE.search(content) or _INTERACTION_ACTION_RE.fullmatch(content):
             continue
 
         known_ids = infer_kp_ids(content)

@@ -3,20 +3,100 @@
 事件流包含 agent_start/agent_token/token/resource/path/profile/citations/done。"""
 from __future__ import annotations
 
+import re
 import uuid
 from typing import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 
 from ..agents.graph import run_with_events
+from ..models.db import session
+from ..models.entities import Resource
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import ChatRequest
-from ..services.conversation_service import append_message, get_session_messages
+from ..services.conversation_service import (
+    append_message,
+    clear_session_messages,
+    get_session_messages,
+)
 from ..services.notebook_service import ensure_notebook_owner, touch_notebook
 from ..services.profile_service import ensure_user
+from ..services.source_service import selected_source_summaries
 from .sse import sse_response
 
 router = APIRouter(prefix="/api", tags=["chat"])
+
+_CLEAR_CHAT_RE = re.compile(
+    r"(?:清空|清除|清掉|删掉|删除|重置|重新开始)[^。！？!?]{0,14}(?:聊天|对话|消息|记录)"
+    r"|(?:聊天|对话|消息|记录)[^。！？!?]{0,14}(?:清空|清除|清掉|删掉|删除|重置)",
+    re.IGNORECASE,
+)
+_SOURCE_LIST_RE = re.compile(
+    r"(?:能|可以|是否)?[^。！？!?]{0,10}(?:看见|看(?:得|的)?到|读取|读到|知道|识别)[^。！？!?]{0,18}"
+    r"(?:我)?(?:添加|上传|选择|选中)?(?:的)?(?:学习)?(?:资料|文件)"
+    r"|(?:我)?(?:添加|上传|选择|选中)(?:的)?(?:学习)?(?:资料|文件)[^。！？!?]{0,18}(?:是?什么|有哪些|哪几份)",
+    re.IGNORECASE,
+)
+
+
+def _product_action(message: str) -> str:
+    compact = " ".join(str(message or "").strip().split())
+    if _CLEAR_CHAT_RE.search(compact):
+        return "clear_chat"
+    if _SOURCE_LIST_RE.search(compact):
+        return "list_sources"
+    return ""
+
+
+async def _direct_answer_events(
+    answer: str,
+    *,
+    event_type: str = "token",
+) -> AsyncIterator[dict]:
+    if event_type == "token":
+        yield {"type": "token", "delta": answer}
+    else:
+        yield {"type": event_type, "text": answer}
+    yield {"type": "done"}
+
+
+def _source_scope_answer(items: list[dict]) -> str:
+    if not items:
+        return (
+            "我目前没有收到可用的已选资料。你可以在左侧选中一份已完成索引的资料，"
+            "我会按那份资料回答，而不是混用别的课程内容。"
+        )
+    lines = [f"能看到。目前这轮对话选中了 {len(items)} 项学习来源："]
+    for index, item in enumerate(items, 1):
+        title = str(item.get("title") or "未命名资料")
+        count = item.get("chunk_count")
+        detail = "课程内置知识" if count is None else f"{int(count)} 个可引用片段"
+        lines.append(f"{index}. **{title}**（{detail}）")
+    lines.extend([
+        "",
+        "接下来的讲解、举例、测验和学习产物都会沿用这组已选资料；资料里没有的内容，我会直接说明缺口。",
+    ])
+    return "\n".join(lines)
+
+
+def _interaction_resource(user_id: str, resource_id: str, notebook_id: str) -> dict:
+    with session() as db:
+        row = db.get(Resource, resource_id)
+        if not row or row.user_id != user_id:
+            raise HTTPException(404, "互动讲解资源不存在")
+        payload = dict(row.payload or {})
+        if row.kind != "doc" or payload.get("template") != "interactive_audio":
+            raise HTTPException(400, "该资源不是可互动的讲解")
+        resource_notebook = str(payload.get("notebook_id") or "")
+        if notebook_id and resource_notebook and resource_notebook != notebook_id:
+            raise HTTPException(404, "互动讲解资源不属于当前科目")
+        return {
+            "id": row.id,
+            "title": row.title,
+            "kp": row.kp,
+            "markdown": str(payload.get("markdown") or "")[:12000],
+            "narration": str(payload.get("audio_narration") or "")[:4000],
+        }
 
 
 async def _persisted_events(
@@ -61,9 +141,40 @@ async def chat(req: ChatRequest):
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    history = get_session_messages(req.user_id, session_id)
+    visible_message = str(req.display_message or req.message).strip()
+    action = _product_action(visible_message)
+    if action == "clear_chat":
+        deleted = clear_session_messages(req.user_id, session_id)
+        touch_notebook(req.user_id, req.notebook_id)
+        answer = (
+            f"可以，当前科目里的聊天记录已经清空了（共 {deleted} 条）。"
+            "学习资料和已经生成的资源仍然保留，我们可以从这里重新开始。"
+        )
+        return sse_response(_direct_answer_events(answer, event_type="conversation_cleared"))
+    if action == "list_sources":
+        answer = _source_scope_answer(selected_source_summaries(
+            req.user_id,
+            source_ids,
+            req.notebook_id,
+        ))
+        append_message(req.user_id, session_id, "user", visible_message)
+        append_message(req.user_id, session_id, "assistant", answer)
+        touch_notebook(req.user_id, req.notebook_id)
+        return sse_response(_direct_answer_events(answer))
+
+    interaction_resource = None
+    if req.interaction_action:
+        if not req.resource_id:
+            raise HTTPException(400, "互动讲解缺少资源标识")
+        interaction_resource = _interaction_resource(
+            req.user_id,
+            req.resource_id,
+            req.notebook_id,
+        )
+
+    history = get_session_messages(req.user_id, session_id, limit=120)
     current = {"role": "user", "content": req.message}
-    append_message(req.user_id, session_id, "user", req.message)
+    append_message(req.user_id, session_id, "user", visible_message)
     touch_notebook(req.user_id, req.notebook_id)
     state = {
         "user_id": req.user_id,
@@ -74,6 +185,15 @@ async def chat(req: ChatRequest):
         "topic_label": req.topic_label,
         "source_ids": source_ids,
     }
+    if req.interaction_action:
+        resource = interaction_resource or {}
+        state.update({
+            "intent": "tutor",
+            "interaction_action": req.interaction_action,
+            "interaction_resource": resource,
+            "knowledge_points": [resource["kp"]] if resource.get("kp") else [],
+            "topic_label": resource.get("title") or req.topic_label,
+        })
     events = _persisted_events(
         run_with_events(state),
         user_id=req.user_id,

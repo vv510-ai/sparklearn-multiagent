@@ -1,4 +1,4 @@
-"""资源规划智能体(Planner Agent):画像 + 学习目标 + 知识图谱 → 星火 X2 推理
+"""资源规划智能体(Planner Agent):画像 + 学习目标 + 知识图谱 → 统一文本主脑推理
 生成资源清单与生成顺序(结构化生成计划),驱动后续并行 fan-out。"""
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ def _kp_from_goal(goal: str, kp_ids: list[str]) -> str | None:
 
 
 async def run(state: dict) -> dict:
-    await agent_start("planner", "资源规划智能体", "画像+目标 → 结构化生成计划(星火 X2)")
+    await agent_start("planner", "资源规划智能体", "画像+目标 → 结构化生成计划（统一文本主脑）")
     goal = state.get("learning_goal") or (state.get("messages") or [{}])[-1].get("content", "")
     kinds = state.get("kinds") or ["doc", "mindmap", "quiz", "video"]
     target_kp, topic_name, is_custom = resolve_topic(

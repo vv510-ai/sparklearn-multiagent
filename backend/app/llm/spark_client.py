@@ -1,4 +1,4 @@
-"""讯飞星火大模型统一封装(OpenAI 兼容接口)。
+"""SparkLearn 文本大模型统一封装(OpenAI 兼容接口)。
 
 要点(与官方文档一致):
 - 通用语言模型 base_url = https://spark-api-open.xf-yun.com/v1/ ,端点 /v1/chat/completions;
@@ -8,7 +8,7 @@
 
 工程化设计:
 - 全项目仅通过 llm_complete()/llm_stream() 两个函数访问大模型,便于:
-  ① 限流时 Ultra/Max/Lite 互备;② 无密钥时切换 MockEngine 离线演示;③ 统一计量与日志。
+  ① DeepSeek-V4-Pro 主用、星火互备;② 无密钥时切换 MockEngine;③ 统一计量与日志。
 - 同时提供 get_spark_llm() 返回 LangChain ChatOpenAI,供需要 LangChain 生态的扩展使用。
 """
 from __future__ import annotations
@@ -32,6 +32,28 @@ MODELS: dict[str, tuple[str, bool]] = {
     "reasoner": ("spark-x", True),    # 深度推理 X2:算法推导、路径规划、grounding 校验
 }
 _FALLBACK_ORDER = ["ultra", "max", "pro", "lite"]
+
+
+def active_provider() -> str:
+    """Resolve the server-side provider without ever exposing credentials."""
+    settings = get_settings()
+    requested = str(settings.llm_provider or "auto").strip().lower()
+    if requested == "deepseek":
+        return "deepseek"
+    if requested == "spark":
+        return "spark"
+    if settings.deepseek_api_key:
+        return "deepseek"
+    return "spark"
+
+
+def active_llm_label() -> str:
+    if is_demo():
+        return "MockEngine（离线演示）"
+    settings = get_settings()
+    if active_provider() == "deepseek":
+        return "DeepSeek-V4-Pro（深度思考）"
+    return "讯飞星火 X2（自动深度思考）"
 
 
 def _reasoning_extra(x2: bool) -> dict:
@@ -58,11 +80,49 @@ def _client(x2: bool):
     return OpenAI(api_key=s.spark_api_password, base_url=base)
 
 
+def _deepseek_client():
+    """Create the official DeepSeek OpenAI-compatible client lazily."""
+    from openai import OpenAI
+
+    settings = get_settings()
+    return OpenAI(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+        timeout=180.0,
+        max_retries=1,
+    )
+
+
+def _deepseek_extra(*, thinking_override: str = "") -> dict:
+    settings = get_settings()
+    thinking = str(thinking_override or settings.deepseek_thinking or "enabled").strip().lower()
+    if thinking not in {"enabled", "disabled"}:
+        thinking = "enabled"
+    effort = str(settings.deepseek_reasoning_effort or "high").strip().lower()
+    if effort not in {"high", "max"}:
+        effort = "high"
+    return {
+        "extra_body": {
+            "thinking": {"type": thinking},
+            "reasoning_effort": effort,
+        }
+    }
+
+
 def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: float = 0.7):
-    """返回 LangChain ChatOpenAI 实例,直连讯飞星火(扩展用)。"""
+    """返回当前统一文本主脑的 LangChain ChatOpenAI 实例(扩展用)。"""
     from langchain_openai import ChatOpenAI
 
     s = get_settings()
+    if active_provider() == "deepseek":
+        return ChatOpenAI(
+            model=s.deepseek_model,
+            api_key=s.deepseek_api_key,
+            base_url=s.deepseek_base_url,
+            streaming=streaming,
+            temperature=temperature,
+            model_kwargs=_deepseek_extra()["extra_body"],
+        )
     model, x2 = MODELS[role]
     base = s.spark_x2_base_url if x2 else s.spark_base_url
     return ChatOpenAI(model=model, api_key=s.spark_api_password, base_url=base,
@@ -89,6 +149,35 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
     token_extra = {"max_tokens": max_tokens} if max_tokens else {}
 
     last_err: Exception | None = None
+    provider = active_provider()
+    if provider == "deepseek":
+        settings = get_settings()
+        # Thinking tokens share the completion budget. Small structured helper
+        # calls would otherwise spend their entire 260/1200-token allowance on
+        # reasoning and return empty final content. They still use V4-Pro, just
+        # in its official non-thinking mode.
+        thinking_override = "disabled" if max_tokens and max_tokens < 1600 else ""
+        try:
+            resp = await asyncio.to_thread(
+                lambda: _deepseek_client().chat.completions.create(
+                    model=settings.deepseek_model,
+                    messages=messages,
+                    temperature=temperature,
+                    stream=False,
+                    **token_extra,
+                    **_deepseek_extra(thinking_override=thinking_override),
+                )
+            )
+            return resp.choices[0].message.content or ""
+        except Exception as error:  # noqa: BLE001
+            last_err = error
+            log.warning("DeepSeek %s 调用失败:%s", settings.deepseek_model, error)
+            if not settings.spark_api_password:
+                if not allow_mock_fallback:
+                    raise RuntimeError(f"DeepSeek 模型调用失败: {error}") from error
+                return MockEngine.complete(prompt, role=role, json_mode=json_mode)
+            log.warning("DeepSeek 不可用，按服务端降级策略尝试星火")
+
     order = [role] + [r for r in _FALLBACK_ORDER if r != role] if role != "reasoner" else [role, "ultra", "lite"]
     for r in order:  # 限流/故障时按序互备(对应方案"降级策略")
         model, x2 = MODELS[r]
@@ -131,6 +220,52 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
     )
     last_err: Exception | None = None
     loop = asyncio.get_running_loop()
+
+    provider = active_provider()
+    if provider == "deepseek":
+        settings = get_settings()
+        client = _deepseek_client()
+        thinking_override = "disabled" if max_tokens and max_tokens < 1600 else ""
+
+        def _create_deepseek():
+            return client.chat.completions.create(
+                model=settings.deepseek_model,
+                messages=messages,
+                temperature=temperature,
+                stream=True,
+                **token_extra,
+                **_deepseek_extra(thinking_override=thinking_override),
+            )
+
+        try:
+            stream = await asyncio.to_thread(_create_deepseek)
+            iterator = iter(stream)
+            emitted = False
+            while True:
+                chunk = await loop.run_in_executor(None, lambda: next(iterator, None))
+                if chunk is None:
+                    break
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                delta_obj = getattr(choices[0], "delta", None)
+                delta = getattr(delta_obj, "content", None) or ""
+                if delta:
+                    emitted = True
+                    yield delta
+            if emitted:
+                return
+            last_err = RuntimeError("DeepSeek stream returned empty")
+        except Exception as error:  # noqa: BLE001
+            last_err = error
+            log.warning("DeepSeek %s 流式调用失败:%s", settings.deepseek_model, error)
+        if not settings.spark_api_password or not allow_model_fallback:
+            if not allow_mock_fallback:
+                raise RuntimeError(f"DeepSeek 流式模型调用失败: {last_err}") from last_err
+            async for delta in MockEngine.stream(prompt, role=role):
+                yield delta
+            return
+        log.warning("DeepSeek 流式调用不可用，按服务端降级策略尝试星火")
 
     for r in order:
         model, x2 = MODELS[r]
