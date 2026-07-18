@@ -441,7 +441,7 @@ def _load_uploaded_sources() -> list[dict[str, Any]]:
     if not UPLOAD_SOURCES_DIR.exists():
         return []
     chunks: list[dict[str, Any]] = []
-    seen_hashes: set[tuple[str, str]] = set()
+    seen_hashes: set[tuple[str, str, str]] = set()
     for path in sorted(p for p in UPLOAD_SOURCES_DIR.rglob("*") if p.is_file()):
         if path.name.endswith(".meta.json"):
             continue
@@ -453,7 +453,11 @@ def _load_uploaded_sources() -> list[dict[str, Any]]:
                 log.info("uploaded source quarantined, skipped: %s", path.name)
                 continue
             digest = source_sha256(path, meta)
-            owner_digest = (str(meta.get("user_id") or ""), digest)
+            owner_digest = (
+                str(meta.get("user_id") or ""),
+                str(meta.get("notebook_id") or ""),
+                digest,
+            )
             if owner_digest in seen_hashes:
                 log.warning("duplicate uploaded source skipped: %s", path.name)
                 continue
@@ -472,8 +476,12 @@ def chunks_for_source(source_id: str, user_id: str | None = None) -> list[dict[s
     ]
 
 
-def validate_source_scope(user_id: str, source_ids: list[str]) -> list[str]:
-    """Return normalized source ids after ownership, activity, and index checks."""
+def validate_source_scope(
+    user_id: str,
+    source_ids: list[str],
+    notebook_id: str = "",
+) -> list[str]:
+    """Return source ids after ownership, notebook, activity, and index checks."""
     normalized = list(dict.fromkeys(
         str(source_id).strip() for source_id in source_ids if str(source_id).strip()
     ))
@@ -497,6 +505,7 @@ def validate_source_scope(user_id: str, source_ids: list[str]) -> list[str]:
         if source_id != COURSE_SCOPE_ID
         and (source_id not in metas
         or str(metas[source_id].get("user_id") or "") != user_id
+        or (notebook_id and str(metas[source_id].get("notebook_id") or "") != notebook_id)
         or not source_is_selectable(metas[source_id], 1 if source_id in indexed else 0))
     ]
     if invalid:

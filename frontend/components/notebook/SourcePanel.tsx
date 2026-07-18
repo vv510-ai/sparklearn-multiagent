@@ -6,6 +6,7 @@ export type KnowledgeSourceStatus = "processing" | "indexed" | "degraded" | "fai
 
 export interface KnowledgeSource {
   id: string;
+  notebook_id?: string;
   title: string;
   filename?: string;
   source_type: string;

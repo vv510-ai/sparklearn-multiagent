@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import auth, chat, debug, evaluate, knowledge, meta, path, resources, tutor
+from .api import auth, chat, debug, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .auth import bind_request_user, decode_access_token, reset_request_user
 from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
@@ -79,7 +79,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-for r in (auth.router, chat.router, resources.router, path.router, debug.router, knowledge.router,
+for r in (auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
           tutor.router, evaluate.router, meta.router):
     app.include_router(r)
 

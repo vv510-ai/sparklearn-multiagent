@@ -284,10 +284,15 @@ async def remediation(req: RemediationRequest):
     if not remediation_kp or not blocked_kp:
         raise HTTPException(409, "诊断结果缺少可验证的课程知识点")
 
+    notebook_id = str(quiz_payload.get("notebook_id") or "")
     try:
-        source_ids = validate_source_scope(
-            req.user_id,
-            quiz_payload.get("source_ids") if isinstance(quiz_payload.get("source_ids"), list) else [],
+        requested_source_ids = (
+            quiz_payload.get("source_ids")
+            if isinstance(quiz_payload.get("source_ids"), list) else []
+        )
+        source_ids = (
+            validate_source_scope(req.user_id, requested_source_ids, notebook_id)
+            if notebook_id else validate_source_scope(req.user_id, requested_source_ids)
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
@@ -307,6 +312,7 @@ async def remediation(req: RemediationRequest):
         state = {
             "user_id": req.user_id,
             "session_id": f"rem-{req.attempt_id}-{uuid.uuid4().hex[:6]}",
+            "notebook_id": notebook_id,
             "messages": [{"role": "user", "content": goal}],
             "learning_goal": goal,
             "knowledge_points": [remediation_kp],
@@ -354,6 +360,7 @@ async def remediation(req: RemediationRequest):
         quiz_generated = await quiz_agent.run({
             "user_id": req.user_id,
             "session_id": f"transfer-{req.attempt_id}-{uuid.uuid4().hex[:6]}",
+            "notebook_id": notebook_id,
             "messages": [{"role": "user", "content": transfer_goal}],
             "learning_goal": transfer_goal,
             "knowledge_points": [blocked_kp],
@@ -397,6 +404,7 @@ async def remediation(req: RemediationRequest):
     next_action = "select_source" if source_blocked else "retest"
     await eval_agent_module.run({
         "user_id": req.user_id,
+        "notebook_id": notebook_id,
         "generated_resources": resources,
         "safety_flags": flags,
     })

@@ -16,6 +16,7 @@ class LearningState(TypedDict, total=False):
     # 会话身份
     user_id: str
     session_id: str
+    notebook_id: str
     # 输入
     messages: Annotated[list[dict], operator.add]      # [{role, content}]
     conversation: list[dict]                           # 持久化会话快照，不参与并行追加

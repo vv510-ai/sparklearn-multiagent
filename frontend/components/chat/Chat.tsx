@@ -80,6 +80,9 @@ export default function Chat({
   onEvent,
   seed,
   request,
+  notebookId = "",
+  sessionId = "",
+  initialMessages = [],
   sourceIds = [],
   topic = "",
   onUploadClick,
@@ -94,6 +97,9 @@ export default function Chat({
   /** 外部(首页快捷入口)注入的一次性发送内容 */
   seed?: string;
   request?: { path: string; body: Record<string, unknown>; display: string };
+  notebookId?: string;
+  sessionId?: string;
+  initialMessages?: { role: "user" | "assistant"; content: string }[];
   sourceIds?: string[];
   topic?: string;
   onUploadClick?: () => void;
@@ -104,7 +110,12 @@ export default function Chat({
   onQuizEvaluated?: (report: { path?: import("@/lib/types").PathPlan; profile_version?: number }) => void;
   onOpenMistakes?: () => void;
 }) {
-  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [msgs, setMsgs] = useState<Msg[]>(() => initialMessages.map((message) => ({
+    role: message.role,
+    text: message.content,
+    resources: [],
+    citations: [],
+  })));
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [queuedHint, setQueuedHint] = useState("");
@@ -115,7 +126,7 @@ export default function Chat({
   const abortRef = useRef<(() => void) | null>(null);
   const voiceRecorderRef = useRef<VoiceRecorder | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const sessionRef = useRef(`s-${Math.random().toString(36).slice(2, 8)}`);
+  const sessionRef = useRef(sessionId || `s-${Math.random().toString(36).slice(2, 8)}`);
   const consumedSeedRef = useRef("");
   const consumedRequestRef = useRef("");
 
@@ -248,6 +259,7 @@ export default function Chat({
           directRequest?.body || {
             user_id: USER_ID,
             session_id: sessionRef.current,
+            notebook_id: notebookId,
             message: q,
             topic_label: topic,
             source_ids: sourceIds,
@@ -289,7 +301,7 @@ export default function Chat({
         );
       });
     },
-    [busy, onEvent, onLearningTurn, sourceIds, topic],
+    [busy, notebookId, onEvent, onLearningTurn, sourceIds, topic],
   );
 
   useEffect(() => {

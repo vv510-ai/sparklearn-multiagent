@@ -29,6 +29,19 @@ export interface SparkEvent {
   [k: string]: unknown;
 }
 
+export interface LearningNotebook {
+  id: string;
+  user_id: string;
+  title: string;
+  emoji: string;
+  session_id: string;
+  source_count: number;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+  messages?: { role: "user" | "assistant"; content: string }[];
+}
+
 export interface QuizQuestion {
   id: string;
   type: "single" | "fill" | "judge" | "design" | "complexity";

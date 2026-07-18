@@ -112,9 +112,13 @@ async def run(state: dict) -> dict:
 
     with session() as s:
         for rid, r in resources.items():
+            payload = dict(r.get("payload", {}) or {})
+            if state.get("notebook_id"):
+                payload["notebook_id"] = str(state["notebook_id"])
+                r["payload"] = payload
             s.merge(Resource(id=rid, user_id=user_id, kind=r.get("kind", "doc"),
                              kp=r.get("kp", ""), title=r.get("title", ""),
-                             payload=r.get("payload", {}) or {},
+                             payload=payload,
                              citations=r.get("citations", []) or [],
                              safety={"flags": [f for f in flags
                                                if f.get("agent") == r.get("kind")

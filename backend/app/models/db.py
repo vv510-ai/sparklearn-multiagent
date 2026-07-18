@@ -36,6 +36,7 @@ _init_lock = Lock()
 
 TENANT_TABLES = (
     "profiles",
+    "notebooks",
     "resources",
     "conversation_messages",
     "path_plans",

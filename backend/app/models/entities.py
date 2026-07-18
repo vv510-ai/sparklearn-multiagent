@@ -40,6 +40,20 @@ class Profile(Base):
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)
 
 
+class Notebook(Base):
+    """A durable, tenant-owned subject workspace with its own sources and chat."""
+    __tablename__ = "notebooks"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True,
+    )
+    title: Mapped[str] = mapped_column(String(120))
+    emoji: Mapped[str] = mapped_column(String(16), default="📘")
+    session_id: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now, index=True)
+
+
 class Resource(Base):
     __tablename__ = "resources"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

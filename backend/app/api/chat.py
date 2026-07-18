@@ -12,6 +12,7 @@ from ..agents.graph import run_with_events
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import ChatRequest
 from ..services.conversation_service import append_message, get_session_messages
+from ..services.notebook_service import ensure_notebook_owner, touch_notebook
 from ..services.profile_service import ensure_user
 from .sse import sse_response
 
@@ -51,17 +52,23 @@ async def _persisted_events(
 @router.post("/chat")
 async def chat(req: ChatRequest):
     ensure_user(req.user_id)
-    session_id = req.session_id or uuid.uuid4().hex[:8]
+    notebook = ensure_notebook_owner(req.user_id, req.notebook_id) if req.notebook_id else None
+    session_id = notebook.session_id if notebook else req.session_id or uuid.uuid4().hex[:8]
     try:
-        source_ids = validate_source_scope(req.user_id, req.source_ids)
+        source_ids = (
+            validate_source_scope(req.user_id, req.source_ids, req.notebook_id)
+            if req.notebook_id else validate_source_scope(req.user_id, req.source_ids)
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     history = get_session_messages(req.user_id, session_id)
     current = {"role": "user", "content": req.message}
     append_message(req.user_id, session_id, "user", req.message)
+    touch_notebook(req.user_id, req.notebook_id)
     state = {
         "user_id": req.user_id,
         "session_id": session_id,
+        "notebook_id": req.notebook_id,
         "messages": [current],
         "conversation": [*history, current],
         "topic_label": req.topic_label,

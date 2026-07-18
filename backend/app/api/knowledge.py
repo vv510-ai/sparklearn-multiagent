@@ -25,6 +25,7 @@ from ..rag.ingest import (
 )
 from ..rag.retriever import retrieve
 from ..rag.vector_store import get_store
+from ..services.notebook_service import ensure_notebook_owner, touch_notebook
 from ..services.object_storage import backup_source_files
 from ..services.profile_service import ensure_user
 
@@ -72,6 +73,7 @@ def _source_response(meta: dict[str, Any], chunk_count: int) -> dict[str, Any]:
     return {
         "id": meta.get("id", ""),
         "user_id": meta.get("user_id", ""),
+        "notebook_id": meta.get("notebook_id", ""),
         "title": meta.get("title", ""),
         "filename": meta.get("filename", ""),
         "kp": meta.get("kp", ""),
@@ -114,9 +116,11 @@ def _stored_source_path(meta_path: Path) -> Path:
     return meta_path.with_name(meta_path.name.removesuffix(".meta.json"))
 
 
-def _duplicate_source(digest: str, user_id: str) -> dict[str, Any] | None:
+def _duplicate_source(digest: str, user_id: str, notebook_id: str = "") -> dict[str, Any] | None:
     for meta_path, meta in _uploaded_metas():
         if str(meta.get("user_id") or "") != str(user_id):
+            continue
+        if str(meta.get("notebook_id") or "") != str(notebook_id or ""):
             continue
         stored = _stored_source_path(meta_path)
         if not stored.exists():
@@ -133,10 +137,13 @@ def _duplicate_source(digest: str, user_id: str) -> dict[str, Any] | None:
 async def upload_source(
     file: UploadFile = File(...),
     user_id: str = Form("demo_user"),
+    notebook_id: str = Form(""),
     kp: str = Form(""),
     title: str = Form(""),
 ):
     ensure_user(user_id)
+    if notebook_id:
+        ensure_notebook_owner(user_id, notebook_id)
     filename = file.filename or "source.txt"
     suffix = Path(filename).suffix.lower()
     if suffix not in supported_upload_suffixes():
@@ -153,8 +160,9 @@ async def upload_source(
 
     UPLOAD_SOURCES_DIR.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(data).hexdigest()
-    duplicate = _duplicate_source(digest, user_id)
+    duplicate = _duplicate_source(digest, user_id, notebook_id)
     if duplicate:
+        touch_notebook(user_id, notebook_id)
         existing_chunks = chunks_for_source(str(duplicate.get("id") or ""), user_id=user_id)
         return {
             "source": _source_response(duplicate, len(existing_chunks)),
@@ -176,6 +184,7 @@ async def upload_source(
     meta = {
         "id": source_id,
         "user_id": user_id,
+        "notebook_id": notebook_id,
         "title": (title or Path(filename).stem).strip(),
         "filename": filename,
         "kp": kp,
@@ -258,6 +267,7 @@ async def upload_source(
         raise HTTPException(400, f"资料解析或索引失败：{exc}") from exc
 
     backup_source_files(user_id, stored, meta_path)
+    touch_notebook(user_id, notebook_id)
 
     sample = [
         {
@@ -274,12 +284,19 @@ async def upload_source(
 
 
 @router.get("/sources")
-async def list_sources(user_id: str = Query("demo_user")):
+async def list_sources(
+    user_id: str = Query("demo_user"),
+    notebook_id: str | None = Query(None),
+):
     ensure_user(user_id)
+    if notebook_id:
+        ensure_notebook_owner(user_id, notebook_id)
     counts = _chunk_counts()
     items = []
     for _, meta in _uploaded_metas():
         if user_id and meta.get("user_id") != user_id:
+            continue
+        if notebook_id is not None and str(meta.get("notebook_id") or "") != notebook_id:
             continue
         source_id = str(meta.get("id") or "")
         chunk_count = int(meta.get("chunk_count") or counts.get(source_id, 0))

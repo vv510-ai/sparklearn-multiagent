@@ -19,6 +19,7 @@ from ..rag.ingest import validate_source_scope
 from ..schemas.core import AudioRetryRequest, GenerateRequest
 from ..services.conversation_service import get_session_messages
 from ..services.knowledge_graph import collect_conversation_topics, resolve_conversation_topic
+from ..services.notebook_service import ensure_notebook_owner, touch_notebook
 from ..services.profile_service import ensure_user, log_event
 from ..services.ownership_service import (
     sync_resource_ownership,
@@ -34,11 +35,16 @@ router = APIRouter(prefix="/api/resources", tags=["resources"])
 @router.post("/generate")
 async def generate(req: GenerateRequest):
     ensure_user(req.user_id)
+    notebook = ensure_notebook_owner(req.user_id, req.notebook_id) if req.notebook_id else None
     try:
-        source_ids = validate_source_scope(req.user_id, req.source_ids)
+        source_ids = (
+            validate_source_scope(req.user_id, req.source_ids, req.notebook_id)
+            if req.notebook_id else validate_source_scope(req.user_id, req.source_ids)
+        )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    session_id = req.session_id or uuid.uuid4().hex[:8]
+    session_id = notebook.session_id if notebook else req.session_id or uuid.uuid4().hex[:8]
+    touch_notebook(req.user_id, req.notebook_id)
     conversation_map = (
         "mindmap" in req.kinds
         and (req.artifact_scope == "conversation" or req.prompt_template == "framework")
@@ -65,6 +71,7 @@ async def generate(req: GenerateRequest):
     state = {
         "user_id": req.user_id,
         "session_id": session_id,
+        "notebook_id": req.notebook_id,
         "messages": [{"role": "user", "content": msg}],
         "conversation": history,
         "learning_goal": req.goal,
@@ -100,15 +107,23 @@ def _row_to_dict(r: Resource) -> dict:
 @router.get("")
 async def list_resources(user_id: str = Query("demo_user"),
                          kind: str | None = None, kp: str | None = None,
-                         limit: int = 50):
+                         notebook_id: str | None = None, limit: int = 50):
     ensure_user(user_id)
+    if notebook_id:
+        ensure_notebook_owner(user_id, notebook_id)
     with session() as s:
         q = s.query(Resource).filter(Resource.user_id == user_id)
         if kind:
             q = q.filter(Resource.kind == kind)
         if kp:
             q = q.filter(Resource.kp == kp)
-        rows = q.order_by(Resource.created_at.desc()).limit(limit).all()
+        fetch_limit = min(max(limit * 5, 50), 500) if notebook_id else limit
+        rows = q.order_by(Resource.created_at.desc()).limit(fetch_limit).all()
+        if notebook_id:
+            rows = [
+                row for row in rows
+                if str(_as_json(row.payload, {}).get("notebook_id") or "") == notebook_id
+            ][:limit]
         return {"items": [_row_to_dict(r) for r in rows]}
 
 

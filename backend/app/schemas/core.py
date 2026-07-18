@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     user_id: str = Field(default="demo_user")
     session_id: str = Field(default="s1")
+    notebook_id: str = ""
     message: str
     topic_label: str = ""
     source_ids: list[str] = Field(default_factory=list)
@@ -17,6 +18,7 @@ class ChatRequest(BaseModel):
 class GenerateRequest(BaseModel):
     user_id: str = "demo_user"
     session_id: str = ""
+    notebook_id: str = ""
     goal: str = Field(default="", description="学习目标自然语言,如:两周后期末考,先攻克二叉树")
     conversation_focus: str = Field(default="", description="最近一轮真实学习问题，用于工坊产物随对话切换主题")
     topic_label: str = Field(default="", description="当前学习笔记本的主题")
@@ -28,6 +30,11 @@ class GenerateRequest(BaseModel):
         default="current_topic",
         description="学习产物覆盖当前主题或整段会话",
     )
+
+
+class NotebookCreateRequest(BaseModel):
+    user_id: str = "demo_user"
+    title: str = Field(min_length=1, max_length=120)
 
 
 class AudioRetryRequest(BaseModel):
