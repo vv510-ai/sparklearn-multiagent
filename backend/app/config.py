@@ -63,7 +63,7 @@ try:  # pydantic-settings 可用时走标准路径
         openai_image_model: str = "gpt-image-2"
         openai_image_quality: str = "low"
 
-        # 小云雀（剪映）视频生成
+        # 小云雀（剪映）图片 / 视频生成
         xyq_access_key: str = ""
         xyq_base_url: str = "https://xyq.jianying.com"
         xyq_video_model: str = "Seedance_2.0_mini_lite"
@@ -78,6 +78,7 @@ try:  # pydantic-settings 可用时走标准路径
         mm_tts_enabled: bool = True
         mm_image_enabled: bool = True
         mm_openai_image_enabled: bool = True
+        mm_xyq_image_enabled: bool = True
         mm_video_enabled: bool = True
         mm_ppt_enabled: bool = True
         mm_ocr_max_pages: int = 6
@@ -87,6 +88,10 @@ try:  # pydantic-settings 可用时走标准路径
         mm_asr_timeout_s: float = 75
         mm_tts_timeout_s: float = 60
         mm_image_timeout_s: float = 30
+        mm_xyq_image_wait_budget_s: float = 150
+        mm_xyq_image_poll_interval_s: float = 2
+        mm_image_download_timeout_s: float = 60
+        mm_image_max_mb: int = 32
         mm_video_create_timeout_s: float = 15
         mm_video_wait_budget_s: float = 45
         mm_video_poll_timeout_s: float = 15
@@ -168,6 +173,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_tts_enabled = _env_bool("MM_TTS_ENABLED")
             self.mm_image_enabled = _env_bool("MM_IMAGE_ENABLED")
             self.mm_openai_image_enabled = _env_bool("MM_OPENAI_IMAGE_ENABLED")
+            self.mm_xyq_image_enabled = _env_bool("MM_XYQ_IMAGE_ENABLED")
             self.mm_video_enabled = _env_bool("MM_VIDEO_ENABLED")
             self.mm_ppt_enabled = _env_bool("MM_PPT_ENABLED")
             self.mm_ocr_max_pages = int(g("MM_OCR_MAX_PAGES", "6"))
@@ -177,6 +183,10 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_asr_timeout_s = float(g("MM_ASR_TIMEOUT_S", "75"))
             self.mm_tts_timeout_s = float(g("MM_TTS_TIMEOUT_S", "60"))
             self.mm_image_timeout_s = float(g("MM_IMAGE_TIMEOUT_S", "30"))
+            self.mm_xyq_image_wait_budget_s = float(g("MM_XYQ_IMAGE_WAIT_BUDGET_S", "150"))
+            self.mm_xyq_image_poll_interval_s = float(g("MM_XYQ_IMAGE_POLL_INTERVAL_S", "2"))
+            self.mm_image_download_timeout_s = float(g("MM_IMAGE_DOWNLOAD_TIMEOUT_S", "60"))
+            self.mm_image_max_mb = int(g("MM_IMAGE_MAX_MB", "32"))
             self.mm_video_create_timeout_s = float(g("MM_VIDEO_CREATE_TIMEOUT_S", "15"))
             self.mm_video_wait_budget_s = float(g("MM_VIDEO_WAIT_BUDGET_S", "45"))
             self.mm_video_poll_timeout_s = float(g("MM_VIDEO_POLL_TIMEOUT_S", "15"))

@@ -36,7 +36,9 @@ def _settings(**overrides):
         "spark_asr_api_secret": "",
         "openai_api_key": "",
         "openai_image_model": "gpt-image-2",
+        "xyq_access_key": "",
         "mm_openai_image_enabled": True,
+        "mm_xyq_image_enabled": True,
         "mm_ocr_enabled": True,
         "mm_local_ocr_enabled": False,
         "mm_asr_enabled": True,
@@ -49,6 +51,10 @@ def _settings(**overrides):
         "mm_asr_timeout_s": 0.05,
         "mm_tts_timeout_s": 0.02,
         "mm_image_timeout_s": 0.05,
+        "mm_xyq_image_wait_budget_s": 0.05,
+        "mm_xyq_image_poll_interval_s": 0.001,
+        "mm_image_download_timeout_s": 0.2,
+        "mm_image_max_mb": 8,
         "mm_video_create_timeout_s": 0.05,
         "mm_video_wait_budget_s": 0.02,
         "mm_video_poll_timeout_s": 0.01,
@@ -350,6 +356,88 @@ def test_image_falls_back_to_spark_when_openai_fails(monkeypatch, tmp_path: Path
     assert result["degraded"] is True
     assert result["data"]["provider"] == "spark"
     assert "OpenAI billing unavailable" in result["error"]
+
+
+def test_one_page_image_prefers_xiaoyunque(monkeypatch, tmp_path: Path):
+    settings = _settings(xyq_access_key="test-xyq-key", openai_api_key="openai-test-key")
+    other_provider_called = False
+
+    def xyq_provider(prompt, digest, provider_settings):
+        assert "二叉树" in prompt
+        assert provider_settings is settings
+        output = tmp_path / f"xiaoyunque_img_{digest}.png"
+        output.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 64)
+        return f"/static/gen/{output.name}"
+
+    def other_provider(*args, **kwargs):
+        nonlocal other_provider_called
+        other_provider_called = True
+        raise AssertionError("fallback provider should not run")
+
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
+    monkeypatch.setattr(gateway, "_generate_xiaoyunque_image", xyq_provider)
+    monkeypatch.setattr(gateway.openai_image, "generate_image", other_provider)
+    monkeypatch.setattr(gateway.spark_image, "generate_image", other_provider)
+
+    result = asyncio.run(gateway.text_to_image(
+        "一图看懂二叉树",
+        width=1536,
+        height=864,
+        preferred_provider="xiaoyunque",
+        trace_id="one-page-xiaoyunque",
+    ))
+
+    assert result["ok"] is True, result
+    assert result["data"]["provider"] == "xiaoyunque"
+    assert result["data"]["image_url"].endswith(".png")
+    assert other_provider_called is False
+
+
+def test_xiaoyunque_image_download_is_signature_checked(monkeypatch, tmp_path: Path):
+    image_data = b"\x89PNG\r\n\x1a\n" + b"image-data" * 8
+
+    class FakeDownload:
+        headers = {"content-length": str(len(image_data))}
+
+        @staticmethod
+        def raise_for_status():
+            return None
+
+        @staticmethod
+        def iter_content(chunk_size):
+            assert chunk_size > 0
+            return [image_data]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+    monkeypatch.setattr(gateway.requests, "get", lambda *args, **kwargs: FakeDownload())
+
+    target = gateway._download_image(  # noqa: SLF001
+        "https://cdn.test/knowledge-map",
+        tmp_path / "owned-map",
+        timeout_s=1,
+        max_bytes=1024,
+    )
+
+    assert target == tmp_path / "owned-map.png"
+    assert target.read_bytes() == image_data
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_xiaoyunque_image_download_rejects_insecure_url(tmp_path: Path):
+    with pytest.raises(ValueError, match="HTTPS"):
+        gateway._download_image(  # noqa: SLF001
+            "http://cdn.test/knowledge-map.png",
+            tmp_path / "owned-map",
+            timeout_s=1,
+            max_bytes=1024,
+        )
 
 
 def test_openai_image_provider_writes_base64_response(monkeypatch, tmp_path: Path):

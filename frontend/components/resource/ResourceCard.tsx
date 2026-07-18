@@ -248,12 +248,16 @@ export default function ResourceCard({
           ) : payload.markdown ? (
             <>
               {payload.one_page_visual && <OnePageVisual visual={payload.one_page_visual} />}
-              <Markdown
-                text={payload.markdown}
-                citeBase={r.id}
-                citations={r.citations}
-                allowCodeBlocks={r.kind === "code"}
-              />
+              {payload.one_page_visual?.image_url ? (
+                <details className="rounded-xl border border-[#E5E9E3] bg-[#FBFCFA] px-4 py-3">
+                  <summary className="cursor-pointer text-xs font-bold text-[#0F6B50]">查看文字版与出处</summary>
+                  <div className="mt-3 border-t border-[#E5E9E3] pt-3">
+                    <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code"} />
+                  </div>
+                </details>
+              ) : (
+                <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code"} />
+              )}
             </>
           ) : (
             <Notice tone="warn" title="暂时无法展示这类内容" desc="内容已安全保留，系统不会把内部数据直接展示给学习者。" />

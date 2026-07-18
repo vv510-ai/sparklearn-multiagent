@@ -90,6 +90,10 @@ export interface ResourceItem {
       center?: string;
       nodes?: { label: string; text: string }[];
       steps?: string[];
+      image_url?: string;
+      provider?: string;
+      image_status?: "ready" | "fallback" | string;
+      image_error?: string;
     };
     difficulty?: number;
     script?: { title?: string; narration?: string; scenes?: { t: string; visual: string; caption?: string }[]; video_prompt?: string; target_seconds?: number; video_clip_seconds?: number };

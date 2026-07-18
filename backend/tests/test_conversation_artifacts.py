@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from app.agents import mindmap_agent
-from app.agents.eval_agent import _learner_summary
+from app.agents.eval_agent import _ARTIFACT_READY_TEXT, _learner_summary
 from app.api import resources as resources_api
 from app.prompt_templates import PromptCall
 from app.schemas.core import GenerateRequest
@@ -28,6 +28,11 @@ def test_conversation_focus_ignores_opening_help_title_and_recognizes_graph():
     )
 
     assert topic == ("graph_basic", "图的基础", False)
+
+
+def test_one_page_ready_message_uses_one_image_name():
+    assert _ARTIFACT_READY_TEXT["one_page"].startswith("一图看懂")
+    assert "一页" not in _ARTIFACT_READY_TEXT["one_page"]
 
 
 def test_custom_conversation_focus_keeps_subject_and_removes_learning_request_words():

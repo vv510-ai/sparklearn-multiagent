@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.07.18.2",
+  "version": "2026.07.19.1",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -26,8 +26,12 @@
       "file": "doc/interactive-audio.md"
     },
     "doc.one_page": {
-      "description": "一页看懂复习页",
+      "description": "一图看懂视觉底稿",
       "file": "doc/one-page.md"
+    },
+    "image.one_page": {
+      "description": "一图看懂知识图谱信息图生成",
+      "file": "image/one-page-visual.md"
     },
     "doc.error_confusion": {
       "description": "易错点与易混概念手册",

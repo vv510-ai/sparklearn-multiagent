@@ -171,7 +171,7 @@ def test_cover_prompt_is_fixed_and_knowledge_point_scoped():
 
 
 def test_doc_template_has_a_distinct_resource_label():
-    assert doc_agent._doc_label("学习笔记", "one_page") == "一页看懂"  # noqa: SLF001
+    assert doc_agent._doc_label("学习笔记", "one_page") == "一图看懂"  # noqa: SLF001
     assert doc_agent._doc_label("学习笔记", "interactive_audio") == "互动讲解"  # noqa: SLF001
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
 
@@ -183,7 +183,7 @@ def test_one_page_always_contains_a_visual_structure(monkeypatch):
         "binary_tree",
         {},
         source_ids=[],
-        goal="生成一页看懂",
+        goal="生成一图看懂",
         prompt_template="one_page",
         trace_id="one-page-visual",
     ))
@@ -191,6 +191,43 @@ def test_one_page_always_contains_a_visual_structure(monkeypatch):
     assert visual["title"] == "二叉树"
     assert visual["nodes"]
     assert len(visual["steps"]) == 4
+    assert visual["image_status"] == "fallback"
+
+
+def test_one_page_uses_xiaoyunque_prompt_and_stores_real_image(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
+    captured = {}
+
+    async def fake_one_page_image(prompt, **kwargs):
+        captured.update(prompt=prompt, **kwargs)
+        return {
+            "ok": True,
+            "data": {
+                "image_url": "/static/gen/one-page.png",
+                "provider": "xiaoyunque",
+            },
+        }
+
+    monkeypatch.setattr(doc_agent.multimodal_gateway, "text_to_image", fake_one_page_image)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "binary_tree",
+        {},
+        source_ids=[],
+        goal="生成一图看懂",
+        prompt_template="one_page",
+        trace_id="one-page-real-image",
+    ))
+
+    visual = result["resource"]["payload"]["one_page_visual"]
+    assert visual["image_url"] == "/static/gen/one-page.png"
+    assert visual["provider"] == "xiaoyunque"
+    assert visual["image_status"] == "ready"
+    assert captured["preferred_provider"] == "xiaoyunque"
+    assert (captured["width"], captured["height"]) == (1536, 864)
+    assert "35—50" in captured["prompt"]
+    assert "一图看懂二叉树" in captured["prompt"]
+    assert "二叉树每个节点最多有两个孩子" in captured["prompt"]
 
 
 def test_one_page_strips_model_returned_source_code(monkeypatch):

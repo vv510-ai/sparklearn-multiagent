@@ -35,7 +35,9 @@ MMResult = dict[str, Any]
 _MM_POOL_SIZE = 4
 _MM_POOL = ThreadPoolExecutor(max_workers=_MM_POOL_SIZE, thread_name_prefix="sparklearn-mm")
 _MM_SLOTS = threading.BoundedSemaphore(_MM_POOL_SIZE)
+_IMAGE_DOWNLOAD_LOCK = threading.Lock()
 _VIDEO_DOWNLOAD_LOCK = threading.Lock()
+_DEFAULT_MAX_IMAGE_BYTES = 32 * 1024 * 1024
 _DEFAULT_MAX_VIDEO_BYTES = 256 * 1024 * 1024
 
 
@@ -152,6 +154,112 @@ def _poll_and_materialize_video(task_id: str, settings: Any) -> dict[str, Any]:
             "cached": False,
         })
         return durable
+
+
+def _image_suffix(path: Path) -> str:
+    try:
+        if path.stat().st_size < 32:
+            return ""
+        header = path.read_bytes()[:12]
+    except OSError:
+        return ""
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if header.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return ".webp"
+    return ""
+
+
+def _download_image(
+    source_url: str,
+    target_stem: Path,
+    *,
+    timeout_s: float,
+    max_bytes: int,
+) -> Path:
+    """Atomically copy and signature-check a provider image."""
+    source = str(source_url or "").strip()
+    if not source.startswith("https://"):
+        raise ValueError("image download URL must use HTTPS")
+    target_stem.parent.mkdir(parents=True, exist_ok=True)
+    partial = target_stem.with_name(f"{target_stem.name}.{uuid.uuid4().hex}.part")
+    total = 0
+    try:
+        with requests.get(
+            source,
+            stream=True,
+            timeout=max(1.0, float(timeout_s)),
+            headers={
+                "Accept": "image/png,image/jpeg,image/webp,image/*;q=0.9,*/*;q=0.1",
+                "Accept-Encoding": "identity",
+                "User-Agent": "SparkLearn-Asset-Worker/1.0",
+            },
+        ) as response:
+            response.raise_for_status()
+            content_length = response.headers.get("content-length")
+            if content_length and int(content_length) > max_bytes:
+                raise RuntimeError("image file exceeds configured size limit")
+            with partial.open("wb") as handle:
+                for chunk in response.iter_content(128 * 1024):
+                    if not chunk:
+                        continue
+                    total += len(chunk)
+                    if total > max_bytes:
+                        raise RuntimeError("image file exceeds configured size limit")
+                    handle.write(chunk)
+        suffix = _image_suffix(partial)
+        if not suffix:
+            raise RuntimeError("image provider returned an invalid image file")
+        target = target_stem.with_suffix(suffix)
+        for candidate_suffix in (".png", ".jpg", ".webp"):
+            candidate = target_stem.with_suffix(candidate_suffix)
+            if candidate != target:
+                candidate.unlink(missing_ok=True)
+        partial.replace(target)
+        return target
+    finally:
+        partial.unlink(missing_ok=True)
+
+
+def _generate_xiaoyunque_image(prompt: str, digest: str, settings: Any) -> str:
+    """Wait for a Nest image Run and retain only a SparkLearn-owned local file."""
+    target_stem = GEN_DIR / f"xiaoyunque_img_{digest}"
+    for suffix in (".png", ".jpg", ".webp"):
+        cached = target_stem.with_suffix(suffix)
+        if _image_suffix(cached):
+            return f"/static/gen/{cached.name}"
+
+    task_id = xiaoyunque_client.create_image_task(prompt)
+    wait_budget_s = max(1.0, float(getattr(settings, "mm_xyq_image_wait_budget_s", 150)))
+    poll_interval_s = max(0.2, float(getattr(settings, "mm_xyq_image_poll_interval_s", 2)))
+    deadline = time.monotonic() + wait_budget_s
+    while True:
+        state = dict(xiaoyunque_client.poll_image_task(task_id))
+        if state.get("status") == "succeeded":
+            source_url = str(state.get("url") or "")
+            if not source_url:
+                raise RuntimeError("image task succeeded without a download URL")
+            max_mb = max(1, int(getattr(settings, "mm_image_max_mb", 32)))
+            with _IMAGE_DOWNLOAD_LOCK:
+                for suffix in (".png", ".jpg", ".webp"):
+                    cached = target_stem.with_suffix(suffix)
+                    if _image_suffix(cached):
+                        return f"/static/gen/{cached.name}"
+                target = _download_image(
+                    source_url,
+                    target_stem,
+                    timeout_s=float(getattr(settings, "mm_image_download_timeout_s", 60)),
+                    max_bytes=min(max_mb * 1024 * 1024, _DEFAULT_MAX_IMAGE_BYTES),
+                )
+            return f"/static/gen/{target.name}"
+        if state.get("status") == "failed":
+            raise RuntimeError(str(state.get("error") or "Xiaoyunque image task failed"))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(f"Xiaoyunque image task still running after {wait_budget_s:g}s")
+        time.sleep(min(poll_interval_s, remaining))
 
 
 async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float) -> Any:
@@ -564,6 +672,7 @@ async def text_to_image(
     *,
     width: int = 768,
     height: int = 768,
+    preferred_provider: str = "",
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
@@ -576,7 +685,13 @@ async def text_to_image(
         await _record(result, agent="media")
         return result
 
-    digest = hashlib.sha1(f"{width}x{height}\0{prompt}".encode("utf-8")).hexdigest()[:16]
+    preferred = str(preferred_provider or "").strip().lower()
+    if preferred not in {"", "xiaoyunque"}:
+        raise ValueError(f"unsupported preferred image provider: {preferred_provider}")
+    cache_scope = f"{preferred}\0" if preferred else ""
+    digest = hashlib.sha1(
+        f"{cache_scope}{width}x{height}\0{prompt}".encode("utf-8")
+    ).hexdigest()[:16]
     cache_candidates = [GEN_DIR / f"img_{digest}{suffix}" for suffix in (".jpg", ".png", ".webp")]
     cached = next((path for path in cache_candidates if path.exists() and path.stat().st_size > 0), None)
     if cached:
@@ -617,12 +732,27 @@ async def text_to_image(
 
     errors: list[str] = []
     unavailable: list[str] = []
-    attempts: list[tuple[str, Callable[[], Any]]] = []
+    attempts: list[tuple[str, Callable[[], Any], float]] = []
     demo = is_demo()
     timeout_s = float(s.mm_image_timeout_s)
     if demo:
         unavailable.append("real image providers disabled in demo mode")
     else:
+        if preferred == "xiaoyunque":
+            if bool(getattr(s, "mm_xyq_image_enabled", True)) and xiaoyunque_client.available():
+                xyq_timeout_s = (
+                    timeout_s
+                    + float(getattr(s, "mm_xyq_image_wait_budget_s", 150))
+                    + float(getattr(s, "mm_image_download_timeout_s", 60))
+                    + 5
+                )
+                attempts.append((
+                    "xiaoyunque",
+                    lambda: _generate_xiaoyunque_image(prompt, digest, s),
+                    xyq_timeout_s,
+                ))
+            else:
+                unavailable.append("xiaoyunque: credentials not configured or image capability disabled")
         if _openai_image_configured(s):
             attempts.append((
                 "openai",
@@ -633,6 +763,7 @@ async def text_to_image(
                     filename=f"openai_img_{digest}.png",
                     timeout_s=timeout_s,
                 ),
+                timeout_s,
             ))
         else:
             unavailable.append("openai: credentials not configured or fallback disabled")
@@ -640,13 +771,14 @@ async def text_to_image(
             attempts.append((
                 "spark",
                 lambda: spark_image.generate_image(prompt, width=width, height=height),
+                timeout_s,
             ))
         else:
             unavailable.append("spark: credentials not configured")
 
-    for provider, call in attempts:
+    for provider, call, provider_timeout_s in attempts:
         try:
-            raw = await _run_in_mm_pool(call, timeout_s)
+            raw = await _run_in_mm_pool(call, provider_timeout_s)
             data = normalize(raw, provider)
             result = _result(
                 "image",
@@ -660,7 +792,7 @@ async def text_to_image(
             await _record(result, agent="media")
             return result
         except TimeoutError:
-            errors.append(f"{provider}: timeout after {timeout_s:g}s")
+            errors.append(f"{provider}: timeout after {provider_timeout_s:g}s")
         except Exception as error:  # noqa: BLE001
             errors.append(f"{provider}: {_error_text(error)}")
 

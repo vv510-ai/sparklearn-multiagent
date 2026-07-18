@@ -1,7 +1,8 @@
-"""小云雀视频生成客户端（Bearer Access Key + 异步 Run 轮询）。
+"""小云雀图片 / 视频生成客户端（Bearer Access Key + 异步 Run 轮询）。
 
-官方调用链：POST submit_run 创建视频任务，再 POST get_thread 查询 Run；
-Run state=3 时，从 ``biz/x_data_video`` 产物中读取 ``download_url``。
+通用 Nest Agent 与视频 Agent 共用 POST submit_run / get_thread 调用链。
+Run state=3 时，从对应图片或视频产物中读取临时下载地址；上层网关负责
+校验并转存为 SparkLearn 自有静态资源。
 """
 from __future__ import annotations
 
@@ -148,6 +149,27 @@ def create_task(prompt: str, image_url: str | None = None) -> str:
     return _encode_task_id(thread_id, run_id)
 
 
+def create_image_task(prompt: str) -> str:
+    """向通用 Nest Agent 提交文生图请求。"""
+    text = str(prompt or "").strip()
+    if not text:
+        raise ValueError("image prompt must not be empty")
+    response = requests.post(
+        _base_url() + _SUBMIT_RUN_PATH,
+        headers=_headers(),
+        json={"message": text},
+        timeout=_timeout("mm_image_timeout_s", 30),
+    )
+    data = _response_json(response, "create image")
+    run = data.get("run")
+    run = run if isinstance(run, dict) else {}
+    thread_id = str(run.get("thread_id") or "").strip()
+    run_id = str(run.get("run_id") or "").strip()
+    if not thread_id or not run_id:
+        raise RuntimeError("Xiaoyunque create image failed: response missing thread_id/run_id")
+    return _encode_task_id(thread_id, run_id)
+
+
 def upload_file(path: str | Path) -> str:
     """上传本地参考素材并返回 asset_id，供后续扩展图生视频使用。"""
     source = Path(path)
@@ -199,6 +221,61 @@ def _video_urls(run: dict[str, Any]) -> list[str]:
             url = str(video.get("download_url") or video.get("url") or "").strip()
             if url and url not in urls:
                 urls.append(url)
+    return urls
+
+
+def _iter_result_urls(value: Any, path: str = ""):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            child_path = f"{path}.{key}" if path else str(key)
+            key_lower = str(key).lower()
+            is_url_key = (
+                key_lower in {"download_url", "url"}
+                or key_lower.endswith("_url")
+                or key_lower.endswith("_urls")
+            )
+            if is_url_key and isinstance(item, str) and item.startswith(("http://", "https://")):
+                yield child_path, item
+            elif is_url_key and isinstance(item, list):
+                for index, url in enumerate(item):
+                    if isinstance(url, str) and url.startswith(("http://", "https://")):
+                        yield f"{child_path}[{index}]", url
+            yield from _iter_result_urls(item, child_path)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            child_path = f"{path}[{index}]" if path else f"[{index}]"
+            yield from _iter_result_urls(item, child_path)
+
+
+def _looks_like_image(url: str, *, path: str, subtype: str, data: dict[str, Any]) -> bool:
+    hint = f"{path} {subtype}".lower()
+    if any(token in hint for token in ("image", "picture", "photo", "poster")):
+        return True
+    mime = str(data.get("mime") or data.get("content_type") or "").lower()
+    if mime.startswith("image/"):
+        return True
+    clean_url = str(url).split("?", 1)[0].split("#", 1)[0].lower()
+    return clean_url.endswith((".png", ".jpg", ".jpeg", ".webp"))
+
+
+def _image_urls(run: dict[str, Any]) -> list[str]:
+    urls: list[str] = []
+    for entry in run.get("entry_list") or []:
+        if not isinstance(entry, dict):
+            continue
+        for container_name in ("message", "artifact"):
+            container = entry.get(container_name)
+            container = container if isinstance(container, dict) else {}
+            if str(container.get("role") or "").lower() == "user":
+                continue
+            for content in container.get("content") or []:
+                if not isinstance(content, dict):
+                    continue
+                subtype = str(content.get("sub_type") or content.get("subtype") or "")
+                data = _json_object(content.get("data"))
+                for path, url in _iter_result_urls(data):
+                    if _looks_like_image(url, path=path, subtype=subtype, data=data) and url not in urls:
+                        urls.append(url)
     return urls
 
 
@@ -269,4 +346,44 @@ def poll_task(task_id: str) -> dict[str, Any]:
     if state in {4, 5}:
         reason = "task cancelled" if state == 5 else _run_error(run)
         return {**result, "status": "failed", "error": str(reason)}
+    return result
+
+
+def poll_image_task(task_id: str) -> dict[str, Any]:
+    """查询一次通用 Nest 文生图任务，归一化为 running/succeeded/failed。"""
+    thread_id, run_id = _decode_task_id(task_id)
+    response = requests.post(
+        _base_url() + _GET_THREAD_PATH,
+        headers=_headers(),
+        json={"thread_id": thread_id, "run_id": run_id},
+        timeout=_timeout("mm_image_timeout_s", 30),
+    )
+    data = _response_json(response, "poll image")
+    run = _find_run(data, run_id)
+    raw_state = str(run.get("state") or "").strip().lower()
+    result: dict[str, Any] = {
+        "status": "running",
+        "task_id": task_id,
+        "provider": "xiaoyunque",
+        "thread_id": thread_id,
+        "run_id": run_id,
+    }
+    if raw_state in {"3", "completed", "complete", "succeeded", "success", "done"}:
+        urls = _image_urls(run)
+        if not urls:
+            return {
+                **result,
+                "status": "failed",
+                "error": "run succeeded without image artifact",
+            }
+        return {**result, "status": "succeeded", "url": urls[0], "urls": urls}
+    if raw_state in {"4", "5", "failed", "failure", "error", "canceled", "cancelled"}:
+        reason = "task cancelled" if raw_state in {"5", "canceled", "cancelled"} else _run_error(run)
+        return {**result, "status": "failed", "error": str(reason)}
+    if raw_state in {"9", "requires_action", "requires_user_input", "interaction_required"}:
+        return {
+            **result,
+            "status": "failed",
+            "error": "image task requires provider-side user interaction",
+        }
     return result

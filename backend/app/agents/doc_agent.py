@@ -197,6 +197,21 @@ def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
         ],
         "steps": ["先看对象", "再抓规则", "走最小例子", "最后查边界"],
     }
+
+
+def _one_page_image_prompt(name: str, markdown: str) -> str:
+    """Render the source-grounded visual brief kept in the prompt catalog."""
+    content = re.sub(r"\[\^\d+\]", "", str(markdown or ""))
+    content = re.sub(r"\n{3,}", "\n\n", content).strip()
+    if len(content) > 9000:
+        content = content[:9000].rstrip() + "\n（内容已按图片文字预算截断，请只保留主干。）"
+    return invoke_learning_prompt(
+        "image.one_page",
+        topic=name or "当前主题",
+        content=content or "（没有可用于生图的正文，请输出清晰的资料不足提示。）",
+    ).prompt
+
+
 def _clean_source_excerpt(value: object, limit: int = 180) -> str:
     """Turn PDF/OCR fragments into readable learning notes instead of raw dumps."""
     text = without_source_code(value)
@@ -520,7 +535,7 @@ async def _gen_structured_resource(
 
 def _doc_label(default: str, template_key: str) -> str:
     return {
-        "one_page": "一页看懂",
+        "one_page": "一图看懂",
         "interactive_audio": "互动讲解",
         "complete_notes": "学习笔记",
         "error_confusion": "易错易混",
@@ -723,7 +738,8 @@ async def _gen_one(
         "reusable_note": prompt_template == "conversation_notes",
         "prompt_skill": prompt_call.metadata(),
     }
-    if kind == "doc" and prompt_template == "one_page":
+    one_page = kind == "doc" and prompt_template == "one_page"
+    if one_page:
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
     interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
     if interactive_audio:
@@ -737,19 +753,32 @@ async def _gen_one(
         payload["audio_narration"] = narration
     if (kind == "doc" and not source_scope_missing
             and prompt_template != "conversation_notes" and not skip_multimodal):
-        audio, cover = await asyncio.gather(
-            multimodal_gateway.tts(
-                narration,
-                trace_id=trace_id,
-            ),
-            multimodal_gateway.text_to_image(
-                _cover_prompt(name, source_bound=bool(source_ids), custom_topic=custom_topic),
-                width=768,
-                height=768,
-                trace_id=trace_id,
-            ),
-            return_exceptions=True,
-        )
+        if one_page:
+            audio = None
+            try:
+                cover = await multimodal_gateway.text_to_image(
+                    _one_page_image_prompt(name, md),
+                    width=1536,
+                    height=864,
+                    preferred_provider="xiaoyunque",
+                    trace_id=trace_id,
+                )
+            except Exception as exc:  # noqa: BLE001
+                cover = exc
+        else:
+            audio, cover = await asyncio.gather(
+                multimodal_gateway.tts(
+                    narration,
+                    trace_id=trace_id,
+                ),
+                multimodal_gateway.text_to_image(
+                    _cover_prompt(name, source_bound=bool(source_ids), custom_topic=custom_topic),
+                    width=768,
+                    height=768,
+                    trace_id=trace_id,
+                ),
+                return_exceptions=True,
+            )
         if isinstance(audio, dict) and audio.get("ok"):
             payload["audio_url"] = audio["data"]["audio_url"]
             if interactive_audio:
@@ -779,7 +808,31 @@ async def _gen_one(
                 "detail": f"互动讲解已切换浏览器朗读：{error[:160]}",
             })
         if isinstance(cover, dict) and cover.get("ok"):
-            payload["cover_url"] = cover["data"]["image_url"]
+            if one_page:
+                payload["one_page_visual"].update({
+                    "image_url": cover["data"]["image_url"],
+                    "provider": str(cover["data"].get("provider") or "xiaoyunque"),
+                    "image_status": "ready",
+                })
+            else:
+                payload["cover_url"] = cover["data"]["image_url"]
+        elif one_page:
+            error = (
+                str(cover.get("error") or "小云雀生图暂时不可用")
+                if isinstance(cover, dict)
+                else str(cover) if isinstance(cover, BaseException)
+                else "小云雀生图暂时不可用"
+            )
+            payload["one_page_visual"].update({
+                "image_status": "fallback",
+                "image_error": error[:240],
+            })
+            flags.append({
+                "agent": "doc",
+                "kind": kind,
+                "type": "image_degraded",
+                "detail": f"一图看懂已切换内置清晰版：{error[:160]}",
+            })
     elif interactive_audio:
         payload["audio"] = {
             "status": "blocked" if source_scope_missing else "fallback",

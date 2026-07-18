@@ -16,6 +16,7 @@ def _settings(**overrides):
         "xyq_video_ratio": "16:9",
         "xyq_video_duration": 5,
         "xyq_video_resolution": "720p",
+        "mm_image_timeout_s": 30,
         "mm_video_create_timeout_s": 15,
         "mm_video_poll_timeout_s": 12,
     }
@@ -75,6 +76,27 @@ def test_create_task_uses_official_video_part_contract(monkeypatch):
             "resolution": "720p",
         },
     }
+
+
+def test_create_image_task_uses_generic_nest_contract(monkeypatch):
+    sent = {}
+
+    def fake_post(url, **kwargs):
+        sent.update(url=url, **kwargs)
+        return _Response({
+            "ret": "0",
+            "data": {"run": {"thread_id": "image-thread", "run_id": "image-run"}},
+        })
+
+    monkeypatch.setattr(client, "get_settings", lambda: _settings())
+    monkeypatch.setattr(client.requests, "post", fake_post)
+
+    task_id = client.create_image_task("生成一张清晰的二叉树知识图")
+
+    assert client._decode_task_id(task_id) == ("image-thread", "image-run")  # noqa: SLF001
+    assert sent["json"] == {"message": "生成一张清晰的二叉树知识图"}
+    assert "agent_name" not in sent["json"]
+    assert sent["timeout"] == 30
 
 
 def test_poll_task_extracts_video_artifact_from_json_string(monkeypatch):
@@ -143,6 +165,77 @@ def test_poll_task_maps_failed_run(monkeypatch):
 
     assert result["status"] == "failed"
     assert result["error"] == "quota exhausted"
+
+
+def test_poll_image_task_extracts_assistant_image_artifact(monkeypatch):
+    task_id = client._encode_task_id("image-thread", "image-run")  # noqa: SLF001
+    monkeypatch.setattr(client, "get_settings", lambda: _settings())
+    monkeypatch.setattr(
+        client.requests,
+        "post",
+        lambda *args, **kwargs: _Response({
+            "ret": "0",
+            "data": {
+                "thread": {
+                    "run_list": [{
+                        "run_id": "image-run",
+                        "state": 3,
+                        "entry_list": [{
+                            "message": {
+                                "role": "assistant",
+                                "content": [{
+                                    "sub_type": "biz/x_data_image",
+                                    "data": json.dumps({
+                                        "images": [{"download_url": "https://cdn.test/knowledge-map.png"}]
+                                    }),
+                                }],
+                            }
+                        }],
+                    }]
+                }
+            },
+        }),
+    )
+
+    result = client.poll_image_task(task_id)
+
+    assert result["status"] == "succeeded"
+    assert result["provider"] == "xiaoyunque"
+    assert result["url"] == "https://cdn.test/knowledge-map.png"
+
+
+def test_poll_image_task_does_not_reuse_user_reference(monkeypatch):
+    task_id = client._encode_task_id("image-thread", "image-run")  # noqa: SLF001
+    monkeypatch.setattr(client, "get_settings", lambda: _settings())
+    monkeypatch.setattr(
+        client.requests,
+        "post",
+        lambda *args, **kwargs: _Response({
+            "ret": "0",
+            "data": {
+                "thread": {
+                    "run_list": [{
+                        "run_id": "image-run",
+                        "state": 3,
+                        "entry_list": [{
+                            "message": {
+                                "role": "user",
+                                "content": [{
+                                    "sub_type": "biz/x_data_image",
+                                    "data": json.dumps({"url": "https://cdn.test/reference.png"}),
+                                }],
+                            }
+                        }],
+                    }]
+                }
+            },
+        }),
+    )
+
+    result = client.poll_image_task(task_id)
+
+    assert result["status"] == "failed"
+    assert "without image artifact" in result["error"]
 
 
 def test_poll_task_reads_error_from_artifact(monkeypatch):

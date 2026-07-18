@@ -23,7 +23,7 @@ from .emitter import agent_end, agent_start, emit
 
 _ARTIFACT_READY_TEXT = {
     "interactive_audio": "互动讲解已经准备好了，点开下面的卡片就能边听边问。",
-    "one_page": "一页速览已经整理好了，打开下面的卡片即可回顾。",
+    "one_page": "一图看懂已经整理好了，打开下面的卡片即可回顾。",
     "framework": "知识框架已经整理好了，打开下面的导图查看。",
     "complete_notes": "学习笔记已经整理好了，打开下面的卡片查看。",
     "error_confusion": "易错易混要点已经整理好了，打开下面的卡片查看。",
