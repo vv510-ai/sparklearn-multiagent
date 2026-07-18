@@ -33,7 +33,7 @@ import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
 type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes";
-type ResourceFilter = "all" | "doc" | "study" | "quiz" | "animation" | "ppt";
+type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
 type UploadResult = { source: KnowledgeSource; sample?: { text: string; citation: string }[] };
@@ -86,7 +86,7 @@ const RESOURCE_FILTERS: { key: ResourceFilter; label: string }[] = [
   { key: "doc", label: "笔记" },
   { key: "study", label: "学习工件" },
   { key: "quiz", label: "测验" },
-  { key: "animation", label: "动画" },
+  { key: "video", label: "讲解" },
   { key: "ppt", label: "PPT" },
 ];
 
@@ -635,11 +635,11 @@ export default function Home() {
   }, []);
 
   const filteredResources = useMemo(() => {
-    if (resourceFilter === "all") return resources;
-    if (resourceFilter === "doc") return resources.filter((item) => ["doc", "code", "reading"].includes(item.kind));
-    if (resourceFilter === "study") return resources.filter((item) => ["mindmap", "flashcards", "infographic", "data_table"].includes(item.kind));
-    if (resourceFilter === "animation") return resources.filter((item) => ["video", "manim", "python_animation"].includes(item.kind));
-    return resources.filter((item) => item.kind === resourceFilter);
+    const learnerResources = resources.filter((item) => !["manim", "python_animation"].includes(item.kind));
+    if (resourceFilter === "all") return learnerResources;
+    if (resourceFilter === "doc") return learnerResources.filter((item) => ["doc", "code", "reading"].includes(item.kind));
+    if (resourceFilter === "study") return learnerResources.filter((item) => ["mindmap", "flashcards", "infographic", "data_table"].includes(item.kind));
+    return learnerResources.filter((item) => item.kind === resourceFilter);
   }, [resourceFilter, resources]);
 
   const groupedResources = useMemo(() => {

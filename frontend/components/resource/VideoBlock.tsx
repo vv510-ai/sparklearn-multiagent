@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, Pause, Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { Notice } from "@/components/ui";
 import { apiAssetUrl, apiGet } from "@/lib/api";
 import type { ResourceItem } from "@/lib/types";
 
-export default function VideoBlock({ payload, kind = "video" }: { payload: ResourceItem["payload"]; kind?: string }) {
+export default function VideoBlock({ payload }: { payload: ResourceItem["payload"]; kind?: string }) {
   const [video, setVideo] = useState(payload.video);
   const [polling, setPolling] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [pollError, setPollError] = useState("");
   const [playbackError, setPlaybackError] = useState("");
   const [previewIndex, setPreviewIndex] = useState(0);
@@ -25,8 +24,6 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
   const audioUrl = apiAssetUrl(payload.audio_url);
   const preview = payload.animation_preview;
   const stages = preview?.stages || [];
-  const code = payload.python_code || payload.manim_code || "";
-  const codeLabel = kind === "python_animation" || payload.python_code ? "PYTHON · MATPLOTLIB 动画脚本" : "MANIM · 可渲染场景代码";
 
   useEffect(() => {
     if (!previewPlaying || stages.length < 2) return;
@@ -68,25 +65,7 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
     return () => window.clearTimeout(timer);
   }, [poll, polling, shouldMaterialize, video?.status, video?.task_id, videoUrl]);
 
-  function copyCode() {
-    if (!code) return;
-    navigator.clipboard?.writeText(code).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    });
-  }
-
-  function downloadCode() {
-    if (!code) return;
-    const url = URL.createObjectURL(new Blob([code], { type: "text/x-python;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = payload.python_code ? "sparklearn_python_animation.py" : "sparklearn_manim_scene.py";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  if (!video && !script && !code && !preview && !payload.audio_url && !payload.cover_url) {
+  if (!video && !script && !preview && !payload.audio_url && !payload.cover_url) {
     return (
       <Notice
         tone="warn"
@@ -101,7 +80,7 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
       {stages.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-br from-[#071E19] via-[#10392E] to-[#19513F] text-white shadow-sm">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-            <div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-300">LIVE ANIMATION PREVIEW</div><strong className="text-sm">{preview?.title || script?.title || "动态讲解"}</strong></div>
+            <div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-300">动态演示</div><strong className="text-sm">{preview?.title || script?.title || "动态讲解"}</strong></div>
             <button type="button" onClick={() => setPreviewPlaying((value) => !value)} className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/15" aria-label={previewPlaying ? "暂停动画" : "播放动画"}>
               {previewPlaying ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
             </button>
@@ -122,7 +101,6 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
               <p className="mt-1 text-xs leading-5 text-white/65">{stages[previewIndex]?.detail}</p>
             </div>
           </div>
-          <div className="border-t border-white/10 px-4 py-2 text-[10px] text-white/45">这是安全的浏览器预览；服务器不会执行模型返回的 Python 代码。</div>
         </div>
       )}
 
@@ -130,7 +108,7 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
         <Notice
           tone="error"
           title={`视频生成${video.status === "timeout" ? "超时" : "失败"}`}
-          desc={`${video.error || video.reason || "请查看后端任务日志"}。下方动态预览、分镜与代码不受影响。`}
+          desc={`${video.error || video.reason || "请稍后重试"}。下方动态预览和讲解步骤仍可使用。`}
         />
       ) : videoUrl ? (
         <div className="space-y-2">
@@ -158,7 +136,6 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
             {shouldMaterialize || video.status === "succeeded"
               ? "视频已生成，正在安全保存到 SparkLearn"
               : "视频云端生成中，可先阅读下方分镜脚本"}
-            <span className="ml-2 font-mono text-[10px] text-slate-500">任务 {video.task_id.slice(0, 10)}...</span>
           </span>
           <button
             onClick={() => void poll()}
@@ -171,8 +148,8 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
       ) : video?.status === "degraded" ? (
         <Notice
           tone="info"
-          title="已按预案切换为脚本讲解"
-          desc="真实视频服务当前未接入，系统已切换为动态分镜预览 + Manim 动画代码。"
+          title="已切换为动态讲解"
+          desc="视频暂时不可用，先展示动态步骤和重点讲解。"
         />
       ) : coverUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -185,7 +162,7 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
       {script && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <span className="font-mono text-[11px] tracking-[0.18em] text-emerald-600">STORYBOARD · 分镜脚本</span>
+            <span className="text-[11px] font-bold tracking-[0.18em] text-emerald-600">讲解步骤</span>
             {script.title && <span className="text-xs font-semibold text-slate-700">{script.title}</span>}
           </div>
           {scenes.length > 0 ? (
@@ -207,23 +184,11 @@ export default function VideoBlock({ payload, kind = "video" }: { payload: Resou
 
       {audioUrl && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div className="mb-2 font-mono text-[11px] tracking-[0.18em] text-emerald-600">TTS · 讲解旁白音频</div>
+          <div className="mb-2 text-[11px] font-bold tracking-[0.18em] text-emerald-600">语音讲解</div>
           <audio src={audioUrl} controls className="w-full" />
         </div>
       )}
 
-      {code && (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
-          <div className="flex items-center justify-between border-b border-slate-800 px-3 py-2">
-            <span className="font-mono text-[10px] tracking-[0.18em] text-slate-300">{codeLabel}</span>
-            <div className="flex gap-2">
-              <button onClick={downloadCode} className="flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"><Download size={12} /> 下载 .py</button>
-              <button onClick={copyCode} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] font-semibold text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300">{copied ? "已复制" : "复制代码"}</button>
-            </div>
-          </div>
-          <pre className="max-h-64 overflow-auto p-3 text-[11px] leading-5 text-slate-100">{code}</pre>
-        </div>
-      )}
     </div>
   );
 }

@@ -17,7 +17,6 @@ import {
   Sparkles,
   Star,
   Table2,
-  WandSparkles,
 } from "lucide-react";
 
 type StudioPanelKey = "profile" | "path" | "resources" | "mistakes";
@@ -121,24 +120,6 @@ const GENERATORS = [
     goal: "请根据最近的学习对话自动识别内容焦点，生成一份简洁清楚的讲解视频脚本与可用的降级讲稿。",
     kinds: ["video"],
     template: "video",
-  },
-  {
-    title: "Manim 动画",
-    desc: "动态预览与可渲染场景代码",
-    icon: WandSparkles,
-    tone: "green",
-    goal: "请根据最近的学习对话和所选资料生成 Manim 数学动画，逐步演示关键对象、规则、状态变化与边界情况。",
-    kinds: ["manim"],
-    template: "manim",
-  },
-  {
-    title: "Python 动画",
-    desc: "Matplotlib 脚本与安全预览",
-    icon: PlaySquare,
-    tone: "blue",
-    goal: "请根据最近的学习对话和所选资料生成 Python 数学动画，用 Matplotlib 动态展示核心过程，并提供可直接下载的脚本。",
-    kinds: ["python_animation"],
-    template: "python_animation",
   },
 ] as const;
 

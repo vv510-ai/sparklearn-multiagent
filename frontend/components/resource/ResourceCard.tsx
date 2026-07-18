@@ -23,7 +23,7 @@ const KIND_META: Record<
     hint: string;
   }
 > = {
-  doc: { label: "图文讲解", code: "讲解", icon: "文", variant: "info", hint: "根据课程资料整理，正文脚注可查看出处" },
+  doc: { label: "图文讲解", code: "讲解", icon: "文", variant: "info", hint: "根据课程资料整理，先看结论与结构，再沿着例子理解。" },
   code: { label: "代码练习", code: "代码", icon: "码", variant: "success", hint: "可运行片段与逐段讲解" },
   reading: { label: "延伸阅读", code: "阅读", icon: "读", variant: "neutral", hint: "围绕当前知识点补充阅读材料" },
   mindmap: { label: "知识导图", code: "导图", icon: "图", variant: "info", hint: "按掌握情况标注：已掌握✅ 待巩固⚠️ 未解锁🔒" },
@@ -137,7 +137,6 @@ export default function ResourceCard({
   const coverUrl = apiAssetUrl(payload.cover_url);
   const narration = payload.audio_narration || "";
   const isText = TEXT_KINDS.has(r.kind);
-  const created = r.created_at ? r.created_at.replace("T", " ").slice(0, 16) : "";
   const preview = resourcePreview(r);
 
   async function retryAudio(): Promise<boolean> {
@@ -171,15 +170,8 @@ export default function ResourceCard({
           {preview && <span className="mt-1 block truncate text-xs leading-5 text-[#57635A]">{preview}</span>}
           <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#8B958D]">
             <span>{kpName(r.kp)}</span>
-            {r.citations?.length > 0 && (
-              <span className="text-emerald-600">{r.citations.length} 条出处</span>
-            )}
-            {!r.citations?.length && <span>学习资料</span>}
           </span>
         </span>
-        {grounded === true && isText && (
-          <Badge variant="success" title="内容已和引用来源核对">出处已核对</Badge>
-        )}
         {grounded === false && <Badge variant="warn" title="来源核对未通过或未完成，建议复核">待复核</Badge>}
         {issue && <Badge variant="danger">内容待补全</Badge>}
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#D8DED7] bg-[#F7F8F5] text-sm font-black text-[#57635A] transition ${open ? "rotate-90" : ""}`} aria-hidden>
@@ -203,11 +195,11 @@ export default function ResourceCard({
                     : audioUrl ? "星火语音讲解" : "星火知识封面"}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#57635A]">
-                  {audioPath || narration
-                    ? onAudioQuestion
-                      ? "边听边问；提问时音频会暂停，回答后从原进度继续。"
-                      : "先听一遍重点，再结合正文和脚注深入学习。"
-                    : "用一张图先建立知识点的整体印象。"}
+                    {audioPath || narration
+                      ? onAudioQuestion
+                        ? "边听边问；提问时音频会暂停，回答后从原进度继续。"
+                      : "先听一遍重点，再结合正文中的例子深入学习。"
+                      : "用一张图先建立知识点的整体印象。"}
                 </p>
                 {(audioUrl || narration || audioState) && (
                   <InteractiveAudioPlayer
@@ -266,32 +258,6 @@ export default function ResourceCard({
             </div>
           )}
 
-          {r.citations?.length > 0 && (
-            <div className="mt-4 rounded-[14px] border border-[#26312A] bg-[#0E1411] px-3 py-3 text-[#C7D2C9]">
-              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-[11px] font-bold tracking-[0.18em] text-[#7ED9A6]">内容出处</span>
-                {isText && <span className="text-[11px] text-[#7E8B82]">正文脚注 [^n] 与这里逐条对应</span>}
-              </div>
-              <div className="space-y-1">
-                {r.citations.map((c, i) => (
-                  <div
-                    key={i}
-                    id={`${r.id}-cite-${i + 1}`}
-                    className="cite-anchor grid grid-cols-[42px_minmax(0,1fr)] gap-2 rounded-[8px] px-2 py-1 text-xs leading-5 text-[#C7D2C9]"
-                  >
-                    <span className="font-mono font-bold text-[#7ED9A6]">[^{i + 1}]</span>
-                    <span>{c}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-[#8B958D]">
-            <span>资料编号 {r.id}</span>
-            {created && <span>整理于 {created}</span>}
-            {grounded === true && <span className="text-emerald-600">出处已核对</span>}
-          </div>
         </div>
       )}
     </Panel>

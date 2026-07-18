@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, BookPlus, FileUp, LoaderCircle, Mic, NotebookPen, Plus, Square } from "lucide-react";
 import { USER_ID, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
+import InlineConceptAnimation from "./InlineConceptAnimation";
 import Markdown from "./Markdown";
 import ResourceCard from "@/components/resource/ResourceCard";
 
@@ -418,21 +419,13 @@ export default function Chat({
                 {(m.text || m.streaming) && (
                   <div className="rounded-[14px] rounded-tl-md border border-[#E5E9E3] bg-white px-4 py-3 shadow-sm">
                     <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
-                    {m.citations.length > 0 && !m.streaming && (
-                      <details className="mt-3 border-t border-slate-200 pt-2 text-xs text-slate-500">
-                        <summary className="cursor-pointer select-none font-medium text-slate-500 hover:text-emerald-700">
-                          查看依据（{m.citations.length}）
-                        </summary>
-                        <div className="mt-2 space-y-1">
-                          {m.citations.map((c, j) => (
-                            <div key={j} id={`chat-${i}-cite-${j + 1}`} className="scroll-mt-20 leading-5">
-                              <span className="font-mono text-emerald-600">[{j + 1}]</span> {c}
-                            </div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
                   </div>
+                )}
+                {!m.streaming && m.text && (
+                  <InlineConceptAnimation
+                    question={[...msgs.slice(0, i)].reverse().find((item) => item.role === "user")?.text || topic}
+                    text={m.text}
+                  />
                 )}
                 {m.resources.map((r) => (
                   <ResourceCard

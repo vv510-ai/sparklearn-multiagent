@@ -97,55 +97,28 @@ function MermaidBlock({ code }: { code: string }) {
   return <div ref={ref} className="my-2 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white p-2" />;
 }
 
-/** 正文引用芯片:[^n] → 可点击上标,跳到底部第 n 条来源。 */
-function CiteChip({ n, base, title }: { n: number; base: string; title?: string }) {
-  return (
-    <a
-      href={`#${base}-cite-${n}`}
-      title={title ? `引用来源 ${n}:${title}` : `跳到引用来源 ${n}`}
-      className="mx-0.5 inline-flex -translate-y-[3px] items-center rounded border border-emerald-200 bg-emerald-50 px-1 font-mono text-[10px] font-bold leading-4 text-emerald-700 no-underline transition hover:border-emerald-300 hover:bg-emerald-100"
-    >
-      {n}
-    </a>
-  );
-}
-
 const CITE_RE = /\[\^(\d{1,2})\]/g;
 
-/** 把子节点里的纯文本按 [^n] 切开并插入 CiteChip;元素节点原样保留。 */
-function withCites(children: React.ReactNode, base?: string, citations?: string[]): React.ReactNode {
-  if (!base) return children;
-  return React.Children.map(children, (child, ci) => {
-    if (typeof child !== "string" || !child.includes("[^")) return child;
-    const parts: React.ReactNode[] = [];
-    let last = 0;
-    let m: RegExpExecArray | null;
+/** 出处保留在后台核验数据中，学习正文只渲染知识内容。 */
+function withoutCites(children: React.ReactNode): React.ReactNode {
+  return React.Children.map(children, (child) => {
+    if (typeof child !== "string") return child;
     CITE_RE.lastIndex = 0;
-    while ((m = CITE_RE.exec(child))) {
-      if (m.index > last) parts.push(child.slice(last, m.index));
-      const n = Number(m[1]);
-      parts.push(<CiteChip key={`c${ci}-${m.index}`} n={n} base={base} title={citations?.[n - 1]} />);
-      last = m.index + m[0].length;
-    }
-    if (last < child.length) parts.push(child.slice(last));
-    return parts;
+    return child.replace(CITE_RE, "");
   });
 }
 
 export default function Markdown({
   text,
   streaming = false,
-  citeBase,
-  citations,
 }: {
   text: string;
   streaming?: boolean;
-  /** 提供后启用 [^n] 引用芯片;锚点前缀通常传资源 id */
+  /** 兼容资源数据；普通学习界面不展示出处。 */
   citeBase?: string;
-  /** 引用来源列表,用于芯片 hover 提示 */
   citations?: string[];
 }) {
-  const cite = (children: React.ReactNode) => withCites(children, citeBase, citations);
+  const cite = (children: React.ReactNode) => withoutCites(children);
   return (
     <div className={`prose-spark text-[13.5px] ${streaming ? "caret" : ""}`}>
       <ReactMarkdown

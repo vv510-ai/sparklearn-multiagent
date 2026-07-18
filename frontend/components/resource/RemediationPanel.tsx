@@ -106,13 +106,6 @@ export default function RemediationPanel({
               citations={result.resource.citations || []}
             />
           )}
-          {result.resource.citations?.length > 0 && (
-            <div className="mt-3 border-t border-slate-200 pt-2 text-[11px] leading-5 text-slate-500">
-              {result.resource.citations.map((citation, index) => (
-                <div key={`${citation}-${index}`}><span className="font-mono text-emerald-700">[{index + 1}]</span> {citation}</div>
-              ))}
-            </div>
-          )}
           {result.next_action === "retest" && result.transfer_quiz?.payload.questions && (
             <QuizRetest
               resourceId={result.transfer_quiz.id}
