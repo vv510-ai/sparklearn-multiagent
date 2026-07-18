@@ -94,6 +94,18 @@ class EvalReviewRequest(BaseModel):
     items: list[ReviewSubmitItem]
 
 
+class MistakeFavoriteRequest(BaseModel):
+    user_id: str = "demo_user"
+    favorite: bool = True
+
+
+class MistakePracticeRequest(BaseModel):
+    user_id: str = "demo_user"
+    answer: str
+    seconds: float = 0
+    confidence: Literal["", "guess", "unsure", "confident"] = ""
+
+
 class RemediationRequest(BaseModel):
     user_id: str = "demo_user"
     attempt_id: int = Field(gt=0)

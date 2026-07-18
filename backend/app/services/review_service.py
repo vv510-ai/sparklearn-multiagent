@@ -78,6 +78,9 @@ def schedule_initial_reviews(
                 **row.data,
                 "misconception": str(answer.get("misconception") or ""),
                 "error_tags": list(answer.get("error_tags") or []),
+                "last_answer": str(answer.get("answer") or ""),
+                "expected": str(answer.get("expected") or ""),
+                "explain": str(answer.get("explain") or ""),
             }
             scheduled += 1
         s.commit()
@@ -153,6 +156,13 @@ def apply_review_results(
                 "at": current.isoformat(),
                 "next_interval_days": interval_days,
             })
+            row.data = {
+                **row.data,
+                "last_answer": str(result.get("answer") or row.data.get("last_answer") or ""),
+                "expected": str(result.get("expected") or row.data.get("expected") or ""),
+                "explain": str(result.get("explain") or row.data.get("explain") or ""),
+                "error_tags": list(result.get("error_tags") or row.data.get("error_tags") or []),
+            }
             schedules.append({
                 "review_item_id": row.id,
                 "question_id": row.question_id,
@@ -230,3 +240,90 @@ def review_queue(user_id: str, *, limit: int = 10, at: dt.datetime | None = None
             "interval_days": list(INTERVAL_DAYS),
         },
     }
+
+
+def mistake_book(user_id: str, *, limit: int = 100) -> dict:
+    """Return the learner's durable mistake history, including resolved items.
+
+    ReviewItem already is the canonical per-question learning record.  A row
+    belongs in the mistake book once its history contains an incorrect attempt;
+    later correct recalls mark it resolved instead of deleting that evidence.
+    """
+    with session() as s:
+        rows = s.execute(
+            select(ReviewItem)
+            .where(ReviewItem.user_id == user_id)
+            .order_by(ReviewItem.updated_at.desc(), ReviewItem.id.desc())
+        ).scalars().all()
+        resource_ids = {row.quiz_resource_id for row in rows}
+        resources = {
+            resource.id: resource
+            for resource in s.execute(
+                select(Resource).where(Resource.id.in_(resource_ids))
+            ).scalars().all()
+        } if resource_ids else {}
+
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        data = row.data if isinstance(row.data, dict) else {}
+        history = [event for event in data.get("history", []) if isinstance(event, dict)]
+        if not any(event.get("correct") is False for event in history):
+            continue
+        resource = resources.get(row.quiz_resource_id)
+        payload = resource.payload if resource and isinstance(resource.payload, dict) else {}
+        question = next((
+            item for item in payload.get("questions", [])
+            if isinstance(item, dict) and str(item.get("id")) == row.question_id
+        ), None)
+        if not question:
+            continue
+        tags = data.get("error_tags") if isinstance(data.get("error_tags"), list) else []
+        reason = str(data.get("misconception") or (tags[0] if tags else "需要巩固"))
+        items.append({
+            "id": row.id,
+            "quiz_resource_id": row.quiz_resource_id,
+            "question_id": row.question_id,
+            "kp": row.kp,
+            "kp_name": kp_name(row.kp),
+            "status": "resolved" if row.last_correct == 1 else "pending",
+            "favorite": bool(data.get("favorite")),
+            "reason": reason,
+            "error_tags": list(tags),
+            "last_answer": str(data.get("last_answer") or ""),
+            "expected": str(data.get("expected") or question.get("answer") or ""),
+            "explain": str(data.get("explain") or question.get("explain") or ""),
+            "stage": row.stage,
+            "lapse_count": row.lapse_count,
+            "due_at": as_utc(row.due_at).isoformat(),
+            "updated_at": as_utc(row.updated_at).isoformat(),
+            "question": {
+                "id": row.question_id,
+                "type": question.get("type", ""),
+                "stem": question.get("stem", ""),
+                "options": list(question.get("options") or []),
+                "kp": question.get("kp", row.kp),
+                "difficulty": question.get("difficulty", 0),
+            },
+        })
+        if len(items) >= max(1, min(limit, 200)):
+            break
+
+    return {
+        "items": items,
+        "summary": {
+            "total": len(items),
+            "pending": sum(item["status"] == "pending" for item in items),
+            "resolved": sum(item["status"] == "resolved" for item in items),
+            "favorite": sum(bool(item["favorite"]) for item in items),
+        },
+    }
+
+
+def set_mistake_favorite(user_id: str, item_id: int, favorite: bool) -> dict:
+    with session() as s:
+        row = s.get(ReviewItem, item_id)
+        if row is None or row.user_id != user_id:
+            raise LookupError("mistake item not found")
+        row.data = {**dict(row.data or {}), "favorite": bool(favorite)}
+        s.commit()
+        return {"id": row.id, "favorite": bool(favorite)}

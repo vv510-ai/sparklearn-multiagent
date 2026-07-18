@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, LoaderCircle, Mic, NotebookPen, Plus, Square } from "lucide-react";
+import { ArrowRight, BookPlus, FileUp, LoaderCircle, Mic, NotebookPen, Plus, Square } from "lucide-react";
 import { USER_ID, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
 import Markdown from "./Markdown";
@@ -82,10 +82,12 @@ export default function Chat({
   sourceIds = [],
   topic = "",
   onUploadClick,
+  onCreateNotebook,
   onSeedConsumed,
   onLearningTurn,
   onSessionReady,
   onQuizEvaluated,
+  onOpenMistakes,
 }: {
   onEvent?: (ev: SparkEvent) => void;
   /** 外部(首页快捷入口)注入的一次性发送内容 */
@@ -94,10 +96,12 @@ export default function Chat({
   sourceIds?: string[];
   topic?: string;
   onUploadClick?: () => void;
+  onCreateNotebook?: () => void;
   onSeedConsumed?: () => void;
   onLearningTurn?: (text: string) => void;
   onSessionReady?: (sessionId: string) => void;
   onQuizEvaluated?: (report: { path?: import("@/lib/types").PathPlan; profile_version?: number }) => void;
+  onOpenMistakes?: () => void;
 }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -106,6 +110,7 @@ export default function Chat({
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("");
+  const [composerMenuOpen, setComposerMenuOpen] = useState(false);
   const abortRef = useRef<(() => void) | null>(null);
   const voiceRecorderRef = useRef<VoiceRecorder | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -436,6 +441,7 @@ export default function Chat({
                     onQuizEvaluated={onQuizEvaluated}
                     interactionBusy={busy}
                     onAudioQuestion={(prompt, display) => send(prompt, undefined, display)}
+                    onOpenMistakes={onOpenMistakes}
                   />
                 ))}
               </div>
@@ -446,14 +452,28 @@ export default function Chat({
       </div>
 
       <div className="border-t border-[#E1E4EC] bg-white p-4">
-        <div className="notebook-composer flex items-end gap-2">
+        <div className="notebook-composer relative flex items-end gap-2">
+          {composerMenuOpen && (
+            <div className="absolute bottom-14 left-0 z-20 w-60 overflow-hidden rounded-2xl border border-[#DDE2DA] bg-white p-2 shadow-[0_18px_55px_rgba(20,35,27,0.18)]">
+              <button type="button" onClick={() => { setComposerMenuOpen(false); onCreateNotebook?.(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-emerald-50">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><BookPlus size={18} /></span>
+                <span><strong className="block text-sm text-slate-900">新建知识书本</strong><small className="mt-0.5 block text-[11px] text-slate-500">开始一段独立的学习对话</small></span>
+              </button>
+              <button type="button" onClick={() => { setComposerMenuOpen(false); onUploadClick?.(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-slate-50">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-sky-100 text-sky-700"><FileUp size={18} /></span>
+                <span><strong className="block text-sm text-slate-900">添加学习资料</strong><small className="mt-0.5 block text-[11px] text-slate-500">PDF、图片、Markdown 或文本</small></span>
+              </button>
+            </div>
+          )}
           <button
-            onClick={onUploadClick}
+            type="button"
+            onClick={() => setComposerMenuOpen((open) => !open)}
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#596171] transition hover:bg-[#EEF0F6] hover:text-[#1D2028]"
-            aria-label="添加学习资料"
-            title="添加学习资料"
+            aria-label="新建知识书本或添加资料"
+            aria-expanded={composerMenuOpen}
+            title="新建知识书本或添加资料"
           >
-            <Plus size={20} />
+            <Plus size={20} className={`transition ${composerMenuOpen ? "rotate-45" : ""}`} />
           </button>
           <button
             type="button"

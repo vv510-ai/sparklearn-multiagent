@@ -10,7 +10,7 @@ import uuid
 
 from ..config import is_demo
 from ..llm import multimodal_gateway
-from ..llm.spark_client import llm_complete
+from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt, render_learning_prompt_call
 from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
@@ -24,7 +24,12 @@ _STYLE = {
     "code": ("代码示例", "doc.code"),
     "reading": ("拓展阅读", "doc.reading"),
     "ppt": ("复习PPT", "doc.complete_notes"),
+    "flashcards": ("闪卡", "doc.flashcards"),
+    "infographic": ("信息图", "doc.infographic"),
+    "data_table": ("数据表", "doc.data_table"),
 }
+
+_STRUCTURED_KINDS = {"flashcards", "infographic", "data_table"}
 
 _DOC_TIMEOUT_S = 75
 _GROUNDING_TIMEOUT_S = 12
@@ -50,6 +55,149 @@ def _conversation_text(state: dict, limit: int = 10000) -> str:
 def _compact(text: str, limit: int = 180) -> str:
     text = " ".join(str(text or "").split())
     return text if len(text) <= limit else text[:limit].rstrip() + "..."
+
+
+def _plain_excerpt(text: str, limit: int = 150) -> str:
+    cleaned = re.sub(r"[#>*_`|\[\]]+", " ", str(text or ""))
+    cleaned = " ".join(cleaned.split())
+    return _compact(cleaned, limit)
+
+
+def _fallback_structured(kind: str, name: str, chunks: list[dict]) -> dict:
+    excerpts = [
+        _plain_excerpt(chunk.get("text", ""), 190)
+        for chunk in chunks[:6]
+        if _plain_excerpt(chunk.get("text", ""), 190)
+    ]
+    if not excerpts:
+        excerpts = [
+            f"先用一句白话说明「{name}」是什么，再确认它解决什么问题。",
+            "按对象、条件、步骤和边界四个位置建立理解框架。",
+            "完成一个最小例子后，再用反例检查是否真正理解。",
+        ]
+
+    if kind == "flashcards":
+        prompts = ["核心定义", "关键机制", "最小例子", "容易混淆的边界", "复习检查"]
+        cards = []
+        for index, excerpt in enumerate(excerpts[:5]):
+            label = prompts[index] if index < len(prompts) else f"要点 {index + 1}"
+            cards.append({
+                "id": f"card-{index + 1}",
+                "front": f"{name}的{label}是什么？",
+                "back": excerpt,
+                "hint": "先回忆关键词，再翻面核对。",
+                "source_index": index + 1 if index < len(chunks) else None,
+            })
+        return {"title": f"{name}·记忆闪卡", "cards": cards}
+
+    if kind == "infographic":
+        section_names = ["先看结论", "理解结构", "走一遍过程", "检查边界", "三分钟回顾"]
+        sections = [
+            {
+                "title": section_names[index] if index < len(section_names) else f"要点 {index + 1}",
+                "body": excerpt,
+                "source_index": index + 1 if index < len(chunks) else None,
+            }
+            for index, excerpt in enumerate(excerpts[:5])
+        ]
+        return {
+            "title": f"一图看懂{name}",
+            "summary": f"从定义、机制、步骤到边界，快速建立「{name}」的整体图景。",
+            "sections": sections,
+            "steps": ["认清对象", "抓住规则", "走完例子", "检查边界"],
+        }
+
+    rows = []
+    for index, excerpt in enumerate(excerpts[:6]):
+        rows.append([
+            f"要点 {index + 1}",
+            excerpt,
+            "能否不用原文复述？" if index % 2 == 0 else "能否举出一个最小例子？",
+        ])
+    return {
+        "title": f"{name}·知识数据表",
+        "columns": ["对照项", "核心内容", "复习检查"],
+        "rows": rows,
+    }
+
+
+def _normalize_structured(kind: str, value: object, name: str, chunks: list[dict]) -> dict:
+    fallback = _fallback_structured(kind, name, chunks)
+    if not isinstance(value, dict):
+        return fallback
+    if kind == "flashcards":
+        cards = []
+        for index, card in enumerate(value.get("cards") or []):
+            if not isinstance(card, dict):
+                continue
+            front = _plain_excerpt(card.get("front", ""), 100)
+            back = _plain_excerpt(card.get("back", ""), 260)
+            if front and back:
+                cards.append({
+                    "id": str(card.get("id") or f"card-{index + 1}"),
+                    "front": front,
+                    "back": back,
+                    "hint": _plain_excerpt(card.get("hint", ""), 100),
+                    "source_index": card.get("source_index"),
+                })
+        return {"title": _plain_excerpt(value.get("title", ""), 80) or fallback["title"],
+                "cards": cards[:10] or fallback["cards"]}
+    if kind == "infographic":
+        sections = []
+        for section in value.get("sections") or []:
+            if not isinstance(section, dict):
+                continue
+            title = _plain_excerpt(section.get("title", ""), 50)
+            body = _plain_excerpt(section.get("body", ""), 220)
+            if title and body:
+                sections.append({"title": title, "body": body,
+                                 "source_index": section.get("source_index")})
+        steps = [_plain_excerpt(step, 40) for step in value.get("steps") or []]
+        return {
+            "title": _plain_excerpt(value.get("title", ""), 80) or fallback["title"],
+            "summary": _plain_excerpt(value.get("summary", ""), 180) or fallback["summary"],
+            "sections": sections[:6] or fallback["sections"],
+            "steps": [step for step in steps if step][:6] or fallback["steps"],
+        }
+    columns = [_plain_excerpt(column, 40) for column in value.get("columns") or []]
+    columns = [column for column in columns if column][:6]
+    rows = []
+    for row in value.get("rows") or []:
+        if not isinstance(row, list):
+            continue
+        cells = [_plain_excerpt(cell, 220) for cell in row[:len(columns)]]
+        if columns and any(cells):
+            rows.append(cells + [""] * (len(columns) - len(cells)))
+    return {
+        "title": _plain_excerpt(value.get("title", ""), 80) or fallback["title"],
+        "columns": columns or fallback["columns"],
+        "rows": rows[:12] or fallback["rows"],
+    }
+
+
+def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
+    excerpts = [
+        _plain_excerpt(chunk.get("text", ""), 125)
+        for chunk in chunks[:4]
+        if _plain_excerpt(chunk.get("text", ""), 125)
+    ]
+    if not excerpts:
+        paragraphs = [
+            _plain_excerpt(part, 125)
+            for part in re.split(r"\n\s*\n", markdown)
+            if not part.lstrip().startswith("#") and _plain_excerpt(part, 125)
+        ]
+        excerpts = paragraphs[:4]
+    labels = ["是什么", "怎么运作", "怎么使用", "哪里易错"]
+    return {
+        "title": name,
+        "center": f"用一张结构图建立「{name}」的整体认识",
+        "nodes": [
+            {"label": labels[index], "text": excerpt}
+            for index, excerpt in enumerate(excerpts[:4])
+        ],
+        "steps": ["先看对象", "再抓规则", "走最小例子", "最后查边界"],
+    }
 
 
 def _remediation_on_topic(markdown: str, topic_name: str, kp: str) -> bool:
@@ -267,6 +415,87 @@ async def _gen_ppt_resource(
     return {"resource": resource, "flags": flags}
 
 
+async def _gen_structured_resource(
+    *,
+    kind: str,
+    name: str,
+    kp: str,
+    profile: dict,
+    goal: str,
+    chunks: list[dict],
+    citations: list[dict],
+    source_ids: list[str],
+    custom_topic: bool,
+) -> dict:
+    label, capability = _STYLE[kind]
+    source_scope_missing = bool(source_ids and not chunks)
+    flags: list[dict] = []
+    prompt_call = invoke_learning_prompt(
+        capability,
+        topic=name,
+        goal=goal or f"复习{name}",
+        persona=_persona(profile),
+        context=build_context(chunks)[0] or "（没有检索到可用资料）",
+        **({"source_rules": "仅使用当前自定义主题的通用知识，不混入旧会话主题。"}
+           if custom_topic and not source_ids else {}),
+    )
+    if source_scope_missing:
+        artifact = _fallback_structured(kind, name, [])
+        artifact["blocked"] = True
+        artifact["blocked_reason"] = "当前选中的资料没有可检索内容，请更换资料后重新生成。"
+        flags.append({
+            "agent": "doc",
+            "kind": kind,
+            "type": "source_scope_empty",
+            "detail": "所选资料没有可检索内容，已阻止资料范围外生成",
+        })
+    elif is_demo():
+        artifact = _fallback_structured(kind, name, chunks)
+    else:
+        try:
+            raw = await asyncio.wait_for(
+                llm_complete(
+                    prompt_call.prompt,
+                    system=prompt_call.system,
+                    role="reasoner",
+                    temperature=0.35,
+                    max_tokens=1600,
+                    allow_mock_fallback=False,
+                ),
+                timeout=_DOC_TIMEOUT_S,
+            )
+            artifact = _normalize_structured(kind, parse_json(raw), name, chunks)
+        except Exception as exc:  # noqa: BLE001
+            artifact = _fallback_structured(kind, name, chunks)
+            flags.append({
+                "agent": "doc",
+                "kind": kind,
+                "type": "llm_fallback",
+                "detail": f"结构化学习工件生成失败，已使用资料片段安全降级：{exc}",
+            })
+
+    rid = uuid.uuid4().hex[:12]
+    payload = {
+        kind: artifact,
+        "template": kind,
+        "source_bound": bool(source_ids),
+        "grounded": bool(chunks) or (custom_topic and not source_ids) or source_scope_missing,
+        "prompt_skill": prompt_call.metadata(),
+    }
+    resource = {
+        "id": rid,
+        "kind": kind,
+        "kp": kp,
+        "title": f"{name}·{label}",
+        "payload": payload,
+        "citations": [item["citation"] for item in citations[:6]],
+    }
+    await emit({"type": "resource", "resource": resource})
+    if resource["citations"]:
+        await emit({"type": "citations", "agent": "doc", "items": resource["citations"]})
+    return {"resource": resource, "flags": flags}
+
+
 def _doc_label(default: str, template_key: str) -> str:
     return {
         "one_page": "一页看懂",
@@ -309,6 +538,18 @@ async def _gen_one(
         user_id=user_id,
     )
     ctx, citations = build_context(chunks)
+    if kind in _STRUCTURED_KINDS:
+        return await _gen_structured_resource(
+            kind=kind,
+            name=name,
+            kp=kp,
+            profile=profile,
+            goal=goal,
+            chunks=chunks,
+            citations=citations,
+            source_ids=source_ids,
+            custom_topic=custom_topic,
+        )
     if kind == "ppt":
         return await _gen_ppt_resource(
             name=name,
@@ -457,6 +698,8 @@ async def _gen_one(
         "reusable_note": prompt_template == "conversation_notes",
         "prompt_skill": prompt_call.metadata(),
     }
+    if kind == "doc" and prompt_template == "one_page":
+        payload["one_page_visual"] = _one_page_visual(name, chunks, md)
     interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
     narration = _narration_text(name, md)
     if interactive_audio and not source_scope_missing:

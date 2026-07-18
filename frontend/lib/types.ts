@@ -51,6 +51,33 @@ export interface ResourceItem {
     template?: string;
     markmap?: string;
     questions?: QuizQuestion[];
+    flashcards?: {
+      title?: string;
+      blocked?: boolean;
+      blocked_reason?: string;
+      cards?: { id: string; front: string; back: string; hint?: string; source_index?: number | null }[];
+    };
+    infographic?: {
+      title?: string;
+      summary?: string;
+      blocked?: boolean;
+      blocked_reason?: string;
+      sections?: { title: string; body: string; source_index?: number | null }[];
+      steps?: string[];
+    };
+    data_table?: {
+      title?: string;
+      blocked?: boolean;
+      blocked_reason?: string;
+      columns?: string[];
+      rows?: string[][];
+    };
+    one_page_visual?: {
+      title?: string;
+      center?: string;
+      nodes?: { label: string; text: string }[];
+      steps?: string[];
+    };
     difficulty?: number;
     script?: { title?: string; narration?: string; scenes?: { t: string; visual: string; caption?: string }[]; video_prompt?: string };
     video?: {
@@ -65,6 +92,13 @@ export interface ResourceItem {
       phase?: string;
     };
     manim_code?: string;
+    python_code?: string;
+    animation_mode?: "video" | "manim" | "python_animation" | string;
+    animation_preview?: {
+      title?: string;
+      interval_ms?: number;
+      stages?: { label: string; detail: string; time?: string }[];
+    };
     audio_url?: string;
     audio_narration?: string;
     audio?: {

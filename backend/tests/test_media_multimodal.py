@@ -135,3 +135,52 @@ def test_valid_manim_only_loses_markdown_fence():
     assert code.startswith("from manim import *")
     assert "self.wait()" in code
     assert "```" not in code
+
+
+def test_explicit_python_animation_has_preview_and_downloadable_code(monkeypatch, tmp_path):
+    monkeypatch.setattr(media_agent, "GEN_DIR", tmp_path)
+
+    async def should_not_create_video(*args, **kwargs):
+        raise AssertionError("explicit Python animation must not submit a cloud video task")
+
+    async def degraded_postprocess(*args, **kwargs):
+        return {"ok": False, "degraded": True, "data": {}, "error": "not configured"}
+
+    monkeypatch.setattr(media_agent.multimodal_gateway, "video_create", should_not_create_video)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "tts", degraded_postprocess)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "text_to_image", degraded_postprocess)
+    out = asyncio.run(media_agent.run({
+        "kinds": ["python_animation"],
+        "knowledge_points": ["binary_tree"],
+        "session_id": "explicit-python-animation",
+    }))
+    resource = next(iter(out["generated_resources"].values()))
+    assert resource["kind"] == "python_animation"
+    assert resource["payload"]["animation_mode"] == "python_animation"
+    assert len(resource["payload"]["animation_preview"]["stages"]) >= 3
+    assert "FuncAnimation" in resource["payload"]["python_code"]
+    compile(resource["payload"]["python_code"], "<python-animation>", "exec")
+    assert out["progress_events"] == [{"agent": "media", "mode": "python_animation"}]
+
+
+def test_explicit_manim_skips_cloud_video_and_keeps_browser_preview(monkeypatch, tmp_path):
+    monkeypatch.setattr(media_agent, "GEN_DIR", tmp_path)
+
+    async def should_not_create_video(*args, **kwargs):
+        raise AssertionError("explicit Manim must not submit a cloud video task")
+
+    async def degraded_postprocess(*args, **kwargs):
+        return {"ok": False, "degraded": True, "data": {}, "error": "not configured"}
+
+    monkeypatch.setattr(media_agent.multimodal_gateway, "video_create", should_not_create_video)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "tts", degraded_postprocess)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "text_to_image", degraded_postprocess)
+    out = asyncio.run(media_agent.run({
+        "kinds": ["manim"],
+        "knowledge_points": ["binary_tree"],
+        "session_id": "explicit-manim",
+    }))
+    resource = next(iter(out["generated_resources"].values()))
+    assert resource["kind"] == "manim"
+    assert resource["payload"]["animation_preview"]["stages"]
+    assert "class SceneBinaryTree(Scene):" in resource["payload"]["manim_code"]

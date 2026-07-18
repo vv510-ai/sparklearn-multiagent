@@ -39,6 +39,10 @@ export interface EvaluationReport {
     recovered?: number;
     remaining?: number;
   };
+  review?: {
+    scheduled?: number;
+    schedule?: { review_item_id: number; correct: boolean; stage: number; status: string; due_at: string; interval_days?: number | null }[];
+  };
   behavior?: {
     phase?: "retest" | "spaced_review";
     support?: {

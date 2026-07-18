@@ -10,6 +10,7 @@ import QuizPlayer from "./QuizPlayer";
 import VideoBlock from "./VideoBlock";
 import InteractiveAudioPlayer from "./InteractiveAudioPlayer";
 import PptBlock from "./PptBlock";
+import { DataTableBlock, FlashcardsBlock, InfographicBlock, OnePageVisual } from "./StudyArtifactBlocks";
 import { apiAssetUrl, apiPost, USER_ID } from "@/lib/api";
 
 const KIND_META: Record<
@@ -29,6 +30,11 @@ const KIND_META: Record<
   quiz: { label: "巩固练习", code: "练习", icon: "练", variant: "warn", hint: "提交后更新掌握情况、错因与后续路线" },
   video: { label: "讲解稿", code: "讲稿", icon: "影", variant: "neutral", hint: "适合录制讲解视频的分镜与旁白素材" },
   ppt: { label: "复习演示", code: "PPT", icon: "演", variant: "info", hint: "仅在你明确要求时生成；完成后可下载并继续编辑" },
+  flashcards: { label: "记忆闪卡", code: "闪卡", icon: "卡", variant: "warn", hint: "先独立回忆，再翻面核对；可标记已经掌握的卡片" },
+  infographic: { label: "学习信息图", code: "信息图", icon: "视", variant: "info", hint: "把来源内的结论、结构、过程与边界放进一张图" },
+  data_table: { label: "知识数据表", code: "数据表", icon: "表", variant: "neutral", hint: "对照、筛选并复制为 CSV，方便继续整理" },
+  manim: { label: "Manim 数学动画", code: "MANIM", icon: "动", variant: "success", hint: "浏览器先看动态分镜；有预渲染视频时直接播放，并保留可下载代码" },
+  python_animation: { label: "Python 数学动画", code: "PY 动画", icon: "Py", variant: "success", hint: "浏览器动态预览 + Matplotlib 动画脚本，不在服务器执行模型代码" },
 };
 
 const TEXT_KINDS = new Set(["doc", "code", "reading"]);
@@ -41,11 +47,16 @@ function resourceIssue(r: ResourceItem): string {
   if (TEXT_KINDS.has(r.kind) && !hasText(payload.markdown)) return "文本内容为空";
   if (r.kind === "mindmap" && !hasText(payload.markmap)) return "脑图内容为空";
   if (r.kind === "quiz" && (!Array.isArray(payload.questions) || payload.questions.length === 0)) return "题组为空";
+  if (r.kind === "flashcards" && !payload.flashcards) return "闪卡内容为空";
+  if (r.kind === "infographic" && !payload.infographic) return "信息图内容为空";
+  if (r.kind === "data_table" && !payload.data_table) return "数据表内容为空";
   if (
-    r.kind === "video" &&
+    ["video", "manim", "python_animation"].includes(r.kind) &&
     !payload.script &&
     !payload.video &&
     !payload.manim_code &&
+    !payload.python_code &&
+    !payload.animation_preview &&
     !payload.audio_url &&
     !payload.cover_url
   ) {
@@ -62,6 +73,10 @@ function resourcePreview(r: ResourceItem): string {
   const questions = payload.questions;
   const script = payload.script;
   const ppt = payload.ppt as ResourceItem["payload"]["ppt"];
+  const flashcards = payload.flashcards as ResourceItem["payload"]["flashcards"];
+  const infographic = payload.infographic as ResourceItem["payload"]["infographic"];
+  const dataTable = payload.data_table as ResourceItem["payload"]["data_table"];
+  const animationPreview = payload.animation_preview as ResourceItem["payload"]["animation_preview"];
   if (typeof markdown === "string") {
     return markdown
       .replace(/[#>*_`\[\]\(\)]/g, "")
@@ -79,6 +94,10 @@ function resourcePreview(r: ResourceItem): string {
       .slice(0, 86);
   }
   if (Array.isArray(questions)) return `${questions.length} 道题，提交后会更新掌握情况与错因。`;
+  if (flashcards?.cards?.length) return `${flashcards.cards.length} 张主动回忆卡，可翻面与标记掌握。`;
+  if (infographic?.sections?.length) return `${infographic.sections.length} 个视觉区块，一图串起结论、过程与边界。`;
+  if (dataTable?.rows?.length) return `${dataTable.rows.length} 行知识对照，可复制为 CSV。`;
+  if (animationPreview?.stages?.length) return `${animationPreview.stages.length} 个动态步骤，可直接预览并下载 Python 代码。`;
   if (typeof script === "string") return script.replace(/\s+/g, " ").trim().slice(0, 86);
   if (ppt?.status === "ready") return `${ppt.total_pages || ""} 页复习演示已生成，可以下载。`;
   if (ppt?.status === "building") return "正在生成大纲、排版与配图。";
@@ -92,6 +111,7 @@ export default function ResourceCard({
   versionCount = 1,
   onQuizEvaluated,
   onAudioQuestion,
+  onOpenMistakes,
   interactionBusy = false,
 }: {
   r: ResourceItem;
@@ -99,6 +119,7 @@ export default function ResourceCard({
   versionCount?: number;
   onQuizEvaluated?: (report: { path?: PathPlan; profile_version?: number }) => void;
   onAudioQuestion?: (prompt: string, display: string) => Promise<boolean>;
+  onOpenMistakes?: () => void;
   interactionBusy?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -220,13 +241,22 @@ export default function ResourceCard({
           ) : r.kind === "mindmap" && payload.markmap ? (
             <Markmap markdown={payload.markmap} />
           ) : r.kind === "quiz" && payload.questions ? (
-            <QuizPlayer resourceId={r.id} questions={payload.questions} onEvaluated={onQuizEvaluated} />
-          ) : r.kind === "video" ? (
-            <VideoBlock payload={payload} />
+            <QuizPlayer resourceId={r.id} questions={payload.questions} onEvaluated={onQuizEvaluated} onOpenMistakes={onOpenMistakes} />
+          ) : r.kind === "flashcards" && payload.flashcards ? (
+            <FlashcardsBlock artifact={payload.flashcards} />
+          ) : r.kind === "infographic" && payload.infographic ? (
+            <InfographicBlock artifact={payload.infographic} />
+          ) : r.kind === "data_table" && payload.data_table ? (
+            <DataTableBlock artifact={payload.data_table} />
+          ) : ["video", "manim", "python_animation"].includes(r.kind) ? (
+            <VideoBlock payload={payload} kind={r.kind} />
           ) : r.kind === "ppt" ? (
             <PptBlock payload={payload} />
           ) : payload.markdown ? (
-            <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} />
+            <>
+              {payload.one_page_visual && <OnePageVisual visual={payload.one_page_visual} />}
+              <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} />
+            </>
           ) : (
             <div className="space-y-2">
               <Notice tone="warn" title="暂时无法展示这类内容" desc="内容已保留，可稍后由系统补充展示方式。" />

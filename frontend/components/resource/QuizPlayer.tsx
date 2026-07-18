@@ -75,10 +75,12 @@ export default function QuizPlayer({
   resourceId,
   questions,
   onEvaluated,
+  onOpenMistakes,
 }: {
   resourceId: string;
   questions: QuizQuestion[];
   onEvaluated?: (report: EvaluationReport) => void;
+  onOpenMistakes?: () => void;
 }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -480,6 +482,15 @@ export default function QuizPlayer({
           {report.profile_version != null && (
             <div className="mt-3 rounded-md border border-emerald-200 bg-white px-3 py-2 font-mono text-[11px] text-emerald-700">
               学习档案已更新到 v{report.profile_version}
+            </div>
+          )}
+          {wrongTags.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-orange-200 bg-white px-3 py-3">
+              <div>
+                <div className="text-xs font-black text-orange-800">错题已自动收入错题本</div>
+                <div className="mt-1 text-[11px] text-slate-500">{report.review?.scheduled ?? wrongTags.length} 道待巩固题会保留错因、收藏状态与重做记录。</div>
+              </div>
+              {onOpenMistakes && <button type="button" onClick={onOpenMistakes} className="secondary-action">打开错题本</button>}
             </div>
           )}
           {report.attempt_id && report.diagnosis?.status === "needed" && (

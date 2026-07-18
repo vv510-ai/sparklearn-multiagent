@@ -21,12 +21,14 @@ from ..models.db import session
 from ..models.entities import QuizAttempt, Resource, ReviewItem
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import (EvalRetestRequest, EvalReviewRequest, EvalSubmit,
-                            EvalSupportRequest, RemediationRequest)
+                            EvalSupportRequest, MistakeFavoriteRequest,
+                            MistakePracticeRequest, RemediationRequest)
 from ..services.knowledge_graph import canonical_kp_id, kp_name
 from ..services.learning_evidence import build_learning_evidence
 from ..services.profile_service import ensure_user, get_profile, log_event, recent_events
-from ..services.review_service import (apply_review_results, as_utc, review_queue,
-                                       schedule_initial_reviews, utc_now)
+from ..services.review_service import (apply_review_results, as_utc, mistake_book,
+                                       review_queue, schedule_initial_reviews,
+                                       set_mistake_favorite, utc_now)
 
 router = APIRouter(prefix="/api/eval", tags=["eval"])
 
@@ -562,6 +564,79 @@ async def retest(req: EvalRetestRequest):
 async def get_review_queue(user_id: str = Query("demo_user"), limit: int = Query(10, ge=1, le=50)):
     ensure_user(user_id)
     return review_queue(user_id, limit=limit)
+
+
+@router.get("/mistake-book")
+async def get_mistake_book(user_id: str = Query("demo_user"), limit: int = Query(100, ge=1, le=200)):
+    """List every recorded mistake, including items already recovered later."""
+    ensure_user(user_id)
+    return mistake_book(user_id, limit=limit)
+
+
+@router.post("/mistake-book/{item_id}/favorite")
+async def favorite_mistake(item_id: int, req: MistakeFavoriteRequest):
+    ensure_user(req.user_id)
+    try:
+        return set_mistake_favorite(req.user_id, item_id, req.favorite)
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/mistake-book/{item_id}/practice")
+async def practice_mistake(item_id: int, req: MistakePracticeRequest):
+    """Allow an immediate independent retry from the mistake book.
+
+    This is intentionally separate from the due-only spaced-review endpoint:
+    learners can actively revisit a starred mistake without corrupting the
+    normal review queue contract.
+    """
+    ensure_user(req.user_id)
+    with session() as s:
+        row = s.get(ReviewItem, item_id)
+        if row is None or row.user_id != req.user_id:
+            raise HTTPException(404, "mistake item not found")
+        resource_id = row.quiz_resource_id
+        question_id = row.question_id
+        kp_hint = row.kp
+    question = _quiz_question(req.user_id, resource_id, question_id)
+    correct = _grade_answer(question, req.answer)
+    kp = canonical_kp_id(question.get("kp") or kp_hint)
+    enriched = [{
+        "review_item_id": item_id,
+        "quiz_resource_id": resource_id,
+        "question_id": question_id,
+        "kp": kp or "",
+        "correct": correct,
+        "mastery_correct": correct,
+        "answer": req.answer,
+        "expected": question.get("answer", ""),
+        "type": question.get("type", ""),
+        "difficulty": question.get("difficulty", 0),
+        "explain": question.get("explain", ""),
+        "error_tags": list(question.get("error_tags", []) or []) if not correct else [],
+        "hint_used": False,
+        "revealed": False,
+        "misconception": "",
+        "confidence": req.confidence,
+        "support_level": "independent",
+        "evidence_phase": "spaced_review",
+        "seconds": max(0.0, req.seconds),
+    }]
+    report = evaluate_answers(req.user_id, enriched)
+    schedule = apply_review_results(req.user_id, enriched, phase="mistake_practice")
+    log_event(req.user_id, "mistake_practice", {
+        "review_item_id": item_id,
+        "question_id": question_id,
+        "correct": correct,
+    })
+    return {
+        "correct": correct,
+        "expected": question.get("answer", ""),
+        "explain": question.get("explain", ""),
+        "error_tags": list(question.get("error_tags", []) or []) if not correct else [],
+        "schedule": schedule[0] if schedule else None,
+        "report": report,
+    }
 
 
 @router.post("/review")

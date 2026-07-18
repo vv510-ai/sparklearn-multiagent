@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.07.17.1",
+  "version": "2026.07.18.1",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -56,6 +56,18 @@
     "doc.reading": {
       "description": "资料内拓展阅读",
       "file": "doc/reading.md"
+    },
+    "doc.flashcards": {
+      "description": "来源约束的交互记忆闪卡",
+      "file": "doc/flashcards.md"
+    },
+    "doc.infographic": {
+      "description": "来源约束的结构化学习信息图",
+      "file": "doc/infographic.md"
+    },
+    "doc.data_table": {
+      "description": "来源约束的知识对照数据表",
+      "file": "doc/data-table.md"
     },
     "quiz.guided": {
       "description": "零基础巩固练习",

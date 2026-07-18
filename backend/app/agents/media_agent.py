@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import ast
+import re
 import uuid
 
 from ..config import GEN_DIR, is_demo
@@ -89,6 +90,76 @@ def _normalize_manim_code(
     return _fallback_manim_code(cls, name, source_bound=source_bound)
 
 
+def _scene_class_name(kp: str) -> str:
+    pieces = re.findall(r"[A-Za-z0-9]+", str(kp or ""))
+    suffix = "".join(piece[:1].upper() + piece[1:] for piece in pieces) or "Learning"
+    if suffix[0].isdigit():
+        suffix = "Topic" + suffix
+    return "Scene" + suffix
+
+
+def _python_animation_code(name: str, script: dict) -> str:
+    captions = [
+        str(scene.get("caption") or scene.get("visual") or "").strip()
+        for scene in script.get("scenes") or []
+        if isinstance(scene, dict) and str(scene.get("caption") or scene.get("visual") or "").strip()
+    ] or [name, "建立结构", "走完过程", "检查边界"]
+    labels = captions[:8]
+    return f'''"""SparkLearn 安全模板：用 Matplotlib 逐步演示学习过程。"""
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+TITLE = {name!r}
+STEPS = {labels!r}
+
+fig, ax = plt.subplots(figsize=(10, 5.6))
+fig.patch.set_facecolor("#F7FAF8")
+
+def draw(frame):
+    ax.clear()
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6)
+    ax.axis("off")
+    ax.set_title(TITLE, fontsize=20, fontweight="bold", color="#163E32")
+    for index, label in enumerate(STEPS):
+        x = 1.1 + index * (7.8 / max(1, len(STEPS) - 1))
+        active = index <= frame
+        ax.scatter([x], [3], s=900 if active else 650,
+                   color="#2F9E73" if active else "#DDE8E1", zorder=2)
+        ax.text(x, 3, str(index + 1), ha="center", va="center",
+                color="white" if active else "#6B7A71", fontweight="bold")
+        ax.text(x, 2.15, label, ha="center", va="top", fontsize=10,
+                color="#163E32" if active else "#7C8981", wrap=True)
+        if index < len(STEPS) - 1:
+            ax.plot([x + 0.35, x + 7.8 / max(1, len(STEPS) - 1) - 0.35], [3, 3],
+                    color="#78C6A5" if index < frame else "#DDE8E1", linewidth=4, zorder=1)
+
+animation = FuncAnimation(fig, draw, frames=len(STEPS), interval=1100, repeat=True)
+plt.tight_layout()
+plt.show()
+'''
+
+
+def _animation_preview(name: str, script: dict) -> dict:
+    stages = []
+    for index, scene in enumerate(script.get("scenes") or []):
+        if not isinstance(scene, dict):
+            continue
+        stages.append({
+            "label": str(scene.get("caption") or f"步骤 {index + 1}"),
+            "detail": str(scene.get("visual") or scene.get("caption") or ""),
+            "time": str(scene.get("t") or ""),
+        })
+    if not stages:
+        stages = [
+            {"label": "认识对象", "detail": f"先看清「{name}」中的对象和关系", "time": "01"},
+            {"label": "执行规则", "detail": "让关键规则按顺序发生", "time": "02"},
+            {"label": "观察变化", "detail": "对比每一步前后的状态", "time": "03"},
+            {"label": "检查边界", "detail": "用边界情况验证理解", "time": "04"},
+        ]
+    return {"title": name, "stages": stages[:8], "interval_ms": 1500}
+
+
 def _video_prompt(script: dict, *, source_bound: bool) -> str:
     base = str(script.get("video_prompt") or "").strip()
     if not source_bound:
@@ -117,8 +188,15 @@ def _local_manim_video(kp: str) -> dict | None:
 
 async def run(state: dict) -> dict:
     requested = state.get("kinds") or []
-    if requested and not any(k in requested for k in ("video", "audio", "image")):
+    if requested and not any(k in requested for k in (
+        "video", "audio", "image", "manim", "python_animation",
+    )):
         return {}
+    explicit_kind = (
+        "python_animation" if "python_animation" in requested else
+        "manim" if "manim" in requested else
+        "video"
+    )
     kp, name, custom_topic = resolve_topic(
         state.get("knowledge_points"),
         state.get("learning_goal"),
@@ -146,7 +224,7 @@ async def run(state: dict) -> dict:
         rid = uuid.uuid4().hex[:12]
         resource = {
             "id": rid,
-            "kind": "video",
+            "kind": explicit_kind,
             "kp": kp,
             "title": script["title"],
             "payload": {"script": script, "degraded": True, "reason": "selected sources have no indexed content"},
@@ -178,13 +256,29 @@ async def run(state: dict) -> dict:
             " ".join(str(chunks[0].get("text") or "").split())[:180]
             if chunks else f"本节用一分钟讲清{name}的核心思想与典型操作。"
         )
+        source_scenes = [
+            {"t": f"{index * 12}-{(index + 1) * 12}s",
+             "visual": " ".join(str(chunk.get("text") or "").split())[:90],
+             "caption": f"要点 {index + 1}"}
+            for index, chunk in enumerate(chunks[:4])
+        ]
         script = {"title": f"{name} 60 秒讲透", "narration": fallback_narration,
-                  "scenes": [{"t": "0-60s", "visual": f"{name} 演示动画", "caption": name}],
+                  "scenes": source_scenes or [
+                      {"t": "0-12s", "visual": f"识别{name}中的对象", "caption": "认识对象"},
+                      {"t": "12-24s", "visual": "展示对象之间的关键关系", "caption": "建立结构"},
+                      {"t": "24-40s", "visual": "逐步执行核心规则", "caption": "走完过程"},
+                      {"t": "40-60s", "visual": "对比正常情况与边界情况", "caption": "检查边界"},
+                  ],
                   "video_prompt": f"educational 2D animation explaining {kp}, clean diagram style"}
     await emit({"type": "progress", "agent": "media", "stage": "script", "percent": 25,
                 "detail": f"分镜脚本就绪,共 {len(script.get('scenes', []))} 个镜头"})
 
-    payload: dict = {"script": script, "prompt_skill": video_prompt_call.metadata()}
+    payload: dict = {
+        "script": script,
+        "prompt_skill": video_prompt_call.metadata(),
+        "animation_mode": explicit_kind,
+        "animation_preview": _animation_preview(name, script),
+    }
     trace_id = str(state.get("session_id", ""))
 
     async def on_progress(p: dict):
@@ -192,31 +286,37 @@ async def run(state: dict) -> dict:
                     "percent": 25 + int(p.get("percent", 0) * 0.6),
                     "detail": p.get("detail", "视频生成中…"), "task_id": p.get("task_id")})
 
-    mode = "manim"
-    try:
-        created = await multimodal_gateway.video_create(
-            _video_prompt(script, source_bound=bool(source_ids)), trace_id=trace_id,
-        )
-        if created["ok"]:
-            task_id = str(created["data"]["task_id"])
-            provider = str(created["data"].get("provider") or "video")
-            waited = await multimodal_gateway.video_wait(
-                task_id,
-                on_progress=on_progress,
-                trace_id=trace_id,
+    mode = explicit_kind if explicit_kind != "video" else "manim"
+    if explicit_kind == "video":
+        try:
+            created = await multimodal_gateway.video_create(
+                _video_prompt(script, source_bound=bool(source_ids)), trace_id=trace_id,
             )
-            payload["video"] = waited["data"]
-            if waited["ok"]:
-                mode = provider
-        elif created["data"]:
-            payload["video"] = created["data"]
-    except Exception:  # noqa: BLE001
-        payload["video"] = {"status": "degraded", "reason": "视频服务异常,已切换为脚本讲解"}
-        await emit({"type": "progress", "agent": "media", "stage": "video", "percent": 40,
-                    "detail": "视频服务异常,已安全切换为脚本与动画代码"})
+            if created["ok"]:
+                task_id = str(created["data"]["task_id"])
+                provider = str(created["data"].get("provider") or "video")
+                waited = await multimodal_gateway.video_wait(
+                    task_id,
+                    on_progress=on_progress,
+                    trace_id=trace_id,
+                )
+                payload["video"] = waited["data"]
+                if waited["ok"]:
+                    mode = provider
+            elif created["data"]:
+                payload["video"] = created["data"]
+        except Exception:  # noqa: BLE001
+            payload["video"] = {"status": "degraded", "reason": "视频服务异常,已切换为脚本讲解"}
+            await emit({"type": "progress", "agent": "media", "stage": "video", "percent": 40,
+                        "detail": "视频服务异常,已安全切换为脚本与动画代码"})
 
-    if mode == "manim":                                            # 降级链路
-        cls = "Scene" + kp.title().replace("_", "")
+    if explicit_kind == "python_animation":
+        payload["python_code"] = _python_animation_code(name, script)
+        await emit({"type": "progress", "agent": "media", "stage": "python_animation", "percent": 70,
+                    "detail": "Python 数学动画脚本与浏览器动态预览已生成"})
+
+    if mode == "manim":                                            # 显式 Manim 或视频降级链路
+        cls = _scene_class_name(kp)
         if source_ids or custom_topic or is_demo():
             payload["manim_code"] = _fallback_manim_code(
                 cls, name, source_bound=bool(source_ids) or custom_topic
@@ -266,8 +366,13 @@ async def run(state: dict) -> dict:
                 else "旁白与封面不可用,已保留讲解脚本"})
 
     rid = uuid.uuid4().hex[:12]
-    resource = {"id": rid, "kind": "video", "kp": kp,
-                "title": script.get("title", f"{name}·讲解视频"),
+    title_suffix = {
+        "manim": "Manim 数学动画",
+        "python_animation": "Python 数学动画",
+        "video": "讲解视频",
+    }[explicit_kind]
+    resource = {"id": rid, "kind": explicit_kind, "kp": kp,
+                "title": f"{name}·{title_suffix}",
                 "payload": {**payload, "topic_label": name, "custom_topic": custom_topic},
                 "citations": [item["citation"] for item in citations]}
     await emit({"type": "resource", "resource": resource})
@@ -276,7 +381,8 @@ async def run(state: dict) -> dict:
         "video": "云端视频任务已提交",
         "local_manim": "已产出预渲染 Manim 教学动画 + 旁白脚本",
         "manim": "已产出 Manim 动画代码 + 旁白脚本(降级模式)",
+        "python_animation": "已产出 Python 数学动画代码 + 浏览器动态预览",
     }
-    await agent_end("media", summaries[mode], {"id": rid, "mode": mode})
+    await agent_end("media", summaries.get(mode, "媒体学习资源已生成"), {"id": rid, "mode": mode})
     return {"generated_resources": {rid: resource},
             "progress_events": [{"agent": "media", "mode": mode}]}

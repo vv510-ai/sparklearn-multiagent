@@ -141,3 +141,52 @@ def test_review_queue_hides_answers_and_advances_or_resets_intervals():
         assert row is not None
         phases = [event["phase"] for event in row.data["history"]]
         assert phases[-3:] == ["spaced_review", "spaced_review", "spaced_review"]
+
+
+def test_mistake_book_keeps_history_favorites_and_immediate_practice():
+    _seed()
+    with TestClient(app) as client:
+        submitted = client.post("/api/eval/submit", json={
+            "user_id": USER_ID,
+            "quiz_resource_id": QUIZ_ID,
+            "kp": "binary_tree",
+            "answers": [{
+                "question_id": QUESTION["id"],
+                "answer": "A",
+                "correct": False,
+                "confidence": "confident",
+            }],
+        })
+        assert submitted.status_code == 200, submitted.text
+
+        book = client.get("/api/eval/mistake-book", params={"user_id": USER_ID})
+        assert book.status_code == 200, book.text
+        payload = book.json()
+        assert payload["summary"] == {"total": 1, "pending": 1, "resolved": 0, "favorite": 0}
+        item = payload["items"][0]
+        assert item["last_answer"] == "A"
+        assert item["expected"] == "B"
+        assert item["reason"] == "遍历性质混淆"
+
+        favorite = client.post(f"/api/eval/mistake-book/{item['id']}/favorite", json={
+            "user_id": USER_ID,
+            "favorite": True,
+        })
+        assert favorite.status_code == 200, favorite.text
+        assert favorite.json()["favorite"] is True
+
+        practiced = client.post(f"/api/eval/mistake-book/{item['id']}/practice", json={
+            "user_id": USER_ID,
+            "answer": "B",
+            "seconds": 8,
+            "confidence": "unsure",
+        })
+        assert practiced.status_code == 200, practiced.text
+        practice_payload = practiced.json()
+        assert practice_payload["correct"] is True
+        assert practice_payload["schedule"]["interval_days"] == 1
+        assert practice_payload["report"]["items"][0]["evidence_phase"] == "spaced_review"
+
+        refreshed = client.get("/api/eval/mistake-book", params={"user_id": USER_ID}).json()
+        assert refreshed["summary"] == {"total": 1, "pending": 0, "resolved": 1, "favorite": 1}
+        assert refreshed["items"][0]["favorite"] is True

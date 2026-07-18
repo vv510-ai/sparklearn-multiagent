@@ -21,6 +21,7 @@ import SourcePanel, { isSourceSelectable, type KnowledgeSource } from "@/compone
 import StudioPanel from "@/components/notebook/StudioPanel";
 import PathDag from "@/components/path/PathDag";
 import LearningEvidence from "@/components/profile/LearningEvidence";
+import MistakeBook from "@/components/profile/MistakeBook";
 import ProfileRadar from "@/components/profile/ProfileRadar";
 import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
@@ -29,8 +30,8 @@ import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/a
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
-type PanelKey = "chat" | "profile" | "path" | "resources";
-type ResourceFilter = "all" | "doc" | "mindmap" | "quiz" | "video" | "ppt";
+type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes";
+type ResourceFilter = "all" | "doc" | "study" | "quiz" | "animation" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
 type UploadResult = { source: KnowledgeSource; sample?: { text: string; citation: string }[] };
@@ -81,9 +82,9 @@ function dedupeSources(items: KnowledgeSource[]): KnowledgeSource[] {
 const RESOURCE_FILTERS: { key: ResourceFilter; label: string }[] = [
   { key: "all", label: "全部" },
   { key: "doc", label: "笔记" },
-  { key: "mindmap", label: "导图" },
+  { key: "study", label: "学习工件" },
   { key: "quiz", label: "测验" },
-  { key: "video", label: "讲解" },
+  { key: "animation", label: "动画" },
   { key: "ppt", label: "PPT" },
 ];
 
@@ -275,6 +276,9 @@ export default function Home() {
   const [notebookTopic, setNotebookTopic] = useState("");
   const [conversationFocus, setConversationFocus] = useState("");
   const [chatSessionId, setChatSessionId] = useState("");
+  const [chatInstance, setChatInstance] = useState(0);
+  const [newBookOpen, setNewBookOpen] = useState(false);
+  const [newBookTitle, setNewBookTitle] = useState("");
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
   const [mobilePane, setMobilePane] = useState<"sources" | "studio" | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -416,6 +420,25 @@ export default function Home() {
     setQualityEvidence(emptyQualityEvidence());
     setSeed(goal.trim());
     setRequest(undefined);
+    setChatInstance((value) => value + 1);
+  };
+
+  const createNotebook = () => {
+    const title = newBookTitle.trim() || "新的知识书本";
+    setNotebookTopic(title);
+    setConversationFocus(title);
+    setChatSessionId("");
+    setSelectedSourceIds([]);
+    setActivePanel("chat");
+    setTrace(emptyTrace());
+    setQualityEvidence(emptyQualityEvidence());
+    setSeed(undefined);
+    setRequest(undefined);
+    setPanelError("");
+    setMobilePane(null);
+    setChatInstance((value) => value + 1);
+    setNewBookTitle("");
+    setNewBookOpen(false);
   };
 
   const leave = () => {
@@ -482,7 +505,7 @@ export default function Home() {
     });
   };
 
-  const openPanel = (panel: "profile" | "path" | "resources") => {
+  const openPanel = (panel: "profile" | "path" | "resources" | "mistakes") => {
     setActivePanel(panel);
     setMobilePane(null);
     if (panel === "profile") void loadProfile();
@@ -529,6 +552,8 @@ export default function Home() {
   const filteredResources = useMemo(() => {
     if (resourceFilter === "all") return resources;
     if (resourceFilter === "doc") return resources.filter((item) => ["doc", "code", "reading"].includes(item.kind));
+    if (resourceFilter === "study") return resources.filter((item) => ["mindmap", "flashcards", "infographic", "data_table"].includes(item.kind));
+    if (resourceFilter === "animation") return resources.filter((item) => ["video", "manim", "python_animation"].includes(item.kind));
     return resources.filter((item) => item.kind === resourceFilter);
   }, [resourceFilter, resources]);
 
@@ -645,16 +670,19 @@ export default function Home() {
 
           <div className={`h-full min-h-0 ${activePanel === "chat" ? "block" : "hidden"}`} aria-hidden={activePanel !== "chat"}>
             <Chat
+              key={chatInstance}
               onEvent={onEvent}
               seed={seed}
               request={request}
               topic={conversationFocus || notebookTopic}
               sourceIds={selectedSourceIds}
               onUploadClick={() => sourceInputRef.current?.click()}
+              onCreateNotebook={() => setNewBookOpen(true)}
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}
               onLearningTurn={setConversationFocus}
               onSessionReady={setChatSessionId}
               onQuizEvaluated={refreshAfterEvaluation}
+              onOpenMistakes={() => openPanel("mistakes")}
             />
           </div>
 
@@ -729,10 +757,19 @@ export default function Home() {
                 </div>
                 {groupedResources.length ? (
                   <div className="space-y-3">
-                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} />)}
+                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} onOpenMistakes={() => openPanel("mistakes")} />)}
                   </div>
                 ) : <div className="source-empty min-h-[220px]"><FolderOpen size={24} /><strong>这里还没有资料</strong><span>从右侧学习工坊生成一份内容。</span></div>}
               </div>
+            </div>
+          )}
+
+          {activePanel === "mistakes" && (
+            <div className="notebook-content-scroll">
+              <div className="notebook-content-heading">
+                <div><span>MISTAKE BOOK</span><h1>我的错题本</h1><p>答错或揭晓的题自动收录；可以收藏、查看错因并随时重做。</p></div>
+              </div>
+              <div className="p-5"><MistakeBook onEvaluated={refreshAfterEvaluation} /></div>
             </div>
           )}
         </section>
@@ -762,6 +799,19 @@ export default function Home() {
           {traceDetailsOpen && <div className="mt-3"><AgentTrace trace={trace} />{sessionId && <div className="mt-3 rounded-[8px] border border-white/10 bg-black/10 px-3 py-2 font-mono text-[11px] text-white/55">运行编号：{sessionId}</div>}</div>}
         </div>
       </section>
+
+      {newBookOpen && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-[#101812]/35 p-4 backdrop-blur-sm" onMouseDown={() => setNewBookOpen(false)}>
+          <div className="w-full max-w-md rounded-3xl border border-white/70 bg-white p-6 shadow-[0_28px_90px_rgba(16,36,25,0.28)]" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-100 text-2xl text-emerald-700">＋</div>
+            <h2 className="mt-4 text-2xl font-black text-slate-950">新建知识书本</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">新书本会开启独立对话，并清空本书的资料选择；已有资料和错题仍保留在个人归档中。</p>
+            <label className="mt-5 block text-xs font-bold text-slate-700" htmlFor="new-book-title">书本名称或学习主题</label>
+            <input id="new-book-title" autoFocus value={newBookTitle} onChange={(event) => setNewBookTitle(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") createNotebook(); }} placeholder="例如：从零学习线性代数" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100" />
+            <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setNewBookOpen(false)} className="secondary-action">取消</button><button type="button" onClick={createNotebook} className="primary-action">创建书本</button></div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

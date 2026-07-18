@@ -6,6 +6,7 @@ import {
   BrainCircuit,
   ChartNoAxesColumn,
   CircleHelp,
+  CreditCard,
   FileText,
   FolderOpen,
   Headphones,
@@ -13,9 +14,13 @@ import {
   PlaySquare,
   Presentation,
   Route,
+  Sparkles,
+  Star,
+  Table2,
+  WandSparkles,
 } from "lucide-react";
 
-type StudioPanelKey = "profile" | "path" | "resources";
+type StudioPanelKey = "profile" | "path" | "resources" | "mistakes";
 
 const GENERATORS = [
   {
@@ -73,6 +78,33 @@ const GENERATORS = [
     template: "quiz",
   },
   {
+    title: "记忆闪卡",
+    desc: "翻面回忆并标记掌握",
+    icon: CreditCard,
+    tone: "rose",
+    goal: "请根据最近的学习对话和所选资料生成一组主动回忆闪卡，每张卡只检查一个最小知识点，覆盖定义、机制、步骤、边界与易错点。",
+    kinds: ["flashcards"],
+    template: "flashcards",
+  },
+  {
+    title: "学习信息图",
+    desc: "结论、过程与边界一图串起",
+    icon: Sparkles,
+    tone: "violet",
+    goal: "请把最近的学习主题整理成一张来源约束的学习信息图：先给一句话结论，再按定义、结构、过程、边界组织视觉区块。",
+    kinds: ["infographic"],
+    template: "infographic",
+  },
+  {
+    title: "知识数据表",
+    desc: "对照、筛选并复制 CSV",
+    icon: Table2,
+    tone: "cyan",
+    goal: "请把最近的学习主题和所选资料整理成知识数据表，突出可比较的概念、适用条件、核心步骤和易错提醒。",
+    kinds: ["data_table"],
+    template: "data_table",
+  },
+  {
     title: "复习PPT",
     desc: "明确需要时再生成",
     icon: Presentation,
@@ -90,12 +122,31 @@ const GENERATORS = [
     kinds: ["video"],
     template: "video",
   },
+  {
+    title: "Manim 动画",
+    desc: "动态预览与可渲染场景代码",
+    icon: WandSparkles,
+    tone: "green",
+    goal: "请根据最近的学习对话和所选资料生成 Manim 数学动画，逐步演示关键对象、规则、状态变化与边界情况。",
+    kinds: ["manim"],
+    template: "manim",
+  },
+  {
+    title: "Python 动画",
+    desc: "Matplotlib 脚本与安全预览",
+    icon: PlaySquare,
+    tone: "blue",
+    goal: "请根据最近的学习对话和所选资料生成 Python 数学动画，用 Matplotlib 动态展示核心过程，并提供可直接下载的脚本。",
+    kinds: ["python_animation"],
+    template: "python_animation",
+  },
 ] as const;
 
 const VIEWS = [
   { title: "学习画像", desc: "掌握度与错因", icon: ChartNoAxesColumn, tone: "indigo", panel: "profile" },
   { title: "知识关系", desc: "先修、解锁与顺序", icon: Route, tone: "emerald", panel: "path" },
   { title: "资料归档", desc: "继续上次的内容", icon: FolderOpen, tone: "slate", panel: "resources" },
+  { title: "我的错题本", desc: "错因、收藏与随时重做", icon: Star, tone: "amber", panel: "mistakes" },
 ] as const;
 
 export default function StudioPanel({

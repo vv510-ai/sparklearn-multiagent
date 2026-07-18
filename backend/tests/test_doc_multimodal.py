@@ -176,6 +176,44 @@ def test_doc_template_has_a_distinct_resource_label():
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
 
 
+def test_one_page_always_contains_a_visual_structure(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "binary_tree",
+        {},
+        source_ids=[],
+        goal="生成一页看懂",
+        prompt_template="one_page",
+        trace_id="one-page-visual",
+    ))
+    visual = result["resource"]["payload"]["one_page_visual"]
+    assert visual["title"] == "二叉树"
+    assert visual["nodes"]
+    assert len(visual["steps"]) == 4
+
+
+def test_notebooklm_structured_artifacts_have_safe_demo_fallbacks(monkeypatch):
+    monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [_chunk()])
+    for kind, payload_key in (
+        ("flashcards", "cards"),
+        ("infographic", "sections"),
+        ("data_table", "rows"),
+    ):
+        result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+            kind,
+            "binary_tree",
+            {},
+            source_ids=[],
+            goal=f"生成{kind}",
+            trace_id=f"structured-{kind}",
+        ))
+        resource = result["resource"]
+        assert resource["kind"] == kind
+        assert resource["payload"][kind][payload_key]
+        assert resource["citations"]
+
+
 def test_review_ppt_is_an_explicit_source_bound_async_resource(monkeypatch):
     monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [_chunk()])
     captured: dict[str, str] = {}

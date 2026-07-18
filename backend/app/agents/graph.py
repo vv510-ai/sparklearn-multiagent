@@ -111,8 +111,10 @@ class MiniGraph:
         absorb(await planner_agent.run(s))
         absorb(await path_agent.run(s))
         _KIND2NODE = {"doc": "doc", "code": "doc", "reading": "doc", "ppt": "doc",
+                      "flashcards": "doc", "infographic": "doc", "data_table": "doc",
                       "mindmap": "mindmap", "quiz": "quiz",
-                      "video": "media", "audio": "media", "image": "media"}
+                      "video": "media", "audio": "media", "image": "media",
+                      "manim": "media", "python_animation": "media"}
         wanted = [_KIND2NODE[k] for k in (s.get("kinds") or []) if k in _KIND2NODE]
         run_nodes = list(dict.fromkeys(wanted)) or list(_GEN_NODES)
         results = await asyncio.gather(*(_GEN_NODES[n](s) for n in run_nodes),
