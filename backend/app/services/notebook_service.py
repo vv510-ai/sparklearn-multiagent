@@ -128,6 +128,27 @@ def get_notebook(user_id: str, notebook_id: str, *, include_messages: bool = Fal
         return result
 
 
+def start_new_conversation(user_id: str, notebook_id: str) -> dict:
+    """Rotate a notebook to a clean chat while preserving its sources and archive."""
+
+    source_counts = _source_counts(user_id)
+    with session() as db:
+        row = db.get(Notebook, notebook_id)
+        if row is None or row.user_id != user_id:
+            raise HTTPException(404, "notebook not found")
+        row.session_id = f"book-{uuid.uuid4().hex[:16]}"
+        row.updated_at = dt.datetime.now(dt.timezone.utc)
+        db.commit()
+        db.refresh(row)
+        result = _serialize(
+            row,
+            source_count=source_counts.get(row.id, 0),
+            message_count=0,
+        )
+        result["messages"] = []
+        return result
+
+
 def ensure_notebook_owner(user_id: str, notebook_id: str) -> Notebook:
     if not str(notebook_id or "").strip():
         raise HTTPException(400, "请选择一本书后再继续")

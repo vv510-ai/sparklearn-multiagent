@@ -37,6 +37,10 @@ class NotebookCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=120)
 
 
+class NotebookConversationRequest(BaseModel):
+    user_id: str = "demo_user"
+
+
 class AudioRetryRequest(BaseModel):
     user_id: str = "demo_user"
 

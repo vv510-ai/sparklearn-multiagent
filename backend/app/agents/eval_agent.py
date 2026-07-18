@@ -115,7 +115,14 @@ async def run(state: dict) -> dict:
             payload = dict(r.get("payload", {}) or {})
             if state.get("notebook_id"):
                 payload["notebook_id"] = str(state["notebook_id"])
-                r["payload"] = payload
+            payload["generation_scope"] = {
+                "notebook_id": str(state.get("notebook_id") or ""),
+                "session_id": str(state.get("session_id") or ""),
+                "conversation_focus": str(state.get("conversation_focus") or ""),
+                "source_ids": [str(value) for value in (state.get("source_ids") or [])],
+                "artifact_scope": str(state.get("artifact_scope") or "current_topic"),
+            }
+            r["payload"] = payload
             s.merge(Resource(id=rid, user_id=user_id, kind=r.get("kind", "doc"),
                              kp=r.get("kp", ""), title=r.get("title", ""),
                              payload=payload,

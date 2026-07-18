@@ -17,7 +17,7 @@ from ..models.db import session
 from ..models.entities import Resource
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import AudioRetryRequest, GenerateRequest
-from ..services.conversation_service import get_session_messages
+from ..services.conversation_service import current_topic_messages, get_session_messages
 from ..services.knowledge_graph import collect_conversation_topics, resolve_conversation_topic
 from ..services.notebook_service import ensure_notebook_owner, touch_notebook
 from ..services.profile_service import ensure_user, log_event
@@ -49,14 +49,19 @@ async def generate(req: GenerateRequest):
         "mindmap" in req.kinds
         and (req.artifact_scope == "conversation" or req.prompt_template == "framework")
     )
-    if req.session_id:
-        history = (
+    if notebook or req.session_id:
+        full_history = (
             get_session_messages(req.user_id, session_id, limit=80)
             if conversation_map else
             get_session_messages(req.user_id, session_id)
         )
     else:
-        history = []
+        full_history = []
+    history = (
+        full_history
+        if conversation_map
+        else current_topic_messages(full_history, req.conversation_focus)
+    )
     topic_kp, topic_name, custom_topic = resolve_conversation_topic(
         req.conversation_focus or req.goal,
         history,
@@ -83,6 +88,7 @@ async def generate(req: GenerateRequest):
         "prompt_template": req.prompt_template,
         "artifact_scope": "conversation" if conversation_map else req.artifact_scope,
         "conversation_topics": conversation_topics,
+        "conversation_focus": req.conversation_focus,
         "intent": "generate",                  # 显式生成,Orchestrator 将尊重该意图
     }
     return sse_response(run_with_events(state))

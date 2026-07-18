@@ -14,6 +14,8 @@ from app.services.knowledge_graph import (
     kp_name,
     resolve_conversation_topic,
 )
+from app.services.conversation_service import current_topic_messages
+from app.services.topic_scope import focus_chunks_on_topic
 
 
 def test_conversation_focus_ignores_opening_help_title_and_recognizes_graph():
@@ -33,6 +35,36 @@ def test_conversation_focus_ignores_opening_help_title_and_recognizes_graph():
 def test_one_page_ready_message_uses_one_image_name():
     assert _ARTIFACT_READY_TEXT["one_page"].startswith("一图看懂")
     assert "一页" not in _ARTIFACT_READY_TEXT["one_page"]
+
+
+def test_generic_sorting_question_binds_to_basic_sorting_without_stealing_advanced_sorting():
+    assert infer_kp_ids("什么是排序？请用一个最小例子说明。") == ["sorting_basic"]
+    assert resolve_conversation_topic("什么是排序？") == ("sorting_basic", "基础排序", False)
+    assert infer_kp_ids("为什么快速排序通常不稳定？") == ["sorting_adv"]
+
+
+def test_broad_course_chapter_is_cut_to_the_current_sorting_section():
+    broad = """## 通用学习法
+先比较对象、操作与边界。
+## 基础排序 O(n^2)
+冒泡排序相邻比较交换；插入排序逐步扩大有序区。
+## 快速排序
+快速排序使用分治，平均 O(n log n)。
+## 知识主线
+树、堆、图与动态规划共同组成课程主线。
+"""
+
+    chunks = focus_chunks_on_topic(
+        [{"text": broad, "kp": "sorting_basic,sorting_adv,binary_tree,heap,graph_basic,dp"}],
+        "sorting_basic",
+        "基础排序",
+    )
+
+    assert len(chunks) == 1
+    assert "基础排序" in chunks[0]["text"]
+    assert "插入排序" in chunks[0]["text"]
+    assert "快速排序" not in chunks[0]["text"]
+    assert "动态规划" not in chunks[0]["text"]
 
 
 def test_custom_conversation_focus_keeps_subject_and_removes_learning_request_words():
@@ -92,10 +124,24 @@ def test_resource_generation_uses_chat_session_and_latest_real_focus(monkeypatch
 
     assert response.media_type == "text/event-stream"
     assert captured["session_id"] == "same-chat-session"
-    assert captured["conversation"] == history
+    assert captured["conversation"] == [{"role": "user", "content": "我想学习图 怎么办"}]
     assert captured["knowledge_points"] == ["graph_basic"]
     assert captured["topic_label"] == "图的基础"
     assert captured["prompt_template"] == "interactive_audio"
+
+
+def test_current_topic_messages_never_falls_back_to_an_older_question():
+    history = [
+        {"role": "user", "content": "什么是二叉树"},
+        {"role": "assistant", "content": "二叉树每个节点最多有两个孩子。"},
+        {"role": "user", "content": "什么是排序"},
+        {"role": "assistant", "content": "排序是按规则重新排列元素。"},
+    ]
+
+    assert current_topic_messages(history, "什么是排序") == history[-2:]
+    assert current_topic_messages(history, "什么是队列") == [
+        {"role": "user", "content": "什么是队列"},
+    ]
 
 
 def test_resource_generation_keeps_legacy_goal_topic_detection(monkeypatch):

@@ -82,7 +82,17 @@ def test_video_script_gets_full_storyboard_and_sufficient_narration():
     )
 
     assert len(script["scenes"]) >= 4
-    assert script["target_seconds"] == 60
+    assert script["target_seconds"] == 120
     assert script["video_clip_seconds"] == 10
-    assert len(script["narration"]) >= 260
+    assert len(script["narration"]) >= 650
     assert script["narration"].count("插入排序逐步扩大有序区域") == 1
+
+
+def test_video_narration_removes_markdown_source_syntax():
+    cleaned = media_agent._clean_script_text(  # noqa: SLF001
+        "## 基础排序\n插入排序把当前元素放到正确位置；不要展示 `source code`。"
+    )
+
+    assert "##" not in cleaned
+    assert "`" not in cleaned
+    assert "基础排序" in cleaned

@@ -13,6 +13,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
   const [playbackError, setPlaybackError] = useState("");
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewPlaying, setPreviewPlaying] = useState(true);
+  const [narrationSpeaking, setNarrationSpeaking] = useState(false);
   const attempts = useRef(0);
   const script = payload.script;
   const scenes = script?.scenes || [];
@@ -36,6 +37,25 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
     setPlaybackError("");
     attempts.current = 0;
   }, [payload.video]);
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+
+  const toggleBrowserNarration = useCallback(() => {
+    if (!script?.narration || !("speechSynthesis" in window)) return;
+    if (narrationSpeaking) {
+      window.speechSynthesis.cancel();
+      setNarrationSpeaking(false);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(script.narration);
+    utterance.lang = "zh-CN";
+    utterance.rate = 0.86;
+    utterance.onend = () => setNarrationSpeaking(false);
+    utterance.onerror = () => setNarrationSpeaking(false);
+    setNarrationSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  }, [narrationSpeaking, script?.narration]);
 
   const poll = useCallback(async () => {
     if (!video?.task_id || polling) return;
@@ -186,6 +206,23 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 text-[11px] font-bold tracking-[0.18em] text-emerald-600">语音讲解</div>
           <audio src={audioUrl} controls className="w-full" />
+        </div>
+      )}
+
+      {!audioUrl && script?.narration && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+          <div>
+            <div className="text-[11px] font-bold tracking-[0.18em] text-emerald-700">即时语音讲解</div>
+            <p className="mt-1 text-xs leading-5 text-slate-600">云端音频未就绪时，可先用浏览器稍慢语速朗读完整两分钟讲稿。</p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleBrowserNarration}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+          >
+            {narrationSpeaking ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+            {narrationSpeaking ? "暂停朗读" : "立即听讲"}
+          </button>
         </div>
       )}
 

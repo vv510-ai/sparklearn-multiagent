@@ -13,6 +13,7 @@ from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import render_quiz_prompt_call
 from ..rag.retriever import retrieve
 from ..services.knowledge_graph import infer_kp_id, resolve_topic
+from ..services.topic_scope import focus_chunks_on_topic
 from ..services.learner_content import looks_like_source_code, without_source_code
 from .emitter import agent_end, agent_start, emit
 
@@ -253,10 +254,11 @@ async def run(state: dict) -> dict:
         f"{name} 易错点 经典题 {goal}",
         final_k=6,
         source_ids=source_ids,
-        kp=None if source_ids else kp,
+        kp=None if custom_topic else kp,
         required_terms=required_terms or None,
         user_id=state.get("user_id", "demo_user"),
     )
+    chunks = focus_chunks_on_topic(chunks, kp, name)
     if source_ids and not chunks:
         await agent_end("quiz", "所选资料无可用片段,已阻止无依据出题")
         return {

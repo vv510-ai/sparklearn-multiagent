@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from app.agents import doc_agent
 
@@ -398,3 +399,133 @@ def test_remediation_rejects_successful_but_off_topic_content(monkeypatch):
     assert "二叉搜索树精讲" not in result["resource"]["payload"]["markdown"]
     assert result["resource"]["payload"]["grounded"] is True
     assert any(flag["type"] == "topic_drift" for flag in result["flags"])
+
+
+def test_flashcards_reject_off_topic_model_output(monkeypatch):
+    sorting_chunk = {
+        "text": "排序是把元素按给定关键字重新排列，常见目标是升序或降序。",
+        "source": "《数据结构与算法》讲义",
+        "chapter": "排序",
+        "kp": "sorting_basic",
+        "page": 1,
+        "source_id": "sorting-notes",
+    }
+    monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [sorting_chunk])
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+
+    async def off_topic_complete(*args, **kwargs):
+        return json.dumps({
+            "title": "二叉树记忆闪卡",
+            "cards": [{"front": "二叉树最多有几个孩子？", "back": "两个"}],
+        }, ensure_ascii=False)
+
+    monkeypatch.setattr(doc_agent, "llm_complete", off_topic_complete)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "flashcards",
+        "sorting_basic",
+        {},
+        topic_name="排序",
+        source_ids=["__course__"],
+        goal="把什么是排序做成闪卡",
+        prompt_template="flashcards",
+        trace_id="flashcard-topic-lock",
+    ))
+
+    artifact = result["resource"]["payload"]["flashcards"]
+    serialized = json.dumps(artifact, ensure_ascii=False)
+    assert "排序" in serialized
+    assert "二叉树" not in serialized
+    assert any(flag["type"] == "topic_drift" for flag in result["flags"])
+
+
+def test_flashcards_remove_only_the_stale_card_and_keep_current_cards(monkeypatch):
+    sorting_chunk = {
+        "text": "基础排序会按关键字重新排列元素；插入排序逐步扩大有序区。",
+        "source": "《数据结构与算法》讲义",
+        "chapter": "排序",
+        "kp": "sorting_basic",
+        "page": 1,
+        "source_id": "sorting-notes",
+    }
+    monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [sorting_chunk])
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+
+    async def mixed_topic_complete(*args, **kwargs):
+        return json.dumps({
+            "title": "基础排序记忆闪卡",
+            "cards": [
+                {"front": "插入排序怎样扩大有序区？", "back": "把当前元素插入前面的正确位置。"},
+                {"front": "二叉树最多有几个孩子？", "back": "两个。"},
+            ],
+        }, ensure_ascii=False)
+
+    monkeypatch.setattr(doc_agent, "llm_complete", mixed_topic_complete)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "flashcards",
+        "sorting_basic",
+        {},
+        topic_name="基础排序",
+        source_ids=["__course__"],
+        goal="把基础排序做成闪卡",
+        prompt_template="flashcards",
+        trace_id="flashcard-item-topic-lock",
+    ))
+
+    serialized = json.dumps(result["resource"]["payload"]["flashcards"], ensure_ascii=False)
+    assert "插入排序" in serialized
+    assert "二叉树" not in serialized
+    assert any(flag["type"] == "topic_contamination" for flag in result["flags"])
+
+
+def test_interactive_audio_replaces_off_topic_notes_before_tts(monkeypatch):
+    sorting_chunk = {
+        "text": "排序是按关键字重新排列元素；插入排序会逐步扩大前面的有序区。",
+        "source": "《数据结构与算法》讲义",
+        "chapter": "排序",
+        "kp": "sorting_basic",
+        "page": 1,
+        "source_id": "sorting-notes",
+    }
+    spoken: dict[str, str] = {}
+    monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [sorting_chunk])
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+    monkeypatch.setattr(doc_agent, "safety_filter", lambda text: {"safe": True, "hits": []})
+
+    async def off_topic_complete(*args, **kwargs):
+        return "# 二叉树精讲\n\n二叉树每个节点最多有两个孩子。"
+
+    async def capture_tts(text: str, **kwargs):
+        spoken["text"] = text
+        return {"ok": False, "data": {}, "error": "test fallback"}
+
+    async def no_cover(*args, **kwargs):
+        return {"ok": False, "data": {}, "error": "disabled"}
+
+    monkeypatch.setattr(doc_agent, "llm_complete", off_topic_complete)
+    monkeypatch.setattr(doc_agent.multimodal_gateway, "tts", capture_tts)
+    monkeypatch.setattr(doc_agent.multimodal_gateway, "text_to_image", no_cover)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "sorting_basic",
+        {},
+        topic_name="排序",
+        source_ids=["__course__"],
+        goal="讲清什么是排序",
+        prompt_template="interactive_audio",
+        trace_id="audio-topic-lock",
+    ))
+
+    markdown = result["resource"]["payload"]["markdown"]
+    assert "排序" in markdown
+    assert "二叉树精讲" not in markdown
+    assert "排序" in spoken["text"]
+    assert "二叉树" not in spoken["text"]
+    assert any(flag["type"] == "topic_drift" for flag in result["flags"])
+
+
+def test_topic_gate_rejects_notes_that_mix_current_and_stale_topics():
+    assert doc_agent._content_on_topic(  # noqa: SLF001
+        "# 基础排序\n排序会重新排列元素。二叉树每个节点最多有两个孩子。",
+        "基础排序",
+        "sorting_basic",
+    ) is False

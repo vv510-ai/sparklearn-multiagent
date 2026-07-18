@@ -34,3 +34,43 @@ def get_session_messages(user_id: str, session_id: str, *, limit: int = 24) -> l
         )
     rows.reverse()
     return [{"role": row.role, "content": row.content} for row in rows]
+
+
+def current_topic_messages(
+    messages: list[dict] | None,
+    focus: str | None,
+) -> list[dict]:
+    """Return only the turn anchored to the current learning question.
+
+    Studio artifacts are intentionally narrower than conversation summaries.  A
+    notebook can contain several unrelated questions, so passing the whole chat
+    to a note, flashcard, audio, or video prompt lets older topics leak into the
+    new artifact.  When the current question is not yet persisted, keep a
+    synthetic user turn instead of silently falling back to stale history.
+    """
+
+    history = [dict(item) for item in (messages or []) if isinstance(item, dict)]
+    target = " ".join(str(focus or "").split())
+    if target:
+        for index in range(len(history) - 1, -1, -1):
+            item = history[index]
+            content = " ".join(str(item.get("content") or "").split())
+            if item.get("role") == "user" and content == target:
+                scoped = [item]
+                for followup in history[index + 1:]:
+                    if followup.get("role") == "user":
+                        break
+                    scoped.append(followup)
+                return scoped
+        return [{"role": "user", "content": str(focus).strip()}]
+
+    for index in range(len(history) - 1, -1, -1):
+        if history[index].get("role") != "user":
+            continue
+        scoped = [history[index]]
+        for followup in history[index + 1:]:
+            if followup.get("role") == "user":
+                break
+            scoped.append(followup)
+        return scoped
+    return []

@@ -133,7 +133,10 @@ export default function Markdown({
             const lang = /language-(\w+)/.exec(className || "")?.[1];
             const raw = String(children ?? "").replace(/\n$/, "");
             if (lang === "mermaid" && !streaming) return <MermaidBlock code={raw} />;
-            if (!allowCodeBlocks) return null;
+            // Ordinary answers hide fenced source-code blocks, but inline code
+            // carries essential values such as [3, 1, 2], formulas, and short
+            // commands. Removing every <code> node made those steps look blank.
+            if (lang && !allowCodeBlocks) return null;
             if (lang)
               return (
                 <pre>

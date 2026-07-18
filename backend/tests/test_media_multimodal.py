@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from app.agents import media_agent
 
@@ -83,6 +84,57 @@ def test_media_survives_unexpected_video_and_postprocess_errors(monkeypatch, tmp
     assert "audio_url" not in resource["payload"]
     assert "cover_url" not in resource["payload"]
     assert resource["payload"]["script"]
+
+
+def test_cloud_video_returns_running_task_without_waiting_and_rejects_old_topic(monkeypatch, tmp_path):
+    monkeypatch.setattr(media_agent, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(media_agent, "is_demo", lambda: False)
+    captured: dict[str, object] = {}
+
+    def fake_retrieve(*args, **kwargs):
+        captured["kp"] = kwargs.get("kp")
+        return [{
+            "text": "排序是按关键字把元素重新排列，最小例子可以把 3、1、2 排成 1、2、3。",
+            "citation": "排序讲义 p.1",
+            "kp": "sorting",
+        }]
+
+    async def old_topic_script(*args, **kwargs):
+        assert kwargs.get("allow_mock_fallback") is False
+        return (
+            '{"title":"二叉树中序遍历","narration":"二叉树左根右。",'
+            '"scenes":[],"video_prompt":"binary tree"}'
+        )
+
+    async def create_task(*args, **kwargs):
+        return {"ok": True, "data": {"task_id": "video-running-1", "status": "running", "provider": "xiaoyunque"}}
+
+    async def must_not_wait(*args, **kwargs):
+        raise AssertionError("resource generation must not wait for the cloud video")
+
+    async def no_audio(*args, **kwargs):
+        return {"ok": False, "data": {}, "error": "tts unavailable"}
+
+    monkeypatch.setattr(media_agent, "retrieve", fake_retrieve)
+    monkeypatch.setattr(media_agent, "llm_complete", old_topic_script)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "video_create", create_task)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "video_wait", must_not_wait)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "tts", no_audio)
+
+    out = asyncio.run(media_agent.run({
+        "kinds": ["video"],
+        "knowledge_points": ["sorting_basic"],
+        "source_ids": ["__course__"],
+        "session_id": "video-immediate",
+    }))
+    resource = next(iter(out["generated_resources"].values()))
+
+    assert captured["kp"] == "sorting_basic"
+    assert resource["payload"]["video"]["status"] == "running"
+    assert resource["payload"]["script"]["title"] == "基础排序 2 分钟讲透"
+    assert "二叉树" not in json.dumps(resource["payload"]["script"], ensure_ascii=False)
+    assert "3、1、2" in resource["payload"]["script"]["narration"]
+    assert resource["payload"]["script"]["target_seconds"] == 120
 
 
 def test_media_uses_pre_rendered_video_when_cloud_video_is_unavailable(monkeypatch, tmp_path):

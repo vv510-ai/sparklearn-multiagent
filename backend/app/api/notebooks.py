@@ -3,8 +3,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Query, status
 
-from ..schemas.core import NotebookCreateRequest
-from ..services.notebook_service import create_notebook, get_notebook, list_notebooks
+from ..schemas.core import NotebookConversationRequest, NotebookCreateRequest
+from ..services.notebook_service import (
+    create_notebook,
+    get_notebook,
+    list_notebooks,
+    start_new_conversation,
+)
 from ..services.profile_service import ensure_user
 
 
@@ -27,3 +32,9 @@ async def create(req: NotebookCreateRequest):
 async def detail(notebook_id: str, user_id: str = Query("demo_user")):
     ensure_user(user_id)
     return get_notebook(user_id, notebook_id, include_messages=True)
+
+
+@router.post("/{notebook_id}/conversations", status_code=status.HTTP_201_CREATED)
+async def new_conversation(notebook_id: str, req: NotebookConversationRequest):
+    ensure_user(req.user_id)
+    return start_new_conversation(req.user_id, notebook_id)

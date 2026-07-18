@@ -16,8 +16,9 @@ from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
-from ..services.knowledge_graph import kp_retrieval_text, resolve_conversation_topic
+from ..services.knowledge_graph import infer_kp_ids, kp_retrieval_text, resolve_conversation_topic
 from ..services.note_service import recent_note_chunks
+from ..services.topic_scope import focus_chunks_on_topic
 from .emitter import agent_end, agent_start, agent_token, emit
 
 
@@ -220,9 +221,62 @@ def _strategy_response_ok(answer: str) -> bool:
     )
 
 
-def _rag_demo_answer(question: str, chunks: list[dict], *, guided: bool = False) -> str:
+def _sorting_minimal_answer(question: str, chunks: list[dict]) -> str:
+    values = [int(value) for value in re.findall(r"(?<![A-Za-z])\d+", question)[:3]]
+    if len(values) < 3:
+        values = [3, 1, 2]
+    first, second, third = values
+    after_second = sorted([first, second]) + [third]
+    final = sorted(values)
+    cite = next(
+        (index for index, chunk in enumerate(chunks[:4], 1) if "排序" in str(chunk.get("text") or "")),
+        1 if chunks else None,
+    )
+    citation = f" [^{cite}]" if cite else ""
+    return "\n".join([
+        f"**排序**就是按一个明确规则，重新排列同一批元素；例如升序就是从小到大。{citation}",
+        "",
+        f"只看最小例子：`[{first}, {second}, {third}]`。",
+        "",
+        f"1. 先看 `{first}`，暂时得到 `[{first}]`。",
+        f"2. 把 `{second}` 放到 `{first}` 的正确位置，得到 `{after_second}`。",
+        f"3. 再把 `{third}` 放进正确位置，得到 `{final}`。",
+        "",
+        f"所以这次排序做的事就是：`[{first}, {second}, {third}] → {final}`。元素没有增减，只是顺序变了。",
+    ])
+
+
+def _answer_matches_current_question(answer: str, question: str, topic_kp: str) -> bool:
+    """Reject grounded-but-irrelevant answers before they reach the learner."""
+
+    if not str(answer or "").strip():
+        return False
+    allowed = set(infer_kp_ids(question))
+    if topic_kp and topic_kp != "custom_topic":
+        allowed.add(topic_kp)
+    observed = set(infer_kp_ids(answer))
+    if topic_kp != "custom_topic" and observed - allowed:
+        return False
+    if "只用" in question or "只回答" in question:
+        requested_numbers = set(re.findall(r"(?<![A-Za-z])\d+", question))
+        if requested_numbers - set(re.findall(r"(?<![A-Za-z])\d+", answer)):
+            return False
+        if len(answer) > 650:
+            return False
+    return True
+
+
+def _rag_demo_answer(
+    question: str,
+    chunks: list[dict],
+    *,
+    guided: bool = False,
+    topic_kp: str | None = None,
+) -> str:
     compact_question = re.sub(r"\s+", "", question)
     asks_learning_strategy = _is_learning_strategy_question(compact_question)
+    if topic_kp == "sorting_basic" and re.search(r"(?:什么是排序|排序是什么|最小例子|只用)", compact_question):
+        return _sorting_minimal_answer(question, chunks)
     graph_definition_cite = next(
         (
             index for index, chunk in enumerate(chunks[:4], 1)
@@ -410,7 +464,9 @@ async def run(state: dict) -> dict:
         }
 
     topic_kp, topic_name, custom_topic = _resolve_turn_topic(state, question)
-    retrieval_kp = None if source_ids or custom_topic else topic_kp
+    # Selected sources narrow ownership, but must not disable the current-topic
+    # filter.  Uploaded chunks without kp metadata still pass hit_matches_kp.
+    retrieval_kp = None if custom_topic else topic_kp
     retrieval_query = question
     if retrieval_kp:
         retrieval_query = f"{question}\n课程知识点：{kp_retrieval_text(retrieval_kp)}"
@@ -422,6 +478,7 @@ async def run(state: dict) -> dict:
         user_id=state.get("user_id", "demo_user"),
     )
     chunks = _focused_kp_chunks(chunks, retrieval_kp)
+    chunks = focus_chunks_on_topic(chunks, retrieval_kp, topic_name)
     if not source_ids and not guided and retrieval_kp:
         chunks = [
             *chunks,
@@ -492,6 +549,7 @@ async def run(state: dict) -> dict:
     })
 
     grounding_fallback_reason = ""
+    answer_scope_fallback_reason = ""
     if is_demo():
         await emit({
             "type": "progress",
@@ -508,7 +566,7 @@ async def run(state: dict) -> dict:
             f"「{topic_name}」不在当前课程知识库里；离线演示模式下我不补写无法核对的资料外答案。"
             "连接星火模型后可以直接继续提问，下一轮也可以随时换到别的知识点。"
             if custom_topic and not chunks else
-            _rag_demo_answer(question, chunks, guided=guided)
+            _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
         )
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "自定义主题离线安全回答" if custom_topic and not chunks else "演示模式直接整理检索片段"}
@@ -541,6 +599,21 @@ async def run(state: dict) -> dict:
                     "detail": "路线回答过长、机械或含多余任务，已替换为简洁教学路线",
                 })
                 answer = _strategy_answer(topic_name)
+            if not learning_strategy and not _answer_matches_current_question(answer, question, topic_kp):
+                answer_scope_fallback_reason = f"模型回答未严格围绕当前问题「{topic_name}」"
+                await emit({
+                    "type": "progress",
+                    "agent": "tutor",
+                    "stage": "answer_scope",
+                    "percent": 100,
+                    "degraded": True,
+                    "reason": "answer_scope_failed",
+                    "detail": "模型回答扩展了未提问的知识点，已替换为当前问题的最小讲解",
+                })
+                answer = _rag_demo_answer(
+                    question, chunks, guided=guided, topic_kp=topic_kp,
+                )
+                model_answer = False
         except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
             model_answer = False
             await emit({
@@ -558,7 +631,7 @@ async def run(state: dict) -> dict:
                 if learning_strategy else
                 f"暂时无法连接讲解模型，并且课程资料中没有「{topic_name}」的可核对内容。请稍后重试。"
                 if custom_topic and not chunks else
-                _rag_demo_answer(question, chunks, guided=guided)
+                _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
             )
 
         if model_answer:
@@ -604,7 +677,7 @@ async def run(state: dict) -> dict:
                     "reason": "grounding_failed",
                     "detail": f"已替换为资料内确定性讲解：{grounding_fallback_reason[:100]}",
                 })
-                answer = _rag_demo_answer(question, chunks, guided=guided)
+                answer = _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
                 ground = {
                     "grounded": True,
                     "unsupported": [],
@@ -614,7 +687,11 @@ async def run(state: dict) -> dict:
             ground = {
                 "grounded": True,
                 "unsupported": [],
-                "verdict": "模型不可用,已直接整理检索片段",
+                "verdict": (
+                    "模型回答偏离当前问题,已替换为同主题最小讲解"
+                    if answer_scope_fallback_reason else
+                    "模型不可用,已直接整理检索片段"
+                ),
             }
 
     # Only stream the final answer after grounding and content-safety checks.
@@ -644,6 +721,12 @@ async def run(state: dict) -> dict:
         flags.append({"agent": "tutor", "type": "grounding", "detail": ground.get("verdict", "")})
         await emit({"type": "safety", "level": "warn",
                     "detail": "部分表述未命中教材依据,已提示复核"})
+    if answer_scope_fallback_reason:
+        flags.append({
+            "agent": "tutor",
+            "type": "answer_scope",
+            "detail": answer_scope_fallback_reason,
+        })
     if not safety.get("passed", safety.get("safe", True)):
         flags.append({"agent": "tutor", "type": "safety", "detail": safety.get("hits", [])})
 

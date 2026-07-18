@@ -134,9 +134,11 @@ const VIEWS = [
 export default function StudioPanel({
   onGenerate,
   onOpen,
+  disabled = false,
 }: {
   onGenerate: (label: string, goal: string, kinds: string[], template: string) => void;
   onOpen: (panel: StudioPanelKey) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="notebook-column studio-panel flex h-full min-h-0 flex-col" aria-label="学习工坊">
@@ -155,7 +157,7 @@ export default function StudioPanel({
           {GENERATORS.map((tool) => {
             const Icon = tool.icon;
             return (
-              <button type="button" key={tool.title} onClick={() => onGenerate(tool.title, tool.goal, [...tool.kinds], tool.template)} className={`studio-tile is-${tool.tone}`}>
+              <button type="button" key={tool.title} disabled={disabled} onClick={() => onGenerate(tool.title, tool.goal, [...tool.kinds], tool.template)} className={`studio-tile is-${tool.tone} disabled:cursor-wait disabled:opacity-50`}>
                 <span className="studio-tile-icon"><Icon size={18} /></span>
                 <span className="studio-tile-content">
                   <strong>{tool.title}</strong>
@@ -172,7 +174,7 @@ export default function StudioPanel({
           {VIEWS.map((item) => {
             const Icon = item.icon;
             return (
-              <button type="button" key={item.title} onClick={() => onOpen(item.panel)} className={`studio-view is-${item.tone}`}>
+              <button type="button" key={item.title} disabled={disabled} onClick={() => onOpen(item.panel)} className={`studio-view is-${item.tone} disabled:cursor-wait disabled:opacity-50`}>
                 <span className="studio-view-icon"><Icon size={17} /></span>
                 <span className="min-w-0 flex-1 text-left">
                   <strong>{item.title}</strong>

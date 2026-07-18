@@ -8,8 +8,9 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models.db import session
-from app.models.entities import Notebook, User
+from app.models.entities import ConversationMessage, Notebook, User
 from app.rag import ingest
+from app.services.conversation_service import append_message
 
 
 def test_notebook_library_persists_subject_workspaces_and_enforces_owner():
@@ -38,11 +39,32 @@ def test_notebook_library_persists_subject_workspaces_and_enforces_owner():
             assert detail.status_code == 200
             assert detail.json()["messages"] == []
 
+            old_session_id = payload["session_id"]
+            append_message(first_user, old_session_id, "user", "什么是二叉树")
+            rotated = client.post(
+                f"/api/notebooks/{created_id}/conversations",
+                json={"user_id": first_user},
+            )
+            assert rotated.status_code == 201, rotated.text
+            assert rotated.json()["session_id"] != old_session_id
+            assert rotated.json()["messages"] == []
+            clean_detail = client.get(f"/api/notebooks/{created_id}?user_id={first_user}")
+            assert clean_detail.json()["messages"] == []
+
+            denied_rotation = client.post(
+                f"/api/notebooks/{created_id}/conversations",
+                json={"user_id": second_user},
+            )
+            assert denied_rotation.status_code == 404
+
             client.get(f"/api/notebooks?user_id={second_user}")
             denied = client.get(f"/api/notebooks/{created_id}?user_id={second_user}")
             assert denied.status_code == 404
     finally:
         with session() as db:
+            db.query(ConversationMessage).filter(
+                ConversationMessage.user_id.in_([first_user, second_user]),
+            ).delete(synchronize_session=False)
             if created_id:
                 row = db.get(Notebook, created_id)
                 if row:

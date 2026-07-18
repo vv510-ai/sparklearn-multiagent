@@ -21,3 +21,4 @@ dist/
 backend/runs/
 runs/
 *.log
+.tmp/

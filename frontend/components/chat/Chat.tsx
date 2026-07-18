@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, BookPlus, FileUp, LoaderCircle, Mic, NotebookPen, Plus, Square } from "lucide-react";
+import { ArrowRight, BookPlus, FileUp, LoaderCircle, MessageSquarePlus, Mic, NotebookPen, Plus, Square } from "lucide-react";
 import { USER_ID, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
 import InlineConceptAnimation from "./InlineConceptAnimation";
@@ -87,6 +87,7 @@ export default function Chat({
   topic = "",
   onUploadClick,
   onCreateNotebook,
+  onNewConversation,
   onSeedConsumed,
   onLearningTurn,
   onSessionReady,
@@ -104,6 +105,7 @@ export default function Chat({
   topic?: string;
   onUploadClick?: () => void;
   onCreateNotebook?: () => void;
+  onNewConversation?: () => void;
   onSeedConsumed?: () => void;
   onLearningTurn?: (text: string) => void;
   onSessionReady?: (sessionId: string) => void;
@@ -349,6 +351,18 @@ export default function Chat({
             </h2>
           </div>
           <div className="flex items-center gap-2">
+            {onNewConversation && (
+              <button
+                type="button"
+                onClick={onNewConversation}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#DDE3ED] bg-white px-3 py-1.5 text-xs font-bold text-[#4E5665] transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                title="保留当前书本和资料，打开一页干净的新对话"
+              >
+                <MessageSquarePlus size={14} />
+                新对话
+              </button>
+            )}
             {msgs.length > 0 && (
               <button
                 type="button"
@@ -460,6 +474,12 @@ export default function Chat({
         <div className="notebook-composer relative flex items-end gap-2">
           {composerMenuOpen && (
             <div className="absolute bottom-14 left-0 z-20 w-60 overflow-hidden rounded-2xl border border-[#DDE2DA] bg-white p-2 shadow-[0_18px_55px_rgba(20,35,27,0.18)]">
+              {onNewConversation && (
+                <button type="button" onClick={() => { setComposerMenuOpen(false); onNewConversation(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-emerald-50">
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><MessageSquarePlus size={18} /></span>
+                  <span><strong className="block text-sm text-slate-900">新开一页对话</strong><small className="mt-0.5 block text-[11px] text-slate-500">保留本书资料，清空当前聊天</small></span>
+                </button>
+              )}
               <button type="button" onClick={() => { setComposerMenuOpen(false); onCreateNotebook?.(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-emerald-50">
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><BookPlus size={18} /></span>
                 <span><strong className="block text-sm text-slate-900">新建知识书本</strong><small className="mt-0.5 block text-[11px] text-slate-500">开始一段独立的学习对话</small></span>

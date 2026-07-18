@@ -21,6 +21,7 @@ def test_tutor_retrieval_is_limited_to_selected_sources(monkeypatch):
     def fake_retrieve(query: str, **kwargs):
         captured["query"] = query
         captured["source_ids"] = kwargs.get("source_ids")
+        captured["kp"] = kwargs.get("kp")
         return [
             {
                 "text": "递归函数必须有终止条件。",
@@ -54,7 +55,47 @@ def test_tutor_retrieval_is_limited_to_selected_sources(monkeypatch):
     )
 
     assert captured["source_ids"] == ["source-a"]
+    assert captured["kp"] == "recursion"
     assert result["citations"] == ["用户讲义 · 递归 p.1"]
+
+
+def test_tutor_replaces_grounded_but_overbroad_sorting_answer(monkeypatch):
+    def fake_retrieve(*args, **kwargs):
+        assert kwargs.get("kp") == "sorting_basic"
+        return [{
+            "text": "排序是把同一批元素按规则重新排列；插入排序逐步扩大有序区。",
+            "source": "排序讲义",
+            "chapter": "基础排序",
+            "page": 1,
+            "citation": "排序讲义 · 基础排序 p.1",
+            "kp": "sorting_basic",
+        }]
+
+    async def overbroad_stream(*args, **kwargs):
+        yield "排序包括冒泡排序、快速排序、归并排序、计数排序和基数排序，应逐一比较复杂度。[^1]"
+
+    async def grounding_must_not_run(*args, **kwargs):
+        raise AssertionError("out-of-scope model answer must be replaced before grounding")
+
+    monkeypatch.setattr(tutor_agent, "retrieve", fake_retrieve)
+    monkeypatch.setattr(tutor_agent, "is_demo", lambda: False)
+    monkeypatch.setattr(tutor_agent, "llm_stream", overbroad_stream)
+    monkeypatch.setattr(tutor_agent, "grounding_check", grounding_must_not_run)
+
+    result = asyncio.run(tutor_agent.run({
+        "user_id": "sorting-user",
+        "session_id": "sorting-current-question",
+        "messages": [{"role": "user", "content": "什么是排序？请只用 3、1、2 这个最小例子说明。"}],
+        "source_ids": [ingest.COURSE_SCOPE_ID],
+        "student_profile": {},
+    }))
+
+    answer = result["answer"]
+    assert "[3, 1, 2]" in answer
+    assert "[1, 2, 3]" in answer
+    assert "快速排序" not in answer
+    assert "计数排序" not in answer
+    assert any(flag["type"] == "answer_scope" for flag in result["safety_flags"])
 
 
 def test_selected_source_mindmap_does_not_add_course_graph_relations():
@@ -97,6 +138,7 @@ def test_transfer_quiz_keeps_source_scope_and_rejects_original_stem(monkeypatch)
 
     def fake_retrieve(query: str, **kwargs):
         captured["source_ids"] = kwargs.get("source_ids")
+        captured["kp"] = kwargs.get("kp")
         return [{
             "text": "堆满足完全二叉树的结构约束，父子节点可用数组下标定位。",
             "citation": "用户讲义 p.2",
@@ -143,6 +185,7 @@ def test_transfer_quiz_keeps_source_scope_and_rejects_original_stem(monkeypatch)
     assert resource["payload"]["transfer_retest"] is True
     assert resource["payload"]["source_ids"] == ["source-a"]
     assert captured["source_ids"] == ["source-a"]
+    assert captured["kp"] == "heap"
     assert "MODE=remediation-transfer" in str(captured["prompt"])
     assert original_stem in str(captured["prompt"])
 

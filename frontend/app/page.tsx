@@ -107,6 +107,14 @@ function SparkMark({ light = false, running = false }: { light?: boolean; runnin
   );
 }
 
+function latestUserQuestion(messages: LearningNotebook["messages"] | undefined): string {
+  for (let index = (messages || []).length - 1; index >= 0; index -= 1) {
+    const message = messages?.[index];
+    if (message?.role === "user" && message.content.trim()) return message.content.trim();
+  }
+  return "";
+}
+
 function LearningGate({
   onStart,
   onManageSources,
@@ -339,6 +347,8 @@ export default function Home() {
   const [uploadNote, setUploadNote] = useState("");
   const [uploadError, setUploadError] = useState(false);
   const sourceInputRef = useRef<HTMLInputElement>(null);
+  const activeNotebookIdRef = useRef("");
+  const notebookSwitchRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -369,10 +379,12 @@ export default function Home() {
   const running = useMemo(() => Object.values(trace).some((node) => node.status === "running"), [trace]);
   const finished = useMemo(() => Object.values(trace).some((node) => node.status === "done"), [trace]);
   const currentTopicTitle = useMemo(() => {
-    const focus = conversationFocus.trim() || notebookTopic.trim();
-    const kp = inferKpFromTopic(focus);
-    return kp ? kpName(kp) : focus || "新的学习笔记";
-  }, [conversationFocus, notebookTopic]);
+    const focus = conversationFocus.trim();
+    if (!focus && activeNotebook) return "等待新问题";
+    const resolvedFocus = focus || notebookTopic.trim();
+    const kp = inferKpFromTopic(resolvedFocus);
+    return kp ? kpName(kp) : resolvedFocus || "新的学习笔记";
+  }, [activeNotebook, conversationFocus, notebookTopic]);
 
   const loadProfile = useCallback(async () => {
     setPanelError("");
@@ -398,11 +410,14 @@ export default function Home() {
 
   const loadResources = useCallback(async () => {
     if (!activeNotebook) return;
+    const notebookId = activeNotebook.id;
     setPanelError("");
     try {
-      const data = await apiGet<{ items: ResourceItem[] }>(`/resources?user_id=${USER_ID}&notebook_id=${encodeURIComponent(activeNotebook.id)}&limit=30`);
+      const data = await apiGet<{ items: ResourceItem[] }>(`/resources?user_id=${USER_ID}&notebook_id=${encodeURIComponent(notebookId)}&limit=30`);
+      if (activeNotebookIdRef.current !== notebookId) return;
       setResources(data.items || []);
     } catch (error) {
+      if (activeNotebookIdRef.current !== notebookId) return;
       setPanelError(`资料归档暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     }
   }, [activeNotebook]);
@@ -411,6 +426,7 @@ export default function Home() {
     if (!notebookId) return;
     try {
       const data = await apiGet<{ items: KnowledgeSource[] }>(`/knowledge/sources?user_id=${USER_ID}&notebook_id=${encodeURIComponent(notebookId)}`);
+      if (activeNotebookIdRef.current !== notebookId) return;
       const items = dedupeSources(data.items || []);
       setSources(items);
       setSelectedSourceIds((ids) => {
@@ -422,6 +438,7 @@ export default function Home() {
         return valid.length ? valid : [COURSE_SOURCE_ID];
       });
     } catch (error) {
+      if (activeNotebookIdRef.current !== notebookId) return;
       setUploadError(true);
       setUploadNote(`学习资料暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     }
@@ -452,6 +469,7 @@ export default function Home() {
 
   const uploadSources = async (files: File[]) => {
     if (!files.length || uploading || !activeNotebook) return;
+    const uploadNotebookId = activeNotebook.id;
     setUploading(true);
     setUploadNote("");
     setUploadError(false);
@@ -464,7 +482,7 @@ export default function Home() {
           const form = new FormData();
           form.append("file", file);
           form.append("user_id", USER_ID);
-          form.append("notebook_id", activeNotebook.id);
+          form.append("notebook_id", uploadNotebookId);
           form.append("title", file.name.replace(/\.[^.]+$/, ""));
           const result = await apiUpload<UploadResult>("/knowledge/upload", form);
           completed.push({ source: result.source, duplicate: Boolean(result.duplicate) });
@@ -488,6 +506,10 @@ export default function Home() {
         duplicateCount ? `${duplicateCount} 份资料已在当前书本中` : "",
         ...failures,
       ].filter(Boolean).join("；"));
+      if (activeNotebookIdRef.current !== uploadNotebookId) {
+        if (completed.length) void loadNotebooks();
+        return;
+      }
       if (completed.length) {
         void loadNotebooks();
       }
@@ -510,10 +532,11 @@ export default function Home() {
 
   const enterNotebook = (notebook: LearningNotebook, initialGoal = "") => {
     const goal = initialGoal.trim();
+    activeNotebookIdRef.current = notebook.id;
     setActiveNotebook(notebook);
     setEntered(true);
     setNotebookTopic(notebook.title);
-    setConversationFocus(goal || notebook.title);
+    setConversationFocus(goal || latestUserQuestion(notebook.messages));
     setChatSessionId(notebook.session_id);
     setInitialChatMessages(notebook.messages || []);
     setSources([]);
@@ -530,24 +553,31 @@ export default function Home() {
   };
 
   const openNotebook = async (notebook: LearningNotebook, initialGoal = ""): Promise<boolean> => {
-    if (openingNotebookId) return false;
+    const switchToken = notebookSwitchRef.current + 1;
+    notebookSwitchRef.current = switchToken;
+    activeNotebookIdRef.current = notebook.id;
     setOpeningNotebookId(notebook.id);
     setLibraryError("");
+    enterNotebook({ ...notebook, messages: [] });
     try {
       const detail = await apiGet<LearningNotebook>(`/notebooks/${encodeURIComponent(notebook.id)}?user_id=${USER_ID}`);
+      if (notebookSwitchRef.current !== switchToken || activeNotebookIdRef.current !== notebook.id) return false;
       enterNotebook(detail, initialGoal);
       await loadSources(detail.id);
       return true;
     } catch (error) {
+      if (notebookSwitchRef.current !== switchToken) return false;
       setLibraryError(`这本书暂时无法打开：${error instanceof Error ? error.message : String(error)}`);
       return false;
     } finally {
-      setOpeningNotebookId("");
+      if (notebookSwitchRef.current === switchToken) setOpeningNotebookId("");
     }
   };
 
   const enterCourseWorkspace = (goal = "", sendGoal = false) => {
     const next = goal.trim();
+    notebookSwitchRef.current += 1;
+    activeNotebookIdRef.current = "";
     setEntered(true);
     setNotebookTopic(next || "课程学习");
     setConversationFocus(next);
@@ -587,6 +617,7 @@ export default function Home() {
       setNotebooks((items) => [notebook, ...items]);
       setNewBookTitle("");
       setNewBookOpen(false);
+      notebookSwitchRef.current += 1;
       enterNotebook(notebook);
     } catch (error) {
       setCreateNotebookError(`创建失败：${error instanceof Error ? error.message : String(error)}`);
@@ -595,7 +626,49 @@ export default function Home() {
     }
   };
 
+  const startNewConversation = async () => {
+    if (!activeNotebook || openingNotebookId) return;
+    if (running) {
+      setPanelError("当前内容仍在生成，请先停止当前任务，再新开对话。");
+      return;
+    }
+    const notebookId = activeNotebook.id;
+    const switchToken = notebookSwitchRef.current + 1;
+    notebookSwitchRef.current = switchToken;
+    activeNotebookIdRef.current = notebookId;
+    setOpeningNotebookId(notebookId);
+    setPanelError("");
+    try {
+      const notebook = await apiPost<LearningNotebook>(
+        `/notebooks/${encodeURIComponent(notebookId)}/conversations`,
+        { user_id: USER_ID },
+      );
+      if (notebookSwitchRef.current !== switchToken || activeNotebookIdRef.current !== notebookId) return;
+      setActiveNotebook(notebook);
+      setNotebooks((items) => items.map((item) => item.id === notebook.id ? { ...item, ...notebook } : item));
+      setNotebookTopic(notebook.title);
+      setConversationFocus("");
+      setChatSessionId(notebook.session_id);
+      setInitialChatMessages([]);
+      setActivePanel("chat");
+      setTrace(emptyTrace());
+      setQualityEvidence(emptyQualityEvidence());
+      setSeed(undefined);
+      setRequest(undefined);
+      setMobilePane(null);
+      setChatInstance((value) => value + 1);
+    } catch (error) {
+      if (notebookSwitchRef.current === switchToken) {
+        setPanelError(`新对话暂时无法创建：${error instanceof Error ? error.message : String(error)}`);
+      }
+    } finally {
+      if (notebookSwitchRef.current === switchToken) setOpeningNotebookId("");
+    }
+  };
+
   const leave = () => {
+    notebookSwitchRef.current += 1;
+    activeNotebookIdRef.current = "";
     setEntered(false);
     setActivePanel("chat");
     setTrace(emptyTrace());
@@ -616,6 +689,8 @@ export default function Home() {
     try {
       await apiPost<{ ok: boolean }>("/auth/logout", {});
     } finally {
+      notebookSwitchRef.current += 1;
+      activeNotebookIdRef.current = "";
       setAuthUser(null);
       setAuthStatus("anonymous");
       setEntered(false);
@@ -639,9 +714,19 @@ export default function Home() {
       setNewBookOpen(true);
       return;
     }
-    const focus = conversationFocus.trim() || notebookTopic.trim();
-    const topicKp = inferKpFromTopic(focus);
+    if (openingNotebookId) {
+      setPanelError("正在切换书本，上一书本内容已清空，请稍候再生成。");
+      return;
+    }
     const conversationWide = promptTemplate === "framework";
+    const focus = conversationFocus.trim();
+    if (!conversationWide && !focus) {
+      setActivePanel("chat");
+      setMobilePane(null);
+      setPanelError("请先在当前对话里问一个具体问题，再生成笔记、音频、闪卡或视频。这样不会误用旧主题。");
+      return;
+    }
+    const topicKp = inferKpFromTopic(focus);
     const scopedGoal = !conversationWide && focus
       ? `${goal}\n\n请以最近学习对话中的实际问题为准：${focus}`
       : goal;
@@ -657,7 +742,7 @@ export default function Home() {
         : focus ? `把刚才讨论的内容做成${label}` : `生成${label}`,
       body: {
         user_id: USER_ID,
-        session_id: chatSessionId,
+        session_id: activeNotebook.session_id || chatSessionId,
         notebook_id: activeNotebook.id,
         goal: scopedGoal,
         conversation_focus: focus,
@@ -687,7 +772,8 @@ export default function Home() {
     void loadProfile();
   }, [loadProfile]);
 
-  const onEvent = useCallback((event: SparkEvent) => {
+  const onEvent = useCallback((event: SparkEvent, originNotebookId = "") => {
+    if (originNotebookId && activeNotebookIdRef.current !== originNotebookId) return;
     setTrace((current) => applyTraceEvent(current, event));
     if (event.type === "agent_start" && event.agent === "profile") setQualityEvidence(emptyQualityEvidence());
     const output = asRecord(event.output);
@@ -789,7 +875,7 @@ export default function Home() {
       onToggle={togglePersonalSource}
     />
   );
-  const studioPanel = <StudioPanel onGenerate={startGenerate} onOpen={openPanel} />;
+  const studioPanel = <StudioPanel onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
 
   return (
     <main className="notebook-app notebook-app-enter flex h-dvh flex-col overflow-hidden text-[#1D2028]">
@@ -840,13 +926,22 @@ export default function Home() {
       <div className="notebook-layout min-h-0 flex-1">
         <aside className="hidden min-h-0 xl:block">{sourcePanel}</aside>
 
-        <section className="notebook-column min-h-0 overflow-hidden">
+        <section className="notebook-column relative min-h-0 overflow-hidden">
+          {openingNotebookId && (
+            <div className="absolute inset-0 z-40 grid place-items-center bg-white/82 px-6 text-center backdrop-blur-sm">
+              <div className="rounded-2xl border border-emerald-200 bg-white px-6 py-5 shadow-xl">
+                <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
+                <strong className="mt-3 block text-sm text-slate-900">正在切换到干净的书本上下文</strong>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">上一书本的对话、主题和生成状态已经停止回写。</span>
+              </div>
+            </div>
+          )}
           {panelError && <div className="m-3 rounded-[8px] border border-[#F1D6C9] bg-[#FFF6F1] px-4 py-3 text-sm text-[#9E4B2D]">{panelError}</div>}
 
           <div className={`h-full min-h-0 ${activePanel === "chat" ? "block" : "hidden"}`} aria-hidden={activePanel !== "chat"}>
             <Chat
               key={`${activeNotebook?.id || "course"}-${chatInstance}`}
-              onEvent={onEvent}
+              onEvent={(event) => onEvent(event, activeNotebook?.id || "")}
               seed={seed}
               request={request}
               notebookId={activeNotebook?.id}
@@ -856,6 +951,7 @@ export default function Home() {
               sourceIds={selectedSourceIds}
               onUploadClick={() => activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true)}
               onCreateNotebook={() => { setCreateNotebookError(""); setNewBookOpen(true); }}
+              onNewConversation={activeNotebook ? () => void startNewConversation() : undefined}
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}
               onLearningTurn={setConversationFocus}
               onSessionReady={setChatSessionId}

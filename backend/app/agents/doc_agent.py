@@ -5,6 +5,7 @@ reading(拓展阅读)/ ppt(讯飞智能 PPT 异步任务)。"""
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import uuid
 
@@ -16,8 +17,9 @@ from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
-from ..services.knowledge_graph import resolve_topic
+from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
+from ..services.topic_scope import focus_chunks_on_topic
 from .emitter import agent_end, agent_start, emit
 
 _STYLE = {
@@ -231,17 +233,95 @@ def _clean_source_excerpt(value: object, limit: int = 180) -> str:
     return _compact(clean, limit)
 
 
-def _remediation_on_topic(markdown: str, topic_name: str, kp: str) -> bool:
-    """Reject a successful-looking remediation that silently changed topics."""
-    output = re.sub(r"\s+", "", str(markdown or "")).lower()
+def _content_on_topic(value: object, topic_name: str, kp: str) -> bool:
+    """Reject successful-looking artifacts that silently changed topics."""
+
+    raw = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value or "")
+    output = re.sub(r"\s+", "", raw).lower()
     pieces = re.split(r"[与和、/·（）()\s]+", str(topic_name or ""))
-    candidates = [str(kp or "").strip().lower(), str(topic_name or "").strip().lower(), *pieces]
+    candidates = [str(topic_name or "").strip().lower(), *pieces]
+    if kp and kp != "custom_topic":
+        candidates.append(str(kp).strip().lower())
     terms = {
         re.sub(r"\s+", "", candidate)
         for candidate in candidates
         if str(candidate or "").strip()
     }
-    return any(term in output for term in terms)
+    allowed = set(infer_kp_ids(str(topic_name or "")))
+    if kp and kp != "custom_topic":
+        allowed.add(kp)
+    observed = set(infer_kp_ids(raw))
+    if kp != "custom_topic" and observed - allowed:
+        return False
+    return any(len(term) >= 2 and term in output for term in terms)
+
+
+def _unexpected_topic_ids(
+    value: object,
+    topic_name: str,
+    kp: str,
+    chunks: list[dict],
+) -> set[str]:
+    """Find course topics present in one artifact item but absent from its scope."""
+
+    # Broad source chapters may mention many other knowledge points. They are
+    # evidence, not permission to leak those topics into the current item.
+    allowed = set(infer_kp_ids(str(topic_name or "")))
+    if kp and kp != "custom_topic":
+        allowed.add(kp)
+    raw = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value or "")
+    return set(infer_kp_ids(raw)) - allowed
+
+
+def _sanitize_structured_topics(
+    kind: str,
+    artifact: dict,
+    topic_name: str,
+    kp: str,
+    chunks: list[dict],
+) -> tuple[dict, bool, bool]:
+    """Remove individual stale-topic cards/sections/rows, then safely backfill."""
+
+    key = {"flashcards": "cards", "infographic": "sections", "data_table": "rows"}[kind]
+    original = list(artifact.get(key) or [])
+    clean = [
+        item for item in original
+        if not _unexpected_topic_ids(item, topic_name, kp, chunks)
+    ]
+    if len(clean) == len(original):
+        return artifact, False, False
+
+    fallback = _fallback_structured(kind, topic_name, chunks)
+    fully_replaced = bool(original and not clean)
+    target = min(len(original), 10 if kind != "infographic" else 6)
+    for item in fallback.get(key) or []:
+        if len(clean) >= target:
+            break
+        if item not in clean and not _unexpected_topic_ids(item, topic_name, kp, chunks):
+            clean.append(item)
+    sanitized = dict(artifact)
+    sanitized["title"] = fallback["title"]
+    sanitized[key] = clean or list(fallback.get(key) or [])
+    if kind == "flashcards":
+        sanitized["cards"] = [
+            {**card, "id": f"card-{index + 1}"}
+            for index, card in enumerate(sanitized["cards"])
+        ]
+    elif kind == "infographic":
+        if _unexpected_topic_ids(sanitized.get("summary"), topic_name, kp, chunks):
+            sanitized["summary"] = fallback["summary"]
+        safe_steps = [
+            step for step in (sanitized.get("steps") or [])
+            if not _unexpected_topic_ids(step, topic_name, kp, chunks)
+        ]
+        sanitized["steps"] = safe_steps or fallback["steps"]
+    return sanitized, True, fully_replaced
+
+
+def _remediation_on_topic(markdown: str, topic_name: str, kp: str) -> bool:
+    """Backward-compatible name for the topic gate used by older tests."""
+
+    return _content_on_topic(markdown, topic_name, kp)
 
 
 def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
@@ -510,6 +590,32 @@ async def _gen_structured_resource(
                 "type": "llm_fallback",
                 "detail": f"结构化学习工件生成失败，已使用资料片段安全降级：{exc}",
             })
+        else:
+            artifact, removed_stale_items, fully_replaced = _sanitize_structured_topics(
+                kind, artifact, name, kp, chunks,
+            )
+            if removed_stale_items:
+                flags.append({
+                    "agent": "doc",
+                    "kind": kind,
+                    "type": "topic_contamination",
+                    "detail": f"{label}中夹带的旧知识点已逐项移除并按当前问题补齐",
+                })
+            if fully_replaced:
+                flags.append({
+                    "agent": "doc",
+                    "kind": kind,
+                    "type": "topic_drift",
+                    "detail": f"{label}整体偏离当前问题「{name}」，已替换为同主题安全版本",
+                })
+            if not _content_on_topic(artifact, name, kp):
+                artifact = _fallback_structured(kind, name, chunks)
+                flags.append({
+                    "agent": "doc",
+                    "kind": kind,
+                    "type": "topic_drift",
+                    "detail": f"{label}未命中当前问题「{name}」，已替换为同主题安全版本",
+                })
 
     rid = uuid.uuid4().hex[:12]
     payload = {
@@ -518,6 +624,8 @@ async def _gen_structured_resource(
         "source_bound": bool(source_ids),
         "grounded": bool(chunks) or (custom_topic and not source_ids) or source_scope_missing,
         "prompt_skill": prompt_call.metadata(),
+        "topic_label": name,
+        "source_ids": source_ids,
     }
     resource = {
         "id": rid,
@@ -570,10 +678,15 @@ async def _gen_one(
         f"{name} 概念 操作 复杂度 易错点 {goal}",
         final_k=5,
         source_ids=source_ids,
-        kp=None if source_ids else kp,
+        # The course-library sentinel is selected by default in the UI.  Source
+        # scoping and topic scoping are independent: uploaded chunks without a
+        # kp tag remain eligible, while unrelated tagged course chunks are
+        # rejected by the retriever.
+        kp=None if custom_topic else kp,
         required_terms=required_retrieval_terms,
         user_id=user_id,
     )
+    chunks = focus_chunks_on_topic(chunks, kp, name)
     ctx, citations = build_context(chunks)
     if kind in _STRUCTURED_KINDS:
         return await _gen_structured_resource(
@@ -654,10 +767,7 @@ async def _gen_one(
                     # because it can silently change the concept while keeping
                     # the current citations. Let the exception fall through to
                     # the target-scoped RAG fallback instead.
-                    allow_mock_fallback=prompt_template not in {
-                        "conversation_notes",
-                        "remediation",
-                    },
+                    allow_mock_fallback=False,
                 ),
                 timeout=_DOC_TIMEOUT_S,
             )
@@ -677,16 +787,20 @@ async def _gen_one(
     if kind != "code":
         md = without_source_code(md, keep_mermaid=True)
 
-    if (prompt_template == "remediation" and not fallback and not source_scope_missing
-            and not _remediation_on_topic(md, name, kp)):
+    if (kind == "doc" and not fallback and not source_scope_missing
+            and not _content_on_topic(md, name, kp)):
         fallback = True
-        remediation_rag_fallback = True
-        md = _rag_fallback_doc(name, chunks, kind)
+        remediation_rag_fallback = prompt_template == "remediation"
+        conversation_fallback = prompt_template == "conversation_notes"
+        md = (
+            _conversation_fallback_doc(name, conversation, chunks)
+            if conversation_fallback else _rag_fallback_doc(name, chunks, kind)
+        )
         flags.append({
             "agent": "doc",
             "kind": kind,
             "type": "topic_drift",
-            "detail": f"补救正文未命中目标概念「{name}」,已改用同主题 RAG 保守版",
+            "detail": f"正文未命中当前问题「{name}」,已改用同主题安全版本",
         })
 
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
@@ -737,6 +851,8 @@ async def _gen_one(
         "template": prompt_template,
         "reusable_note": prompt_template == "conversation_notes",
         "prompt_skill": prompt_call.metadata(),
+        "topic_label": name,
+        "source_ids": source_ids,
     }
     one_page = kind == "doc" and prompt_template == "one_page"
     if one_page:
@@ -748,7 +864,8 @@ async def _gen_one(
             "口播脚本（约 60—90 秒，以播放器实际时长为准）",
             md,
         )
-    narration = _narration_text(name, md)
+        payload["markdown"] = md
+    narration = _narration_text(name, md, limit=720 if interactive_audio else 320)
     if interactive_audio and not source_scope_missing:
         payload["audio_narration"] = narration
     if (kind == "doc" and not source_scope_missing

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import ast
+import json
 import re
 import uuid
 
@@ -16,7 +17,8 @@ from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import render_manim_prompt_call, render_video_prompt_call
 from ..rag.citation import build_context
 from ..rag.retriever import retrieve
-from ..services.knowledge_graph import resolve_topic
+from ..services.knowledge_graph import infer_kp_ids, resolve_topic
+from ..services.topic_scope import focus_chunks_on_topic
 from .emitter import agent_end, agent_start, emit
 
 _LOCAL_MANIM_VIDEOS = {
@@ -180,18 +182,47 @@ def _video_prompt(script: dict, *, source_bound: bool) -> str:
 
 
 def _clean_script_text(value: object, limit: int = 360) -> str:
-    text = re.sub(r"[\x00-\x1f\ufffd\ue000-\uf8ff]", " ", str(value or ""))
+    text = str(value or "")
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+    text = re.sub(r"`{1,3}", "", text)
+    text = re.sub(r"[\x00-\x1f\ufffd\ue000-\uf8ff]", " ", text)
     text = re.split(r"(?:答案|参考答案|解析)\s*[:：]", text, maxsplit=1)[0]
     text = " ".join(text.split()).strip()
     return text[:limit].rstrip("，；、 ")
 
 
+def _script_on_topic(script: dict, name: str, kp: str, chunks: list[dict]) -> bool:
+    body = {
+        "narration": script.get("narration"),
+        "scenes": script.get("scenes"),
+    }
+    text = re.sub(r"\s+", "", json.dumps(body, ensure_ascii=False)).lower()
+    topic = re.sub(r"\s+", "", str(name or "")).lower()
+    pieces = [part for part in re.split(r"[与和、/·（）()\s]+", topic) if len(part) >= 2]
+    # The current topic is the boundary. A broad chapter containing adjacent
+    # topics must not make those topics valid for this video's narration.
+    allowed = set(infer_kp_ids(name))
+    if kp and kp != "custom_topic":
+        allowed.add(kp)
+    detected = set(infer_kp_ids(text))
+    if detected - allowed:
+        return False
+    return bool(
+        topic
+        and (
+            topic in text
+            or any(part in text for part in pieces)
+            or bool(detected & allowed)
+        )
+    )
+
+
 def _normalize_script(script: dict, chunks: list[dict], name: str) -> dict:
     normalized = dict(script)
-    narration = _clean_script_text(normalized.get("narration"), 360)
+    narration = _clean_script_text(normalized.get("narration"), 820)
     additions = list(dict.fromkeys(
         item
-        for item in (_clean_script_text(chunk.get("text"), 150) for chunk in chunks)
+        for item in (_clean_script_text(chunk.get("text"), 210) for chunk in chunks)
         if len(item) >= 24 and item not in narration
     ))
     scaffolds = [
@@ -201,28 +232,43 @@ def _normalize_script(script: dict, chunks: list[dict], name: str) -> dict:
         "完成例子后回到正式定义，把生活化理解和资料中的术语一一对应",
         "随后检查时间与空间代价，说明这种方法在数据规模变大时会发生什么",
         "还要特别指出一个常见错误，并用成立条件和不成立条件做清楚对照",
+        "讲到新术语时先用白话解释，再给正式名称，避免只报概念却没有建立直观认识",
+        "演示每一步时同时说明当前看到了什么、准备做什么、做完以后状态发生了什么变化",
+        "如果有多种情况，先讲最常见的一种，再单独列出边界情况，不让例外打断主线",
+        "最小例子结束后重新从头复述一次关键顺序，让学习者能在没有画面的情况下自己走完",
+        "再用一个反例说明哪些条件一旦不满足，刚才的方法就不能直接使用或结论不再成立",
+        "把易错点说成可执行的检查动作，例如先检查对象、再检查顺序、最后检查停止条件",
+        "如果画面变化较快，就在关键状态停一下，先让学习者看清变化前后分别是什么，再继续下一步",
+        "只有资料确实给出了复杂度时才说明数量级，并把复杂度和刚才实际发生的操作次数对应起来",
+        "最后把生活类比收回来，明确类比只帮助建立直觉，真正作答仍要使用准确的定义、步骤和边界条件",
+        "收束前给学习者一个十秒自测：能否说出目标、关键步骤以及最容易错的那条边界",
         "最后用一句记忆钩子收束：先看目标，再走步骤，用例子验证，按边界检查",
     ]
-    if len(narration) < 280:
+    if len(narration) < 650:
         parts = [narration.rstrip("。")] if narration else []
         for item in [*additions, *scaffolds]:
             if item and item not in parts and item not in narration:
                 parts.append(item.rstrip("。"))
-            if len("。".join(parts)) >= 300:
+            if len("。".join(parts)) >= 700:
                 break
         narration = "。".join(parts).strip("。") + "。"
-    normalized["narration"] = narration[:360] or f"本节用一分钟讲清{name}的核心概念、最小例子和易错边界。"
+    normalized["narration"] = narration[:820] or f"本节用两分钟讲清{name}的核心概念、最小例子和易错边界。"
 
     scenes = [scene for scene in normalized.get("scenes") or [] if isinstance(scene, dict)]
-    if len(scenes) < 4:
+    if len(scenes) < 6:
         scenes = [
-            {"t": "0-15s", "visual": f"用一句话呈现{name}的学习目标", "caption": "先抓核心结论"},
-            {"t": "15-30s", "visual": "按顺序演示关键对象和步骤", "caption": "跟着步骤走一遍"},
-            {"t": "30-45s", "visual": "展示一个最小案例的状态变化", "caption": "用最小例子验证"},
-            {"t": "45-60s", "visual": "对照正确做法与常见错误", "caption": "最后检查适用边界"},
+            {"visual": f"用一句白话呈现{name}要解决的问题", "caption": "先抓核心结论"},
+            {"visual": "用生活类比说明对象之间的关系", "caption": "建立直观认识"},
+            {"visual": "把最小例子的初始状态完整摆出来", "caption": "看清输入与目标"},
+            {"visual": "一次只演示一个关键步骤及状态变化", "caption": "跟着步骤走一遍"},
+            {"visual": "把例子重新对应到正式概念和术语", "caption": "回到正式定义"},
+            {"visual": "对照正确做法、常见错误和适用边界", "caption": "最后检查边界"},
         ]
-    normalized["scenes"] = scenes[:6]
-    normalized["target_seconds"] = 60
+    normalized["scenes"] = [
+        {**scene, "t": f"{index * 20}-{(index + 1) * 20}s"}
+        for index, scene in enumerate(scenes[:6])
+    ]
+    normalized["target_seconds"] = 120
     normalized["video_clip_seconds"] = 10
     return normalized
 
@@ -258,9 +304,10 @@ async def run(state: dict) -> dict:
         f"{name} 核心概念 关键步骤 {goal}",
         final_k=5,
         source_ids=source_ids,
-        kp=None if source_ids else kp,
+        kp=None if custom_topic else kp,
         user_id=state.get("user_id", "demo_user"),
     )
+    chunks = focus_chunks_on_topic(chunks, kp, name)
     context, citations = build_context(chunks)
     if source_ids and not chunks:
         script = {
@@ -293,24 +340,46 @@ async def run(state: dict) -> dict:
         general_knowledge=custom_topic and not source_ids,
     )
     script = {}
+    script_error = ""
     if not is_demo():
-        raw = await llm_complete(video_prompt_call.prompt,
-                                 system=video_prompt_call.system,
-                                 role="reasoner",
-                                 temperature=0.7, max_tokens=1200)
-        script = parse_json(raw)
-    if not isinstance(script, dict) or not script.get("narration"):
-        fallback_narration = (
-            " ".join(str(chunks[0].get("text") or "").split())[:180]
-            if chunks else f"本节用一分钟讲清{name}的核心思想与典型操作。"
-        )
+        try:
+            raw = await asyncio.wait_for(
+                llm_complete(
+                    video_prompt_call.prompt,
+                    system=video_prompt_call.system,
+                    role="reasoner",
+                    temperature=0.55,
+                    max_tokens=1800,
+                    allow_mock_fallback=False,
+                ),
+                timeout=12,
+            )
+            script = parse_json(raw)
+        except Exception as error:  # noqa: BLE001
+            script_error = str(error)[:180]
+    if (not isinstance(script, dict) or not script.get("narration")
+            or not _script_on_topic(script, name, kp, chunks)):
+        if isinstance(script, dict) and script and not _script_on_topic(script, name, kp, chunks):
+            script_error = f"模型脚本偏离当前问题「{name}」"
+        if kp == "sorting_basic":
+            fallback_narration = (
+                "排序就是按一个明确规则重新排列同一批元素。我们只看升序和 3、1、2："
+                "先把 3 看成已有序的一项；把 1 插到 3 前面，得到 1、3；"
+                "再把 2 插到 1 和 3 中间，得到 1、2、3。"
+                "元素没有增加也没有减少，改变的只有顺序。这个最小过程就是理解基础排序的起点。"
+            )
+        else:
+            fallback_narration = (
+                " ".join(str(chunks[0].get("text") or "").split())[:260]
+                if chunks else f"本节用两分钟讲清{name}的核心思想与典型操作。"
+            )
         source_scenes = [
             {"t": f"{index * 12}-{(index + 1) * 12}s",
              "visual": " ".join(str(chunk.get("text") or "").split())[:90],
              "caption": f"要点 {index + 1}"}
             for index, chunk in enumerate(chunks[:4])
         ]
-        script = {"title": f"{name} 60 秒讲透", "narration": fallback_narration,
+        script = {"title": f"{name} 2 分钟讲透", "narration": fallback_narration,
                   "scenes": source_scenes or [
                       {"t": "0-12s", "visual": f"识别{name}中的对象", "caption": "认识对象"},
                       {"t": "12-24s", "visual": "展示对象之间的关键关系", "caption": "建立结构"},
@@ -320,7 +389,8 @@ async def run(state: dict) -> dict:
                   "video_prompt": f"educational 2D animation explaining {kp}, clean diagram style"}
     script = _normalize_script(script, chunks, name)
     await emit({"type": "progress", "agent": "media", "stage": "script", "percent": 25,
-                "detail": f"分镜脚本就绪,共 {len(script.get('scenes', []))} 个镜头"})
+                "detail": f"分镜脚本就绪,共 {len(script.get('scenes', []))} 个镜头"
+                + (f"；已启用同主题安全版本：{script_error}" if script_error else "")})
 
     payload: dict = {
         "script": script,
@@ -330,11 +400,6 @@ async def run(state: dict) -> dict:
     }
     trace_id = str(state.get("session_id", ""))
 
-    async def on_progress(p: dict):
-        await emit({"type": "progress", "agent": "media", "stage": "video",
-                    "percent": 25 + int(p.get("percent", 0) * 0.6),
-                    "detail": p.get("detail", "视频生成中…"), "task_id": p.get("task_id")})
-
     mode = explicit_kind if explicit_kind != "video" else "manim"
     if explicit_kind == "video":
         try:
@@ -342,16 +407,17 @@ async def run(state: dict) -> dict:
                 _video_prompt(script, source_bound=bool(source_ids)), trace_id=trace_id,
             )
             if created["ok"]:
-                task_id = str(created["data"]["task_id"])
                 provider = str(created["data"].get("provider") or "video")
-                waited = await multimodal_gateway.video_wait(
-                    task_id,
-                    on_progress=on_progress,
-                    trace_id=trace_id,
-                )
-                payload["video"] = waited["data"]
-                if waited["ok"]:
-                    mode = provider
+                payload["video"] = dict(created["data"])
+                mode = provider
+                await emit({
+                    "type": "progress",
+                    "agent": "media",
+                    "stage": "video",
+                    "percent": 45,
+                    "detail": "云端动画任务已提交；无需在这里等待，可先学习分镜与旁白",
+                    "task_id": created["data"].get("task_id"),
+                })
             elif created["data"]:
                 payload["video"] = created["data"]
         except Exception:  # noqa: BLE001
@@ -366,7 +432,9 @@ async def run(state: dict) -> dict:
 
     if mode == "manim":                                            # 显式 Manim 或视频降级链路
         cls = _scene_class_name(kp)
-        if source_ids or custom_topic or is_demo():
+        if explicit_kind == "video" or source_ids or custom_topic or is_demo():
+            # A failed cloud clip must not trigger a second LLM round-trip.
+            # The browser preview and deterministic code are already useful.
             payload["manim_code"] = _fallback_manim_code(
                 cls, name, source_bound=bool(source_ids) or custom_topic
             )
@@ -396,23 +464,28 @@ async def run(state: dict) -> dict:
                     "detail": "云端视频未配置/失败,已使用预渲染 Manim 教学动画"
                     if local_video else "云端视频未配置/失败,已降级为 Manim 动画代码(可本地渲染)"})
 
-    audio, cover = await asyncio.gather(
-        multimodal_gateway.tts(script["narration"][:360], trace_id=trace_id),
-        multimodal_gateway.text_to_image(
-            f"学习资料主题封面插画:{name},蓝橙科技风,简洁抽象示意图,不添加事实性标签",
-            trace_id=trace_id,
-        ),
-        return_exceptions=True,
-    )
+    try:
+        audio = await asyncio.wait_for(
+            multimodal_gateway.tts(script["narration"][:820], trace_id=trace_id),
+            timeout=2.5,
+        )
+    except TimeoutError:
+        audio = {"ok": False, "data": {}, "error": "云端旁白等待超过 2.5 秒，已切换浏览器即时朗读"}
+    except Exception as error:  # noqa: BLE001
+        audio = error
     if isinstance(audio, dict) and audio.get("ok"):
         payload["audio_url"] = audio["data"]["audio_url"]
-    if isinstance(cover, dict) and cover.get("ok"):
-        payload["cover_url"] = cover["data"]["image_url"]
+        payload["audio"] = {"status": "ready", "provider": audio["data"].get("provider", "spark_tts")}
+    else:
+        payload["audio"] = {
+            "status": "fallback",
+            "provider": "browser_speech",
+            "error": str(audio.get("error") or "云端旁白暂不可用")[:180] if isinstance(audio, dict) else str(audio)[:180],
+        }
     await emit({"type": "progress", "agent": "media", "stage": "post", "percent": 100,
-                "detail": "旁白与封面处理完成"
-                if (isinstance(audio, dict) and audio.get("ok"))
-                or (isinstance(cover, dict) and cover.get("ok"))
-                else "旁白与封面不可用,已保留讲解脚本"})
+                "detail": "两分钟旁白处理完成"
+                if isinstance(audio, dict) and audio.get("ok")
+                else "云端旁白不可用,已保留可朗读脚本"})
 
     rid = uuid.uuid4().hex[:12]
     title_suffix = {
@@ -422,7 +495,8 @@ async def run(state: dict) -> dict:
     }[explicit_kind]
     resource = {"id": rid, "kind": explicit_kind, "kp": kp,
                 "title": f"{name}·{title_suffix}",
-                "payload": {**payload, "topic_label": name, "custom_topic": custom_topic},
+                "payload": {**payload, "topic_label": name, "custom_topic": custom_topic,
+                            "source_ids": source_ids},
                 "citations": [item["citation"] for item in citations]}
     await emit({"type": "resource", "resource": resource})
     summaries = {
