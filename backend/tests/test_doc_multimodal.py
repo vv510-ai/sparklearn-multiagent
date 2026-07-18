@@ -193,6 +193,51 @@ def test_one_page_always_contains_a_visual_structure(monkeypatch):
     assert len(visual["steps"]) == 4
 
 
+def test_one_page_strips_model_returned_source_code(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+
+    async def complete_with_code(*args, **kwargs):
+        return (
+            "# 二叉树\n\n先理解访问顺序。[^1]\n\n"
+            "```python\ndef inorder(root, out):\n    return out\n```\n\n"
+            "把过程记成：先左边，再当前，最后右边。"
+        )
+
+    monkeypatch.setattr(doc_agent, "llm_complete", complete_with_code)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "doc",
+        "binary_tree",
+        {},
+        source_ids=[],
+        goal="生成一页看懂",
+        prompt_template="one_page",
+        trace_id="one-page-no-code",
+    ))
+    markdown = result["resource"]["payload"]["markdown"]
+    assert "def inorder" not in markdown
+    assert "先左边" in markdown
+
+
+def test_explicit_code_resource_keeps_program_example(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+
+    async def complete_with_code(*args, **kwargs):
+        return "```python\ndef inorder(root, out):\n    return out\n```"
+
+    monkeypatch.setattr(doc_agent, "llm_complete", complete_with_code)
+    result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
+        "code",
+        "binary_tree",
+        {},
+        source_ids=[],
+        goal="请生成代码练习",
+        trace_id="explicit-code-kept",
+    ))
+    assert "def inorder" in result["resource"]["payload"]["markdown"]
+
+
 def test_notebooklm_structured_artifacts_have_safe_demo_fallbacks(monkeypatch):
     monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [_chunk()])
     for kind, payload_key in (

@@ -13,6 +13,7 @@ from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import render_quiz_prompt_call
 from ..rag.retriever import retrieve
 from ..services.knowledge_graph import infer_kp_id, resolve_topic
+from ..services.learner_content import looks_like_source_code, without_source_code
 from .emitter import agent_end, agent_start, emit
 
 _TYPES = {"single", "fill", "judge", "design", "complexity"}
@@ -74,7 +75,7 @@ def _choice_answer(options: list[str], answer: object) -> str:
 
 
 def _clean_source_claim(value: object, limit: int = 220) -> str:
-    text = str(value or "")
+    text = without_source_code(value)
     text = re.sub(r"[\x00-\x1f\ufffd\ue000-\uf8ff]", " ", text)
     text = re.split(r"(?:答案|参考答案|解析)\s*[:：]", text, maxsplit=1)[0]
     text = re.sub(r"(?:^|\s)[A-D][.、:：]\s*", " ", text, flags=re.IGNORECASE)
@@ -90,6 +91,7 @@ def _validate(q: dict, kp: str) -> dict | None:
     stem = " ".join(str(q.get("stem") or "").split())
     if (
         len(stem) > 320
+        or looks_like_source_code(stem)
         or re.search(r"(?:参考?答案|正确答案|解析)\s*[:：]", stem)
         or len(re.findall(r"(?:^|\s)\(?\d{1,2}\)?[.、)]", stem)) >= 3
     ):
@@ -108,10 +110,14 @@ def _validate(q: dict, kp: str) -> dict | None:
         if isinstance(raw_options, list)
         else []
     )
+    if any(looks_like_source_code(option) for option in options):
+        return None
     if len(options) == 1 and "「, 」" in options[0]:
         options = [part.strip() for part in options[0].split("「, 」") if part.strip()]
     q["options"] = options
     q.setdefault("explain", q.get("explanation", ""))
+    if looks_like_source_code(q.get("answer")) or looks_like_source_code(q.get("explain")):
+        return None
     raw_tags = q.get("error_tags")
     tags = [raw_tags] if isinstance(raw_tags, str) else raw_tags if isinstance(raw_tags, list) else []
     q["error_tags"] = list(dict.fromkeys(

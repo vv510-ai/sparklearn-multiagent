@@ -10,6 +10,8 @@ MODE=remediation-transfer
 
 题型优先包含 single、judge、fill；若资料不适合，可使用 complexity 或 design。所有题干、选项、答案和解析只能依据参考资料。single 以及带选项的 complexity 的 answer 只填 A/B/C/D。解析只在提交后展示，先说明正确理由，再指出易错边界。
 
+题干、选项、答案和解析均不得出现源码、伪代码、函数定义或程序语句；算法题改用对象、操作次数、状态变化和输入输出关系描述。
+
 只输出 JSON，不要 Markdown 前后缀：
 
 {"questions":[{"type":"single","stem":"...","options":["A...","B...","C...","D..."],"answer":"A","explain":"...","kp":"{{kpid}}","difficulty":{{difficulty}},"error_tags":["迁移边界"]}]}

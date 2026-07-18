@@ -23,7 +23,7 @@ class GenerateRequest(BaseModel):
     conversation_focus: str = Field(default="", description="最近一轮真实学习问题，用于工坊产物随对话切换主题")
     topic_label: str = Field(default="", description="当前学习笔记本的主题")
     knowledge_points: list[str] = Field(default_factory=list)
-    kinds: list[str] = Field(default_factory=lambda: ["doc", "mindmap", "quiz", "code", "video"])
+    kinds: list[str] = Field(default_factory=lambda: ["doc", "mindmap", "quiz", "video"])
     source_ids: list[str] = Field(default_factory=list)
     prompt_template: str = Field(default="", description="后端白名单学习模板键")
     artifact_scope: Literal["current_topic", "conversation"] = Field(

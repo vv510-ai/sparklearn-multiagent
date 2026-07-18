@@ -20,12 +20,16 @@ from ..services.knowledge_graph import (
     topological_order,
     unlockable,
 )
+from ..services.learner_content import looks_like_source_code, without_source_code
 from .emitter import agent_end, agent_start, emit
 
 def _clean_point(line: str) -> str:
+    line = without_source_code(line)
     line = re.sub(r"^\s*[-*+]\s*", "", line.strip())
     line = re.sub(r"^\s*\d+[.)、]\s*", "", line)
     line = line.strip(" `#\t\r\n")
+    if looks_like_source_code(line):
+        return ""
     return line[:24].strip()
 
 

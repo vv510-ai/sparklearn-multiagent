@@ -6,6 +6,8 @@ TASK=video_script
 
 画面只呈现资料中已有的对象、关系和步骤，不用装饰性画面冒充知识图。
 
+画面、字幕和旁白不得展示源码、伪代码、函数定义、程序语句或开发工具界面；把实现过程转成对象移动、状态变化和自然语言步骤。
+
 只输出 JSON：
 
 {"title":"...","narration":"完整旁白（280—360 字，短句、自然停顿、适合稍慢语速朗读）","scenes":[{"t":"0-15s","visual":"画面描述","caption":"屏幕字幕"}],"video_prompt":"English prompt for a clear 10-second educational concept animation showing the single most important visual"}

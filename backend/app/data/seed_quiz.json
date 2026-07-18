@@ -2,7 +2,7 @@
   "course": "数据结构与算法",
   "note": "种子题库:演示模式与冷启动出题兜底;每题含 kp / difficulty(1-5) / error_tags。",
   "questions": [
-    {"id": "q001", "type": "single", "kp": "complexity", "difficulty": 2, "stem": "代码 for i in range(n): for j in range(i): s += 1 的时间复杂度是?", "options": ["O(n)", "O(n log n)", "O(n^2)", "O(2^n)"], "answer": "C", "explain": "内层循环次数 0+1+...+(n-1)=n(n-1)/2,取最高阶为 O(n^2)。", "error_tags": ["复杂度推导"]},
+    {"id": "q001", "type": "single", "kp": "complexity", "difficulty": 2, "stem": "某操作分 n 轮执行，第 i 轮重复 i 次，总时间复杂度是?", "options": ["O(n)", "O(n log n)", "O(n^2)", "O(2^n)"], "answer": "C", "explain": "总次数为 0+1+...+(n-1)=n(n-1)/2,取最高阶为 O(n^2)。", "error_tags": ["复杂度推导"]},
     {"id": "q002", "type": "judge", "kp": "complexity", "difficulty": 1, "stem": "O(100n) 与 O(n) 属于同一时间复杂度量级。", "options": [], "answer": "对", "explain": "大 O 忽略常数系数,100n 与 n 同为线性阶。", "error_tags": ["概念混淆"]},
     {"id": "q003", "type": "fill", "kp": "complexity", "difficulty": 2, "stem": "二分查找在长度为 n 的有序数组上的时间复杂度为 ____。", "options": [], "answer": "O(log n)", "explain": "每轮把搜索区间折半,约 log2(n) 轮结束。", "error_tags": ["对数复杂度"]},
     {"id": "q004", "type": "single", "kp": "array", "difficulty": 2, "stem": "动态数组(顺序表)尾部追加元素的均摊时间复杂度是?", "options": ["O(1)", "O(log n)", "O(n)", "O(n log n)"], "answer": "A", "explain": "扩容虽单次 O(n),但倍增策略下均摊每次追加仍为 O(1)。", "error_tags": ["均摊分析"]},

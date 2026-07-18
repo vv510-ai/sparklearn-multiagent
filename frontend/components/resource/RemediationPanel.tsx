@@ -104,6 +104,7 @@ export default function RemediationPanel({
               text={result.resource.payload.markdown}
               citeBase={result.resource.id}
               citations={result.resource.citations || []}
+              allowCodeBlocks={false}
             />
           )}
           {result.next_action === "retest" && result.transfer_quiz?.payload.questions && (

@@ -1,5 +1,5 @@
 "use client";
-/** Markmap 交互脑图:markmap-lib/view 经 CDN 渲染;失败降级为 Markdown 大纲文本。
+/** Markmap 交互脑图:markmap-lib/view 经 CDN 渲染;失败降级为可读大纲。
  *  浅色企业主题 + 个性化标注图例(✅已掌握 / ⚠️待巩固 / 🔒先修未解锁,来自学习画像)。 */
 import { useEffect, useRef, useState } from "react";
 import { getMarkmap } from "@/lib/cdn";
@@ -90,6 +90,19 @@ const LEGEND: [string, string][] = [
   ["🔒", "先修未解锁"],
 ];
 
+function outlineItems(markdown: string) {
+  return markdown
+    .split("\n")
+    .map((line) => {
+      const heading = /^(#{1,6})\s+(.+)$/.exec(line.trim());
+      const bullet = /^[-*+]\s+(.+)$/.exec(line.trim());
+      if (heading) return { depth: heading[1].length - 1, text: heading[2] };
+      if (bullet) return { depth: 2, text: bullet[1] };
+      return null;
+    })
+    .filter((item): item is { depth: number; text: string } => Boolean(item?.text));
+}
+
 export default function Markmap({ markdown }: { markdown: string }) {
   const ref = useRef<SVGSVGElement>(null);
   const mmRef = useRef<MarkmapInstance | null>(null);
@@ -141,15 +154,26 @@ export default function Markmap({ markdown }: { markdown: string }) {
     );
   }
 
-  if (failed)
+  if (failed) {
+    const items = outlineItems(markdown);
     return (
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <div className="mb-2 text-xs text-slate-500">脑图运行库加载失败,已降级为大纲文本(内容不受影响)。</div>
-        <pre className="max-h-72 overflow-auto rounded-md border border-slate-200 bg-white p-3 text-xs leading-6 text-slate-700">
-          {markdown}
-        </pre>
+        <div className="mb-2 text-xs text-slate-500">脑图暂时无法加载，已转换为可读大纲。</div>
+        <div className="max-h-72 space-y-1 overflow-auto rounded-md border border-slate-200 bg-white p-3 text-xs leading-6 text-slate-700">
+          {items.map((item, index) => (
+            <div
+              key={`${item.text}-${index}`}
+              className={item.depth === 0 ? "font-bold text-slate-900" : item.depth === 1 ? "font-semibold text-slate-800" : "text-slate-600"}
+              style={{ paddingLeft: `${Math.min(item.depth, 3) * 16}px` }}
+            >
+              {item.depth > 0 && <span className="mr-2 text-emerald-600">•</span>}
+              {item.text}
+            </div>
+          ))}
+        </div>
       </div>
     );
+  }
 
   return (
     <div className="markmap-light rounded-lg border border-slate-200 bg-white p-2">

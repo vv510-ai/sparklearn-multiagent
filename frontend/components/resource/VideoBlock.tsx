@@ -70,7 +70,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
       <Notice
         tone="warn"
         title="讲解资源为空"
-        desc="没有视频任务、分镜脚本、旁白或降级动画代码。可重新生成该类型资源。"
+        desc="没有视频任务、分镜脚本、旁白或可视化降级内容。可重新生成该类型资源。"
       />
     );
   }

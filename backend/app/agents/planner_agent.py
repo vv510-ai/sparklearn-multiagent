@@ -13,7 +13,7 @@ def _kp_from_goal(goal: str, kp_ids: list[str]) -> str | None:
 async def run(state: dict) -> dict:
     await agent_start("planner", "资源规划智能体", "画像+目标 → 结构化生成计划(星火 X2)")
     goal = state.get("learning_goal") or (state.get("messages") or [{}])[-1].get("content", "")
-    kinds = state.get("kinds") or ["doc", "mindmap", "quiz", "code", "video"]
+    kinds = state.get("kinds") or ["doc", "mindmap", "quiz", "video"]
     target_kp, topic_name, is_custom = resolve_topic(
         state.get("knowledge_points"),
         str(goal),

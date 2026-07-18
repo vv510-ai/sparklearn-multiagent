@@ -12,6 +12,7 @@ import InteractiveAudioPlayer from "./InteractiveAudioPlayer";
 import PptBlock from "./PptBlock";
 import { DataTableBlock, FlashcardsBlock, InfographicBlock, OnePageVisual } from "./StudyArtifactBlocks";
 import { apiAssetUrl, apiPost, USER_ID } from "@/lib/api";
+import { withoutCodeBlocks } from "@/lib/learningContent";
 
 const KIND_META: Record<
   string,
@@ -78,7 +79,7 @@ function resourcePreview(r: ResourceItem): string {
   const dataTable = payload.data_table as ResourceItem["payload"]["data_table"];
   const animationPreview = payload.animation_preview as ResourceItem["payload"]["animation_preview"];
   if (typeof markdown === "string") {
-    return markdown
+    return withoutCodeBlocks(markdown)
       .replace(/[#>*_`\[\]\(\)]/g, "")
       .replace(/\s+/g, " ")
       .trim()
@@ -247,15 +248,15 @@ export default function ResourceCard({
           ) : payload.markdown ? (
             <>
               {payload.one_page_visual && <OnePageVisual visual={payload.one_page_visual} />}
-              <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} />
+              <Markdown
+                text={payload.markdown}
+                citeBase={r.id}
+                citations={r.citations}
+                allowCodeBlocks={r.kind === "code"}
+              />
             </>
           ) : (
-            <div className="space-y-2">
-              <Notice tone="warn" title="暂时无法展示这类内容" desc="内容已保留，可稍后由系统补充展示方式。" />
-              <pre className="max-h-72 overflow-auto rounded-[10px] bg-[#0E1411] p-3 text-xs text-slate-100">
-                {JSON.stringify(payload, null, 2)}
-              </pre>
-            </div>
+            <Notice tone="warn" title="暂时无法展示这类内容" desc="内容已安全保留，系统不会把内部数据直接展示给学习者。" />
           )}
 
         </div>

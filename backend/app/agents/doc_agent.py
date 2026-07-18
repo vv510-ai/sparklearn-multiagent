@@ -17,6 +17,7 @@ from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import resolve_topic
+from ..services.learner_content import plain_learning_text, without_source_code
 from .emitter import agent_end, agent_start, emit
 
 _STYLE = {
@@ -58,9 +59,7 @@ def _compact(text: str, limit: int = 180) -> str:
 
 
 def _plain_excerpt(text: str, limit: int = 150) -> str:
-    cleaned = re.sub(r"[#>*_`|\[\]]+", " ", str(text or ""))
-    cleaned = " ".join(cleaned.split())
-    return _compact(cleaned, limit)
+    return plain_learning_text(text, limit)
 
 
 def _fallback_structured(kind: str, name: str, chunks: list[dict]) -> dict:
@@ -200,7 +199,7 @@ def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
     }
 def _clean_source_excerpt(value: object, limit: int = 180) -> str:
     """Turn PDF/OCR fragments into readable learning notes instead of raw dumps."""
-    text = str(value or "")
+    text = without_source_code(value)
     text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ufffd]", " ", text)
     text = re.sub(r"[\ue000-\uf8ff]", " ", text)
     text = re.split(r"(?:答案|参考答案|解析)\s*[:：]", text, maxsplit=1)[0]
@@ -356,11 +355,11 @@ def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound
         if source_bound
         else "围绕当前主题使用可靠的通用知识，不得切换到其他课程或旧会话主题。"
     )
-    material = context.strip() or "（本次没有选定资料，请紧扣当前主题制作基础复习版。）"
+    material = without_source_code(context).strip() or "（本次没有选定资料，请紧扣当前主题制作基础复习版。）"
     return (
         f"请为学习者制作一份约 8—10 页的中文复习 PPT。\n"
         f"主题：{name}\n学习目标：{goal or f'复习{name}'}\n学习偏好：{persona}\n"
-        f"约束：{scope} 不联网搜索；表达亲切、准确、适合学生复习，不写代码出处或系统实现信息。\n"
+        f"约束：{scope} 不联网搜索；表达亲切、准确、适合学生复习；不展示源码、伪代码、函数定义、程序语句或系统实现信息，算法改写为白话步骤。\n"
         "建议结构：封面→本次要会什么→核心概念→关键步骤→最小例子→易错点→三分钟回顾。\n"
         f"可用学习资料：\n{material}"
     )[:12000]
@@ -659,6 +658,9 @@ async def _gen_one(
             if not conversation_fallback:
                 flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
                               "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
+
+    if kind != "code":
+        md = without_source_code(md, keep_mermaid=True)
 
     if (prompt_template == "remediation" and not fallback and not source_scope_missing
             and not _remediation_on_topic(md, name, kp)):

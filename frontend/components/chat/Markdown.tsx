@@ -1,12 +1,13 @@
 "use client";
 /** Markdown 渲染:react-markdown + GFM。
- *  1) ```mermaid 代码块经 CDN 渲染为图,失败降级源码,生产页面不白屏;
+ *  1) ```mermaid 代码块经 CDN 渲染为图,失败时给学习者友好提示;
  *  2) 传入 citeBase 时,正文中的 [^n] 会渲染成可点击引用芯片,
  *     锚点跳转到资源卡底部「引用来源」对应条目 —— 引用溯源的可视化证据链。 */
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getMermaid } from "@/lib/cdn";
+import { withoutCodeBlocks } from "@/lib/learningContent";
 
 let seq = 0;
 
@@ -64,10 +65,9 @@ function MermaidFallback({ code }: { code: string }) {
     );
   }
   return (
-    <details className="my-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
-      <summary className="cursor-pointer font-semibold">图表暂以源码保留</summary>
-      <pre className="mt-2 max-h-40 overflow-auto rounded-md !bg-[#0f172a] p-3 text-slate-100"><code>{code}</code></pre>
-    </details>
+    <div className="my-2 rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
+      图表暂时无法显示，请先阅读上下文中的文字步骤；系统不会向学习者展示图表源码。
+    </div>
   );
 }
 
@@ -111,14 +111,18 @@ function withoutCites(children: React.ReactNode): React.ReactNode {
 export default function Markdown({
   text,
   streaming = false,
+  allowCodeBlocks = false,
 }: {
   text: string;
   streaming?: boolean;
+  /** 只有明确的代码学习场景才开启。 */
+  allowCodeBlocks?: boolean;
   /** 兼容资源数据；普通学习界面不展示出处。 */
   citeBase?: string;
   citations?: string[];
 }) {
   const cite = (children: React.ReactNode) => withoutCites(children);
+  const learnerText = allowCodeBlocks ? text : withoutCodeBlocks(text, true);
   return (
     <div className={`prose-spark text-[13.5px] ${streaming ? "caret" : ""}`}>
       <ReactMarkdown
@@ -129,6 +133,7 @@ export default function Markdown({
             const lang = /language-(\w+)/.exec(className || "")?.[1];
             const raw = String(children ?? "").replace(/\n$/, "");
             if (lang === "mermaid" && !streaming) return <MermaidBlock code={raw} />;
+            if (!allowCodeBlocks) return null;
             if (lang)
               return (
                 <pre>
@@ -150,7 +155,7 @@ export default function Markdown({
           h4: ({ children }) => <h4>{cite(children)}</h4>,
         }}
       >
-        {text}
+        {learnerText}
       </ReactMarkdown>
     </div>
   );
