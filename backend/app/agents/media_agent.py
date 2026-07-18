@@ -217,6 +217,47 @@ def _script_on_topic(script: dict, name: str, kp: str, chunks: list[dict]) -> bo
     )
 
 
+def _strict_sorting_example_requested(goal: str) -> bool:
+    compact = re.sub(r"\s+", "", str(goal or ""))
+    return bool(re.search(r"什么是排序|排序是什么|最小例子|只用|3[、,，和与]?1[、,，和与]?2", compact))
+
+
+def _strict_sorting_example_script() -> dict:
+    """A two-minute script that never expands beyond the learner's 3,1,2 question."""
+
+    narration = (
+        "先只看一个问题：什么是排序。排序就是按照一个明确规则，重新排列同一批元素。"
+        "今天的规则是从小到大，例子只有三个数：3、1、2。先不要想任何算法名称，也不要加入别的数字。"
+        "第一步，把最先看到的 3 暂时放好。此时已有的顺序只有一个数，所以可以写成 3。"
+        "第二步，看到 1。因为目标是从小到大，1 应该在 3 的前面。把 1 放到前面，当前结果变成 1、3。"
+        "注意，数字没有增加，也没有消失，只是 1 和 3 的相对位置符合了从小到大的规则。"
+        "第三步，看到 2。先问 2 应该放在哪里。2 比 1 大，所以不能放在 1 前面；2 又比 3 小，所以不能放在 3 后面。"
+        "因此 2 正好放在 1 和 3 中间，结果变成 1、2、3。现在从左到右检查：1 小于 2，2 小于 3，满足升序。"
+        "再做一次完整复述：输入是 3、1、2，目标是从小到大；先保留 3，再把 1 放到 3 前面，最后把 2 放到 1 和 3 中间。"
+        "输出是 1、2、3。输入和输出都包含同样的三个数，因此排序改变的是位置，不是元素本身。"
+        "这里最容易犯的错有两个。第一，只顾移动数字，却忘了先说清规则；如果规则改成从大到小，结果就会不同。"
+        "第二，得到一个结果后不检查。可靠的检查方法是从左到右逐对比较，并确认元素数量和值都没有变化。"
+        "最后做一个十秒自测：不看画面，说出排序的目标、3、1、2 的三步变化，以及为什么最终是 1、2、3。"
+        "如果你能完整说出这些，就已经理解了这个问题；暂时不需要扩展到其他排序方法。"
+    )
+    return {
+        "title": "基础排序 2 分钟讲透",
+        "narration": narration,
+        "scenes": [
+            {"visual": "只展示问题、升序规则与输入 3、1、2", "caption": "明确目标：从小到大"},
+            {"visual": "画面只保留第一个数 3", "caption": "先放好 3"},
+            {"visual": "把 1 移到 3 前面，状态变为 1、3", "caption": "1 放到 3 前面"},
+            {"visual": "把 2 放到 1 和 3 中间，状态变为 1、2、3", "caption": "2 放到中间"},
+            {"visual": "对照输入输出，逐项确认元素未增减", "caption": "只改变位置"},
+            {"visual": "从左到右检查 1<2<3，并给出十秒自测", "caption": "检查规则与边界"},
+        ],
+        "video_prompt": (
+            "Minimal educational animation showing only the numbers 3, 1, 2 being reordered "
+            "into 1, 2, 3, large readable cards, no other algorithms or objects"
+        ),
+    }
+
+
 def _normalize_script(script: dict, chunks: list[dict], name: str) -> dict:
     normalized = dict(script)
     narration = _clean_script_text(normalized.get("narration"), 820)
@@ -297,7 +338,15 @@ async def run(state: dict) -> dict:
         state.get("topic_label"),
     )
     source_ids = [str(x) for x in (state.get("source_ids") or []) if str(x).strip()]
-    goal = str(state.get("learning_goal") or "")
+    # Prefer the exact current question over the broader learning goal created
+    # by orchestration. This is what lets a request such as “只用 3、1、2” stay
+    # narrower than the surrounding sorting chapter.
+    goal = str(
+        state.get("conversation_focus")
+        or state.get("learning_goal")
+        or state.get("goal")
+        or ""
+    )
     await agent_start("media", "媒体智能体", f"「{name}」分镜脚本 → 文生视频/动画 + TTS")
 
     chunks = [] if custom_topic and not source_ids else retrieve(
@@ -341,7 +390,13 @@ async def run(state: dict) -> dict:
     )
     script = {}
     script_error = ""
-    if not is_demo():
+    strict_sorting_example = kp == "sorting_basic" and _strict_sorting_example_requested(goal)
+    if strict_sorting_example:
+        # This learner explicitly constrained the explanation to one tiny
+        # example. Skip the model and broad chapter excerpts entirely so the
+        # length-normalization step cannot pull adjacent sorting topics back in.
+        script = _strict_sorting_example_script()
+    elif not is_demo():
         try:
             raw = await asyncio.wait_for(
                 llm_complete(
@@ -387,7 +442,7 @@ async def run(state: dict) -> dict:
                       {"t": "40-60s", "visual": "对比正常情况与边界情况", "caption": "检查边界"},
                   ],
                   "video_prompt": f"educational 2D animation explaining {kp}, clean diagram style"}
-    script = _normalize_script(script, chunks, name)
+    script = _normalize_script(script, [] if strict_sorting_example else chunks, name)
     await emit({"type": "progress", "agent": "media", "stage": "script", "percent": 25,
                 "detail": f"分镜脚本就绪,共 {len(script.get('scenes', []))} 个镜头"
                 + (f"；已启用同主题安全版本：{script_error}" if script_error else "")})

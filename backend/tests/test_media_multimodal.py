@@ -137,6 +137,48 @@ def test_cloud_video_returns_running_task_without_waiting_and_rejects_old_topic(
     assert resource["payload"]["script"]["target_seconds"] == 120
 
 
+def test_strict_sorting_example_never_absorbs_adjacent_chapter_topics(monkeypatch, tmp_path):
+    monkeypatch.setattr(media_agent, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(media_agent, "is_demo", lambda: False)
+
+    monkeypatch.setattr(media_agent, "retrieve", lambda *args, **kwargs: [{
+        "text": (
+            "基础排序会重新排列元素。计数排序适合小范围整数；"
+            "快速排序使用基准分区；二叉树每个节点最多有两个孩子。"
+        ),
+        "citation": "宽章节 p.1",
+        "kp": "sorting_basic,sorting_adv,binary_tree",
+    }])
+
+    async def must_not_call_llm(*args, **kwargs):
+        raise AssertionError("strict 3,1,2 explanation must not call a drifting model")
+
+    async def no_video(*args, **kwargs):
+        return {"ok": False, "data": {}, "error": "disabled"}
+
+    async def no_audio(*args, **kwargs):
+        return {"ok": False, "data": {}, "error": "disabled"}
+
+    monkeypatch.setattr(media_agent, "llm_complete", must_not_call_llm)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "video_create", no_video)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "tts", no_audio)
+
+    out = asyncio.run(media_agent.run({
+        "kinds": ["video"],
+        "knowledge_points": ["sorting_basic"],
+        "source_ids": ["__course__"],
+        "conversation_focus": "什么是排序？请只用 3、1、2 这个最小例子说明。",
+        "session_id": "video-strict-sorting-example",
+    }))
+    script = next(iter(out["generated_resources"].values()))["payload"]["script"]
+    serialized = json.dumps(script, ensure_ascii=False)
+
+    assert script["target_seconds"] == 120
+    assert len(script["narration"]) >= 650
+    assert "3、1、2" in script["narration"]
+    assert all(term not in serialized for term in ("计数排序", "快速排序", "二叉树"))
+
+
 def test_media_uses_pre_rendered_video_when_cloud_video_is_unavailable(monkeypatch, tmp_path):
     _install_llm(monkeypatch)
     monkeypatch.setattr(media_agent, "GEN_DIR", tmp_path)
