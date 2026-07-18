@@ -61,6 +61,19 @@ def test_interactive_actions_have_distinct_teaching_contracts():
     assert "不要给答案" in quiz and "你先回答" in quiz
 
 
+def test_answer_scope_allows_a_needed_neighbouring_concept_but_rejects_drift():
+    assert tutor_agent._answer_matches_current_question(
+        "二叉树中每个节点最多两个孩子；二叉搜索树还额外要求左小右大。",
+        "什么是二叉树？",
+        "binary_tree",
+    )
+    assert not tutor_agent._answer_matches_current_question(
+        "SQL 的 SELECT 用来选择结果列。",
+        "什么是二叉树？",
+        "binary_tree",
+    )
+
+
 def test_interactive_narration_is_not_truncated_to_old_320_character_limit():
     markdown = "这是讲解正文。" * 80
     narration = doc_agent._narration_text("测试主题", markdown)

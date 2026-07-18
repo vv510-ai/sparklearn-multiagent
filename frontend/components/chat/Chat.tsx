@@ -76,6 +76,16 @@ const FLOW = [
   ["04", "产物按需生成", "导图练习可选"],
 ];
 
+function isProductOperation(question: string, answer: string): boolean {
+  const q = question.replace(/\s+/g, "");
+  return (
+    /(?:清空|清除|清掉|删掉|删除|重置).*(?:聊天|对话|消息|记录)/.test(q)
+    || /(?:看见|看(?:得|的)?到|读取|读到|知道|识别).*(?:资料|文件)/.test(q)
+    || answer.includes("当前科目里的聊天记录已经清空")
+    || answer.startsWith("能看到。目前这轮对话选中了")
+  );
+}
+
 export default function Chat({
   onEvent,
   seed,
@@ -461,7 +471,10 @@ export default function Chat({
                     <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
                   </div>
                 )}
-                {!m.streaming && m.text && (
+                {!m.streaming && m.text && !isProductOperation(
+                  [...msgs.slice(0, i)].reverse().find((item) => item.role === "user")?.text || "",
+                  m.text,
+                ) && (
                   <InlineConceptAnimation
                     question={[...msgs.slice(0, i)].reverse().find((item) => item.role === "user")?.text || topic}
                     text={m.text}

@@ -287,7 +287,11 @@ def _answer_matches_current_question(answer: str, question: str, topic_kp: str) 
     if topic_kp and topic_kp != "custom_topic":
         allowed.add(topic_kp)
     observed = set(infer_kp_ids(answer))
-    if topic_kp != "custom_topic" and observed - allowed:
+    # Mentioning a necessary neighbouring concept is not topic drift. For
+    # example, accurately defining a binary tree may contrast it with a BST.
+    # Reject only when the answer contains recognised course topics but none
+    # of them is the learner's current topic.
+    if topic_kp != "custom_topic" and observed and allowed.isdisjoint(observed):
         return False
     if "只用" in question or "只回答" in question:
         requested_numbers = set(re.findall(r"(?<![A-Za-z])\d+", question))
