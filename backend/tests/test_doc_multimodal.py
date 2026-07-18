@@ -229,6 +229,7 @@ def test_one_page_uses_xiaoyunque_prompt_and_stores_real_image(monkeypatch):
     assert "一图看懂二叉树" in captured["prompt"]
     assert "二叉树每个节点最多有两个孩子" in captured["prompt"]
     assert "不得出现任何颜色代码" in captured["prompt"]
+    assert "不显示分区字母" in captured["prompt"]
     assert "#faf9f6" not in captured["prompt"]
 
 
