@@ -78,6 +78,13 @@ def load_kg() -> dict:
     nodes = {n["id"]: n for n in data["nodes"]}
     if len(nodes) != len(data["nodes"]):
         raise ValueError("knowledge graph contains duplicate node ids")
+    detail_ids: set[str] = set()
+    for node in data["nodes"]:
+        for detail in node.get("subtopics") or []:
+            detail_id = str(detail.get("id") or "").strip()
+            if not detail_id or detail_id in nodes or detail_id in detail_ids:
+                raise ValueError(f"knowledge graph contains invalid detail node id: {detail_id}")
+            detail_ids.add(detail_id)
     indeg = {nid: 0 for nid in nodes}
     adj: dict[str, list[str]] = {nid: [] for nid in nodes}
     for e in data["edges"]:
@@ -85,12 +92,19 @@ def load_kg() -> dict:
             raise ValueError(f"knowledge graph edge references unknown node: {e}")
         adj[e["from"]].append(e["to"])
         indeg[e["to"]] += 1
+    detail_edges = data.get("detail_edges") or []
+    known_display_ids = set(nodes) | detail_ids
+    for edge in detail_edges:
+        if edge.get("from") not in known_display_ids or edge.get("to") not in known_display_ids:
+            raise ValueError(f"knowledge graph detail edge references unknown node: {edge}")
     return {
         "course_id": str(data.get("course_id") or "").strip(),
         "course": str(data.get("course") or "").strip(),
         "version": int(data.get("version") or 1),
         "nodes": nodes,
         "edges": data["edges"],
+        "detail_edges": detail_edges,
+        "detail_node_count": len(detail_ids),
         "adj": adj,
         "indeg": indeg,
     }

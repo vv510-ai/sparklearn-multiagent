@@ -1,44 +1,194 @@
 {
   "course_id": "data_structures_algorithms",
   "course": "数据结构与算法",
-  "version": 2,
+  "version": 3,
   "nodes": [
-    {"id": "complexity",    "name": "复杂度分析",        "chapter": "第1章 算法与复杂度", "difficulty": 1, "desc": "大O记号、时间/空间复杂度推导"},
-    {"id": "array",         "name": "数组与顺序表",      "chapter": "第2章 线性表", "difficulty": 1, "desc": "随机访问、插入删除代价"},
-    {"id": "linked_list",   "name": "链表",              "chapter": "第2章 线性表", "difficulty": 2, "desc": "单/双/循环链表与指针操作"},
-    {"id": "stack",         "name": "栈",                "chapter": "第3章 栈与队列", "difficulty": 2, "desc": "LIFO、括号匹配、表达式求值"},
-    {"id": "queue",         "name": "队列",              "chapter": "第3章 栈与队列", "difficulty": 2, "desc": "FIFO、循环队列、双端队列"},
-    {"id": "recursion",     "name": "递归与分治",        "chapter": "第4章 递归与分治", "difficulty": 3, "desc": "递归三要素、调用栈、分治范式"},
-    {"id": "sorting_basic", "name": "基础排序",          "chapter": "第5章 排序", "difficulty": 2, "desc": "冒泡/插入/选择,稳定性"},
-    {"id": "sorting_adv",   "name": "高级排序",          "chapter": "第5章 排序", "difficulty": 4, "desc": "归并/快排/堆排,O(n log n)"},
-    {"id": "binary_tree",   "name": "二叉树",            "chapter": "第6章 树与二叉树", "difficulty": 3, "desc": "性质、四种遍历、存储结构"},
-    {"id": "bst",           "name": "二叉搜索树",        "chapter": "第6章 树与二叉树", "difficulty": 3, "desc": "查找/插入/删除、退化问题"},
-    {"id": "heap",          "name": "堆与优先队列",      "chapter": "第7章 堆", "difficulty": 4, "desc": "完全二叉树、上浮下沉、TopK"},
-    {"id": "hash",          "name": "哈希表",            "chapter": "第8章 哈希", "difficulty": 3, "desc": "散列函数、冲突处理、负载因子"},
-    {"id": "graph_basic",   "name": "图的基础",          "chapter": "第9章 图", "difficulty": 4, "desc": "邻接矩阵/表、有向无向"},
-    {"id": "graph_traverse","name": "图遍历 BFS/DFS",    "chapter": "第9章 图", "difficulty": 4, "desc": "连通性、拓扑排序"},
-    {"id": "shortest_path", "name": "最短路径",          "chapter": "第9章 图", "difficulty": 5, "desc": "Dijkstra、松弛操作"},
-    {"id": "dp",            "name": "动态规划",          "chapter": "第10章 动态规划", "difficulty": 5, "desc": "最优子结构、状态转移方程"}
+    {
+      "id": "complexity", "name": "复杂度分析", "chapter": "第1章 算法与复杂度", "difficulty": 1,
+      "desc": "大 O 记号、时间与空间复杂度及不同输入情形的效率分析。",
+      "subtopics": [
+        {"id": "complexity_big_o", "name": "大 O 记法", "relation": "分析工具", "desc": "忽略常数和低阶项，描述算法随输入规模增长的趋势。"},
+        {"id": "complexity_time_space", "name": "时间与空间", "relation": "权衡", "desc": "同时评估运行时间和额外存储空间。"},
+        {"id": "complexity_cases", "name": "最好/平均/最坏", "relation": "分析维度", "desc": "区分不同输入分布下的复杂度边界。"}
+      ]
+    },
+    {
+      "id": "array", "name": "数组与顺序表", "chapter": "第2章 线性表", "difficulty": 1,
+      "desc": "连续存储、随机访问，以及插入删除时的元素移动代价。",
+      "subtopics": [
+        {"id": "array_random_access", "name": "随机访问", "relation": "核心能力", "desc": "根据下标在 O(1) 时间访问元素。"},
+        {"id": "array_dynamic", "name": "动态数组", "relation": "实现", "desc": "容量不足时扩容并搬移已有元素。"},
+        {"id": "array_operations", "name": "插入与删除", "relation": "操作", "desc": "中间位置操作通常需要移动后续元素。"}
+      ]
+    },
+    {
+      "id": "linked_list", "name": "链表", "chapter": "第2章 线性表", "difficulty": 2,
+      "desc": "通过指针连接离散节点，理解链式存储的查找和修改代价。",
+      "subtopics": [
+        {"id": "linked_singly", "name": "单链表", "relation": "类型", "desc": "节点保存数据和指向下一节点的链接。"},
+        {"id": "linked_double", "name": "双向链表", "relation": "类型", "desc": "同时保存前驱和后继指针，支持双向移动。"},
+        {"id": "linked_circular", "name": "循环链表", "relation": "类型", "desc": "尾节点重新指向首节点，形成闭环。"}
+      ]
+    },
+    {
+      "id": "stack", "name": "栈", "chapter": "第3章 栈与队列", "difficulty": 2,
+      "desc": "后进先出结构及其在表达式、括号匹配和调用过程中的应用。",
+      "subtopics": [
+        {"id": "stack_lifo", "name": "LIFO", "relation": "规则", "desc": "最后进入的元素最先离开。"},
+        {"id": "stack_brackets", "name": "括号匹配", "relation": "应用", "desc": "左括号入栈，右括号与栈顶配对。"},
+        {"id": "stack_expression", "name": "表达式求值", "relation": "应用", "desc": "用栈处理运算符优先级和后缀表达式。"}
+      ]
+    },
+    {
+      "id": "queue", "name": "队列", "chapter": "第3章 栈与队列", "difficulty": 2,
+      "desc": "先进先出结构、循环队列以及双端操作。",
+      "subtopics": [
+        {"id": "queue_fifo", "name": "FIFO", "relation": "规则", "desc": "最先进入的元素最先离开。"},
+        {"id": "queue_circular", "name": "循环队列", "relation": "实现", "desc": "通过首尾下标循环复用有限存储空间。"},
+        {"id": "queue_deque", "name": "双端队列", "relation": "变体", "desc": "允许在队头和队尾执行插入与删除。"}
+      ]
+    },
+    {
+      "id": "recursion", "name": "递归与分治", "chapter": "第6章 递归与分治", "difficulty": 3,
+      "desc": "递归结束条件、调用栈以及把大问题拆成小问题的分治范式。",
+      "subtopics": [
+        {"id": "recursion_laws", "name": "递归三要素", "relation": "规则", "desc": "结束条件、规模缩小和递归调用缺一不可。"},
+        {"id": "recursion_call_stack", "name": "调用栈", "relation": "运行机制", "desc": "每次函数调用保存现场，返回时按后进先出恢复。"},
+        {"id": "recursion_divide", "name": "分治法", "relation": "算法思想", "desc": "分解、解决子问题，再合并子问题结果。"}
+      ]
+    },
+    {
+      "id": "sorting_basic", "name": "基础排序", "chapter": "第4章 排序", "difficulty": 2,
+      "desc": "冒泡、选择和插入排序的逐趟过程、复杂度与稳定性。",
+      "subtopics": [
+        {"id": "sort_bubble", "name": "冒泡排序", "relation": "算法", "desc": "相邻元素比较交换，每趟把一个极值推到端点。"},
+        {"id": "sort_selection", "name": "选择排序", "relation": "算法", "desc": "每趟选择未排序区的最值放到正确位置。"},
+        {"id": "sort_insertion", "name": "插入排序", "relation": "算法", "desc": "把新元素插入已经有序的前缀。"}
+      ]
+    },
+    {
+      "id": "sorting_adv", "name": "高级排序", "chapter": "第4章 排序", "difficulty": 4,
+      "desc": "归并、快速、堆排序及 O(n log n) 算法的策略比较。",
+      "subtopics": [
+        {"id": "sort_merge", "name": "归并排序", "relation": "算法", "desc": "递归拆分，再线性合并两个有序序列。"},
+        {"id": "sort_quick", "name": "快速排序", "relation": "算法", "desc": "选择枢轴划分左右区间并递归处理。"},
+        {"id": "sort_heap", "name": "堆排序", "relation": "算法", "desc": "利用堆反复取出极值完成排序。"},
+        {"id": "sort_stability", "name": "稳定性比较", "relation": "评价", "desc": "判断相等元素排序前后的相对次序是否保持。"}
+      ]
+    },
+    {
+      "id": "binary_tree", "name": "二叉树", "chapter": "第7章 树与二叉树", "difficulty": 3,
+      "desc": "二叉树性质、存储方式、四种遍历以及典型应用。",
+      "subtopics": [
+        {"id": "tree_properties", "name": "二叉树性质", "relation": "基础", "desc": "层数、节点数、叶子与度为 2 节点的数量关系。"},
+        {"id": "tree_complete", "name": "满/完全二叉树", "relation": "类型", "desc": "区分每层全满和最后一层从左连续排列。"},
+        {"id": "tree_traversal", "name": "前中后序遍历", "relation": "算法", "desc": "按根节点被访问的时机理解三种深度优先遍历。"},
+        {"id": "tree_huffman", "name": "哈夫曼树", "relation": "应用", "desc": "通过反复合并最小权值节点构造最优编码树。"}
+      ]
+    },
+    {
+      "id": "bst", "name": "二叉搜索树", "chapter": "第7章 树与二叉树", "difficulty": 3,
+      "desc": "左小右大的有序结构、基本操作以及失衡退化问题。",
+      "subtopics": [
+        {"id": "bst_operations", "name": "查找/插入/删除", "relation": "操作", "desc": "沿比较结果进入左子树或右子树。"},
+        {"id": "bst_avl", "name": "AVL 平衡树", "relation": "扩展", "desc": "用平衡因子约束树高，避免退化成链。"},
+        {"id": "bst_rotation", "name": "LL/RR/LR/RL 旋转", "relation": "调整", "desc": "通过单旋或双旋恢复 AVL 的高度平衡。"}
+      ]
+    },
+    {
+      "id": "heap", "name": "堆与优先队列", "chapter": "第8章 堆", "difficulty": 4,
+      "desc": "完全二叉树上的堆序性质、上浮下沉和优先级操作。",
+      "subtopics": [
+        {"id": "heap_property", "name": "堆序性质", "relation": "规则", "desc": "父节点始终不大于或不小于子节点。"},
+        {"id": "heap_adjust", "name": "上浮与下沉", "relation": "操作", "desc": "插入或删除后沿路径恢复堆序。"},
+        {"id": "heap_priority_queue", "name": "优先队列", "relation": "应用", "desc": "按优先级而不是进入顺序取出元素。"}
+      ]
+    },
+    {
+      "id": "hash", "name": "哈希表", "chapter": "第5章 哈希", "difficulty": 3,
+      "desc": "散列函数、冲突处理和装载因子共同决定查找性能。",
+      "subtopics": [
+        {"id": "hash_function", "name": "散列函数", "relation": "映射", "desc": "把键尽量均匀地映射到有限槽位。"},
+        {"id": "hash_collision", "name": "冲突处理", "relation": "机制", "desc": "开放定址或链地址法处理同槽键。"},
+        {"id": "hash_load_factor", "name": "装载因子", "relation": "性能", "desc": "元素数量与槽位数量的比例影响冲突概率。"}
+      ]
+    },
+    {
+      "id": "graph_basic", "name": "图的基础", "chapter": "第9章 图", "difficulty": 4,
+      "desc": "顶点、边、方向、权重以及邻接矩阵和邻接表。",
+      "subtopics": [
+        {"id": "graph_representation", "name": "邻接矩阵/表", "relation": "表示", "desc": "用矩阵或链式邻接结构保存边。"},
+        {"id": "graph_types", "name": "有向/无向/带权", "relation": "类型", "desc": "方向与权值决定图中关系的语义。"},
+        {"id": "graph_connectivity", "name": "路径与连通性", "relation": "概念", "desc": "研究顶点之间能否通过边相互到达。"},
+        {"id": "graph_mst", "name": "最小生成树", "relation": "问题", "desc": "在连通加权无向图中寻找总权值最小的生成树。"}
+      ]
+    },
+    {
+      "id": "graph_traverse", "name": "图遍历 BFS/DFS", "chapter": "第9章 图", "difficulty": 4,
+      "desc": "广度和深度优先遍历、拓扑顺序及连通结构分析。",
+      "subtopics": [
+        {"id": "graph_bfs", "name": "BFS", "relation": "算法", "desc": "借助队列逐层扩展尚未访问的邻接点。"},
+        {"id": "graph_dfs", "name": "DFS", "relation": "算法", "desc": "借助递归或栈沿一条路径深入后回溯。"},
+        {"id": "graph_topological", "name": "拓扑排序", "relation": "应用", "desc": "为有向无环图生成满足先后依赖的线性序列。"}
+      ]
+    },
+    {
+      "id": "shortest_path", "name": "最短路径", "chapter": "第9章 图", "difficulty": 5,
+      "desc": "松弛操作及不同权值条件下的单源或多源最短路径算法。",
+      "subtopics": [
+        {"id": "shortest_relaxation", "name": "松弛操作", "relation": "核心机制", "desc": "尝试用一条新边缩短当前已知距离。"},
+        {"id": "shortest_dijkstra", "name": "Dijkstra", "relation": "算法", "desc": "求非负权图的单源最短路径。"},
+        {"id": "shortest_bellman", "name": "Bellman-Ford", "relation": "算法", "desc": "允许负权边并能检测负权环。"},
+        {"id": "shortest_floyd", "name": "Floyd", "relation": "算法", "desc": "用动态规划求所有顶点对之间的最短距离。"}
+      ]
+    },
+    {
+      "id": "dp", "name": "动态规划", "chapter": "第10章 动态规划", "difficulty": 5,
+      "desc": "状态定义、状态转移以及记忆化和自底向上的求解方式。",
+      "subtopics": [
+        {"id": "dp_state", "name": "状态与转移", "relation": "核心", "desc": "明确子问题状态以及状态之间的递推关系。"},
+        {"id": "dp_memo", "name": "记忆化搜索", "relation": "自顶向下", "desc": "缓存递归子问题结果，避免重复计算。"},
+        {"id": "dp_table", "name": "递推填表", "relation": "自底向上", "desc": "按照依赖顺序逐步计算并保存状态答案。"}
+      ]
+    }
   ],
   "edges": [
-    {"from": "complexity",    "to": "array"},
-    {"from": "array",         "to": "linked_list"},
-    {"from": "linked_list",   "to": "stack"},
-    {"from": "stack",         "to": "queue"},
-    {"from": "array",         "to": "sorting_basic"},
-    {"from": "stack",         "to": "recursion"},
-    {"from": "recursion",     "to": "sorting_adv"},
+    {"from": "complexity", "to": "array"},
+    {"from": "array", "to": "linked_list"},
+    {"from": "linked_list", "to": "stack"},
+    {"from": "stack", "to": "queue"},
+    {"from": "array", "to": "sorting_basic"},
+    {"from": "stack", "to": "recursion"},
+    {"from": "recursion", "to": "sorting_adv"},
     {"from": "sorting_basic", "to": "sorting_adv"},
-    {"from": "linked_list",   "to": "binary_tree"},
-    {"from": "recursion",     "to": "binary_tree"},
-    {"from": "binary_tree",   "to": "bst"},
-    {"from": "binary_tree",   "to": "heap"},
-    {"from": "heap",          "to": "sorting_adv"},
-    {"from": "array",         "to": "hash"},
-    {"from": "queue",         "to": "graph_basic"},
-    {"from": "binary_tree",   "to": "graph_basic"},
-    {"from": "graph_basic",   "to": "graph_traverse"},
-    {"from": "graph_traverse","to": "shortest_path"},
-    {"from": "recursion",     "to": "dp"}
+    {"from": "linked_list", "to": "binary_tree"},
+    {"from": "recursion", "to": "binary_tree"},
+    {"from": "binary_tree", "to": "bst"},
+    {"from": "binary_tree", "to": "heap"},
+    {"from": "heap", "to": "sorting_adv"},
+    {"from": "array", "to": "hash"},
+    {"from": "queue", "to": "graph_basic"},
+    {"from": "binary_tree", "to": "graph_basic"},
+    {"from": "graph_basic", "to": "graph_traverse"},
+    {"from": "graph_traverse", "to": "shortest_path"},
+    {"from": "recursion", "to": "dp"}
+  ],
+  "detail_edges": [
+    {"from": "array_random_access", "to": "complexity_time_space", "label": "性能分析"},
+    {"from": "linked_singly", "to": "stack_lifo", "label": "链式实现"},
+    {"from": "stack_lifo", "to": "recursion_call_stack", "label": "运行机制"},
+    {"from": "queue_fifo", "to": "graph_bfs", "label": "支撑"},
+    {"from": "recursion_divide", "to": "sort_merge", "label": "分治"},
+    {"from": "recursion_divide", "to": "sort_quick", "label": "分治"},
+    {"from": "tree_complete", "to": "heap_property", "label": "结构基础"},
+    {"from": "tree_traversal", "to": "graph_dfs", "label": "遍历迁移"},
+    {"from": "heap_priority_queue", "to": "shortest_dijkstra", "label": "优化"},
+    {"from": "graph_representation", "to": "graph_bfs", "label": "访问邻接点"},
+    {"from": "graph_representation", "to": "graph_dfs", "label": "访问邻接点"},
+    {"from": "graph_dfs", "to": "graph_topological", "label": "应用"},
+    {"from": "graph_bfs", "to": "shortest_dijkstra", "label": "逐层扩展"},
+    {"from": "bst_avl", "to": "bst_rotation", "label": "恢复平衡"},
+    {"from": "sort_heap", "to": "heap_adjust", "label": "依赖"},
+    {"from": "shortest_floyd", "to": "dp_state", "label": "动态规划"}
   ]
 }

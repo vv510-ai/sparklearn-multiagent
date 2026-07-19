@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   BookOpen,
   CheckCircle2,
   ChevronRight,
   CircleDot,
   Lightbulb,
+  Layers3,
   LockKeyhole,
+  Maximize2,
+  Minimize2,
   Network,
   RotateCcw,
   Route,
@@ -15,12 +19,15 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import type { PathNode, PathPlan } from "@/lib/types";
+import type { PathNode, PathPlan, PathSubtopic } from "@/lib/types";
 
-const VIEW_W = 1120;
+const VIEW_W = 800;
 const VIEW_H = 640;
 const NODE_W = 144;
 const NODE_H = 68;
+const DETAIL_NODE_W = 112;
+const DETAIL_NODE_H = 44;
+const EXPANDED_CHAPTER_H = 350;
 const ALL_CHAPTERS = "全部章节";
 const CHAPTER_COLORS = [
   "#38E8FF",
@@ -37,6 +44,12 @@ const CHAPTER_COLORS = [
 
 type Point = { x: number; y: number };
 type ViewMode = "graph" | "route";
+type DisplayNode = PathNode & {
+  detail?: boolean;
+  parentId?: string;
+  relation?: string;
+};
+type DisplayEdge = { from: string; to: string; label?: string; detail?: boolean };
 
 const STATUS = {
   done: {
@@ -69,7 +82,7 @@ function chapterOf(node: PathNode) {
   return node.chapter?.trim() || "学习主题";
 }
 
-function graphLayout(plan: PathPlan): Record<string, Point> {
+function compactGraphLayout(plan: PathPlan): Record<string, Point> {
   const chapters = Array.from(new Set(plan.nodes.map(chapterOf)));
   const groups = new Map<string, PathNode[]>();
   plan.nodes.forEach((node) => {
@@ -79,7 +92,7 @@ function graphLayout(plan: PathPlan): Record<string, Point> {
 
   const pos: Record<string, Point> = {};
   const center = { x: VIEW_W / 2, y: VIEW_H / 2 + 2 };
-  const radiusX = 400;
+  const radiusX = 280;
   const radiusY = 228;
   chapters.forEach((chapter, chapterIndex) => {
     const angle = -Math.PI / 2 + (chapterIndex * Math.PI * 2) / Math.max(1, chapters.length);
@@ -95,6 +108,50 @@ function graphLayout(plan: PathPlan): Record<string, Point> {
     });
   });
   return pos;
+}
+
+function expandedGraphLayout(plan: PathPlan, expanded: Set<string>) {
+  if (!expanded.size) return { positions: compactGraphLayout(plan), height: VIEW_H };
+
+  const chapters = Array.from(new Set(plan.nodes.map(chapterOf)));
+  const columns = 2;
+  const cellWidth = VIEW_W / columns;
+  const positions: Record<string, Point> = {};
+
+  chapters.forEach((chapter, chapterIndex) => {
+    const row = Math.floor(chapterIndex / columns);
+    const column = chapterIndex % columns;
+    const left = column * cellWidth;
+    const top = row * EXPANDED_CHAPTER_H + 32;
+    const parents = plan.nodes.filter((node) => chapterOf(node) === chapter);
+    const parentSpan = Math.min(380, cellWidth - 180);
+    parents.forEach((node, index) => {
+      positions[node.id] = {
+        x: left + cellWidth / 2 + (index - (parents.length - 1) / 2) * (parentSpan / Math.max(1, parents.length - 1)),
+        y: top + 72,
+      };
+    });
+
+    const details = parents.flatMap((node) => (
+      expanded.has(node.id)
+        ? (node.subtopics || []).map((detail) => ({ detail, parentId: node.id }))
+        : []
+    ));
+    const detailColumns = 4;
+    details.forEach(({ detail }, index) => {
+      const detailColumn = index % detailColumns;
+      const detailRow = Math.floor(index / detailColumns);
+      positions[detail.id] = {
+        x: left + 82 + detailColumn * ((cellWidth - 164) / (detailColumns - 1)),
+        y: top + 166 + detailRow * 62,
+      };
+    });
+  });
+
+  return {
+    positions,
+    height: Math.max(VIEW_H, Math.ceil(chapters.length / columns) * EXPANDED_CHAPTER_H + 20),
+  };
 }
 
 function routeLayout(plan: PathPlan): Record<string, Point> {
@@ -160,26 +217,82 @@ export default function PathDag({
   const [query, setQuery] = useState("");
   const [chapter, setChapter] = useState(ALL_CHAPTERS);
   const [showRecallHint, setShowRecallHint] = useState(false);
-
-  const byId = useMemo(
-    () => Object.fromEntries(plan.nodes.map((node) => [node.id, node])) as Record<string, PathNode>,
+  const expandableIds = useMemo(
+    () => plan.nodes.filter((node) => node.subtopics?.length).map((node) => node.id),
     [plan.nodes],
+  );
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(expandableIds));
+  const [activeDetailId, setActiveDetailId] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const allDisplayNodes = useMemo<DisplayNode[]>(() => plan.nodes.flatMap((node) => [
+    node,
+    ...(node.subtopics || []).map((detail: PathSubtopic): DisplayNode => ({
+      id: detail.id,
+      name: detail.name,
+      mastery: node.mastery,
+      status: node.status,
+      difficulty: node.difficulty,
+      score: node.score,
+      reason: `属于「${node.name}」的${detail.relation || "细分概念"}`,
+      chapter: node.chapter,
+      desc: detail.desc,
+      detail: true,
+      parentId: node.id,
+      relation: detail.relation,
+    })),
+  ]), [plan.nodes]);
+  const displayNodes = useMemo(
+    () => mode === "route"
+      ? allDisplayNodes.filter((node) => !node.detail)
+      : allDisplayNodes.filter((node) => !node.detail || expanded.has(node.parentId || "")),
+    [allDisplayNodes, expanded, mode],
+  );
+  const displayEdges = useMemo<DisplayEdge[]>(() => {
+    const courseEdges = plan.edges.map((edge) => ({ ...edge, label: "先修" }));
+    if (mode === "route") return courseEdges;
+    const detailEdges = plan.nodes.flatMap((node) => (
+      expanded.has(node.id)
+        ? (node.subtopics || []).map((detail) => ({
+          from: node.id,
+          to: detail.id,
+          label: detail.relation || "包含",
+          detail: true,
+        }))
+        : []
+    ));
+    const visibleIds = new Set(displayNodes.map((node) => node.id));
+    const crossEdges = (plan.detail_edges || [])
+      .filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to))
+      .map((edge) => ({ ...edge, detail: true }));
+    return [...courseEdges, ...detailEdges, ...crossEdges];
+  }, [displayNodes, expanded, mode, plan.detail_edges, plan.edges, plan.nodes]);
+  const byId = useMemo(
+    () => Object.fromEntries(displayNodes.map((node) => [node.id, node])) as Record<string, DisplayNode>,
+    [displayNodes],
   );
   const chapters = useMemo(() => Array.from(new Set(plan.nodes.map(chapterOf))), [plan.nodes]);
   const chapterCounts = useMemo(
-    () => plan.nodes.reduce<Record<string, number>>((counts, node) => {
+    () => allDisplayNodes.reduce<Record<string, number>>((counts, node) => {
       const name = chapterOf(node);
       counts[name] = (counts[name] || 0) + 1;
       return counts;
     }, {}),
-    [plan.nodes],
+    [allDisplayNodes],
   );
   const chapterColors = useMemo(
     () => Object.fromEntries(chapters.map((name, index) => [name, CHAPTER_COLORS[index % CHAPTER_COLORS.length]])),
     [chapters],
   );
-  const positions = useMemo(() => (mode === "graph" ? graphLayout(plan) : routeLayout(plan)), [mode, plan]);
-  const activeNode = selected ? byId[selected] : undefined;
+  const layout = useMemo(
+    () => mode === "graph"
+      ? expandedGraphLayout(plan, expanded)
+      : { positions: routeLayout(plan), height: VIEW_H },
+    [expanded, mode, plan],
+  );
+  const positions = layout.positions;
+  const activeId = activeDetailId && byId[activeDetailId] ? activeDetailId : selected;
+  const activeNode = activeId ? byId[activeId] : undefined;
   const routeNodes = useMemo(
     () => plan.nodes.filter((node) => node.order != null).sort((a, b) => (a.order || 99) - (b.order || 99)).slice(0, 6),
     [plan.nodes],
@@ -187,23 +300,23 @@ export default function PathDag({
   const routeIds = useMemo(() => new Set(routeNodes.map((node) => node.id)), [routeNodes]);
   const neighbours = useMemo(() => {
     const map = new Map<string, Set<string>>();
-    plan.nodes.forEach((node) => map.set(node.id, new Set()));
-    plan.edges.forEach((edge) => {
+    displayNodes.forEach((node) => map.set(node.id, new Set()));
+    displayEdges.forEach((edge) => {
       map.get(edge.from)?.add(edge.to);
       map.get(edge.to)?.add(edge.from);
     });
     return map;
-  }, [plan.edges, plan.nodes]);
+  }, [displayEdges, displayNodes]);
 
   const normalizedQuery = query.trim().toLocaleLowerCase("zh-CN");
   const queryHits = useMemo(() => {
     if (!normalizedQuery) return new Set<string>();
-    return new Set(plan.nodes.filter((node) => (
+    return new Set(allDisplayNodes.filter((node) => (
       `${node.name} ${node.chapter || ""} ${node.desc || ""} ${node.reason || ""}`
         .toLocaleLowerCase("zh-CN")
         .includes(normalizedQuery)
     )).map((node) => node.id));
-  }, [normalizedQuery, plan.nodes]);
+  }, [allDisplayNodes, normalizedQuery]);
 
   const focus = useMemo(() => {
     const ids = new Set<string>();
@@ -215,7 +328,7 @@ export default function PathDag({
       return { active: true, ids };
     }
     if (chapter !== ALL_CHAPTERS) {
-      plan.nodes.filter((node) => chapterOf(node) === chapter).forEach((node) => ids.add(node.id));
+      displayNodes.filter((node) => chapterOf(node) === chapter).forEach((node) => ids.add(node.id));
       return { active: true, ids };
     }
     if (mode === "route" && routeIds.size) {
@@ -223,50 +336,107 @@ export default function PathDag({
       if (plan.next_kp) neighbours.get(plan.next_kp)?.forEach((id) => ids.add(id));
       return { active: true, ids };
     }
-    if (selected && byId[selected]) {
-      ids.add(selected);
-      neighbours.get(selected)?.forEach((id) => ids.add(id));
+    if (activeId && byId[activeId]) {
+      ids.add(activeId);
+      neighbours.get(activeId)?.forEach((id) => ids.add(id));
       return { active: true, ids };
     }
     return { active: false, ids };
-  }, [byId, chapter, mode, neighbours, normalizedQuery, plan.next_kp, plan.nodes, queryHits, routeIds, selected]);
+  }, [activeId, byId, chapter, displayNodes, mode, neighbours, normalizedQuery, plan.next_kp, queryHits, routeIds]);
 
   const prerequisites = useMemo(
     () => activeNode
-      ? plan.edges.filter((edge) => edge.to === activeNode.id).map((edge) => byId[edge.from]).filter(Boolean)
+      ? displayEdges.filter((edge) => edge.to === activeNode.id).map((edge) => byId[edge.from]).filter(Boolean)
       : [],
-    [activeNode, byId, plan.edges],
+    [activeNode, byId, displayEdges],
   );
   const unlocks = useMemo(
     () => activeNode
-      ? plan.edges.filter((edge) => edge.from === activeNode.id).map((edge) => byId[edge.to]).filter(Boolean)
+      ? displayEdges.filter((edge) => edge.from === activeNode.id).map((edge) => byId[edge.to]).filter(Boolean)
       : [],
-    [activeNode, byId, plan.edges],
+    [activeNode, byId, displayEdges],
   );
 
-  useEffect(() => setShowRecallHint(false), [selected]);
+  useEffect(() => {
+    setExpanded(new Set(expandableIds));
+    setActiveDetailId(null);
+  }, [expandableIds]);
+  useEffect(() => {
+    if (activeDetailId && byId[activeDetailId]?.parentId !== selected) setActiveDetailId(null);
+  }, [activeDetailId, byId, selected]);
+  useEffect(() => setShowRecallHint(false), [activeId]);
+  useEffect(() => {
+    if (!fullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [fullscreen]);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      if (fullscreen) {
+        setFullscreen(false);
+        return;
+      }
       setQuery("");
       setChapter(ALL_CHAPTERS);
+      setActiveDetailId(null);
       onSelect(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onSelect]);
+  }, [fullscreen, onSelect]);
 
   const reset = () => {
     setQuery("");
     setChapter(ALL_CHAPTERS);
     setMode("graph");
+    setExpanded(new Set(expandableIds));
+    setActiveDetailId(null);
     onSelect(null);
   };
+  const toggleExpanded = (nodeId: string) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  };
+  const toggleAllDetails = () => {
+    setMode("graph");
+    setActiveDetailId(null);
+    setExpanded((current) => current.size === expandableIds.length ? new Set() : new Set(expandableIds));
+  };
+  const selectDisplayNode = (node: DisplayNode) => {
+    if (node.detail) {
+      setActiveDetailId(node.id);
+      onSelect(node.parentId || null);
+      return;
+    }
+    setActiveDetailId(null);
+    if (node.subtopics?.length && !expanded.has(node.id)) toggleExpanded(node.id);
+    onSelect(node.id);
+  };
+  const updateQuery = (value: string) => {
+    setQuery(value);
+    if (!value.trim()) return;
+    setChapter(ALL_CHAPTERS);
+    const probe = value.trim().toLocaleLowerCase("zh-CN");
+    const parents = allDisplayNodes
+      .filter((node) => node.detail && `${node.name} ${node.desc || ""}`.toLocaleLowerCase("zh-CN").includes(probe))
+      .map((node) => node.parentId)
+      .filter(Boolean) as string[];
+    if (parents.length) setExpanded((current) => new Set([...Array.from(current), ...parents]));
+  };
   const courseLocked = plan.course_id === "data_structures_algorithms";
-  const readyCount = plan.nodes.filter((node) => node.status === "ready").length;
+  const totalNodeCount = allDisplayNodes.length;
+  const totalRelationCount = plan.edges.length
+    + allDisplayNodes.filter((node) => node.detail).length
+    + (plan.detail_edges || []).length;
 
-  return (
-    <div className="overflow-hidden rounded-[18px] border border-slate-800 bg-[#06101E] text-white shadow-[0_24px_80px_rgba(2,8,23,.2)]">
+  const graphContent = (
+    <div className={`${fullscreen ? "fixed inset-0 z-[999] overflow-y-auto rounded-none" : "overflow-hidden rounded-[18px]"} border border-slate-800 bg-[#06101E] text-white shadow-[0_24px_80px_rgba(2,8,23,.2)]`}>
       <div className="relative overflow-hidden border-b border-white/10 px-4 py-5 sm:px-6">
         <div className="pointer-events-none absolute -left-16 -top-24 h-60 w-60 rounded-full bg-cyan-400/10 blur-3xl" />
         <div className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-violet-500/10 blur-3xl" />
@@ -279,13 +449,13 @@ export default function PathDag({
               </span>
             </div>
             <h2 className="mt-2 text-xl font-black tracking-tight sm:text-2xl">{plan.course || "知识关系图"}</h2>
-            <p className="mt-1 max-w-2xl text-xs leading-6 text-slate-400 sm:text-sm">点击节点进入聚光灯模式，查看先修关系、掌握证据和下一步；无关节点会自动降噪。</p>
+            <p className="mt-1 max-w-2xl text-xs leading-6 text-slate-400 sm:text-sm">课程主节点与细分概念组成可展开网络；点击主节点查看关系，使用节点右上角或“全部展开”控制复杂度。</p>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
-              [plan.nodes.length, "知识点"],
-              [plan.edges.length, "先修关系"],
-              [readyCount, "可学习"],
+              [totalNodeCount, "知识节点"],
+              [totalRelationCount, "知识关系"],
+              [expanded.size, "已展开"],
             ].map(([value, label]) => (
               <div key={String(label)} className="min-w-[76px] rounded-xl border border-white/10 bg-white/[0.055] px-3 py-2">
                 <strong className="block text-lg text-white">{value}</strong>
@@ -302,12 +472,11 @@ export default function PathDag({
             <Search size={16} />
             <input
               value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                if (event.target.value.trim()) setChapter(ALL_CHAPTERS);
-              }}
+              onChange={(event) => updateQuery(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter") onSelect(Array.from(queryHits)[0] || null);
+                if (event.key !== "Enter") return;
+                const first = byId[Array.from(queryHits)[0] || ""];
+                if (first) selectDisplayNode(first);
               }}
               className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
               placeholder="搜索：栈、二叉树、Dijkstra…"
@@ -318,21 +487,32 @@ export default function PathDag({
           <div className="flex flex-wrap gap-2">
             <button type="button" className={buttonClass(mode === "graph")} onClick={() => { setMode("graph"); setQuery(""); setChapter(ALL_CHAPTERS); }}><Network size={14} />章节图谱</button>
             <button type="button" className={buttonClass(mode === "route")} onClick={() => { setMode("route"); setQuery(""); setChapter(ALL_CHAPTERS); }}><Route size={14} />学习主线</button>
+            <button type="button" className={buttonClass(expanded.size === expandableIds.length && mode === "graph")} onClick={toggleAllDetails}>
+              <Layers3 size={14} />{expanded.size === expandableIds.length ? "收起细节" : "全部展开"}
+            </button>
+            <button type="button" className={buttonClass(fullscreen)} onClick={() => setFullscreen((value) => !value)}>
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}{fullscreen ? "退出全屏" : "全屏模式"}
+            </button>
             <button type="button" className={buttonClass(false)} onClick={reset}><RotateCcw size={14} />重置</button>
           </div>
         </div>
         <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/15 p-2.5 sm:p-3">
           <div className="mb-2.5 flex flex-wrap items-center justify-between gap-1.5 px-0.5">
             <span className="text-[10px] font-black tracking-[0.16em] text-slate-400">章节导航</span>
-            <span className="text-[10px] font-bold text-slate-500">{chapters.length} 个章节 · {plan.nodes.length} 个知识点 · 全部可见</span>
+            <span className="text-[10px] font-bold text-slate-500">{chapters.length} 个章节 · {totalNodeCount} 个知识节点 · 可展开</span>
           </div>
           <div className="flex flex-wrap gap-2" role="group" aria-label="按章节筛选知识图谱">
             <button type="button" onClick={() => { setChapter(ALL_CHAPTERS); setQuery(""); }} className={buttonClass(chapter === ALL_CHAPTERS)}>
               {ALL_CHAPTERS}
-              <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300">{plan.nodes.length}</span>
+              <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300">{totalNodeCount}</span>
             </button>
             {chapters.map((name) => (
-              <button type="button" key={name} onClick={() => { setChapter(name); setQuery(""); }} className={buttonClass(chapter === name)}>
+              <button type="button" key={name} onClick={() => {
+                setChapter(name);
+                setQuery("");
+                const chapterParents = plan.nodes.filter((node) => chapterOf(node) === name).map((node) => node.id);
+                setExpanded((current) => new Set([...Array.from(current), ...chapterParents]));
+              }} className={buttonClass(chapter === name)}>
                 <i className="h-2 w-2 shrink-0 rounded-full shadow-[0_0_12px_currentColor]" style={{ backgroundColor: chapterColors[name], color: chapterColors[name] }} />
                 <span>{name.replace(/^第\d+章\s*/, "")}</span>
                 <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300">{chapterCounts[name]}</span>
@@ -372,16 +552,18 @@ export default function PathDag({
                 ? `章节聚焦 · ${chapter}`
                 : mode === "route"
                   ? "个性化学习主线"
-                  : selected
-                    ? `关系聚焦 · ${byId[selected]?.name || "知识点"}`
-                    : "课程全图"}
+                  : activeId
+                    ? `关系聚焦 · ${byId[activeId]?.name || "知识点"}`
+                    : expanded.size
+                      ? `复杂全图 · 已展开 ${expanded.size} 组`
+                      : "课程骨架图"}
           </div>
           <svg
-            viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-            className="block h-auto min-h-[480px] min-w-[760px] w-full"
+            viewBox={`0 0 ${VIEW_W} ${layout.height}`}
+            className="block h-auto min-h-[480px] w-full"
             role="img"
             aria-label={`${plan.course || "课程"}交互式知识图谱`}
-            onClick={() => onSelect(null)}
+            onClick={() => { setActiveDetailId(null); onSelect(null); }}
           >
             <defs>
               <radialGradient id="graph-background" cx="50%" cy="48%" r="70%">
@@ -396,56 +578,86 @@ export default function PathDag({
                 <path d="M0,0 L8,4 L0,8 z" fill="#8293AA" />
               </marker>
             </defs>
-            <rect width={VIEW_W} height={VIEW_H} fill="url(#graph-background)" />
+            <rect width={VIEW_W} height={layout.height} fill="url(#graph-background)" />
             <g opacity="0.15">
-              {Array.from({ length: 22 }).map((_, index) => (
-                <circle key={index} cx={(index * 167) % VIEW_W} cy={(index * 97) % VIEW_H} r={(index % 3) + 1} fill="#BFEFFF" />
+              {Array.from({ length: Math.min(72, Math.ceil(layout.height / 28)) }).map((_, index) => (
+                <circle key={index} cx={(index * 167) % VIEW_W} cy={(index * 97) % layout.height} r={(index % 3) + 1} fill="#BFEFFF" />
               ))}
             </g>
 
-            {plan.edges.map((edge, index) => {
+            {displayEdges.map((edge, index) => {
               const from = positions[edge.from];
               const to = positions[edge.to];
               if (!from || !to) return null;
-              const selectedEdge = Boolean(selected && (edge.from === selected || edge.to === selected));
+              const fromNode = byId[edge.from];
+              const toNode = byId[edge.to];
+              const selectedEdge = Boolean(activeId && (edge.from === activeId || edge.to === activeId));
               const routeEdge = mode === "route" && routeIds.has(edge.from) && routeIds.has(edge.to);
+              const crossDetail = Boolean(edge.detail && fromNode?.parentId && toNode?.parentId && fromNode.parentId !== toNode.parentId);
               const dim = focus.active && !(focus.ids.has(edge.from) && focus.ids.has(edge.to));
-              const stroke = routeEdge ? "#FFD166" : selectedEdge ? "#E9FAFF" : "#8293AA";
+              const stroke = routeEdge
+                ? "#FFD166"
+                : selectedEdge
+                  ? "#E9FAFF"
+                  : edge.detail
+                    ? chapterColors[chapterOf(toNode || fromNode)] || "#6386A8"
+                    : "#8293AA";
               const path = mode === "route"
                 ? `M ${from.x + NODE_W / 2 - 8} ${from.y} C ${(from.x + to.x) / 2} ${from.y}, ${(from.x + to.x) / 2} ${to.y}, ${to.x - NODE_W / 2 + 8} ${to.y}`
                 : `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
               return (
-                <g key={`${edge.from}-${edge.to}-${index}`} opacity={dim ? 0.08 : selectedEdge || routeEdge ? 0.95 : 0.34}>
-                  <path d={path} fill="none" stroke={stroke} strokeWidth={selectedEdge || routeEdge ? 2.6 : 1.25} markerEnd="url(#knowledge-arrow)" />
-                  {selectedEdge && (
-                    <text x={(from.x + to.x) / 2} y={(from.y + to.y) / 2 - 7} textAnchor="middle" fontSize="10" fontWeight="800" fill="#EAFBFF" stroke="#06101E" strokeWidth="4" paintOrder="stroke">
-                      先修
+                <g key={`${edge.from}-${edge.to}-${index}`} opacity={dim ? 0.05 : selectedEdge || routeEdge ? 0.95 : edge.detail ? 0.42 : 0.3}>
+                  <path d={path} fill="none" stroke={stroke} strokeWidth={selectedEdge || routeEdge ? 2.6 : edge.detail ? 1.05 : 1.25} strokeDasharray={crossDetail ? "5 4" : undefined} markerEnd="url(#knowledge-arrow)" />
+                  {(selectedEdge || crossDetail) && edge.label && (
+                    <text x={(from.x + to.x) / 2} y={(from.y + to.y) / 2 - 7} textAnchor="middle" fontSize={selectedEdge ? "9" : "7.5"} fontWeight="800" fill="#EAFBFF" stroke="#06101E" strokeWidth="4" paintOrder="stroke">
+                      {edge.label}
                     </text>
                   )}
                 </g>
               );
             })}
 
-            {plan.nodes.map((node) => {
+            {displayNodes.map((node) => {
               const point = positions[node.id];
               if (!point) return null;
               const style = STATUS[node.status];
               const chapterColor = chapterColors[chapterOf(node)] || CHAPTER_COLORS[0];
               const dim = focus.active && !focus.ids.has(node.id);
-              const isSelected = selected === node.id;
+              const isSelected = activeId === node.id;
               const isHit = queryHits.has(node.id);
               const isRoute = mode === "route" && routeIds.has(node.id);
               const isNext = plan.next_kp === node.id;
               const statusSymbol = node.status === "done" ? "✓" : node.status === "locked" ? "·" : "●";
+              if (node.detail) {
+                return (
+                  <g
+                    key={node.id}
+                    transform={`translate(${point.x - DETAIL_NODE_W / 2}, ${point.y - DETAIL_NODE_H / 2})`}
+                    opacity={dim ? 0.1 : 1}
+                    className="cursor-pointer transition-opacity"
+                    onClick={(event) => { event.stopPropagation(); selectDisplayNode(node); }}
+                    role="button"
+                    aria-label={`${node.name}，${node.relation || "细分知识点"}，属于 ${byId[node.parentId || ""]?.name || "课程"}`}
+                  >
+                    {(isSelected || isHit) && (
+                      <rect x="-4" y="-4" width={DETAIL_NODE_W + 8} height={DETAIL_NODE_H + 8} rx="26" fill="none" stroke={isHit ? "#FFF5A6" : "#FFFFFF"} strokeWidth="2" filter="url(#node-glow)" />
+                    )}
+                    <rect width={DETAIL_NODE_W} height={DETAIL_NODE_H} rx="22" fill="#0A1C2C" stroke={chapterColor} strokeWidth={isSelected ? 2.4 : 1.3} />
+                    <circle cx="14" cy="15" r="4" fill={chapterColor} />
+                    <text x={DETAIL_NODE_W / 2 + 4} y="19" textAnchor="middle" fontSize="11" fontWeight="900" fill="#F4FAFF">{node.name}</text>
+                    <text x={DETAIL_NODE_W / 2} y="33" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="#8FA8BF">{node.relation || "细分概念"}</text>
+                  </g>
+                );
+              }
               return (
                 <g
                   key={node.id}
                   transform={`translate(${point.x - NODE_W / 2}, ${point.y - NODE_H / 2})`}
                   opacity={dim ? 0.12 : 1}
                   className="cursor-pointer transition-opacity"
-                  onClick={(event) => { event.stopPropagation(); onSelect(node.id); }}
+                  onClick={(event) => { event.stopPropagation(); selectDisplayNode(node); }}
                   role="button"
-                  aria-label={`${node.name}，${style.label}，掌握度 ${masteryLabel(node.mastery)}`}
+                  aria-label={`${node.name}，${style.label}，掌握度 ${masteryLabel(node.mastery)}，${expanded.has(node.id) ? "细分节点已展开" : "可展开细分节点"}`}
                 >
                   {(isSelected || isHit || isRoute) && (
                     <rect x="-5" y="-5" width={NODE_W + 10} height={NODE_H + 10} rx="18" fill="none" stroke={isRoute ? "#FFD166" : isHit ? "#FFF5A6" : "#FFFFFF"} strokeWidth="2" strokeDasharray={isRoute ? "5 4" : undefined} filter="url(#node-glow)" />
@@ -459,6 +671,17 @@ export default function PathDag({
                   <text x={NODE_W - 12} y="47" textAnchor="end" fontSize="10" fontWeight="900" fill={style.border}>{masteryLabel(node.mastery)}</text>
                   <rect x="12" y={NODE_H - 10} width={NODE_W - 24} height="4" rx="2" fill="#334155" />
                   <rect x="12" y={NODE_H - 10} width={(NODE_W - 24) * Math.max(0, Math.min(1, node.mastery))} height="4" rx="2" fill={style.bar} />
+                  {node.subtopics?.length ? (
+                    <g
+                      transform={`translate(${NODE_W - 8}, 8)`}
+                      onClick={(event) => { event.stopPropagation(); toggleExpanded(node.id); }}
+                      role="button"
+                      aria-label={`${expanded.has(node.id) ? "收起" : "展开"}${node.name}的 ${node.subtopics.length} 个细分节点`}
+                    >
+                      <circle r="11" fill="#06101E" stroke={chapterColor} strokeWidth="1.4" />
+                      <text y="3.5" textAnchor="middle" fontSize="13" fontWeight="900" fill={chapterColor}>{expanded.has(node.id) ? "−" : "+"}</text>
+                    </g>
+                  ) : null}
                   {isNext && (
                     <g transform={`translate(${NODE_W - 21}, -8)`}>
                       <rect width="42" height="16" rx="8" fill="#0F6B50" stroke="#8CF4CD" strokeWidth="0.6" />
@@ -479,7 +702,7 @@ export default function PathDag({
             {(Object.entries(STATUS) as [PathNode["status"], typeof STATUS[PathNode["status"]]][]).map(([key, item]) => (
               <span key={key} className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ backgroundColor: item.border }} />{item.label}</span>
             ))}
-            <span className="ml-auto">点击空白处清除聚焦 · Esc 重置搜索</span>
+            <span className="ml-auto">主节点右上角 ± 展开/收起 · 点击空白处清除聚焦 · Esc 重置搜索</span>
           </div>
         </div>
 
@@ -488,14 +711,16 @@ export default function PathDag({
             <div>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[10px] font-black tracking-[0.16em] text-cyan-300">NODE DETAIL</div>
+                  <div className="text-[10px] font-black tracking-[0.16em] text-cyan-300">{activeNode.detail ? "DETAIL CONCEPT" : "NODE DETAIL"}</div>
                   <h3 className="mt-2 text-xl font-black">{activeNode.name}</h3>
                 </div>
                 <span className="rounded-full border px-2.5 py-1 text-[10px] font-bold" style={{ color: STATUS[activeNode.status].border, borderColor: `${STATUS[activeNode.status].border}55`, backgroundColor: `${STATUS[activeNode.status].border}14` }}>
                   {STATUS[activeNode.status].label}
                 </span>
               </div>
-              <p className="mt-2 text-xs leading-6 text-slate-400">{activeNode.chapter || "学习主题"}</p>
+              <p className="mt-2 text-xs leading-6 text-slate-400">
+                {activeNode.chapter || "学习主题"}{activeNode.detail && activeNode.parentId ? ` · 属于 ${byId[activeNode.parentId]?.name || "课程主节点"}` : ""}
+              </p>
               <p className="mt-3 text-sm leading-6 text-slate-300">{activeNode.desc || activeNode.reason}</p>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
@@ -504,7 +729,7 @@ export default function PathDag({
               </div>
 
               <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.045] p-3">
-                <div className="flex items-center gap-2 text-xs font-black text-white"><BookOpen size={14} className="text-cyan-300" />为什么现在推荐</div>
+                <div className="flex items-center gap-2 text-xs font-black text-white"><BookOpen size={14} className="text-cyan-300" />{activeNode.detail ? "知识归属" : "为什么现在推荐"}</div>
                 <p className="mt-2 text-xs leading-5 text-slate-400">{activeNode.reason}</p>
               </div>
 
@@ -512,7 +737,7 @@ export default function PathDag({
                 <div className="text-[10px] font-black tracking-[0.14em] text-slate-500">前置知识</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {prerequisites.length ? prerequisites.map((node) => (
-                    <button type="button" key={node.id} onClick={() => onSelect(node.id)} className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.07] px-2.5 py-1.5 text-xs text-cyan-100 hover:border-cyan-300/50">{node.name}</button>
+                    <button type="button" key={node.id} onClick={() => selectDisplayNode(node)} className="rounded-full border border-cyan-300/15 bg-cyan-300/[0.07] px-2.5 py-1.5 text-xs text-cyan-100 hover:border-cyan-300/50">{node.name}</button>
                   )) : <span className="text-xs text-slate-500">本课程起点，无课程内前置要求</span>}
                 </div>
               </div>
@@ -521,7 +746,7 @@ export default function PathDag({
                 <div className="text-[10px] font-black tracking-[0.14em] text-slate-500">学完可解锁</div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {unlocks.length ? unlocks.map((node) => (
-                    <button type="button" key={node.id} onClick={() => onSelect(node.id)} className="rounded-full border border-violet-300/15 bg-violet-300/[0.07] px-2.5 py-1.5 text-xs text-violet-100 hover:border-violet-300/50">{node.name}</button>
+                    <button type="button" key={node.id} onClick={() => selectDisplayNode(node)} className="rounded-full border border-violet-300/15 bg-violet-300/[0.07] px-2.5 py-1.5 text-xs text-violet-100 hover:border-violet-300/50">{node.name}</button>
                   )) : <span className="text-xs text-slate-500">当前为这条学习分支的终点</span>}
                 </div>
               </div>
@@ -544,11 +769,11 @@ export default function PathDag({
               <Network size={30} className="text-cyan-300" />
               <div className="mt-4 text-[10px] font-black tracking-[0.16em] text-cyan-300">COURSE OVERVIEW</div>
               <h3 className="mt-2 text-xl font-black">从一张图看懂课程边界</h3>
-              <p className="mt-3 text-sm leading-7 text-slate-400">当前图谱只包含「{plan.course || "本课程"}」的知识点。搜索或点击任一节点，可查看前置关系、掌握度和主动回忆问题。</p>
+              <p className="mt-3 text-sm leading-7 text-slate-400">当前图谱只包含「{plan.course || "本课程"}」的知识点。默认展开课程主节点和细分概念，也可一键收起为课程骨架图。</p>
               <div className="mt-5 space-y-2 text-xs text-slate-300">
                 <div className="flex items-center gap-2"><ShieldCheck size={14} className="text-emerald-300" />课程数据与题库、讲义使用同一知识点集合</div>
                 <div className="flex items-center gap-2"><Route size={14} className="text-amber-300" />学习主线按你的掌握度实时重排</div>
-                <div className="flex items-center gap-2"><Search size={14} className="text-cyan-300" />搜索结果自动保留一跳关系</div>
+                <div className="flex items-center gap-2"><Search size={14} className="text-cyan-300" />搜索会自动展开命中的细分概念并保留一跳关系</div>
               </div>
             </div>
           )}
@@ -556,4 +781,6 @@ export default function PathDag({
       </div>
     </div>
   );
+
+  return fullscreen ? createPortal(graphContent, document.body) : graphContent;
 }

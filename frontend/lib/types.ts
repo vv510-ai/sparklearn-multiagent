@@ -199,6 +199,14 @@ export interface PathNode {
   chapter?: string;
   desc?: string;
   order?: number;
+  subtopics?: PathSubtopic[];
+}
+
+export interface PathSubtopic {
+  id: string;
+  name: string;
+  relation?: string;
+  desc?: string;
 }
 
 export interface PathPlan {
@@ -207,6 +215,7 @@ export interface PathPlan {
   graph_version?: number;
   nodes: PathNode[];
   edges: { from: string; to: string }[];
+  detail_edges?: { from: string; to: string; label?: string }[];
   next_kp: string | null;
   generated_by?: string;
   updated_at?: string;

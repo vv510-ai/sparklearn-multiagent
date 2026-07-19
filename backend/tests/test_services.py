@@ -59,6 +59,16 @@ def test_course_assets_share_one_knowledge_taxonomy():
     assert kg["course_id"] == "data_structures_algorithms"
     assert kg["course"] == "数据结构与算法"
     assert "sql_basic" not in ids
+    detail_nodes = [
+        detail
+        for node in kg["nodes"].values()
+        for detail in node.get("subtopics") or []
+    ]
+    detail_ids = {detail["id"] for detail in detail_nodes}
+    assert len(detail_nodes) >= 50
+    assert len(detail_ids) == len(detail_nodes)
+    assert all(edge["from"] in ids | detail_ids for edge in kg["detail_edges"])
+    assert all(edge["to"] in ids | detail_ids for edge in kg["detail_edges"])
 
     quiz_file = Path(__file__).parents[1] / "app" / "data" / "seed_quiz.json"
     quiz_rows = json.loads(quiz_file.read_text(encoding="utf-8"))["questions"]
@@ -107,6 +117,8 @@ def test_plan_path_thresholds():
         assert e["from"] in kp_set and e["to"] in kp_set
     assert path["course"] == "数据结构与算法"
     assert path["course_id"] == "data_structures_algorithms"
+    assert sum(len(node.get("subtopics") or []) for node in path["nodes"]) >= 50
+    assert path["detail_edges"]
     assert is_current_course_path(path)
     stale = {**path, "nodes": [*path["nodes"], {"id": "sql_basic"}]}
     assert not is_current_course_path(stale)
