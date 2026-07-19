@@ -9,12 +9,30 @@ import json
 import logging
 import re
 import threading
+from typing import Any
 
 from ..config import get_settings, is_demo
 from .signing import assemble_auth_url
 
 log = logging.getLogger("sparklearn.ocr")
 IMG_UNDERSTAND_URL = "wss://spark-api.cn-huabei-1.xf-yun.com/v2.1/image"
+
+
+def _credentials(settings: Any | None = None) -> tuple[str, str, str]:
+    """Prefer the dedicated vision application without breaking older deployments."""
+    s = settings or get_settings()
+    return (
+        str(getattr(s, "spark_vision_appid", "") or getattr(s, "spark_appid", "")),
+        str(getattr(s, "spark_vision_api_key", "") or getattr(s, "spark_api_key", "")),
+        str(
+            getattr(s, "spark_vision_api_secret", "")
+            or getattr(s, "spark_api_secret", "")
+        ),
+    )
+
+
+def configured(settings: Any | None = None) -> bool:
+    return all(_credentials(settings))
 
 
 def _safe_error_text(error: object) -> str:
@@ -40,18 +58,19 @@ def image_to_question(
     if is_demo():
         return "【演示OCR】题目:已知一棵二叉搜索树,求中序遍历序列,并说明为何有序。" + (f"(用户补充:{hint})" if hint else "")
     s = get_settings()
-    if not (s.spark_appid and s.spark_api_key and s.spark_api_secret):
+    appid, api_key, api_secret = _credentials(s)
+    if not (appid and api_key and api_secret):
         return "(未配置讯飞图片理解三元组,无法解析图片;请直接文字描述题目)"
     try:
         import websocket
     except ImportError:
         return "(websocket-client 未安装,无法调用图片理解)"
     url = assemble_auth_url(IMG_UNDERSTAND_URL.replace("wss://", "https://"),
-                            s.spark_api_key, s.spark_api_secret).replace("https://", "wss://")
+                            api_key, api_secret).replace("https://", "wss://")
     result: list[str] = []
     errors: list[str] = []
     req = {
-        "header": {"app_id": s.spark_appid},
+        "header": {"app_id": appid},
         "parameter": {"chat": {
             "domain": getattr(s, "spark_image_domain", "general"),
             "temperature": 0.3,

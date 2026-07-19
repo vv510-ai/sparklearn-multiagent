@@ -45,6 +45,14 @@ try:  # pydantic-settings 可用时走标准路径
         spark_api_secret: str = ""
         spark_image_domain: str = "general"
 
+        # 讯飞图片生成 / 图片理解可使用各自独立应用；留空时回退上面的通用三元组
+        spark_tti_appid: str = ""
+        spark_tti_api_key: str = ""
+        spark_tti_api_secret: str = ""
+        spark_vision_appid: str = ""
+        spark_vision_api_key: str = ""
+        spark_vision_api_secret: str = ""
+
         # 讯飞超拟人语音合成（独立服务授权，优先于普通在线 TTS）
         spark_super_tts_api_password: str = ""
         spark_super_tts_appid: str = ""
@@ -117,7 +125,7 @@ try:  # pydantic-settings 可用时走标准路径
         auth_required: bool = True
         auth_token_minutes: int = 10080
 
-        embedding_backend: str = "auto"  # auto | bge-m3 | iflytek | hash
+        embedding_backend: str = "auto"  # auto | fastembed | bge-m3 | iflytek | hash
         iflytek_embedding_url: str = "https://emb-cn-huabei-1.xf-yun.com/"
         embedding_timeout_s: float = 12.0
         rerank_mode: str = "auto"  # auto | api | hybrid | vector
@@ -147,6 +155,12 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_api_key = g("SPARK_API_KEY", "")
             self.spark_api_secret = g("SPARK_API_SECRET", "")
             self.spark_image_domain = g("SPARK_IMAGE_DOMAIN", "general")
+            self.spark_tti_appid = g("SPARK_TTI_APPID", "")
+            self.spark_tti_api_key = g("SPARK_TTI_API_KEY", "")
+            self.spark_tti_api_secret = g("SPARK_TTI_API_SECRET", "")
+            self.spark_vision_appid = g("SPARK_VISION_APPID", "")
+            self.spark_vision_api_key = g("SPARK_VISION_API_KEY", "")
+            self.spark_vision_api_secret = g("SPARK_VISION_API_SECRET", "")
             self.spark_super_tts_api_password = g("SPARK_SUPER_TTS_API_PASSWORD", "")
             self.spark_super_tts_appid = g("SPARK_SUPER_TTS_APPID", "")
             self.spark_super_tts_api_key = g("SPARK_SUPER_TTS_API_KEY", "")

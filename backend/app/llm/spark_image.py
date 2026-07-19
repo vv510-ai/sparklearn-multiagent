@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from typing import Any
 
 import requests
 
@@ -12,6 +13,23 @@ from .signing import assemble_auth_url
 
 log = logging.getLogger("sparklearn.image")
 TTI_URL = "https://spark-api.cn-huabei-1.xf-yun.com/v2.1/tti"
+
+
+def _credentials(settings: Any | None = None) -> tuple[str, str, str]:
+    """Prefer the dedicated TTI application without breaking older deployments."""
+    s = settings or get_settings()
+    return (
+        str(getattr(s, "spark_tti_appid", "") or getattr(s, "spark_appid", "")),
+        str(getattr(s, "spark_tti_api_key", "") or getattr(s, "spark_api_key", "")),
+        str(
+            getattr(s, "spark_tti_api_secret", "")
+            or getattr(s, "spark_api_secret", "")
+        ),
+    )
+
+
+def configured(settings: Any | None = None) -> bool:
+    return all(_credentials(settings))
 
 
 def _response_error(response: requests.Response, data: object) -> RuntimeError:
@@ -29,11 +47,12 @@ def _response_error(response: requests.Response, data: object) -> RuntimeError:
 
 def generate_image(prompt: str, *, width: int = 768, height: int = 768) -> str | None:
     s = get_settings()
-    if not (s.spark_appid and s.spark_api_key and s.spark_api_secret):
+    appid, api_key, api_secret = _credentials(s)
+    if not (appid and api_key and api_secret):
         return None
-    url = assemble_auth_url(TTI_URL, s.spark_api_key, s.spark_api_secret, method="POST")
+    url = assemble_auth_url(TTI_URL, api_key, api_secret, method="POST")
     body = {
-        "header": {"app_id": s.spark_appid},
+        "header": {"app_id": appid},
         "parameter": {"chat": {"domain": "general", "width": width, "height": height}},
         "payload": {"message": {"text": [{"role": "user", "content": prompt}]}},
     }

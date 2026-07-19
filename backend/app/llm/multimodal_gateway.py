@@ -342,7 +342,6 @@ def _triplet_configured() -> bool:
 
 def capability_status() -> dict[str, dict[str, bool]]:
     s = get_settings()
-    triplet = _triplet_configured()
     demo = is_demo()
     return {
         "asr": {
@@ -352,18 +351,18 @@ def capability_status() -> dict[str, dict[str, bool]]:
         "ocr": {
             "enabled": bool(s.mm_ocr_enabled),
             "configured": bool(
-                triplet
+                spark_ocr.configured(s)
                 or demo
                 or (getattr(s, "mm_local_ocr_enabled", True) and local_ocr.available())
             ),
         },
         "tts": {
             "enabled": bool(s.mm_tts_enabled),
-            "configured": bool((spark_super_tts.configured(s) or triplet) and not demo),
+            "configured": bool((spark_super_tts.configured(s) or _triplet_configured()) and not demo),
         },
         "image": {
             "enabled": bool(s.mm_image_enabled),
-            "configured": bool(triplet and not demo),
+            "configured": bool(spark_image.configured(s) and not demo),
         },
         "video": {
             "enabled": bool(s.mm_video_enabled),
@@ -455,7 +454,7 @@ async def ocr_image(
     attempts: list[tuple[str, Callable[[], Any], float, Callable[[Any], dict[str, Any]]]] = []
     errors: list[str] = []
     demo = is_demo()
-    if demo or _triplet_configured():
+    if demo or spark_ocr.configured(s):
         attempts.append((
             "spark",
             lambda: spark_ocr.image_to_question(
@@ -744,7 +743,7 @@ async def text_to_image(
                 ))
             else:
                 unavailable.append("xiaoyunque: credentials not configured or image capability disabled")
-        if _triplet_configured():
+        if spark_image.configured(s):
             attempts.append((
                 "spark",
                 lambda: spark_image.generate_image(prompt, width=width, height=height),

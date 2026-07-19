@@ -25,6 +25,12 @@ def _settings(**overrides):
         "spark_appid": "app",
         "spark_api_key": "key",
         "spark_api_secret": "secret",
+        "spark_tti_appid": "",
+        "spark_tti_api_key": "",
+        "spark_tti_api_secret": "",
+        "spark_vision_appid": "",
+        "spark_vision_api_key": "",
+        "spark_vision_api_secret": "",
         "spark_super_tts_api_password": "",
         "spark_super_tts_appid": "",
         "spark_super_tts_api_key": "",
@@ -648,9 +654,18 @@ def test_ocr_provider_error_keeps_code_and_sid(monkeypatch):
             spark_appid="app",
             spark_api_key="key",
             spark_api_secret="secret",
+            spark_vision_appid="vision-app",
+            spark_vision_api_key="vision-key",
+            spark_vision_api_secret="vision-secret",
         ),
     )
-    monkeypatch.setattr(spark_ocr, "assemble_auth_url", lambda *args, **kwargs: "https://signed.invalid")
+    signed = {}
+
+    def fake_sign(_url, api_key, api_secret, **_kwargs):
+        signed.update(api_key=api_key, api_secret=api_secret)
+        return "https://signed.invalid"
+
+    monkeypatch.setattr(spark_ocr, "assemble_auth_url", fake_sign)
     monkeypatch.setitem(sys.modules, "websocket", SimpleNamespace(WebSocketApp=FakeWebSocketApp))
 
     with pytest.raises(RuntimeError) as exc_info:
@@ -659,6 +674,8 @@ def test_ocr_provider_error_keeps_code_and_sid(monkeypatch):
     error = str(exc_info.value)
     assert "code=11200" in error
     assert "sid=ocr-sid-1" in error
+    assert signed == {"api_key": "vision-key", "api_secret": "vision-secret"}
+    assert sent_requests[0]["header"]["app_id"] == "vision-app"
     assert sent_requests[0]["parameter"]["chat"]["domain"] == "general"
 
 
@@ -722,9 +739,18 @@ def test_image_provider_error_keeps_code_and_sid(monkeypatch):
             spark_appid="app",
             spark_api_key="key",
             spark_api_secret="secret",
+            spark_tti_appid="tti-app",
+            spark_tti_api_key="tti-key",
+            spark_tti_api_secret="tti-secret",
         ),
     )
-    monkeypatch.setattr(spark_image, "assemble_auth_url", lambda *args, **kwargs: "https://signed.invalid")
+    signed = {}
+
+    def fake_sign(_url, api_key, api_secret, **_kwargs):
+        signed.update(api_key=api_key, api_secret=api_secret)
+        return "https://signed.invalid"
+
+    monkeypatch.setattr(spark_image, "assemble_auth_url", fake_sign)
     def fake_post(*args, **kwargs):
         sent_bodies.append(kwargs["json"])
         return FakeResponse()
@@ -737,5 +763,7 @@ def test_image_provider_error_keeps_code_and_sid(monkeypatch):
     error = str(exc_info.value)
     assert "code=10005" in error
     assert "sid=tti-sid-1" in error
+    assert signed == {"api_key": "tti-key", "api_secret": "tti-secret"}
+    assert sent_bodies[0]["header"]["app_id"] == "tti-app"
     assert sent_bodies[0]["parameter"]["chat"]["width"] == 768
     assert sent_bodies[0]["parameter"]["chat"]["height"] == 768
