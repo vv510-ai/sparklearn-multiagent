@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AgentTrace, { applyTraceEvent, emptyTrace, type TraceState } from "@/components/agent/AgentTrace";
 import AuthGate, { type AuthUser } from "@/components/auth/AuthGate";
 import Chat from "@/components/chat/Chat";
+import FinalReviewPanel from "@/components/demo/FinalReviewPanel";
 import SourcePanel, { COURSE_SOURCE_ID, isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
 import StudioPanel from "@/components/notebook/StudioPanel";
 import PathDag from "@/components/path/PathDag";
@@ -29,7 +30,7 @@ import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/a
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
-type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes";
+type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes" | "final_review";
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
@@ -763,7 +764,7 @@ export default function Home() {
     });
   };
 
-  const openPanel = (panel: "profile" | "path" | "resources" | "mistakes") => {
+  const openPanel = (panel: "profile" | "path" | "resources" | "mistakes" | "final_review") => {
     setActivePanel(panel);
     setMobilePane(null);
     if (panel === "profile") void loadProfile();
@@ -1051,6 +1052,21 @@ export default function Home() {
                 <div><span>MISTAKE BOOK</span><h1>我的错题本</h1><p>答错或揭晓的题自动收录；可以收藏、查看错因并随时重做。</p></div>
               </div>
               <div className="p-5"><MistakeBook onEvaluated={refreshAfterEvaluation} /></div>
+            </div>
+          )}
+
+          {activePanel === "final_review" && (
+            <div className="notebook-content-scroll">
+              <div className="notebook-content-heading">
+                <div><span>FINAL REVIEW DEMO</span><h1>终审演示台</h1><p>固定两组 5 题、锁定答题基线，并按指定顺序安全重录。</p></div>
+              </div>
+              <div className="p-5">
+                <FinalReviewPanel
+                  onEvaluated={refreshAfterEvaluation}
+                  onRestored={() => { void loadProfile(); void loadPath(); }}
+                  onOpenMistakes={() => openPanel("mistakes")}
+                />
+              </div>
             </div>
           )}
         </section>

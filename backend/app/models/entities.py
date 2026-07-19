@@ -186,3 +186,16 @@ class PersonalizationDecision(Base):
     output: Mapped[dict] = mapped_column(JSON, default=dict)
     reason: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, index=True)
+
+
+class DemoBaseline(Base):
+    """A learner-owned restore point for repeatable judged demonstrations."""
+    __tablename__ = "demo_baselines"
+
+    user_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True,
+    )
+    kind: Mapped[str] = mapped_column(String(64), default="final_review_v1")
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)

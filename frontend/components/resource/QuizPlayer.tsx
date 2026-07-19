@@ -409,10 +409,13 @@ export default function QuizPlayer({
           {pendingConfidence > 0 && (
             <Notice tone="warn" title="还没有记录作答把握" desc={`请为已作答的 ${pendingConfidence} 道题选择“在猜 / 有点把握 / 很确定”。`} />
           )}
+          {answered > 0 && answered < questions.length && (
+            <Notice tone="warn" title="题组尚未完成" desc={`还剩 ${questions.length - answered} 道题；全部作答后才能正式提交。`} />
+          )}
           {submitError && <Notice tone="warn" title="报告生成失败" desc={`${submitError}。答案已保留，可直接重试。`} />}
           <button
             onClick={submit}
-            disabled={busy || answered === 0 || pendingReflections > 0 || pendingConfidence > 0}
+            disabled={busy || answered !== questions.length || pendingReflections > 0 || pendingConfidence > 0}
             className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "正在判分并更新掌握度..." : pendingReflections > 0 ? "请先完成错因复盘" : pendingConfidence > 0 ? "请先标记作答把握" : submitError ? "重新提交" : "提交并更新掌握度"}

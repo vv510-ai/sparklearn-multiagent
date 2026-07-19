@@ -46,6 +46,7 @@ TENANT_TABLES = (
     "user_assets",
     "external_tasks",
     "personalization_decisions",
+    "demo_baselines",
 )
 
 _LEGACY_USER_FOREIGN_KEYS = (

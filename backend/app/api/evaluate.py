@@ -25,6 +25,7 @@ from ..schemas.core import (EvalRetestRequest, EvalReviewRequest, EvalSubmit,
                             MistakePracticeRequest, RemediationRequest)
 from ..services.knowledge_graph import canonical_kp_id, kp_name
 from ..services.learning_evidence import build_learning_evidence
+from ..services.final_review_demo_service import enforce_final_review_submission
 from ..services.profile_service import ensure_user, get_profile, log_event, recent_events
 from ..services.review_service import (apply_review_results, as_utc, mistake_book,
                                        review_queue, schedule_initial_reviews,
@@ -206,6 +207,8 @@ async def submit(req: EvalSubmit):
         "misconceptions": [e["misconception"] for e in enriched if e["misconception"]],
     }
     behavior = {**req.behavior, "support": support_summary}
+    # Fixed final-review sets are guarded before any attempt/profile/path write.
+    enforce_final_review_submission(req.user_id, req.quiz_resource_id, enriched)
     with session() as s:
         attempt = QuizAttempt(user_id=req.user_id, quiz_resource_id=req.quiz_resource_id,
                               kp=attempt_kp,
