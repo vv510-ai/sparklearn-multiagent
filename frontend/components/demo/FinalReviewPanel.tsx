@@ -126,11 +126,9 @@ export default function FinalReviewPanel({
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6F7684]">准备动作会写入两组固定题并锁定当前画像、错题与知识路径基线。任何题量、顺序或目标正误模式不一致，后端都会在写入学习档案前暂停提交。</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {!status?.ready && (
-              <button type="button" onClick={() => void prepare()} disabled={Boolean(busy)} className="primary-action disabled:cursor-wait disabled:opacity-50">
-                {busy === "prepare" ? "正在准备..." : "准备两组终审题"}
-              </button>
-            )}
+            <button type="button" onClick={() => void prepare()} disabled={Boolean(busy)} className="primary-action disabled:cursor-wait disabled:opacity-50">
+              {busy === "prepare" ? "正在同步..." : status?.ready ? "同步题组配置" : "准备两组终审题"}
+            </button>
             {status?.baseline.exists && (
               <button type="button" onClick={() => void restore()} disabled={Boolean(busy)} className="secondary-action inline-flex items-center gap-2 disabled:cursor-wait disabled:opacity-50">
                 <RotateCcw size={15} />{busy === "restore" ? "正在恢复..." : "恢复答题前状态"}

@@ -31,7 +31,7 @@ _SEED_QUIZ_PATH = Path(__file__).resolve().parents[1] / "data" / "seed_quiz.json
 _SET_SPECS: tuple[dict[str, Any], ...] = (
     {
         "id": "final-binary-tree-v1",
-        "title": "终审固定题组一：二叉树",
+        "title": "二叉树专项巩固（5题）",
         "kp": "binary_tree",
         "order": 1,
         "question_ids": ["q015", "q016", "q039", "q040", "q041"],
@@ -41,7 +41,7 @@ _SET_SPECS: tuple[dict[str, Any], ...] = (
     },
     {
         "id": "final-sorting-adv-v1",
-        "title": "终审固定题组二：高级排序",
+        "title": "高级排序专项巩固（5题）",
         "kp": "sorting_adv",
         "order": 2,
         "question_ids": ["q012", "q013", "q014", "q048", "q049"],
@@ -89,7 +89,7 @@ def _resource_payload(spec: dict[str, Any]) -> dict[str, Any]:
         "questions": _questions_for(spec),
         "difficulty": 3,
         "source_ids": [],
-        "learning_goal": "终审演示固定测验",
+        "learning_goal": "专项巩固测验",
         "topic_label": "二叉树" if spec["kp"] == "binary_tree" else "高级排序",
         "custom_topic": False,
         "transfer_retest": False,
@@ -102,8 +102,8 @@ def _resource_payload(spec: dict[str, Any]) -> dict[str, Any]:
         },
         "generation_scope": {
             "notebook_id": "",
-            "session_id": "final-review",
-            "conversation_focus": "终审演示固定测验",
+            "session_id": "guided-practice",
+            "conversation_focus": "专项巩固测验",
             "source_ids": [],
             "artifact_scope": "current_topic",
         },

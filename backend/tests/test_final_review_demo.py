@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -106,6 +107,14 @@ def test_fixed_final_review_sets_are_guarded_and_restore_cleanly(monkeypatch):
                 "final-sorting-adv-v1",
             ]
             assert [item["question_count"] for item in state["sets"]] == [5, 5]
+            assert [item["title"] for item in state["sets"]] == [
+                "二叉树专项巩固（5题）",
+                "高级排序专项巩固（5题）",
+            ]
+            assert all(
+                item["resource"]["payload"]["learning_goal"] == "专项巩固测验"
+                for item in state["sets"]
+            )
             assert state["sets"][0]["operator_answers"] == ["B", "DEBCA", "B", "A", "错"]
             assert state["sets"][1]["operator_answers"] == [
                 "A", "错", "时间 O(n^2)；空间 O(1)", "B", "B",
@@ -187,3 +196,20 @@ def test_fixed_final_review_sets_are_guarded_and_restore_cleanly(monkeypatch):
         if user_id:
             _delete_user(user_id)
         config.get_settings.cache_clear()
+
+
+def test_operator_runbook_is_not_linked_from_learner_ui():
+    repo_root = Path(__file__).resolve().parents[2]
+    learner_page = (repo_root / "frontend" / "app" / "page.tsx").read_text(encoding="utf-8")
+    studio_panel = (
+        repo_root / "frontend" / "components" / "notebook" / "StudioPanel.tsx"
+    ).read_text(encoding="utf-8")
+    operator_page = (
+        repo_root / "frontend" / "app" / "ops" / "final-review" / "page.tsx"
+    ).read_text(encoding="utf-8")
+
+    assert "FinalReviewPanel" not in learner_page
+    assert "final_review" not in learner_page
+    assert "终审演示" not in studio_panel
+    assert "final_review" not in studio_panel
+    assert "FinalReviewOperatorPage" in operator_page

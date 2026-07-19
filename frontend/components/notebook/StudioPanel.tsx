@@ -14,14 +14,13 @@ import {
   Network,
   PlaySquare,
   Presentation,
-  ShieldCheck,
   Route,
   Sparkles,
   Star,
   Table2,
 } from "lucide-react";
 
-type StudioPanelKey = "profile" | "path" | "resources" | "mistakes" | "final_review";
+type StudioPanelKey = "profile" | "path" | "resources" | "mistakes";
 
 const GENERATORS = [
   {
@@ -126,7 +125,6 @@ const GENERATORS = [
 ] as const;
 
 const VIEWS = [
-  { title: "终审演示", desc: "固定题组与一键恢复", icon: ShieldCheck, tone: "emerald", panel: "final_review" },
   { title: "学习画像", desc: "掌握度与错因", icon: ChartNoAxesColumn, tone: "indigo", panel: "profile" },
   { title: "知识关系", desc: "先修、解锁与顺序", icon: Route, tone: "emerald", panel: "path" },
   { title: "资料归档", desc: "继续上次的内容", icon: FolderOpen, tone: "slate", panel: "resources" },
