@@ -95,6 +95,8 @@ def _resource_payload(
         "questions": _questions_for(spec),
         "difficulty": 3,
         "source_ids": [],
+        "notebook_id": notebook_id,
+        "session_id": session_id,
         "learning_goal": "专项巩固测验",
         "topic_label": "二叉树" if spec["kp"] == "binary_tree" else "高级排序",
         "custom_topic": False,

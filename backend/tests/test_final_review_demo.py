@@ -130,6 +130,10 @@ def test_fixed_final_review_sets_are_guarded_and_restore_cleanly(monkeypatch):
                 == notebook_id
                 for item in state["sets"]
             )
+            assert all(
+                item["resource"]["payload"]["notebook_id"] == notebook_id
+                for item in state["sets"]
+            )
             assert state["sets"][0]["operator_answers"] == ["B", "DEBCA", "B", "A", "错"]
             assert state["sets"][1]["operator_answers"] == [
                 "A", "错", "时间 O(n^2)；空间 O(1)", "B", "B",
