@@ -4,6 +4,7 @@ import asyncio
 
 from app import config
 from app.agents import doc_agent, tutor_agent
+from app.agents.state import LearningState
 from app.api import chat
 from app.llm import spark_client
 from app.prompt_templates import _dialog_text
@@ -60,6 +61,12 @@ def test_interactive_actions_have_distinct_teaching_contracts():
     assert "不得复述原句" in rephrase and "全新的贴切类比" in rephrase
     assert "逐步指出" in example and "不能推出什么" in example
     assert "不要给答案" in quiz and "你先回答" in quiz
+
+
+def test_interactive_context_survives_langgraph_state_validation():
+    annotations = LearningState.__annotations__
+    assert "interaction_action" in annotations
+    assert "interaction_resource" in annotations
 
 
 def test_answer_scope_allows_a_needed_neighbouring_concept_but_rejects_drift():

@@ -33,6 +33,8 @@ class LearningState(TypedDict, total=False):
     artifact_policy: str                              # on_demand:仅生成用户明确点名的学习产物
     skip_multimodal: bool                             # 补救等短流程跳过耗时媒体增强
     required_retrieval_terms: list[str]              # 高风险生成必须在资料中明确命中的概念
+    interaction_action: str                          # 互动讲解：rephrase|example|quiz|question
+    interaction_resource: dict                       # 当前互动讲解原文与租户安全资源元数据
     # 编排
     intent: str                                        # learn|summary|generate|tutor|eval|chat
     # 画像与计划
