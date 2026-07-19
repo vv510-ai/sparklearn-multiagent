@@ -166,6 +166,14 @@ export default function PathDag({
     [plan.nodes],
   );
   const chapters = useMemo(() => Array.from(new Set(plan.nodes.map(chapterOf))), [plan.nodes]);
+  const chapterCounts = useMemo(
+    () => plan.nodes.reduce<Record<string, number>>((counts, node) => {
+      const name = chapterOf(node);
+      counts[name] = (counts[name] || 0) + 1;
+      return counts;
+    }, {}),
+    [plan.nodes],
+  );
   const chapterColors = useMemo(
     () => Object.fromEntries(chapters.map((name, index) => [name, CHAPTER_COLORS[index % CHAPTER_COLORS.length]])),
     [chapters],
@@ -313,13 +321,24 @@ export default function PathDag({
             <button type="button" className={buttonClass(false)} onClick={reset}><RotateCcw size={14} />重置</button>
           </div>
         </div>
-        <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
-          <button type="button" onClick={() => { setChapter(ALL_CHAPTERS); setQuery(""); }} className={`${buttonClass(chapter === ALL_CHAPTERS)} shrink-0`}>{ALL_CHAPTERS}</button>
-          {chapters.map((name) => (
-            <button type="button" key={name} onClick={() => { setChapter(name); setQuery(""); }} className={`${buttonClass(chapter === name)} shrink-0`}>
-              <i className="h-2 w-2 rounded-full" style={{ backgroundColor: chapterColors[name] }} />{name.replace(/^第\d+章\s*/, "")}
+        <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/15 p-2.5 sm:p-3">
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-1.5 px-0.5">
+            <span className="text-[10px] font-black tracking-[0.16em] text-slate-400">章节导航</span>
+            <span className="text-[10px] font-bold text-slate-500">{chapters.length} 个章节 · {plan.nodes.length} 个知识点 · 全部可见</span>
+          </div>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="按章节筛选知识图谱">
+            <button type="button" onClick={() => { setChapter(ALL_CHAPTERS); setQuery(""); }} className={buttonClass(chapter === ALL_CHAPTERS)}>
+              {ALL_CHAPTERS}
+              <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300">{plan.nodes.length}</span>
             </button>
-          ))}
+            {chapters.map((name) => (
+              <button type="button" key={name} onClick={() => { setChapter(name); setQuery(""); }} className={buttonClass(chapter === name)}>
+                <i className="h-2 w-2 shrink-0 rounded-full shadow-[0_0_12px_currentColor]" style={{ backgroundColor: chapterColors[name], color: chapterColors[name] }} />
+                <span>{name.replace(/^第\d+章\s*/, "")}</span>
+                <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-300">{chapterCounts[name]}</span>
+              </button>
+            ))}
+          </div>
         </div>
         {normalizedQuery && (
           <div className={`mt-3 text-xs ${queryHits.size ? "text-cyan-200" : "text-amber-200"}`}>
