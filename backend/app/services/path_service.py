@@ -52,6 +52,8 @@ def plan_conversation_path(profile: dict, topics: list[dict]) -> dict:
             "mastery": round(value, 3),
             "status": status,
             "difficulty": 1 if custom else int(load_kg()["nodes"].get(node_id, {}).get("difficulty", 3)),
+            "chapter": "本书对话主题",
+            "desc": "从本书对话历史中提取的持续学习主题",
             "score": round(1 - value, 3),
             "order": index,
             "reason": f"本书对话中已围绕该主题学习 {question_count} 次",
@@ -66,6 +68,9 @@ def plan_conversation_path(profile: dict, topics: list[dict]) -> dict:
     ready = [node for node in nodes if node["status"] != "done"]
     next_node = min(ready, key=lambda node: (node["mastery"], -int(node["order"]))) if ready else None
     return {
+        "course": "本书学习脉络",
+        "course_id": "conversation_history",
+        "graph_version": 1,
         "nodes": nodes,
         "edges": edges,
         "next_kp": next_node["id"] if next_node else None,
@@ -102,6 +107,8 @@ def plan_path(profile: dict, goal_kps: list[str] | None = None,
         nodes.append({
             "id": kp, "name": kp_name(kp), "mastery": round(m, 3), "status": status,
             "difficulty": diff, "score": round(score, 3),
+            "chapter": str(kg["nodes"][kp].get("chapter") or "课程知识点"),
+            "desc": str(kg["nodes"][kp].get("desc") or ""),
             "reason": _reason(kp, m, status, kp in goal_kps, pref),
         })
 
@@ -112,12 +119,32 @@ def plan_path(profile: dict, goal_kps: list[str] | None = None,
     next_kp = ready_sorted[0]["id"] if ready_sorted else None
 
     return {
+        "course": kg["course"],
+        "course_id": kg["course_id"],
+        "graph_version": kg["version"],
         "nodes": nodes,
         "edges": kg["edges"],
         "next_kp": next_kp,
         "generated_by": generated_by,
         "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
+
+
+def is_current_course_path(path: dict | None) -> bool:
+    """Reject persisted course snapshots built from an older or mixed graph."""
+    if not isinstance(path, dict) or path.get("generated_by") == "conversation_history":
+        return isinstance(path, dict)
+    kg = load_kg()
+    node_ids = {
+        str(node.get("id") or "")
+        for node in path.get("nodes", [])
+        if isinstance(node, dict)
+    }
+    return (
+        path.get("course_id") == kg["course_id"]
+        and int(path.get("graph_version") or 0) == kg["version"]
+        and node_ids == set(kg["nodes"])
+    )
 
 
 def _reason(kp: str, m: float, status: str, is_goal: bool, pref: str) -> str:

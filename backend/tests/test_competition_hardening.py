@@ -104,38 +104,16 @@ def test_studio_graph_quiz_template_resolves_graph_without_model_guessing():
     }]
 
 
-def test_sql_quiz_uses_sql_seed_questions_and_rejects_binary_tree(monkeypatch):
-    sql_chunk = {
-        "text": "SELECT 选择列，WHERE 过滤行，GROUP BY 分组，JOIN 按关联键连接表。",
-        "source": "《SQL 入门》讲义",
-        "chapter": "第12章 SQL 基础",
-        "kp": "sql_basic",
-        "citation": "《SQL 入门》讲义 · 第12章 SQL 基础 p.1",
-    }
-    monkeypatch.setattr(quiz_agent, "retrieve", lambda *args, **kwargs: [sql_chunk])
-    monkeypatch.setattr(quiz_agent, "is_demo", lambda: True)
+def test_sql_stays_a_custom_topic_outside_the_data_structures_course():
     goal = "我刚开始学习 SQL，请讲解 SELECT、WHERE、ORDER BY、GROUP BY 和多表连接。"
     plan = asyncio.run(planner_agent.run({
         "learning_goal": goal,
         "knowledge_points": [],
         "kinds": ["quiz"],
     }))
-    state = {
-        **plan,
-        "learning_goal": goal,
-        "kinds": ["quiz"],
-        "student_profile": {},
-        "source_ids": [],
-    }
-
-    result = asyncio.run(quiz_agent.run(state))
-    resource = next(iter(result["generated_resources"].values()))
-    stems = [question["stem"] for question in resource["payload"]["questions"]]
-
-    assert resource["kp"] == "sql_basic"
-    assert len(stems) == 8
-    assert any("SQL" in stem or "WHERE" in stem for stem in stems)
-    assert all("二叉树" not in stem for stem in stems)
+    assert plan["knowledge_points"] == ["custom_topic"]
+    assert plan["custom_topic"] is True
+    assert "SQL" in plan["topic_label"]
 
 
 def test_custom_topic_uses_general_topic_mode_without_retrieving_binary_tree(monkeypatch):
@@ -460,7 +438,7 @@ def test_seed_quiz_meets_final_course_coverage_floor():
     questions = payload["questions"]
     counts = Counter(question["kp"] for question in questions)
 
-    assert len(questions) == 49
+    assert len(questions) == 41
     assert counts["graph_basic"] >= 3
     assert counts["graph_traverse"] >= 3
     for kp in ("binary_tree", "bst", "heap", "sorting_adv"):

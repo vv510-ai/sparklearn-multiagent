@@ -11,6 +11,7 @@ from ..services.knowledge_graph import collect_conversation_topics
 from ..services.notebook_service import ensure_notebook_owner
 from ..services.path_service import (
     get_path,
+    is_current_course_path,
     list_decisions,
     plan_conversation_path,
     plan_path,
@@ -42,7 +43,7 @@ async def read_path(
             save_path(user_id, path)
             return path
     path = get_path(user_id)
-    if not path:
+    if not is_current_course_path(path):
         path = plan_path(get_profile(user_id))
         save_path(user_id, path)
     return path

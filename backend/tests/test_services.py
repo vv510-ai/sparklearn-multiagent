@@ -1,6 +1,9 @@
 """单元测试:BKT / 知识图谱 / 路径规划(离线可跑,无外部依赖)。"""
 import os
 import sys
+import json
+import re
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from tests._stubs import install  # noqa: E402
@@ -8,9 +11,9 @@ from tests._stubs import install  # noqa: E402
 install()
 
 from app.services.bkt import bkt_update, mastery_level  # noqa: E402
-from app.services.knowledge_graph import (all_kp_ids, prerequisites,  # noqa: E402
+from app.services.knowledge_graph import (all_kp_ids, load_kg, prerequisites,  # noqa: E402
                                           canonical_kp_id, topological_order, unlockable)
-from app.services.path_service import plan_path  # noqa: E402
+from app.services.path_service import is_current_course_path, plan_path  # noqa: E402
 from app.services.profile_service import default_profile, sanitize_profile_patch  # noqa: E402
 from app.rag.ingest import ingest_corpus, load_all_chunks  # noqa: E402
 from app.rag.retriever import _format_citation  # noqa: E402
@@ -43,6 +46,29 @@ def test_kg_topology():
     assert "complexity" in unlockable(mastery)
 
 
+def test_course_assets_share_one_knowledge_taxonomy():
+    """A course-only graph must not silently absorb another course's assets."""
+    kg = load_kg()
+    ids = set(all_kp_ids())
+    assert kg["course_id"] == "data_structures_algorithms"
+    assert kg["course"] == "数据结构与算法"
+    assert "sql_basic" not in ids
+
+    quiz_file = Path(__file__).parents[1] / "app" / "data" / "seed_quiz.json"
+    quiz_rows = json.loads(quiz_file.read_text(encoding="utf-8"))["questions"]
+    assert {str(row.get("kp") or "") for row in quiz_rows} <= ids
+
+    corpus_dir = Path(__file__).parents[1] / "app" / "data" / "seed_corpus"
+    corpus_kps = set()
+    for source in corpus_dir.glob("*.md"):
+        match = re.search(r"(?m)^kp:\s*([^\r\n]+)", source.read_text(encoding="utf-8"))
+        if match:
+            corpus_kps.update(
+                kp.strip() for kp in match.group(1).split(",") if kp.strip()
+            )
+    assert corpus_kps <= ids
+
+
 def test_planner_prefers_course_concept_named_in_goal():
     ids = all_kp_ids()
     assert _kp_from_goal("我想系统掌握递归与分治", ids) == "recursion"
@@ -56,7 +82,7 @@ def test_planner_prefers_course_concept_named_in_goal():
     ) == "graph_basic"
     assert _kp_from_goal(
         "我刚开始学习 SQL，请依次讲解 SELECT、WHERE、GROUP BY 和多表连接", ids
-    ) == "sql_basic"
+    ) is None
 
 
 def test_plan_path_thresholds():
@@ -73,6 +99,11 @@ def test_plan_path_thresholds():
     kp_set = set(by)
     for e in path["edges"]:
         assert e["from"] in kp_set and e["to"] in kp_set
+    assert path["course"] == "数据结构与算法"
+    assert path["course_id"] == "data_structures_algorithms"
+    assert is_current_course_path(path)
+    stale = {**path, "nodes": [*path["nodes"], {"id": "sql_basic"}]}
+    assert not is_current_course_path(stale)
 
 
 def test_profile_patch_and_kp_normalization():

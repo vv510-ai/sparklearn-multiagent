@@ -406,7 +406,7 @@ export default function Home() {
         : "";
       const plan = await apiGet<PathPlan>(`/path?user_id=${USER_ID}${notebookQuery}`);
       setPathPlan(plan);
-      setSelectedPathNode(plan.next_kp || plan.nodes[0]?.id || null);
+      setSelectedPathNode(null);
     } catch (error) {
       setPanelError(`知识关系暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     }

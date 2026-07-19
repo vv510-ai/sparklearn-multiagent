@@ -17,7 +17,6 @@ export const KPS: [string, string][] = [
   ["graph_traverse", "图遍历"],
   ["shortest_path", "最短路"],
   ["dp", "动态规划"],
-  ["sql_basic", "SQL 基础"],
 ];
 
 export const KP_NAME: Record<string, string> = Object.fromEntries(KPS);
@@ -32,7 +31,6 @@ export function isKnownKp(id: string): boolean {
 
 export function inferKpFromTopic(topic: string): string | null {
   const compact = topic.replace(/\s+/g, "").toLowerCase();
-  if (/sql|select|where|orderby|groupby|join|多表连接|数据库查询/.test(compact)) return "sql_basic";
   // “优先队列”在课程图谱中属于堆。若只按中文名长度匹配，
   // “堆与优先队列”会被更长的“队列”误判为 queue。
   if (/堆与优先队列|优先队列|heap|top-?k/.test(compact)) return "heap";

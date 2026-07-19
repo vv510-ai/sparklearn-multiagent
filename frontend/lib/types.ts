@@ -196,10 +196,15 @@ export interface PathNode {
   difficulty: number;
   score: number;
   reason: string;
+  chapter?: string;
+  desc?: string;
   order?: number;
 }
 
 export interface PathPlan {
+  course?: string;
+  course_id?: string;
+  graph_version?: number;
   nodes: PathNode[];
   edges: { from: string; to: string }[];
   next_kp: string | null;

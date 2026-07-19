@@ -46,7 +46,7 @@ def test_conversation_path_accumulates_all_topics():
         [
             {"id": "binary_tree", "name": "二叉树", "custom": False, "questions": ["什么是二叉树"]},
             {"id": "custom_topic", "name": "农业知识图谱", "custom": True, "questions": ["怎么建立农业知识图谱", "实体怎么选"]},
-            {"id": "sql_basic", "name": "SQL 基础", "custom": False, "questions": ["SELECT 怎么用"]},
+            {"id": "custom_topic", "name": "SQL 基础", "custom": True, "questions": ["SELECT 怎么用"]},
         ],
     )
     assert [node["name"] for node in path["nodes"]] == ["二叉树", "农业知识图谱", "SQL 基础"]

@@ -160,6 +160,20 @@ def get_profile(user_id: str) -> dict:
             s.add(p)
             s.commit()
         data = dict(p.data)
+        # Course graphs can evolve. Remove mastery keys left by an older or
+        # accidentally mixed taxonomy before they leak into radar/path views.
+        raw_mastery = data.get("knowledge_mastery")
+        if not isinstance(raw_mastery, dict):
+            raw_mastery = {}
+        normalized_mastery: dict[str, float] = {}
+        for kp in all_kp_ids():
+            value = _bounded_float(raw_mastery.get(kp, 0.3))
+            normalized_mastery[kp] = round(0.3 if value is None else value, 4)
+        if raw_mastery != normalized_mastery:
+            data["knowledge_mastery"] = normalized_mastery
+            p.data = data
+            p.version = (p.version or 0) + 1
+            s.commit()
         data["_version"] = p.version
         data["_updated_at"] = (p.updated_at or dt.datetime.now(dt.timezone.utc)).isoformat()
         return data

@@ -33,10 +33,6 @@ _KP_ALIASES: dict[str, tuple[str, ...]] = {
     "graph_traverse": ("图遍历", "广度优先", "深度优先", "BFS", "DFS"),
     "shortest_path": ("最短路径", "Dijkstra", "Bellman-Ford", "Floyd"),
     "dp": ("动态规划", "DP"),
-    "sql_basic": (
-        "SQL", "结构化查询语言", "SELECT", "WHERE", "ORDER BY", "GROUP BY",
-        "JOIN", "多表连接", "数据库查询",
-    ),
 }
 
 _STANDALONE_GRAPH_RE = re.compile(
@@ -80,12 +76,24 @@ _ARTIFACT_REQUEST_RE = re.compile(
 def load_kg() -> dict:
     data = json.loads(KG_FILE.read_text(encoding="utf-8"))
     nodes = {n["id"]: n for n in data["nodes"]}
+    if len(nodes) != len(data["nodes"]):
+        raise ValueError("knowledge graph contains duplicate node ids")
     indeg = {nid: 0 for nid in nodes}
     adj: dict[str, list[str]] = {nid: [] for nid in nodes}
     for e in data["edges"]:
+        if e["from"] not in nodes or e["to"] not in nodes:
+            raise ValueError(f"knowledge graph edge references unknown node: {e}")
         adj[e["from"]].append(e["to"])
         indeg[e["to"]] += 1
-    return {"nodes": nodes, "edges": data["edges"], "adj": adj, "indeg": indeg}
+    return {
+        "course_id": str(data.get("course_id") or "").strip(),
+        "course": str(data.get("course") or "").strip(),
+        "version": int(data.get("version") or 1),
+        "nodes": nodes,
+        "edges": data["edges"],
+        "adj": adj,
+        "indeg": indeg,
+    }
 
 
 def all_kp_ids() -> list[str]:

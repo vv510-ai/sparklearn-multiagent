@@ -26,6 +26,10 @@ _SMALL_TALK_RE = re.compile(
     r"^(?:你好|您好|嗨|哈喽|hello|hi|hey|在吗|谢谢|感谢|再见|拜拜)[!！?？。,.，]*$",
     re.IGNORECASE,
 )
+_OUT_OF_COURSE_SQL_RE = re.compile(
+    r"(?:\bSQL\b|\bSELECT\b|\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|\bJOIN\b|多表连接|数据库查询)",
+    re.IGNORECASE,
+)
 _HELP_MARKERS = ("你能做什么", "可以做什么", "怎么用", "如何使用", "使用说明", "help")
 def _needs_retrieval(question: str, *, guided: bool = False, has_image: bool = False) -> bool:
     """Only skip retrieval for deterministic small-talk and product-help turns."""
@@ -287,6 +291,15 @@ def _answer_matches_current_question(answer: str, question: str, topic_kp: str) 
     if topic_kp and topic_kp != "custom_topic":
         allowed.add(topic_kp)
     observed = set(infer_kp_ids(answer))
+    # SQL used to be accidentally bundled into this course. Keep a direct
+    # boundary guard so an old vector chunk or provider response cannot put it
+    # back into a data-structures answer after the taxonomy has been cleaned.
+    if (
+        topic_kp != "custom_topic"
+        and _OUT_OF_COURSE_SQL_RE.search(answer)
+        and not _OUT_OF_COURSE_SQL_RE.search(question)
+    ):
+        return False
     # Mentioning a necessary neighbouring concept is not topic drift. For
     # example, accurately defining a binary tree may contrast it with a BST.
     # Reject only when the answer contains recognised course topics but none

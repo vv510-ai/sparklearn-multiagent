@@ -1,5 +1,7 @@
 {
+  "course_id": "data_structures_algorithms",
   "course": "数据结构与算法",
+  "version": 2,
   "nodes": [
     {"id": "complexity",    "name": "复杂度分析",        "chapter": "第1章 算法与复杂度", "difficulty": 1, "desc": "大O记号、时间/空间复杂度推导"},
     {"id": "array",         "name": "数组与顺序表",      "chapter": "第2章 线性表", "difficulty": 1, "desc": "随机访问、插入删除代价"},
@@ -16,8 +18,7 @@
     {"id": "graph_basic",   "name": "图的基础",          "chapter": "第9章 图", "difficulty": 4, "desc": "邻接矩阵/表、有向无向"},
     {"id": "graph_traverse","name": "图遍历 BFS/DFS",    "chapter": "第9章 图", "difficulty": 4, "desc": "连通性、拓扑排序"},
     {"id": "shortest_path", "name": "最短路径",          "chapter": "第9章 图", "difficulty": 5, "desc": "Dijkstra、松弛操作"},
-    {"id": "dp",            "name": "动态规划",          "chapter": "第10章 动态规划", "difficulty": 5, "desc": "最优子结构、状态转移方程"},
-    {"id": "sql_basic",     "name": "SQL 基础",          "chapter": "第12章 SQL 基础", "difficulty": 2, "desc": "SELECT、WHERE、ORDER BY、GROUP BY 与多表连接"}
+    {"id": "dp",            "name": "动态规划",          "chapter": "第10章 动态规划", "difficulty": 5, "desc": "最优子结构、状态转移方程"}
   ],
   "edges": [
     {"from": "complexity",    "to": "array"},
