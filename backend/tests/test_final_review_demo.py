@@ -12,6 +12,7 @@ from app.models.entities import (
     AuthAccount,
     DemoBaseline,
     EventLog,
+    Notebook,
     PathPlan,
     PersonalizationDecision,
     Profile,
@@ -58,6 +59,7 @@ def _delete_user(user_id: str) -> None:
             PersonalizationDecision,
             DemoBaseline,
             Resource,
+            Notebook,
             PathPlan,
             Profile,
             AuthAccount,
@@ -87,6 +89,14 @@ def test_fixed_final_review_sets_are_guarded_and_restore_cleanly(monkeypatch):
             user_id = registered.json()["user"]["id"]
             headers = {"Authorization": f"Bearer {registered.json()['access_token']}"}
 
+            notebook = client.post(
+                "/api/notebooks",
+                json={"user_id": user_id, "title": "数据结构"},
+                headers=headers,
+            )
+            assert notebook.status_code == 201, notebook.text
+            notebook_id = notebook.json()["id"]
+
             unprepared = client.get("/api/demo/final-review", headers=headers)
             assert unprepared.status_code == 200
             assert unprepared.json()["ready"] is False
@@ -113,6 +123,11 @@ def test_fixed_final_review_sets_are_guarded_and_restore_cleanly(monkeypatch):
             ]
             assert all(
                 item["resource"]["payload"]["learning_goal"] == "专项巩固测验"
+                for item in state["sets"]
+            )
+            assert all(
+                item["resource"]["payload"]["generation_scope"]["notebook_id"]
+                == notebook_id
                 for item in state["sets"]
             )
             assert state["sets"][0]["operator_answers"] == ["B", "DEBCA", "B", "A", "错"]

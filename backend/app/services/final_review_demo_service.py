@@ -15,6 +15,7 @@ from ..models.db import init_db, session
 from ..models.entities import (
     DemoBaseline,
     EventLog,
+    Notebook,
     PathPlan,
     PersonalizationDecision,
     Profile,
@@ -84,7 +85,12 @@ def _questions_for(spec: dict[str, Any]) -> list[dict[str, Any]]:
     return questions
 
 
-def _resource_payload(spec: dict[str, Any]) -> dict[str, Any]:
+def _resource_payload(
+    spec: dict[str, Any],
+    *,
+    notebook_id: str = "",
+    session_id: str = "guided-practice",
+) -> dict[str, Any]:
     return {
         "questions": _questions_for(spec),
         "difficulty": 3,
@@ -101,8 +107,8 @@ def _resource_payload(spec: dict[str, Any]) -> dict[str, Any]:
             "target_pattern": spec["target_pattern"],
         },
         "generation_scope": {
-            "notebook_id": "",
-            "session_id": "guided-practice",
+            "notebook_id": notebook_id,
+            "session_id": session_id,
             "conversation_focus": "专项巩固测验",
             "source_ids": [],
             "artifact_scope": "current_topic",
@@ -192,10 +198,20 @@ def prepare_final_review(user_id: str) -> dict[str, Any]:
     get_profile(user_id)  # Materialize/normalize the profile before snapshotting it.
     init_db()
     with session() as db:
+        notebook = (
+            db.query(Notebook)
+            .filter(Notebook.user_id == user_id)
+            .order_by(Notebook.updated_at.desc(), Notebook.created_at.desc())
+            .first()
+        )
         for spec in _SET_SPECS:
             resource_id = _resource_id(user_id, str(spec["id"]))
             resource = db.get(Resource, resource_id)
-            payload = _resource_payload(spec)
+            payload = _resource_payload(
+                spec,
+                notebook_id=str(notebook.id) if notebook else "",
+                session_id=str(notebook.session_id) if notebook else "guided-practice",
+            )
             if resource is None:
                 db.add(Resource(
                     id=resource_id,
