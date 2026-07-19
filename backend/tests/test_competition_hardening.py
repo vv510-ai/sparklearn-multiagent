@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
+from collections import Counter
+from pathlib import Path
 
 import pytest
 
@@ -443,3 +446,27 @@ def test_safety_filter_exposes_consistent_passed_and_safe_fields():
     result = safety_filter("请帮我考试作弊")
     assert result["passed"] is False
     assert result["safe"] is False
+
+
+def test_local_blocklist_is_loaded_from_versioned_file():
+    result = safety_filter("不要购买作弊工具，也不要找人替考")
+    assert result["passed"] is False
+    assert {"作弊工具", "替考"}.issubset(set(result["hits"]))
+
+
+def test_seed_quiz_meets_final_course_coverage_floor():
+    path = Path(__file__).resolve().parents[1] / "app" / "data" / "seed_quiz.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    questions = payload["questions"]
+    counts = Counter(question["kp"] for question in questions)
+
+    assert len(questions) == 49
+    assert counts["graph_basic"] >= 3
+    assert counts["graph_traverse"] >= 3
+    for kp in ("binary_tree", "bst", "heap", "sorting_adv"):
+        assert counts[kp] >= 5
+    assert all(
+        len(question.get("options", [])) == 4
+        for question in questions
+        if question["type"] == "single"
+    )

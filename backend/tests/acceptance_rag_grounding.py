@@ -6,6 +6,7 @@ Run from backend:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,7 +43,28 @@ QUESTIONS = [
     ("heap", "堆和二叉搜索树的有序性质有什么区别？"),
     ("heap", "数组表示的堆中父节点和孩子下标如何计算？"),
     ("array", "数组的随机访问复杂度是什么，它与树的顺序存储有什么联系？"),
+    ("graph_basic", "图由哪些基本元素组成，顶点和边分别表示什么？"),
+    ("graph_basic", "有向图与无向图的边在方向上有什么区别？"),
+    ("graph_basic", "邻接矩阵和邻接表各适合什么规模的图？"),
+    ("graph_basic", "简单无向完全图的边数怎样计算？"),
+    ("graph_traverse", "图的遍历为什么需要 visited 访问标记？"),
+    ("graph_traverse", "BFS 为什么使用队列并按层扩展？"),
+    ("graph_traverse", "DFS 为什么可以用递归或显式栈实现？"),
+    ("graph_traverse", "非连通图怎样保证每个顶点都被遍历？"),
+    ("sorting_adv", "快速排序的划分操作怎样把元素放到基准两侧？"),
+    ("sorting_adv", "快速排序在哪些输入下可能退化为平方复杂度？"),
+    ("sorting_adv", "归并排序为什么稳定并需要线性辅助空间？"),
+    ("sorting_adv", "堆排序、快速排序和归并排序怎样比较稳定性？"),
+    ("shortest_path", "Dijkstra 算法为什么要求所有边权非负？"),
+    ("shortest_path", "无权图的单源最短路径为什么可以使用 BFS？"),
+    ("dp", "动态规划中的状态、转移和边界分别是什么？"),
+    ("dp", "0-1 背包一维数组为什么必须倒序遍历容量？"),
 ]
+
+
+def _contains_kp(hit: dict, expected_kp: str) -> bool:
+    values = re.split(r"[,，、;；\s]+", str(hit.get("kp", "")).strip())
+    return expected_kp in {value for value in values if value}
 
 
 def main() -> None:
@@ -51,12 +73,23 @@ def main() -> None:
     failures = []
     for index, (kp, question) in enumerate(QUESTIONS, start=1):
         hits = retrieve(question, top_k=20, final_k=5, kp=kp)
-        accepted = bool(hits) and all(hit.get("source") == COURSE_SOURCE for hit in hits)
+        relevant_rank = next(
+            (rank for rank, hit in enumerate(hits, start=1) if _contains_kp(hit, kp)),
+            None,
+        )
+        hit_at_5 = relevant_rank is not None and relevant_rank <= 5
+        reciprocal_rank = 1.0 / relevant_rank if relevant_rank else 0.0
+        source_grounded = bool(hits) and all(hit.get("source") == COURSE_SOURCE for hit in hits)
+        accepted = source_grounded and hit_at_5
         item = {
             "index": index,
             "kp": kp,
             "question": question,
             "accepted": accepted,
+            "source_grounded": source_grounded,
+            "hit_at_5": hit_at_5,
+            "first_relevant_rank": relevant_rank,
+            "reciprocal_rank": round(reciprocal_rank, 4),
             "hits": [
                 {
                     "rank": rank,
@@ -88,6 +121,8 @@ def main() -> None:
         "question_count": len(QUESTIONS),
         "passed": len(QUESTIONS) - len(failures),
         "failed": len(failures),
+        "hit_at_5": round(sum(bool(row["hit_at_5"]) for row in rows) / len(rows), 4),
+        "mrr": round(sum(float(row["reciprocal_rank"]) for row in rows) / len(rows), 4),
         "items": rows,
     }
     out_dir = BACKEND_DIR / "runs" / "rag-governance-20260625"
@@ -97,7 +132,10 @@ def main() -> None:
     print(f"report={out_path}")
     if failures:
         raise SystemExit(f"RAG acceptance failed: {len(failures)} questions")
-    print(f"RAG acceptance passed: {len(QUESTIONS)}/{len(QUESTIONS)}")
+    print(
+        f"RAG acceptance passed: {len(QUESTIONS)}/{len(QUESTIONS)}; "
+        f"Hit@5={report['hit_at_5']:.4f}; MRR={report['mrr']:.4f}"
+    )
 
 
 if __name__ == "__main__":

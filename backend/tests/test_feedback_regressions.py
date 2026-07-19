@@ -96,3 +96,40 @@ def test_video_narration_removes_markdown_source_syntax():
     assert "##" not in cleaned
     assert "`" not in cleaned
     assert "基础排序" in cleaned
+
+
+def test_video_normalization_keeps_llm_prefix_and_names_topic():
+    prefix = "先看模型原始讲解的第一句话。"
+    script = media_agent._normalize_script(  # noqa: SLF001
+        {"title": "演示", "narration": prefix + "这段正文没有写出课程主题。" * 50, "scenes": []},
+        [],
+        "图的遍历",
+    )
+
+    assert script["narration"].startswith(prefix)
+    assert "图的遍历" in script["narration"]
+
+
+def test_video_storyboard_has_at_most_six_ordered_two_minute_scenes():
+    script = media_agent._normalize_script(  # noqa: SLF001
+        {
+            "narration": "二叉树用于表达层次关系。",
+            "scenes": [{"visual": str(index), "caption": str(index)} for index in range(9)],
+        },
+        [],
+        "二叉树",
+    )
+
+    assert len(script["scenes"]) <= 6
+    assert [scene["t"] for scene in script["scenes"]] == [
+        "0-20s", "20-40s", "40-60s", "60-80s", "80-100s", "100-120s"
+    ]
+
+
+def test_video_topic_gate_rejects_adjacent_course_topic():
+    script = {
+        "narration": "图的遍历从一个顶点出发；接着详细讲最短路径的松弛操作。",
+        "scenes": [{"visual": "图的遍历", "caption": "最短路径"}],
+    }
+
+    assert media_agent._script_on_topic(script, "图的遍历", "graph_traverse", []) is False  # noqa: SLF001

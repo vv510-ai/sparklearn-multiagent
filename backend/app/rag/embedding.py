@@ -1,7 +1,8 @@
 """Embedding backends with deployment-safe fallbacks.
 
-The preferred order is local BGE-M3, the official iFlytek Embedding API, then
-an offline hashing encoder.  The hashing encoder deliberately keeps Chinese
+Auto mode prefers local FastEmbed ``bge-small-zh-v1.5`` INT8, then the official
+iFlytek Embedding API, then an offline hashing encoder.  BGE-M3 remains an
+explicit optional backend.  The hashing encoder deliberately keeps Chinese
 single-character features so short questions such as ``图是什么`` remain
 retrievable even when no hosted embedding service is configured.
 """

@@ -293,6 +293,11 @@ def _normalize_script(script: dict, chunks: list[dict], name: str) -> dict:
             if len("。".join(parts)) >= 700:
                 break
         narration = "。".join(parts).strip("。") + "。"
+    if name and name not in narration:
+        marker = f"本节主题是{name}。"
+        body_budget = max(0, 820 - len(marker) - 1)
+        body = narration[:body_budget].rstrip("，；、。 ")
+        narration = f"{body}。{marker}" if body else marker
     normalized["narration"] = narration[:820] or f"本节用两分钟讲清{name}的核心概念、最小例子和易错边界。"
 
     scenes = [scene for scene in normalized.get("scenes") or [] if isinstance(scene, dict)]

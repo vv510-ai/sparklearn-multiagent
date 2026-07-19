@@ -7,22 +7,37 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
 from ..config import is_demo
 
 log = logging.getLogger("sparklearn.guard")
 
-# 演示用本地词表(部署时替换为完整合规词库文件)
-_BLOCKLIST = ["代写论文", "考试作弊", "答案泄露", "枪手"]
+_DEFAULT_BLOCKLIST = ("代写论文", "考试作弊", "答案泄露", "枪手")
+_BLOCKLIST_PATH = Path(__file__).resolve().parents[1] / "data" / "blocklist.txt"
+
+
+def _load_blocklist(path: Path = _BLOCKLIST_PATH) -> tuple[str, ...]:
+    """从可审计文件加载词表；文件不可用时保留最小安全兜底。"""
+    try:
+        words = tuple(
+            line.strip()
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        )
+        return words or _DEFAULT_BLOCKLIST
+    except OSError:
+        log.warning("本地安全词表不可读，使用内置最小兜底：%s", path)
+        return _DEFAULT_BLOCKLIST
 
 
 def run_local_blocklist(text: str) -> tuple[bool, list[str]]:
-    hits = [w for w in _BLOCKLIST if w in text]
+    hits = [word for word in _load_blocklist() if word in text]
     return (len(hits) == 0), hits
 
 
 def call_iflytek_audit(text: str) -> bool:
-    """讯飞文本合规 API 挂接点:配置三元组后可启用;演示模式直接放行。"""
+    """讯飞文本合规 API 预留挂接点；当前版本未发起远程审核请求。"""
     if is_demo():
         return True
     # TODO(部署时): 调用 https://audit.iflyaisol.com 文本合规接口,HMAC 鉴权同 signing.py
