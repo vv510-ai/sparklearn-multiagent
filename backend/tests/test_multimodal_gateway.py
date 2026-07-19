@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import hashlib
 import json
 import sys
@@ -13,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.llm import multimodal_gateway as gateway
-from app.llm import local_ocr, openai_image, spark_image, spark_ocr
+from app.llm import local_ocr, spark_image, spark_ocr
 
 
 @pytest.fixture(autouse=True)
@@ -34,10 +33,7 @@ def _settings(**overrides):
         "spark_asr_appid": "",
         "spark_asr_api_key": "",
         "spark_asr_api_secret": "",
-        "openai_api_key": "",
-        "openai_image_model": "gpt-image-2",
         "xyq_access_key": "",
-        "mm_openai_image_enabled": True,
         "mm_xyq_image_enabled": True,
         "mm_ocr_enabled": True,
         "mm_local_ocr_enabled": False,
@@ -305,61 +301,29 @@ def test_provider_exception_is_a_degraded_result(monkeypatch):
     assert "provider unavailable" in result["error"]
 
 
-def test_image_uses_openai_as_primary(monkeypatch, tmp_path: Path):
-    settings = _settings(openai_api_key="openai-test-key")
-    spark_called = False
-
-    def broken_spark(*args, **kwargs):
-        nonlocal spark_called
-        spark_called = True
-        raise AssertionError("Spark should not run when OpenAI succeeds")
-
-    def openai_provider(*args, **kwargs):
-        output = tmp_path / kwargs["filename"]
-        output.write_bytes(b"\x89PNG\r\n\x1a\nmock-image")
-        return f"/static/gen/{output.name}"
-
-    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
-    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
-    monkeypatch.setattr(gateway.spark_image, "generate_image", broken_spark)
-    monkeypatch.setattr(gateway.openai_image, "generate_image", openai_provider)
-
-    result = asyncio.run(gateway.text_to_image("binary tree", trace_id="image-openai"))
-
-    assert result["ok"] is True, result
-    assert result["degraded"] is False
-    assert result["data"]["provider"] == "openai"
-    assert result["data"]["image_url"].endswith(".png")
-    assert result["error"] == ""
-    assert spark_called is False
-
-
-def test_image_falls_back_to_spark_when_openai_fails(monkeypatch, tmp_path: Path):
-    settings = _settings(openai_api_key="openai-test-key")
-
-    def broken_openai(*args, **kwargs):
-        raise RuntimeError("OpenAI billing unavailable")
+def test_image_uses_spark_provider(monkeypatch, tmp_path: Path):
+    settings = _settings()
 
     def spark_provider(*args, **kwargs):
-        output = tmp_path / "spark-cover.jpg"
+        output = tmp_path / "spark-image.jpg"
         output.write_bytes(b"\xff\xd8\xffmock-image")
         return f"/static/gen/{output.name}"
 
     monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
     monkeypatch.setattr(gateway, "get_settings", lambda: settings)
-    monkeypatch.setattr(gateway.openai_image, "generate_image", broken_openai)
     monkeypatch.setattr(gateway.spark_image, "generate_image", spark_provider)
 
-    result = asyncio.run(gateway.text_to_image("binary tree", trace_id="image-spark-fallback"))
+    result = asyncio.run(gateway.text_to_image("binary tree", trace_id="image-spark"))
 
     assert result["ok"] is True, result
-    assert result["degraded"] is True
+    assert result["degraded"] is False
     assert result["data"]["provider"] == "spark"
-    assert "OpenAI billing unavailable" in result["error"]
+    assert result["data"]["image_url"].endswith(".jpg")
+    assert result["error"] == ""
 
 
 def test_one_page_image_prefers_xiaoyunque(monkeypatch, tmp_path: Path):
-    settings = _settings(xyq_access_key="test-xyq-key", openai_api_key="openai-test-key")
+    settings = _settings(xyq_access_key="test-xyq-key")
     other_provider_called = False
 
     def xyq_provider(prompt, digest, provider_settings):
@@ -378,7 +342,6 @@ def test_one_page_image_prefers_xiaoyunque(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(gateway, "get_settings", lambda: settings)
     monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
     monkeypatch.setattr(gateway, "_generate_xiaoyunque_image", xyq_provider)
-    monkeypatch.setattr(gateway.openai_image, "generate_image", other_provider)
     monkeypatch.setattr(gateway.spark_image, "generate_image", other_provider)
 
     result = asyncio.run(gateway.text_to_image(
@@ -438,42 +401,6 @@ def test_xiaoyunque_image_download_rejects_insecure_url(tmp_path: Path):
             timeout_s=1,
             max_bytes=1024,
         )
-
-
-def test_openai_image_provider_writes_base64_response(monkeypatch, tmp_path: Path):
-    image_data = b"\x89PNG\r\n\x1a\nprovider-test"
-    sent = {}
-
-    class FakeResponse:
-        status_code = 200
-        reason = "OK"
-
-        @staticmethod
-        def json():
-            return {"data": [{"b64_json": base64.b64encode(image_data).decode("ascii")}]}
-
-    settings = SimpleNamespace(
-        openai_api_key="openai-test-key",
-        openai_base_url="https://api.openai.test/v1",
-        openai_image_model="gpt-image-2",
-        openai_image_quality="low",
-    )
-    monkeypatch.setattr(openai_image, "GEN_DIR", tmp_path)
-    monkeypatch.setattr(openai_image, "get_settings", lambda: settings)
-
-    def fake_post(url, **kwargs):
-        sent["url"] = url
-        sent["json"] = kwargs["json"]
-        return FakeResponse()
-
-    monkeypatch.setattr(openai_image.requests, "post", fake_post)
-    url = openai_image.generate_image("binary tree", width=768, height=768, filename="cover.png")
-
-    assert url == "/static/gen/cover.png"
-    assert (tmp_path / "cover.png").read_bytes() == image_data
-    assert sent["url"] == "https://api.openai.test/v1/images/generations"
-    assert sent["json"]["model"] == "gpt-image-2"
-    assert sent["json"]["size"] == "1024x1024"
 
 
 def test_video_budget_hands_running_task_to_frontend(monkeypatch):

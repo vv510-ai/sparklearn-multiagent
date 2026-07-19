@@ -65,12 +65,6 @@ try:  # pydantic-settings 可用时走标准路径
         spark_ppt_api_secret: str = ""
         spark_ppt_base_url: str = "https://zwapi.xfyun.cn"
 
-        # OpenAI GPT Image 备用文生图
-        openai_api_key: str = ""
-        openai_base_url: str = "https://api.openai.com/v1"
-        openai_image_model: str = "gpt-image-2"
-        openai_image_quality: str = "low"
-
         # 小云雀（剪映）图片 / 视频生成
         xyq_access_key: str = ""
         xyq_base_url: str = "https://xyq.jianying.com"
@@ -85,7 +79,6 @@ try:  # pydantic-settings 可用时走标准路径
         mm_asr_enabled: bool = True
         mm_tts_enabled: bool = True
         mm_image_enabled: bool = True
-        mm_openai_image_enabled: bool = True
         mm_xyq_image_enabled: bool = True
         mm_video_enabled: bool = True
         mm_ppt_enabled: bool = True
@@ -171,10 +164,6 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_ppt_appid = g("SPARK_PPT_APPID", "")
             self.spark_ppt_api_secret = g("SPARK_PPT_API_SECRET", "")
             self.spark_ppt_base_url = g("SPARK_PPT_BASE_URL", "https://zwapi.xfyun.cn")
-            self.openai_api_key = g("OPENAI_API_KEY", "")
-            self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
-            self.openai_image_model = g("OPENAI_IMAGE_MODEL", "gpt-image-2")
-            self.openai_image_quality = g("OPENAI_IMAGE_QUALITY", "low")
             self.xyq_access_key = g("XYQ_ACCESS_KEY", "")
             self.xyq_base_url = g("XYQ_BASE_URL", "https://xyq.jianying.com")
             self.xyq_video_model = g("XYQ_VIDEO_MODEL", "Seedance_2.0_mini_lite")
@@ -186,7 +175,6 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.mm_asr_enabled = _env_bool("MM_ASR_ENABLED")
             self.mm_tts_enabled = _env_bool("MM_TTS_ENABLED")
             self.mm_image_enabled = _env_bool("MM_IMAGE_ENABLED")
-            self.mm_openai_image_enabled = _env_bool("MM_OPENAI_IMAGE_ENABLED")
             self.mm_xyq_image_enabled = _env_bool("MM_XYQ_IMAGE_ENABLED")
             self.mm_video_enabled = _env_bool("MM_VIDEO_ENABLED")
             self.mm_ppt_enabled = _env_bool("MM_PPT_ENABLED")

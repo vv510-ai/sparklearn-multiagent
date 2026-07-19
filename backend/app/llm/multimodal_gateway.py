@@ -20,7 +20,6 @@ from ..agents.emitter import emit
 from ..config import GEN_DIR, get_settings, is_demo
 from . import (
     local_ocr,
-    openai_image,
     spark_asr,
     spark_image,
     spark_ocr,
@@ -341,14 +340,6 @@ def _triplet_configured() -> bool:
     return bool(s.spark_appid and s.spark_api_key and s.spark_api_secret)
 
 
-def _openai_image_configured(settings: Any) -> bool:
-    return bool(
-        getattr(settings, "mm_openai_image_enabled", True)
-        and getattr(settings, "openai_api_key", "")
-        and getattr(settings, "openai_image_model", "")
-    )
-
-
 def capability_status() -> dict[str, dict[str, bool]]:
     s = get_settings()
     triplet = _triplet_configured()
@@ -372,7 +363,7 @@ def capability_status() -> dict[str, dict[str, bool]]:
         },
         "image": {
             "enabled": bool(s.mm_image_enabled),
-            "configured": bool((triplet or _openai_image_configured(s)) and not demo),
+            "configured": bool(triplet and not demo),
         },
         "video": {
             "enabled": bool(s.mm_video_enabled),
@@ -753,20 +744,6 @@ async def text_to_image(
                 ))
             else:
                 unavailable.append("xiaoyunque: credentials not configured or image capability disabled")
-        if _openai_image_configured(s):
-            attempts.append((
-                "openai",
-                lambda: openai_image.generate_image(
-                    prompt,
-                    width=width,
-                    height=height,
-                    filename=f"openai_img_{digest}.png",
-                    timeout_s=timeout_s,
-                ),
-                timeout_s,
-            ))
-        else:
-            unavailable.append("openai: credentials not configured or fallback disabled")
         if _triplet_configured():
             attempts.append((
                 "spark",
