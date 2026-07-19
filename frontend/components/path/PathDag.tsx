@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   BookOpen,
@@ -44,6 +52,15 @@ const CHAPTER_COLORS = [
 
 type Point = { x: number; y: number };
 type ViewMode = "graph" | "route";
+type DragState = {
+  id: string;
+  pointerId: number;
+  offsetX: number;
+  offsetY: number;
+  startX: number;
+  startY: number;
+  moved: boolean;
+};
 type DisplayNode = PathNode & {
   detail?: boolean;
   parentId?: string;
@@ -196,6 +213,14 @@ function masteryLabel(value: number) {
   return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
+function motionSeed(id: string) {
+  let seed = 0;
+  for (let index = 0; index < id.length; index += 1) {
+    seed = (seed * 31 + id.charCodeAt(index)) % 997;
+  }
+  return (seed / 997) * Math.PI * 2;
+}
+
 function buttonClass(active = false) {
   return `inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-bold transition ${
     active
@@ -224,6 +249,13 @@ export default function PathDag({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(expandableIds));
   const [activeDetailId, setActiveDetailId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [manualPositions, setManualPositions] = useState<Record<string, Point>>({});
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [motionTime, setMotionTime] = useState(0);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef<string | null>(null);
 
   const allDisplayNodes = useMemo<DisplayNode[]>(() => plan.nodes.flatMap((node) => [
     node,
@@ -242,6 +274,10 @@ export default function PathDag({
       relation: detail.relation,
     })),
   ]), [plan.nodes]);
+  const allNodeById = useMemo(
+    () => Object.fromEntries(allDisplayNodes.map((node) => [node.id, node])) as Record<string, DisplayNode>,
+    [allDisplayNodes],
+  );
   const displayNodes = useMemo(
     () => mode === "route"
       ? allDisplayNodes.filter((node) => !node.detail)
@@ -290,7 +326,28 @@ export default function PathDag({
       : { positions: routeLayout(plan), height: VIEW_H },
     [expanded, mode, plan],
   );
-  const positions = layout.positions;
+  const positions = useMemo<Record<string, Point>>(() => {
+    const animated: Record<string, Point> = {};
+    Object.entries(layout.positions).forEach(([id, base]) => {
+      const anchor = mode === "graph" && manualPositions[id] ? manualPositions[id] : base;
+      const node = allNodeById[id];
+      if (mode !== "graph" || reduceMotion || draggingId === id) {
+        animated[id] = anchor;
+        return;
+      }
+      const seed = motionSeed(id);
+      const amplitude = node?.detail ? 1.55 : 2.35;
+      animated[id] = {
+        x: anchor.x
+          + Math.sin(motionTime * 0.00062 + seed) * amplitude
+          + Math.sin(motionTime * 0.00027 + seed * 1.7) * amplitude * 0.32,
+        y: anchor.y
+          + Math.cos(motionTime * 0.00049 + seed * 0.83) * amplitude * 0.82
+          + Math.sin(motionTime * 0.00031 + seed * 1.23) * amplitude * 0.28,
+      };
+    });
+    return animated;
+  }, [allNodeById, draggingId, layout.positions, manualPositions, mode, motionTime, reduceMotion]);
   const activeId = activeDetailId && byId[activeDetailId] ? activeDetailId : selected;
   const activeNode = activeId ? byId[activeId] : undefined;
   const routeNodes = useMemo(
@@ -360,11 +417,36 @@ export default function PathDag({
   useEffect(() => {
     setExpanded(new Set(expandableIds));
     setActiveDetailId(null);
+    setManualPositions({});
   }, [expandableIds]);
   useEffect(() => {
     if (activeDetailId && byId[activeDetailId]?.parentId !== selected) setActiveDetailId(null);
   }, [activeDetailId, byId, selected]);
   useEffect(() => setShowRecallHint(false), [activeId]);
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncPreference = () => setReduceMotion(preference.matches);
+    syncPreference();
+    preference.addEventListener("change", syncPreference);
+    return () => preference.removeEventListener("change", syncPreference);
+  }, []);
+  useEffect(() => {
+    if (reduceMotion || mode !== "graph") {
+      setMotionTime(0);
+      return;
+    }
+    let frame = 0;
+    let lastFrame = 0;
+    const animate = (time: number) => {
+      if (time - lastFrame >= 36) {
+        lastFrame = time;
+        setMotionTime(time);
+      }
+      frame = window.requestAnimationFrame(animate);
+    };
+    frame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frame);
+  }, [mode, reduceMotion]);
   useEffect(() => {
     if (!fullscreen) return;
     const previousOverflow = document.body.style.overflow;
@@ -393,6 +475,7 @@ export default function PathDag({
     setMode("graph");
     setExpanded(new Set(expandableIds));
     setActiveDetailId(null);
+    setManualPositions({});
     onSelect(null);
   };
   const toggleExpanded = (nodeId: string) => {
@@ -406,9 +489,78 @@ export default function PathDag({
   const toggleAllDetails = () => {
     setMode("graph");
     setActiveDetailId(null);
-    setExpanded((current) => current.size === expandableIds.length ? new Set() : new Set(expandableIds));
+    const collapse = expanded.size === expandableIds.length;
+    if (collapse) setManualPositions({});
+    setExpanded(collapse ? new Set() : new Set(expandableIds));
   };
-  const selectDisplayNode = (node: DisplayNode) => {
+  const pointerToGraph = (event: ReactPointerEvent<SVGGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return null;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    return point.matrixTransform(matrix.inverse());
+  };
+  const startDrag = (event: ReactPointerEvent<SVGGElement>, node: DisplayNode) => {
+    if (mode !== "graph" || event.button !== 0) return;
+    const pointer = pointerToGraph(event);
+    const current = positions[node.id];
+    if (!pointer || !current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickRef.current = null;
+    dragRef.current = {
+      id: node.id,
+      pointerId: event.pointerId,
+      offsetX: pointer.x - current.x,
+      offsetY: pointer.y - current.y,
+      startX: current.x,
+      startY: current.y,
+      moved: false,
+    };
+    setManualPositions((value) => ({ ...value, [node.id]: current }));
+    setDraggingId(node.id);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const moveDrag = (event: ReactPointerEvent<SVGGElement>, node: DisplayNode) => {
+    const drag = dragRef.current;
+    if (!drag || drag.id !== node.id || drag.pointerId !== event.pointerId) return;
+    const pointer = pointerToGraph(event);
+    if (!pointer) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const halfWidth = (node.detail ? DETAIL_NODE_W : NODE_W) / 2;
+    const halfHeight = (node.detail ? DETAIL_NODE_H : NODE_H) / 2;
+    const next = {
+      x: Math.max(halfWidth + 6, Math.min(VIEW_W - halfWidth - 6, pointer.x - drag.offsetX)),
+      y: Math.max(halfHeight + 6, Math.min(layout.height - halfHeight - 6, pointer.y - drag.offsetY)),
+    };
+    if (Math.hypot(next.x - drag.startX, next.y - drag.startY) > 1.6) drag.moved = true;
+    setManualPositions((value) => ({ ...value, [node.id]: next }));
+  };
+  const endDrag = (event: ReactPointerEvent<SVGGElement>, node: DisplayNode) => {
+    const drag = dragRef.current;
+    if (!drag || drag.id !== node.id || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (drag.moved) suppressClickRef.current = node.id;
+    dragRef.current = null;
+    setDraggingId(null);
+  };
+  const clickDisplayNode = (event: ReactMouseEvent<SVGGElement>, node: DisplayNode) => {
+    event.stopPropagation();
+    if (suppressClickRef.current === node.id) {
+      suppressClickRef.current = null;
+      return;
+    }
+    selectDisplayNode(node);
+  };
+  function selectDisplayNode(node: DisplayNode) {
     if (node.detail) {
       setActiveDetailId(node.id);
       onSelect(node.parentId || null);
@@ -417,7 +569,7 @@ export default function PathDag({
     setActiveDetailId(null);
     if (node.subtopics?.length && !expanded.has(node.id)) toggleExpanded(node.id);
     onSelect(node.id);
-  };
+  }
   const updateQuery = (value: string) => {
     setQuery(value);
     if (!value.trim()) return;
@@ -559,6 +711,7 @@ export default function PathDag({
                       : "课程骨架图"}
           </div>
           <svg
+            ref={svgRef}
             viewBox={`0 0 ${VIEW_W} ${layout.height}`}
             className="block h-auto min-h-[480px] w-full"
             role="img"
@@ -634,10 +787,14 @@ export default function PathDag({
                     key={node.id}
                     transform={`translate(${point.x - DETAIL_NODE_W / 2}, ${point.y - DETAIL_NODE_H / 2})`}
                     opacity={dim ? 0.1 : 1}
-                    className="cursor-pointer transition-opacity"
-                    onClick={(event) => { event.stopPropagation(); selectDisplayNode(node); }}
+                    className={`${draggingId === node.id ? "cursor-grabbing" : "cursor-grab"} touch-none transition-opacity`}
+                    onClick={(event) => clickDisplayNode(event, node)}
+                    onPointerDown={(event) => startDrag(event, node)}
+                    onPointerMove={(event) => moveDrag(event, node)}
+                    onPointerUp={(event) => endDrag(event, node)}
+                    onPointerCancel={(event) => endDrag(event, node)}
                     role="button"
-                    aria-label={`${node.name}，${node.relation || "细分知识点"}，属于 ${byId[node.parentId || ""]?.name || "课程"}`}
+                    aria-label={`${node.name}，${node.relation || "细分知识点"}，属于 ${byId[node.parentId || ""]?.name || "课程"}，可拖拽`}
                   >
                     {(isSelected || isHit) && (
                       <rect x="-4" y="-4" width={DETAIL_NODE_W + 8} height={DETAIL_NODE_H + 8} rx="26" fill="none" stroke={isHit ? "#FFF5A6" : "#FFFFFF"} strokeWidth="2" filter="url(#node-glow)" />
@@ -650,31 +807,67 @@ export default function PathDag({
                 );
               }
               return (
-                <g
-                  key={node.id}
-                  transform={`translate(${point.x - NODE_W / 2}, ${point.y - NODE_H / 2})`}
-                  opacity={dim ? 0.12 : 1}
-                  className="cursor-pointer transition-opacity"
-                  onClick={(event) => { event.stopPropagation(); selectDisplayNode(node); }}
-                  role="button"
-                  aria-label={`${node.name}，${style.label}，掌握度 ${masteryLabel(node.mastery)}，${expanded.has(node.id) ? "细分节点已展开" : "可展开细分节点"}`}
-                >
-                  {(isSelected || isHit || isRoute) && (
-                    <rect x="-5" y="-5" width={NODE_W + 10} height={NODE_H + 10} rx="18" fill="none" stroke={isRoute ? "#FFD166" : isHit ? "#FFF5A6" : "#FFFFFF"} strokeWidth="2" strokeDasharray={isRoute ? "5 4" : undefined} filter="url(#node-glow)" />
-                  )}
-                  <rect width={NODE_W} height={NODE_H} rx="14" fill={style.fill} stroke={isSelected ? "#FFFFFF" : style.border} strokeWidth={isSelected ? 2.5 : 1.35} />
-                  <rect x="1" y="1" width={NODE_W - 2} height="4" rx="2" fill={chapterColor} opacity="0.95" />
-                  <circle cx="15" cy="18" r="7" fill={style.border} opacity="0.18" />
-                  <text x="15" y="21" textAnchor="middle" fontSize="9" fontWeight="900" fill={style.border}>{statusSymbol}</text>
-                  <text x={NODE_W / 2} y="27" textAnchor="middle" fontSize="14" fontWeight="900" fill={style.text}>{node.name}</text>
-                  <text x="12" y="47" fontSize="9.5" fontWeight="700" fill="#9FB2C9">{style.label}</text>
-                  <text x={NODE_W - 12} y="47" textAnchor="end" fontSize="10" fontWeight="900" fill={style.border}>{masteryLabel(node.mastery)}</text>
-                  <rect x="12" y={NODE_H - 10} width={NODE_W - 24} height="4" rx="2" fill="#334155" />
-                  <rect x="12" y={NODE_H - 10} width={(NODE_W - 24) * Math.max(0, Math.min(1, node.mastery))} height="4" rx="2" fill={style.bar} />
+                <Fragment key={node.id}>
+                  <g
+                    transform={`translate(${point.x - NODE_W / 2}, ${point.y - NODE_H / 2})`}
+                    opacity={dim ? 0.12 : 1}
+                    className={`${mode === "graph" ? (draggingId === node.id ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer"} touch-none transition-opacity`}
+                    onClick={(event) => clickDisplayNode(event, node)}
+                    onPointerDown={(event) => startDrag(event, node)}
+                    onPointerMove={(event) => moveDrag(event, node)}
+                    onPointerUp={(event) => endDrag(event, node)}
+                    onPointerCancel={(event) => endDrag(event, node)}
+                    role="button"
+                    aria-label={`${node.name}，${style.label}，掌握度 ${masteryLabel(node.mastery)}，${expanded.has(node.id) ? "细分节点已展开" : "可展开细分节点"}，可拖拽`}
+                  >
+                    {(isSelected || isHit || isRoute) && (
+                      <rect x="-5" y="-5" width={NODE_W + 10} height={NODE_H + 10} rx="18" fill="none" stroke={isRoute ? "#FFD166" : isHit ? "#FFF5A6" : "#FFFFFF"} strokeWidth="2" strokeDasharray={isRoute ? "5 4" : undefined} filter="url(#node-glow)" />
+                    )}
+                    <rect width={NODE_W} height={NODE_H} rx="14" fill={style.fill} stroke={isSelected ? "#FFFFFF" : style.border} strokeWidth={isSelected ? 2.5 : 1.35} />
+                    <rect x="1" y="1" width={NODE_W - 2} height="4" rx="2" fill={chapterColor} opacity="0.95" />
+                    <circle cx="15" cy="18" r="7" fill={style.border} opacity="0.18" />
+                    <text x="15" y="21" textAnchor="middle" fontSize="9" fontWeight="900" fill={style.border}>{statusSymbol}</text>
+                    <text x={NODE_W / 2} y="27" textAnchor="middle" fontSize="14" fontWeight="900" fill={style.text}>{node.name}</text>
+                    <text x="12" y="47" fontSize="9.5" fontWeight="700" fill="#9FB2C9">{style.label}</text>
+                    <text x={NODE_W - 12} y="47" textAnchor="end" fontSize="10" fontWeight="900" fill={style.border}>{masteryLabel(node.mastery)}</text>
+                    <rect x="12" y={NODE_H - 10} width={NODE_W - 24} height="4" rx="2" fill="#334155" />
+                    <rect x="12" y={NODE_H - 10} width={(NODE_W - 24) * Math.max(0, Math.min(1, node.mastery))} height="4" rx="2" fill={style.bar} />
+                    {isNext && (
+                      <g transform={`translate(${NODE_W - 21}, -8)`}>
+                        <rect width="42" height="16" rx="8" fill="#0F6B50" stroke="#8CF4CD" strokeWidth="0.6" />
+                        <text x="21" y="11.5" textAnchor="middle" fontSize="8.5" fontWeight="900" fill="#FFFFFF">下一步</text>
+                      </g>
+                    )}
+                    {node.order && (
+                      <g transform="translate(-4,-4)">
+                        <circle r="11" fill="#FFD166" stroke="#FFF2C2" strokeWidth="1" />
+                        <text y="3.5" textAnchor="middle" fontSize="10" fontWeight="900" fill="#1B2430">{node.order}</text>
+                      </g>
+                    )}
+                  </g>
                   {node.subtopics?.length ? (
                     <g
-                      transform={`translate(${NODE_W - 8}, 8)`}
-                      onClick={(event) => { event.stopPropagation(); toggleExpanded(node.id); }}
+                      transform={`translate(${point.x + NODE_W / 2 - 8}, ${point.y - NODE_H / 2 + 8})`}
+                      opacity={dim ? 0.12 : 1}
+                      className="cursor-pointer touch-none transition-opacity"
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setDraggingId(node.id);
+                      }}
+                      onPointerUp={(event) => {
+                        event.stopPropagation();
+                        setDraggingId(null);
+                      }}
+                      onPointerCancel={(event) => {
+                        event.stopPropagation();
+                        setDraggingId(null);
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        toggleExpanded(node.id);
+                      }}
                       role="button"
                       aria-label={`${expanded.has(node.id) ? "收起" : "展开"}${node.name}的 ${node.subtopics.length} 个细分节点`}
                     >
@@ -682,19 +875,7 @@ export default function PathDag({
                       <text y="3.5" textAnchor="middle" fontSize="13" fontWeight="900" fill={chapterColor}>{expanded.has(node.id) ? "−" : "+"}</text>
                     </g>
                   ) : null}
-                  {isNext && (
-                    <g transform={`translate(${NODE_W - 21}, -8)`}>
-                      <rect width="42" height="16" rx="8" fill="#0F6B50" stroke="#8CF4CD" strokeWidth="0.6" />
-                      <text x="21" y="11.5" textAnchor="middle" fontSize="8.5" fontWeight="900" fill="#FFFFFF">下一步</text>
-                    </g>
-                  )}
-                  {node.order && (
-                    <g transform="translate(-4,-4)">
-                      <circle r="11" fill="#FFD166" stroke="#FFF2C2" strokeWidth="1" />
-                      <text y="3.5" textAnchor="middle" fontSize="10" fontWeight="900" fill="#1B2430">{node.order}</text>
-                    </g>
-                  )}
-                </g>
+                </Fragment>
               );
             })}
           </svg>
@@ -702,7 +883,7 @@ export default function PathDag({
             {(Object.entries(STATUS) as [PathNode["status"], typeof STATUS[PathNode["status"]]][]).map(([key, item]) => (
               <span key={key} className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ backgroundColor: item.border }} />{item.label}</span>
             ))}
-            <span className="ml-auto">主节点右上角 ± 展开/收起 · 点击空白处清除聚焦 · Esc 重置搜索</span>
+            <span className="ml-auto">节点会轻微漂浮 · 拖拽可整理布局 · 主节点右上角 ± 展开/收起 · Esc 重置搜索</span>
           </div>
         </div>
 
