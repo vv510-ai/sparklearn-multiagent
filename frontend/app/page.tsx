@@ -1065,9 +1065,9 @@ export default function Home() {
       </nav>
 
       {mobilePane && (
-        <div className="fixed inset-0 z-40 bg-[#151821]/25 backdrop-blur-[2px] xl:hidden" onClick={() => setMobilePane(null)}>
-          <div className={`absolute inset-y-0 w-[min(88vw,360px)] bg-[#F7F8FC] p-3 shadow-2xl ${mobilePane === "sources" ? "left-0" : "right-0"}`} onClick={(event) => event.stopPropagation()}>
-            <button onClick={() => setMobilePane(null)} className="absolute right-5 top-5 z-10 grid h-8 w-8 place-items-center rounded-full bg-white text-[#596171] shadow-sm" aria-label="关闭"><X size={17} /></button>
+        <div className="notebook-mobile-scrim fixed inset-0 z-40 xl:hidden" onClick={() => setMobilePane(null)}>
+          <div className={`notebook-mobile-sheet absolute inset-y-0 w-[min(88vw,360px)] p-3 shadow-2xl ${mobilePane === "sources" ? "left-0" : "right-0"}`} onClick={(event) => event.stopPropagation()}>
+            <button onClick={() => setMobilePane(null)} className="notebook-mobile-sheet-close absolute right-5 top-5 z-10 grid h-8 w-8 place-items-center rounded-full text-[#596171] shadow-sm" aria-label="关闭"><X size={17} /></button>
             {mobilePane === "sources" ? sourcePanel : studioPanel}
           </div>
         </div>

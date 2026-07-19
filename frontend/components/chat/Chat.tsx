@@ -365,8 +365,8 @@ export default function Chat({
   }, []);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
-      <div className="border-b border-[#E1E4EC] bg-white px-5 py-3.5">
+    <div className="notebook-chat-shell flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="notebook-chat-header border-b border-[#E1E4EC] px-5 py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-[10px] font-bold tracking-[0.18em] text-[#737B8B]">LEARNING CONVERSATION</div>
@@ -380,7 +380,7 @@ export default function Chat({
                 type="button"
                 onClick={onNewConversation}
                 disabled={busy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#DDE3ED] bg-white px-3 py-1.5 text-xs font-bold text-[#4E5665] transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="notebook-soft-control inline-flex items-center gap-1.5 rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-bold text-[#4E5665] transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                 title="保留当前书本和资料，打开一页干净的新对话"
               >
                 <MessageSquarePlus size={14} />
@@ -398,14 +398,14 @@ export default function Chat({
                 整理本次笔记
               </button>
             )}
-            <div className="rounded-full border border-[#DDE3ED] bg-[#F7F8FC] px-3 py-1.5 text-xs font-medium text-[#596171]">
+            <div className="notebook-soft-control rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-medium text-[#596171]">
               {sourceIds.length ? `${sourceIds.length} 份已选资料` : "课程知识库"}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-5">
+      <div className="notebook-chat-scroll flex-1 space-y-4 overflow-y-auto p-5">
         {msgs.length === 0 && (
           <div className="mx-auto max-w-3xl space-y-5 pt-8">
             <div className="text-center">
@@ -416,18 +416,18 @@ export default function Chat({
             <button
               type="button"
               onClick={() => setInput(BEGINNER_PRESET)}
-              className="w-full rounded-[14px] border border-emerald-200 bg-[#F3F8F5] p-4 text-left transition hover:border-emerald-300 hover:bg-[#EDF6F1]"
+              className="notebook-beginner-preset w-full rounded-[14px] border border-emerald-200 p-4 text-left transition hover:border-emerald-300 hover:bg-[#EDF6F1]"
             >
               <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-emerald-700">零基础学习预设 · 点击填入</span>
               <span className="mt-2 block text-sm leading-6 text-[#425248]">{BEGINNER_PRESET}</span>
             </button>
-            <div className="rounded-[12px] border border-[#E1E4EC] bg-[#F8F9FC] p-3">
+            <div className="notebook-flow-card rounded-[12px] border border-[#E1E4EC] p-3">
               <div className="mb-2 text-xs font-bold text-emerald-800">
                 一次完整学习会这样推进
               </div>
               <div className="grid gap-2 sm:grid-cols-4">
                 {FLOW.map(([code, title, desc]) => (
-                  <div key={code} className="rounded-[10px] border border-[#E5E9E3] bg-white px-3 py-2">
+                  <div key={code} className="notebook-flow-step rounded-[10px] border border-[#E5E9E3] px-3 py-2">
                     <div className="font-mono text-[10px] font-bold tracking-[0.18em] text-emerald-700">{code}</div>
                     <div className="mt-1 text-xs font-bold text-[#182119]">{title}</div>
                     <div className="mt-0.5 text-[11px] leading-4 text-[#8B958D]">{desc}</div>
@@ -442,7 +442,7 @@ export default function Chat({
                   <button
                     key={s}
                     onClick={() => send(s)}
-                    className="rounded-[14px] border border-[#E5E9E3] bg-white p-4 text-left text-sm text-[#57635A] shadow-sm transition hover:-translate-y-0.5 hover:border-[#D2DAD2] hover:shadow-[0_1px_2px_rgba(18,30,22,0.05),0_6px_20px_rgba(18,30,22,0.08)]"
+                    className="notebook-starter-card rounded-[14px] border border-[#E5E9E3] p-4 text-left text-sm text-[#57635A] shadow-sm transition hover:-translate-y-0.5 hover:border-[#D2DAD2] hover:shadow-[0_1px_2px_rgba(18,30,22,0.05),0_6px_20px_rgba(18,30,22,0.08)]"
                   >
                     <span className="mb-2 block font-mono text-[10px] tracking-[0.2em] text-emerald-700">学习目标</span>
                     {s}
@@ -467,7 +467,7 @@ export default function Chat({
               </div>
               <div className="min-w-0 flex-1 space-y-3">
                 {(m.text || m.streaming) && (
-                  <div className="rounded-[14px] rounded-tl-md border border-[#E5E9E3] bg-white px-4 py-3 shadow-sm">
+                  <div className="notebook-assistant-message rounded-[14px] rounded-tl-md border border-[#E5E9E3] px-4 py-3 shadow-sm">
                     <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
                   </div>
                 )}
@@ -516,10 +516,10 @@ export default function Chat({
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-[#E1E4EC] bg-white p-4">
+      <div className="notebook-chat-footer border-t border-[#E1E4EC] p-4">
         <div className="notebook-composer relative flex items-end gap-2">
           {composerMenuOpen && (
-            <div className="absolute bottom-14 left-0 z-20 w-60 overflow-hidden rounded-2xl border border-[#DDE2DA] bg-white p-2 shadow-[0_18px_55px_rgba(20,35,27,0.18)]">
+            <div className="notebook-composer-menu absolute bottom-14 left-0 z-20 w-60 overflow-hidden rounded-2xl border border-[#DDE2DA] p-2 shadow-[0_18px_55px_rgba(20,35,27,0.18)]">
               {onNewConversation && (
                 <button type="button" onClick={() => { setComposerMenuOpen(false); onNewConversation(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-emerald-50">
                   <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><MessageSquarePlus size={18} /></span>
