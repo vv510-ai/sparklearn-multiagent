@@ -1,5 +1,6 @@
 """编排智能体(Orchestrator/Supervisor)：先用确定性规则识别意图并路由；
-仅在意图路由规则未命中时调用讯飞星火 X2 兜底，结果写入 state.intent 供条件边分发。"""
+仅在规则未命中时调用统一文本主脑的 reasoner 路径，结果写入 state.intent 供条件边分发。
+当前生产主脑为 DeepSeek；主脑不可用且配置星火时，reasoner 降级到讯飞星火 X2。"""
 from __future__ import annotations
 
 import logging
@@ -67,7 +68,7 @@ def requested_resource_kinds(message: str) -> list[str]:
 
 
 async def run(state: dict) -> dict:
-    await agent_start("orchestrator", "编排智能体", "规则优先意图识别；未命中时由讯飞星火 X2 兜底")
+    await agent_start("orchestrator", "编排智能体", "规则优先意图识别；未命中时由统一文本主脑的 reasoner 路径兜底")
     msg = (state.get("messages") or [{}])[-1].get("content", "") or state.get("learning_goal", "")
     intent = state.get("intent") or ""
     caller_selected_kinds = [str(kind) for kind in (state.get("kinds") or []) if str(kind).strip()]
