@@ -133,7 +133,7 @@ def plan_path(profile: dict, goal_kps: list[str] | None = None,
 def is_current_course_path(path: dict | None) -> bool:
     """Reject persisted course snapshots built from an older or mixed graph."""
     if not isinstance(path, dict) or path.get("generated_by") == "conversation_history":
-        return isinstance(path, dict)
+        return False
     kg = load_kg()
     node_ids = {
         str(node.get("id") or "")

@@ -1,4 +1,5 @@
 """单元测试:BKT / 知识图谱 / 路径规划(离线可跑,无外部依赖)。"""
+import asyncio
 import os
 import sys
 import json
@@ -13,12 +14,17 @@ install()
 from app.services.bkt import bkt_update, mastery_level  # noqa: E402
 from app.services.knowledge_graph import (all_kp_ids, load_kg, prerequisites,  # noqa: E402
                                           canonical_kp_id, topological_order, unlockable)
-from app.services.path_service import is_current_course_path, plan_path  # noqa: E402
+from app.services.path_service import (  # noqa: E402
+    is_current_course_path,
+    plan_conversation_path,
+    plan_path,
+)
 from app.services.profile_service import default_profile, sanitize_profile_patch  # noqa: E402
 from app.rag.ingest import ingest_corpus, load_all_chunks  # noqa: E402
 from app.rag.retriever import _format_citation  # noqa: E402
 from app.rag.vector_store import get_store  # noqa: E402
 from app.agents.planner_agent import _kp_from_goal  # noqa: E402
+from app.api import path as path_api  # noqa: E402
 
 
 def test_bkt_monotonic():
@@ -104,6 +110,53 @@ def test_plan_path_thresholds():
     assert is_current_course_path(path)
     stale = {**path, "nodes": [*path["nodes"], {"id": "sql_basic"}]}
     assert not is_current_course_path(stale)
+
+
+def test_conversation_topic_map_is_not_a_complete_course_path():
+    conversation_path = plan_conversation_path(
+        default_profile(),
+        [
+            {
+                "id": "binary_tree",
+                "name": "二叉树",
+                "custom": False,
+                "questions": ["什么是二叉树？"],
+            },
+            {
+                "id": "advanced_sort",
+                "name": "高级排序",
+                "custom": False,
+                "questions": ["高级排序有哪些？"],
+            },
+        ],
+    )
+    assert len(conversation_path["nodes"]) == 2
+    assert conversation_path["course_id"] == "conversation_history"
+    assert not is_current_course_path(conversation_path)
+
+
+def test_path_api_replaces_a_saved_conversation_map_with_the_full_course(monkeypatch):
+    conversation_path = plan_conversation_path(
+        default_profile(),
+        [{
+            "id": "binary_tree",
+            "name": "二叉树",
+            "custom": False,
+            "questions": ["什么是二叉树？"],
+        }],
+    )
+    saved: list[dict] = []
+    monkeypatch.setattr(path_api, "ensure_user", lambda _user_id: None)
+    monkeypatch.setattr(path_api, "get_path", lambda _user_id: conversation_path)
+    monkeypatch.setattr(path_api, "get_profile", lambda _user_id: default_profile())
+    monkeypatch.setattr(path_api, "save_path", lambda _user_id, path: saved.append(path))
+
+    result = asyncio.run(path_api.read_path(user_id="learner", notebook_id="book"))
+
+    assert result["course_id"] == "data_structures_algorithms"
+    assert len(result["nodes"]) == len(all_kp_ids())
+    assert set(node["id"] for node in result["nodes"]) == set(all_kp_ids())
+    assert saved == [result]
 
 
 def test_profile_patch_and_kp_normalization():

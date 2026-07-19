@@ -401,16 +401,15 @@ export default function Home() {
   const loadPath = useCallback(async () => {
     setPanelError("");
     try {
-      const notebookQuery = activeNotebook?.id
-        ? `&notebook_id=${encodeURIComponent(activeNotebook.id)}`
-        : "";
-      const plan = await apiGet<PathPlan>(`/path?user_id=${USER_ID}${notebookQuery}`);
+      // Knowledge Relation is the complete course graph. Conversation-wide
+      // topics belong to framework-map artifacts and must not narrow this page.
+      const plan = await apiGet<PathPlan>(`/path?user_id=${USER_ID}`);
       setPathPlan(plan);
       setSelectedPathNode(null);
     } catch (error) {
       setPanelError(`知识关系暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [activeNotebook]);
+  }, []);
 
   const loadResources = useCallback(async () => {
     if (!activeNotebook) return;

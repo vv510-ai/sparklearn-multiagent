@@ -6,14 +6,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from ..schemas.core import ReplanRequest
-from ..services.conversation_service import get_session_messages
-from ..services.knowledge_graph import collect_conversation_topics
-from ..services.notebook_service import ensure_notebook_owner
 from ..services.path_service import (
     get_path,
     is_current_course_path,
     list_decisions,
-    plan_conversation_path,
     plan_path,
     save_path,
 )
@@ -33,15 +29,15 @@ async def read_path(
     user_id: str = Query("demo_user"),
     notebook_id: str = Query(""),
 ):
+    """Return the complete course graph used by the Knowledge Relation panel.
+
+    ``notebook_id`` remains accepted for older frontend clients, but it must not
+    narrow this endpoint to topics mentioned in one conversation. Conversation-
+    wide maps are separate learning artifacts; this page is the stable course
+    map and must always expose the full current taxonomy.
+    """
     ensure_user(user_id)
-    if notebook_id:
-        notebook = ensure_notebook_owner(user_id, notebook_id)
-        history = get_session_messages(user_id, notebook.session_id, limit=200)
-        topics = collect_conversation_topics(history, max_topics=24)
-        if topics:
-            path = plan_conversation_path(get_profile(user_id), topics)
-            save_path(user_id, path)
-            return path
+    _ = notebook_id
     path = get_path(user_id)
     if not is_current_course_path(path):
         path = plan_path(get_profile(user_id))
