@@ -436,8 +436,12 @@ def _rag_demo_answer(
 
 
 async def _emit_answer(answer: str) -> None:
-    for start in range(0, len(answer), 72):
-        delta = answer[start:start + 72]
+    # Keep deterministic/fallback answers visibly streaming even when the
+    # grounded response is short.  Long answers retain the 72-character cap,
+    # while short answers are split into at least five UI updates.
+    step = max(1, min(72, (len(answer) + 4) // 5))
+    for start in range(0, len(answer), step):
+        delta = answer[start:start + step]
         await agent_token("tutor", delta)
         await emit({"type": "token", "delta": delta})
 
