@@ -12,13 +12,13 @@ const MARKMAP_JSON_OPTIONS = {
   colorFreezeLevel: 2,
   duration: 220,
   fitRatio: 0.9,
-  initialExpandLevel: 2,
+  initialExpandLevel: 6,
   maxInitialScale: 1.35,
   maxWidth: 220,
   nodeMinHeight: 20,
   paddingX: 12,
-  spacingHorizontal: 96,
-  spacingVertical: 12,
+  spacingHorizontal: 78,
+  spacingVertical: 14,
 };
 
 type D3SelectionLike = {
@@ -106,8 +106,10 @@ function outlineItems(markdown: string) {
 export default function Markmap({ markdown }: { markdown: string }) {
   const ref = useRef<SVGSVGElement>(null);
   const mmRef = useRef<MarkmapInstance | null>(null);
+  const nodeCount = outlineItems(markdown).length;
   const [failed, setFailed] = useState(false);
-  const [tall, setTall] = useState(false);
+  const [tall, setTall] = useState(() => nodeCount > 16);
+  const [touring, setTouring] = useState(false);
   const hasPersonalMarks = /[✅⚠🔒]/.test(markdown);
 
   useEffect(() => {
@@ -130,7 +132,10 @@ export default function Markmap({ markdown }: { markdown: string }) {
         markmap.setData(root);
         mmRef.current = markmap;
       } catch {
-        if (alive) setFailed(true);
+        if (alive) {
+          setFailed(true);
+          setTouring(false);
+        }
       }
     })();
     return () => {
@@ -144,6 +149,30 @@ export default function Markmap({ markdown }: { markdown: string }) {
     const t = window.setTimeout(() => mmRef.current?.fit?.(), 60);
     return () => window.clearTimeout(t);
   }, [tall]);
+
+  useEffect(() => {
+    const svg = ref.current;
+    if (!svg || !touring) {
+      svg?.querySelectorAll(".markmap-node-active").forEach((node) => node.classList.remove("markmap-node-active"));
+      return;
+    }
+
+    let index = 0;
+    const highlightNext = () => {
+      const nodes = Array.from(svg.querySelectorAll<SVGGElement>(".markmap-node"));
+      if (!nodes.length) return;
+      nodes.forEach((node) => node.classList.remove("markmap-node-active"));
+      nodes[index % nodes.length].classList.add("markmap-node-active");
+      index += 1;
+    };
+    mmRef.current?.fit?.();
+    highlightNext();
+    const timer = window.setInterval(highlightNext, 1050);
+    return () => {
+      window.clearInterval(timer);
+      svg.querySelectorAll(".markmap-node-active").forEach((node) => node.classList.remove("markmap-node-active"));
+    };
+  }, [markdown, touring]);
 
   if (!markdown.trim()) {
     return (
@@ -178,20 +207,32 @@ export default function Markmap({ markdown }: { markdown: string }) {
   return (
     <div className="markmap-light rounded-lg border border-slate-200 bg-white p-2">
       <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 px-1">
-        {hasPersonalMarks ? (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-            <span className="font-semibold text-slate-600">画像标注</span>
-            {LEGEND.map(([mark, label]) => (
-              <span key={mark} className="inline-flex items-center gap-1">
-                <span>{mark}</span>
-                {label}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <span className="text-[11px] text-slate-400">拖拽平移 · 滚轮缩放 · 点击节点折叠</span>
-        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+            全图 {nodeCount} 个知识节点
+          </span>
+          {hasPersonalMarks ? (
+            <>
+              <span className="font-semibold text-slate-600">画像标注</span>
+              {LEGEND.map(([mark, label]) => (
+                <span key={mark} className="inline-flex items-center gap-1">
+                  <span>{mark}</span>
+                  {label}
+                </span>
+              ))}
+            </>
+          ) : (
+            <span className="text-[11px] text-slate-400">拖拽平移 · 滚轮缩放 · 点击节点折叠 · 连线缓慢流动</span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setTouring((value) => !value)}
+            aria-pressed={touring}
+            className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${touring ? "border-cyan-300 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-white text-slate-600 hover:border-cyan-200 hover:text-cyan-700"}`}
+          >
+            {touring ? "停止逐级讲解" : "逐级讲解"}
+          </button>
           <button
             onClick={() => mmRef.current?.fit?.()}
             className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700"
@@ -208,7 +249,7 @@ export default function Markmap({ markdown }: { markdown: string }) {
       </div>
       <svg
         ref={ref}
-        className={`w-full rounded-md bg-slate-50/60 transition-all ${tall ? "h-[32rem]" : "h-80"} [&_circle]:!stroke-[2px]`}
+        className={`markmap-canvas w-full rounded-md bg-slate-50/60 transition-all ${tall ? "h-[32rem]" : "h-80"} [&_circle]:!stroke-[2px]`}
       />
     </div>
   );

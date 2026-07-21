@@ -1980,6 +1980,37 @@ body::after {
 
 .markmap-light .markmap-link {
   opacity: 0.85;
+  stroke-dasharray: 7 5;
+  animation: markmap-link-flow 18s linear infinite;
+}
+
+.markmap-light .markmap-canvas {
+  background-image:
+    radial-gradient(circle at 18% 28%, rgba(14, 165, 233, 0.1), transparent 28%),
+    radial-gradient(circle at 78% 72%, rgba(16, 185, 129, 0.1), transparent 30%);
+}
+
+.markmap-light .markmap-node {
+  transition: filter 180ms ease;
+}
+
+.markmap-light .markmap-node-active {
+  filter: drop-shadow(0 0 7px rgba(14, 165, 233, 0.55));
+}
+
+.markmap-light .markmap-node-active circle {
+  stroke-width: 4px !important;
+}
+
+.markmap-light .markmap-node-active .markmap-foreign {
+  color: #075985 !important;
+  font-weight: 700;
+}
+
+@keyframes markmap-link-flow {
+  to {
+    stroke-dashoffset: -96;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -61,6 +61,14 @@ type DragState = {
   startY: number;
   moved: boolean;
 };
+type WanderState = Point & {
+  vx: number;
+  vy: number;
+  steerX: number;
+  steerY: number;
+  nextTurnAt: number;
+  randomState: number;
+};
 type DisplayNode = PathNode & {
   detail?: boolean;
   parentId?: string;
@@ -213,12 +221,18 @@ function masteryLabel(value: number) {
   return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
-function motionSeed(id: string) {
-  let seed = 0;
+function wanderSeed(id: string) {
+  let seed = 2166136261;
   for (let index = 0; index < id.length; index += 1) {
-    seed = (seed * 31 + id.charCodeAt(index)) % 997;
+    seed ^= id.charCodeAt(index);
+    seed = Math.imul(seed, 16777619);
   }
-  return (seed / 997) * Math.PI * 2;
+  return seed >>> 0;
+}
+
+function nextWanderRandom(state: WanderState) {
+  state.randomState = (Math.imul(state.randomState, 1664525) + 1013904223) >>> 0;
+  return state.randomState / 4294967296;
 }
 
 function buttonClass(active = false) {
@@ -251,11 +265,12 @@ export default function PathDag({
   const [fullscreen, setFullscreen] = useState(false);
   const [manualPositions, setManualPositions] = useState<Record<string, Point>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [motionTime, setMotionTime] = useState(0);
+  const [motionOffsets, setMotionOffsets] = useState<Record<string, Point>>({});
   const [reduceMotion, setReduceMotion] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const suppressClickRef = useRef<string | null>(null);
+  const wanderRef = useRef<Record<string, WanderState>>({});
 
   const allDisplayNodes = useMemo<DisplayNode[]>(() => plan.nodes.flatMap((node) => [
     node,
@@ -274,10 +289,6 @@ export default function PathDag({
       relation: detail.relation,
     })),
   ]), [plan.nodes]);
-  const allNodeById = useMemo(
-    () => Object.fromEntries(allDisplayNodes.map((node) => [node.id, node])) as Record<string, DisplayNode>,
-    [allDisplayNodes],
-  );
   const displayNodes = useMemo(
     () => mode === "route"
       ? allDisplayNodes.filter((node) => !node.detail)
@@ -330,24 +341,18 @@ export default function PathDag({
     const animated: Record<string, Point> = {};
     Object.entries(layout.positions).forEach(([id, base]) => {
       const anchor = mode === "graph" && manualPositions[id] ? manualPositions[id] : base;
-      const node = allNodeById[id];
       if (mode !== "graph" || reduceMotion || draggingId === id) {
         animated[id] = anchor;
         return;
       }
-      const seed = motionSeed(id);
-      const amplitude = node?.detail ? 1.55 : 2.35;
+      const offset = motionOffsets[id] || { x: 0, y: 0 };
       animated[id] = {
-        x: anchor.x
-          + Math.sin(motionTime * 0.00062 + seed) * amplitude
-          + Math.sin(motionTime * 0.00027 + seed * 1.7) * amplitude * 0.32,
-        y: anchor.y
-          + Math.cos(motionTime * 0.00049 + seed * 0.83) * amplitude * 0.82
-          + Math.sin(motionTime * 0.00031 + seed * 1.23) * amplitude * 0.28,
+        x: anchor.x + offset.x,
+        y: anchor.y + offset.y,
       };
     });
     return animated;
-  }, [allNodeById, draggingId, layout.positions, manualPositions, mode, motionTime, reduceMotion]);
+  }, [draggingId, layout.positions, manualPositions, mode, motionOffsets, reduceMotion]);
   const activeId = activeDetailId && byId[activeDetailId] ? activeDetailId : selected;
   const activeNode = activeId ? byId[activeId] : undefined;
   const routeNodes = useMemo(
@@ -418,6 +423,8 @@ export default function PathDag({
     setExpanded(new Set(expandableIds));
     setActiveDetailId(null);
     setManualPositions({});
+    wanderRef.current = {};
+    setMotionOffsets({});
   }, [expandableIds]);
   useEffect(() => {
     if (activeDetailId && byId[activeDetailId]?.parentId !== selected) setActiveDetailId(null);
@@ -432,21 +439,112 @@ export default function PathDag({
   }, []);
   useEffect(() => {
     if (reduceMotion || mode !== "graph") {
-      setMotionTime(0);
+      wanderRef.current = {};
+      setMotionOffsets({});
       return;
     }
+
+    const visibleIds = displayNodes
+      .map((node) => node.id)
+      .filter((id) => Boolean(layout.positions[id]));
+    const visibleSet = new Set(visibleIds);
+    Object.keys(wanderRef.current).forEach((id) => {
+      if (!visibleSet.has(id)) delete wanderRef.current[id];
+    });
+
+    const now = performance.now();
+    visibleIds.forEach((id) => {
+      if (wanderRef.current[id]) return;
+      const node = byId[id];
+      const state: WanderState = {
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        steerX: 0,
+        steerY: 0,
+        nextTurnAt: now,
+        randomState: wanderSeed(id),
+      };
+      const angle = nextWanderRandom(state) * Math.PI * 2;
+      const radius = nextWanderRandom(state) * (node?.detail ? 0.7 : 1.1);
+      state.x = Math.cos(angle) * radius;
+      state.y = Math.sin(angle) * radius;
+      state.nextTurnAt = now + 180 + nextWanderRandom(state) * 620;
+      wanderRef.current[id] = state;
+    });
+
     let frame = 0;
-    let lastFrame = 0;
+    let lastTime = now;
+    let lastPaint = 0;
     const animate = (time: number) => {
-      if (time - lastFrame >= 36) {
-        lastFrame = time;
-        setMotionTime(time);
+      const frameScale = Math.max(0.25, Math.min(2.4, (time - lastTime) / 16.67));
+      lastTime = time;
+
+      displayEdges.forEach((edge) => {
+        const source = wanderRef.current[edge.from];
+        const target = wanderRef.current[edge.to];
+        if (!source || !target || edge.from === draggingId || edge.to === draggingId) return;
+        const coupling = 0.00034 * frameScale;
+        const dx = target.x - source.x;
+        const dy = target.y - source.y;
+        source.vx += dx * coupling;
+        source.vy += dy * coupling;
+        target.vx -= dx * coupling;
+        target.vy -= dy * coupling;
+      });
+
+      visibleIds.forEach((id) => {
+        const state = wanderRef.current[id];
+        if (!state) return;
+        if (id === draggingId) {
+          state.x = 0;
+          state.y = 0;
+          state.vx = 0;
+          state.vy = 0;
+          return;
+        }
+
+        const detail = Boolean(byId[id]?.detail);
+        if (time >= state.nextTurnAt) {
+          const angle = nextWanderRandom(state) * Math.PI * 2;
+          const strength = (detail ? 0.0055 : 0.0085) * (0.55 + nextWanderRandom(state) * 0.8);
+          state.steerX = Math.cos(angle) * strength;
+          state.steerY = Math.sin(angle) * strength;
+          state.nextTurnAt = time + 520 + nextWanderRandom(state) * 1250;
+        }
+
+        const spring = detail ? 0.0048 : 0.0038;
+        const damping = Math.pow(detail ? 0.84 : 0.87, frameScale);
+        state.vx = (state.vx + (state.steerX - state.x * spring) * frameScale) * damping;
+        state.vy = (state.vy + (state.steerY - state.y * spring) * frameScale) * damping;
+        state.x += state.vx * frameScale;
+        state.y += state.vy * frameScale;
+
+        const maxRadius = detail ? 2.4 : 3.6;
+        const distance = Math.hypot(state.x, state.y);
+        if (distance > maxRadius) {
+          const scale = maxRadius / distance;
+          state.x *= scale;
+          state.y *= scale;
+          state.vx -= state.x * 0.018;
+          state.vy -= state.y * 0.018;
+          state.nextTurnAt = Math.min(state.nextTurnAt, time + 180);
+        }
+      });
+
+      if (time - lastPaint >= 54) {
+        lastPaint = time;
+        setMotionOffsets(Object.fromEntries(visibleIds.map((id) => {
+          const state = wanderRef.current[id];
+          return [id, state ? { x: state.x, y: state.y } : { x: 0, y: 0 }];
+        })));
       }
       frame = window.requestAnimationFrame(animate);
     };
     frame = window.requestAnimationFrame(animate);
     return () => window.cancelAnimationFrame(frame);
-  }, [mode, reduceMotion]);
+  }, [byId, displayEdges, displayNodes, draggingId, layout.positions, mode, reduceMotion]);
   useEffect(() => {
     if (!fullscreen) return;
     const previousOverflow = document.body.style.overflow;
@@ -476,6 +574,8 @@ export default function PathDag({
     setExpanded(new Set(expandableIds));
     setActiveDetailId(null);
     setManualPositions({});
+    wanderRef.current = {};
+    setMotionOffsets({});
     onSelect(null);
   };
   const toggleExpanded = (nodeId: string) => {
@@ -490,7 +590,11 @@ export default function PathDag({
     setMode("graph");
     setActiveDetailId(null);
     const collapse = expanded.size === expandableIds.length;
-    if (collapse) setManualPositions({});
+    if (collapse) {
+      setManualPositions({});
+      wanderRef.current = {};
+      setMotionOffsets({});
+    }
     setExpanded(collapse ? new Set() : new Set(expandableIds));
   };
   const pointerToGraph = (event: ReactPointerEvent<SVGGElement>) => {
@@ -521,6 +625,16 @@ export default function PathDag({
       moved: false,
     };
     setManualPositions((value) => ({ ...value, [node.id]: current }));
+    wanderRef.current[node.id] = {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      steerX: 0,
+      steerY: 0,
+      nextTurnAt: performance.now() + 320,
+      randomState: wanderSeed(node.id),
+    };
     setDraggingId(node.id);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
@@ -883,7 +997,7 @@ export default function PathDag({
             {(Object.entries(STATUS) as [PathNode["status"], typeof STATUS[PathNode["status"]]][]).map(([key, item]) => (
               <span key={key} className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full" style={{ backgroundColor: item.border }} />{item.label}</span>
             ))}
-            <span className="ml-auto">节点会轻微漂浮 · 拖拽可整理布局 · 主节点右上角 ± 展开/收起 · Esc 重置搜索</span>
+            <span className="ml-auto">节点在原位附近不规则微游走 · 拖拽可整理布局 · 连线会同步跟随 · 主节点右上角 ± 展开/收起</span>
           </div>
         </div>
 
