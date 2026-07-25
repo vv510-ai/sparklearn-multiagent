@@ -97,6 +97,23 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
 
   return (
     <div className="space-y-3">
+      {video?.task_id && !videoUrl && video.status !== "failed" && video.status !== "timeout" && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs">
+          <span className="min-w-0 text-slate-700">
+            {shouldMaterialize || video.status === "succeeded"
+              ? "小云雀视频已生成，正在安全保存到 SparkLearn"
+              : "小云雀正在云端生成视频；下面的动态演示是等待期间的学习预览"}
+          </span>
+          <button
+            onClick={() => void poll()}
+            disabled={polling}
+            className="shrink-0 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
+          >
+            {polling ? "查询中..." : "刷新状态"}
+          </button>
+        </div>
+      )}
+
       {stages.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-br from-[#071E19] via-[#10392E] to-[#19513F] text-white shadow-sm">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
@@ -150,22 +167,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
             上方是约 {script?.video_clip_seconds || 10} 秒的关键概念动画；完整 {script?.target_seconds || 60} 秒讲解请结合下方分镜与稍慢语速旁白收听。
           </p>
         </div>
-      ) : video?.task_id ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs">
-          <span className="min-w-0 text-slate-700">
-            {shouldMaterialize || video.status === "succeeded"
-              ? "视频已生成，正在安全保存到 SparkLearn"
-              : "视频云端生成中，可先阅读下方分镜脚本"}
-          </span>
-          <button
-            onClick={() => void poll()}
-            disabled={polling}
-            className="shrink-0 rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
-          >
-            {polling ? "查询中..." : "刷新状态"}
-          </button>
-        </div>
-      ) : video?.status === "degraded" ? (
+      ) : video?.task_id ? null : video?.status === "degraded" ? (
         <Notice
           tone="info"
           title="已切换为动态讲解"
@@ -204,8 +206,15 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
 
       {audioUrl && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <div className="mb-2 text-[11px] font-bold tracking-[0.18em] text-emerald-600">语音讲解</div>
+          <div className="mb-2 text-[11px] font-bold tracking-[0.18em] text-emerald-600">
+            {payload.audio?.provider === "spark_super_tts" ? "星火超拟人语音讲解" : "普通星火语音讲解"}
+          </div>
           <audio src={audioUrl} controls className="w-full" />
+          {payload.audio?.provider === "spark_tts" && payload.audio?.degraded && (
+            <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-5 text-amber-800">
+              当前音频不是已配置的超拟人音色；超拟人服务恢复后，新生成的讲解会自动优先使用它。
+            </p>
+          )}
         </div>
       )}
 

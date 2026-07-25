@@ -29,7 +29,7 @@ const KIND_META: Record<
   reading: { label: "延伸阅读", code: "阅读", icon: "读", variant: "neutral", hint: "围绕当前知识点补充阅读材料" },
   mindmap: { label: "知识导图", code: "导图", icon: "图", variant: "info", hint: "按掌握情况标注：已掌握✅ 待巩固⚠️ 未解锁🔒" },
   quiz: { label: "巩固练习", code: "练习", icon: "练", variant: "warn", hint: "提交后更新掌握情况、错因与后续路线" },
-  video: { label: "讲解稿", code: "讲稿", icon: "影", variant: "neutral", hint: "适合录制讲解视频的分镜与旁白素材" },
+  video: { label: "讲解视频", code: "视频", icon: "影", variant: "neutral", hint: "小云雀云端生成状态、动态预览、分镜与超拟人旁白" },
   ppt: { label: "复习演示", code: "PPT", icon: "演", variant: "info", hint: "仅在你明确要求时生成；完成后可下载并继续编辑" },
   flashcards: { label: "记忆闪卡", code: "闪卡", icon: "卡", variant: "warn", hint: "先独立回忆，再翻面核对；可标记已经掌握的卡片" },
   infographic: { label: "学习信息图", code: "信息图", icon: "视", variant: "info", hint: "把来源内的结论、结构、过程与边界放进一张图" },
@@ -139,6 +139,9 @@ export default function ResourceCard({
   const [audioPath, setAudioPath] = useState(payload.audio_url || "");
   const [audioState, setAudioState] = useState(payload.audio);
   const audioUrl = apiAssetUrl(audioPath);
+  const audioProvider = String(audioState?.provider || "");
+  const isSuperVoice = audioProvider === "spark_super_tts";
+  const isStandardVoiceFallback = audioProvider === "spark_tts" && Boolean(audioState?.degraded);
   const coverUrl = apiAssetUrl(payload.cover_url);
   const narration = payload.audio_narration || "";
   const isText = TEXT_KINDS.has(r.kind);
@@ -196,8 +199,12 @@ export default function ResourceCard({
               <div className="min-w-0">
                 <div className="text-[11px] font-bold tracking-[0.14em] text-[#0F6B50]">
                   {narration
-                    ? audioUrl ? "星火云端互动讲解" : "互动讲解 · 浏览器朗读"
-                    : audioUrl ? "星火语音讲解" : "星火知识封面"}
+                    ? audioUrl
+                      ? isSuperVoice ? "星火超拟人互动讲解" : "普通星火语音讲解"
+                      : "互动讲解 · 浏览器朗读"
+                    : audioUrl
+                      ? isSuperVoice ? "星火超拟人语音讲解" : "普通星火语音讲解"
+                      : "星火知识封面"}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#57635A]">
                     {audioPath || narration
@@ -216,6 +223,11 @@ export default function ResourceCard({
                     onAsk={onAudioQuestion}
                     onRetry={interactiveAudio ? retryAudio : undefined}
                   />
+                )}
+                {isStandardVoiceFallback && (
+                  <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-5 text-amber-800">
+                    当前播放的是普通星火语音，不是已配置的超拟人音色。超拟人服务恢复后可点“重新生成云端语音”切回。
+                  </p>
                 )}
               </div>
               {coverUrl && (

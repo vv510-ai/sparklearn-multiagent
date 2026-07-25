@@ -234,8 +234,52 @@ def test_poll_image_task_does_not_reuse_user_reference(monkeypatch):
 
     result = client.poll_image_task(task_id)
 
-    assert result["status"] == "failed"
-    assert "without image artifact" in result["error"]
+    assert result["status"] == "running"
+    assert result["phase"] == "materializing"
+
+
+def test_poll_retries_transient_network_errors_without_duplicate_create(monkeypatch):
+    task_id = client._encode_task_id("thread-retry", "run-retry")  # noqa: SLF001
+    calls = 0
+
+    def flaky_post(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls < 3:
+            raise client.requests.ConnectionError("temporary reset")
+        return _Response({
+            "ret": "0",
+            "data": {
+                "thread": {
+                    "run_list": [{"run_id": "run-retry", "state": 2}]
+                }
+            },
+        })
+
+    monkeypatch.setattr(client, "get_settings", lambda: _settings())
+    monkeypatch.setattr(client.requests, "post", flaky_post)
+
+    result = client.poll_task(task_id)
+
+    assert result["status"] == "running"
+    assert calls == 3
+
+
+def test_create_is_not_retried_when_response_is_lost(monkeypatch):
+    calls = 0
+
+    def disconnected_post(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        raise client.requests.ConnectionError("response lost")
+
+    monkeypatch.setattr(client, "get_settings", lambda: _settings())
+    monkeypatch.setattr(client.requests, "post", disconnected_post)
+
+    with pytest.raises(client.requests.ConnectionError):
+        client.create_image_task("不要重复付费任务")
+
+    assert calls == 1
 
 
 def test_poll_task_reads_error_from_artifact(monkeypatch):

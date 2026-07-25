@@ -459,6 +459,12 @@ async def run(state: dict) -> dict:
         "animation_preview": _animation_preview(name, script),
     }
     trace_id = str(state.get("session_id", ""))
+    # TTS and cloud video creation are independent. Starting narration here
+    # removes the artificial serial wait and lets the configured provider use
+    # its real timeout instead of being cut off after 2.5 seconds.
+    audio_task = asyncio.create_task(
+        multimodal_gateway.tts(script["narration"][:820], trace_id=trace_id)
+    )
 
     mode = explicit_kind if explicit_kind != "video" else "manim"
     if explicit_kind == "video":
@@ -525,17 +531,17 @@ async def run(state: dict) -> dict:
                     if local_video else "云端视频未配置/失败,已降级为 Manim 动画代码(可本地渲染)"})
 
     try:
-        audio = await asyncio.wait_for(
-            multimodal_gateway.tts(script["narration"][:820], trace_id=trace_id),
-            timeout=2.5,
-        )
-    except TimeoutError:
-        audio = {"ok": False, "data": {}, "error": "云端旁白等待超过 2.5 秒，已切换浏览器即时朗读"}
+        audio = await audio_task
     except Exception as error:  # noqa: BLE001
-        audio = error
+        audio = {"ok": False, "data": {}, "error": f"云端旁白异常：{str(error)[:140]}"}
     if isinstance(audio, dict) and audio.get("ok"):
         payload["audio_url"] = audio["data"]["audio_url"]
-        payload["audio"] = {"status": "ready", "provider": audio["data"].get("provider", "spark_tts")}
+        payload["audio"] = {
+            "status": "ready",
+            "provider": audio["data"].get("provider", "spark_tts"),
+            "degraded": bool(audio.get("degraded")),
+            "error": str(audio.get("error") or "")[:240],
+        }
     else:
         payload["audio"] = {
             "status": "fallback",

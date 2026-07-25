@@ -11,6 +11,7 @@ from tests._stubs import install  # noqa: E402
 install()
 
 from app.agents.graph import run_with_events  # noqa: E402
+from app.agents import tutor_agent  # noqa: E402
 from app.agents.orchestrator import requested_resource_kinds, route_task, run as route_intent  # noqa: E402
 from app.agents.tutor_agent import _build_prompt  # noqa: E402, SLF001
 from app.agents.tutor_agent import _strategy_answer, _strategy_response_ok  # noqa: E402, SLF001
@@ -61,6 +62,37 @@ def test_guided_mock_keeps_binary_tree_and_bst_boundaries_clear():
     assert "普通二叉树没有大小顺序" in lesson
     assert "左小右大" in lesson
     assert len(__import__("json").loads(questions)) == 5
+
+
+def test_binary_tree_first_lesson_is_fast_teacher_written_fallback(monkeypatch):
+    chunks = [{
+        "text": "二叉树中每个节点最多有两个孩子，并区分左、右位置。",
+        "source": "课程讲义",
+        "chapter": "二叉树",
+        "page": 1,
+        "citation": "课程讲义 · 二叉树 p.1",
+        "kp": "binary_tree",
+    }]
+    monkeypatch.setattr(tutor_agent, "retrieve", lambda *args, **kwargs: chunks)
+
+    async def model_must_not_run(*args, **kwargs):
+        raise AssertionError("binary-tree first lesson should not wait for the model")
+        yield "unreachable"
+
+    monkeypatch.setattr(tutor_agent, "llm_stream", model_must_not_run)
+    result = asyncio.run(tutor_agent.run({
+        "user_id": "binary-first-lesson",
+        "session_id": "binary-first-lesson",
+        "messages": [{"role": "user", "content": "二叉树是什么？"}],
+        "conversation": [{"role": "user", "content": "二叉树是什么？"}],
+        "knowledge_points": ["binary_tree"],
+        "topic_label": "二叉树",
+        "student_profile": {},
+    }))
+
+    assert "二叉树想成一张从上往下展开的家谱" in result["answer"]
+    assert "只有右孩子" in result["answer"]
+    assert "一句话先懂" not in result["answer"]
 
 
 def test_learning_and_summary_intents_are_deterministic():

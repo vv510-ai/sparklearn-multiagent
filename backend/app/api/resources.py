@@ -157,8 +157,9 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         payload["audio"] = {
             "status": "ready",
             "provider": str((result.get("data") or {}).get("provider") or "spark_tts"),
-            "error": "",
-            "retryable": False,
+            "error": str(result.get("error") or "")[:240],
+            "retryable": bool(result.get("degraded")),
+            "degraded": bool(result.get("degraded")),
         }
     else:
         payload.pop("audio_url", None)

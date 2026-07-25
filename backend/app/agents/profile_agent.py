@@ -5,15 +5,10 @@
 """
 from __future__ import annotations
 
-import logging
 import re
 
-from ..llm.spark_client import llm_complete, parse_json
-from ..prompt_templates import invoke_learning_prompt
 from ..services.profile_service import get_profile, merge_profile, recent_events
 from .emitter import agent_end, agent_start, emit
-
-log = logging.getLogger("sparklearn.profile")
 
 _STYLE_EVIDENCE = {
     "视觉型": ("看图", "图解", "画图", "可视化", "示意图"),
@@ -67,9 +62,33 @@ def _gate_profile_patch(patch: dict, dialog: str, events: list[dict]) -> dict:
         gated["evidence"] = patch["evidence"]
     return gated
 
+
+def _local_profile_patch(dialog: str) -> dict:
+    """Extract only explicit preferences without adding a model call to every turn."""
+    patch: dict = {}
+    for value, markers in _STYLE_EVIDENCE.items():
+        if _contains_any(dialog, markers):
+            patch["cognitive_style"] = value
+            break
+    for value, markers in _GOAL_EVIDENCE.items():
+        if _contains_any(dialog, markers):
+            patch["goal"] = value
+            break
+    for value, markers in _DIFFICULTY_EVIDENCE.items():
+        if _contains_any(dialog, markers):
+            patch["difficulty_pref"] = value
+            break
+    error_match = _ERROR_EVIDENCE_RE.search(dialog)
+    if error_match:
+        patch["error_prone"] = [error_match.group(0)]
+    if patch:
+        patch["evidence"] = "来自本轮对话中的明确表达"
+    return patch
+
+
 async def run(state: dict) -> dict:
     user_id = state.get("user_id", "demo_user")
-    await agent_start("profile", "画像构建智能体", "对话+行为日志 → 增量更新 ≥6 维画像(星火 Lite)")
+    await agent_start("profile", "画像构建智能体", "本地提取明确偏好，不增加回答等待")
 
     if state.get("intent") == "generate":
         profile = get_profile(user_id)
@@ -85,26 +104,7 @@ async def run(state: dict) -> dict:
     dialog = "\n".join(f"{m.get('role')}: {m.get('content','')}"
                        for m in (state.get("messages") or [])[-6:]) or "(无新对话)"
     events = recent_events(user_id, limit=12)
-    ev_text = "\n".join(f"- {e['etype']}: {e['payload']}" for e in events) or "(暂无行为日志)"
-
-    patch: dict = {}
-    try:
-        prompt_call = invoke_learning_prompt("profile.update", dialog=dialog, events=ev_text)
-        raw = await llm_complete(
-            prompt_call.prompt,
-            system=prompt_call.system,
-            role="lite",
-            temperature=0.2,
-            json_mode=True,
-        )
-        patch = parse_json(raw)
-        if not isinstance(patch, dict):
-            patch = {}
-        for managed_field in ("knowledge_mastery", "pace", "resource_pref"):
-            patch.pop(managed_field, None)
-        patch = _gate_profile_patch(patch, dialog, events)
-    except Exception as e:  # noqa: BLE001
-        log.warning("画像抽取失败,保持现状:%s", e)
+    patch = _gate_profile_patch(_local_profile_patch(dialog), dialog, events)
 
     profile = merge_profile(user_id, patch) if patch else get_profile(user_id)
     await emit({"type": "profile", "profile": profile})

@@ -3,7 +3,6 @@
 (启发式苏格拉底风格,先思路后答案)→ grounding 溯源 + 引用事件。"""
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 import re
@@ -14,7 +13,7 @@ from ..llm.spark_client import llm_stream
 from ..prompt_templates import render_tutor_prompt
 from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
-from ..safety.grounding import grounding_check
+from ..safety.grounding import grounding_check, grounding_check_local
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, kp_retrieval_text, resolve_conversation_topic
 from ..services.note_service import recent_note_chunks
@@ -153,6 +152,24 @@ def _focused_kp_chunks(chunks: list[dict], kp: str | None, limit: int = 4) -> li
     return (specific or matching or chunks)[:limit]
 
 
+def _beginner_first_chunks(chunks: list[dict]) -> list[dict]:
+    """Put definitions and basic concepts before advanced variants in guided turns."""
+    basic_markers = ("基本概念", "定义", "是什么", "最多", "至多", "节点", "入门")
+    advanced_markers = ("红黑", "平衡因子", "复杂度证明", "线索化", "最优", "摊还")
+
+    def score(item: tuple[int, dict]) -> tuple[int, int]:
+        index, chunk = item
+        text = " ".join(
+            str(chunk.get(key) or "")
+            for key in ("chapter", "title", "text")
+        )
+        priority = sum(marker in text for marker in basic_markers)
+        priority -= 2 * sum(marker in text for marker in advanced_markers)
+        return (-priority, index)
+
+    return [chunk for _, chunk in sorted(enumerate(chunks), key=score)]
+
+
 def _resolve_turn_topic(state: dict, question: str) -> tuple[str, str, bool]:
     """Resolve the current turn without permanently binding a conversation to its opening topic."""
     interaction_resource = state.get("interaction_resource") or {}
@@ -219,6 +236,21 @@ def _is_learning_strategy_question(question: str) -> bool:
         r"(?:怎么学|如何学|怎么开始|如何开始|从哪(?:里)?学|从哪(?:里)?开始|入门|学习顺序|学习路线|学习路径|学习计划)",
         compact,
     ))
+
+
+def _is_binary_tree_first_lesson(question: str, topic_kp: str, *, guided: bool) -> bool:
+    compact = re.sub(r"\s+", "", str(question or ""))
+    return bool(
+        topic_kp == "binary_tree"
+        and (
+            len(compact) <= 8
+            or re.search(r"(?:二叉树是什么|什么是二叉树)", compact)
+            or (
+                guided
+                and re.search(r"(?:从零|刚开始学|入门|初学)", compact)
+            )
+        )
+    )
 
 
 def _strategy_answer(topic_name: str) -> str:
@@ -361,12 +393,9 @@ def _rag_demo_answer(
     if guided and traversal_order and traversal_cite:
         order, plain, result = traversal_order
         return "\n".join([
-            "## 一句话先懂",
+            f"可以，我们先只看{traversal}遍历这一件事。它的意思是：{plain}。先把顺序记成 **{order}**。 [^{traversal_cite}]",
             "",
-            f"{traversal}遍历就是：{plain}。记成 **{order}**。 [^{traversal_cite}]",
-            "",
-            "## 最小例子",
-            "",
+            "来看一棵只有 3 个节点的小树：",
             "```text",
             "    A",
             "   / \\",
@@ -375,31 +404,38 @@ def _rag_demo_answer(
             "",
             f"按 **{order}** 依次访问，结果是：**{result}**。",
             "",
-            "## 手走一遍",
+            f"你可以这样走：从 A 开始，按“{order}”判断下一步；每访问一个节点就立刻写下字母。记忆时只看“根”在顺序中的位置——它决定当前节点什么时候被记录。",
             "",
-            f"1. 从根节点 A 开始，严格按“{order}”判断下一步。",
-            "2. 每访问一个节点就立刻写下字母，不要等走完再回忆。",
-            f"3. 最后检查结果是否为 **{result}**。",
-            "",
-            "## 记忆钩子",
-            "",
-            f"**{traversal} = {order}。** “根”出现在哪里，就是当前节点什么时候被记录。",
-            "",
-            "## 现在只做什么",
-            "",
-            "先确认自己能按顺序手走这 3 个节点；需要练习题时再单独提出，不扩展到别的树结构。",
+            f"现在你试着告诉我：如果把 B 和 C 对调，{traversal}结果会变成什么？",
         ])
 
     if guided and asks_learning_strategy:
         return _strategy_answer(question)
 
+    if guided and topic_kp == "binary_tree":
+        cite = next(
+            (
+                index for index, chunk in enumerate(chunks[:4], 1)
+                if re.search(r"(?:最多|至多).{0,8}(?:两个|2个).{0,8}(?:孩子|子节点)", str(chunk.get("text") or ""))
+                or "二叉树" in str(chunk.get("text") or "")
+            ),
+            1 if chunks else None,
+        )
+        citation = f" [^{cite}]" if cite else ""
+        return "\n".join([
+            "可以，我们先不背一整页定义。你把二叉树想成一张从上往下展开的家谱：每个成员最多只分出左、右两个位置，这些成员在树里叫“节点”。"
+            f"注意“最多两个”也包括 0 个和 1 个，并不是每个节点都必须有两个孩子。{citation}",
+            "",
+            "比如根节点 A 只有左孩子 B，这仍然是二叉树；A 同时有 B、C 两个孩子，也仍然是二叉树。这里说的是“普通二叉树”，没有“左边一定小、右边一定大”的要求——那是二叉搜索树额外加的规则。",
+            "",
+            "先抓住这一句就够了：**二叉树是每个节点最多有两个孩子，并区分左、右位置的树。**",
+            "",
+            "我先问你一个很小的问题确认一下：一个节点只有右孩子、没有左孩子，它还能出现在二叉树里吗？",
+        ])
+
     lines = (
         [
-            "## 一句话先懂",
-            "",
-            f"我们先把“{question}”拆成一个最容易理解的小目标：先认清对象，再看它怎么运作。",
-            "",
-            "## 从资料里抓重点",
+            f"可以，我们先不急着背“{question}”的整套内容。先把最关键的对象认清，再看它怎么运作：",
             "",
         ]
         if guided
@@ -414,21 +450,9 @@ def _rag_demo_answer(
     if guided:
         lines += [
             "",
-            "## 生活里的它",
+            "你可以把它想成整理一只工具箱：先认清每件工具，再学使用顺序，最后检查什么场景不能用。现在只从资料第一条核心定义出发，画一个只有 2—3 个元素的最小例子；再删掉一个元素，看看定义是否仍然成立。",
             "",
-            "把学习这个知识点想成整理一只工具箱：先认清每件工具，再学使用顺序，最后检查什么场景不能用。",
-            "",
-            "## 最小例子",
-            "",
-            "先从资料中的第一条核心定义出发，自己画出或写出一个只包含 2—3 个元素的例子；再删掉一个元素，检查定义是否仍成立。",
-            "",
-            "## 记忆钩子",
-            "",
-            "**先认、再做、后查错。** 正式地说：先掌握定义，再理解操作流程，最后验证适用条件。",
-            "",
-            "## 现在只做什么",
-            "",
-            "先确认这一条定义和最小例子；需要练习或导图时再单独提出。",
+            "先用自己的话复述这条定义给我听就好，我会顺着你的理解继续讲。",
         ]
     else:
         lines += ["", "你可以继续追问其中一个概念、步骤或易错点，我会沿用同一资料范围。"]
@@ -549,6 +573,8 @@ async def run(state: dict) -> dict:
     )
     chunks = _focused_kp_chunks(chunks, retrieval_kp)
     chunks = focus_chunks_on_topic(chunks, retrieval_kp, topic_name)
+    if guided:
+        chunks = _beginner_first_chunks(chunks)
     if not source_ids and not guided and retrieval_kp:
         chunks = [
             *chunks,
@@ -639,7 +665,30 @@ async def run(state: dict) -> dict:
 
     grounding_fallback_reason = ""
     answer_scope_fallback_reason = ""
-    if is_demo():
+    answer_streamed = False
+    ground_contexts = (
+        [
+            str(interaction_resource.get("markdown") or ""),
+            *[str(c.get("text") or "") for c in chunks],
+        ]
+        if interaction_resource
+        else [str(c.get("text") or "") for c in chunks]
+    )
+    if _is_binary_tree_first_lesson(question, topic_kp, guided=guided):
+        # Keep the most common first lesson instant, source-grounded and
+        # teacher-like instead of paying for a reasoning call to restate a
+        # basic definition.
+        answer = _rag_demo_answer(
+            question, chunks, guided=True, topic_kp="binary_tree",
+        )
+        ground = {"grounded": True, "unsupported": [], "verdict": "二叉树入门本地讲解"}
+    elif learning_strategy:
+        # A learning route is deterministic product guidance. Avoid spending a
+        # reasoning-model round trip on content that is clearer and faster as
+        # a concise teacher-written response.
+        answer = _strategy_answer(topic_name)
+        ground = {"grounded": True, "unsupported": [], "verdict": "本地教学路线"}
+    elif is_demo():
         await emit({
             "type": "progress",
             "agent": "tutor",
@@ -660,7 +709,8 @@ async def run(state: dict) -> dict:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "自定义主题离线安全回答" if custom_topic and not chunks else "演示模式直接整理检索片段"}
     else:
-        parts: list[str] = []
+        raw_parts: list[str] = []
+        displayed_parts: list[str] = []
         model_answer = True
         try:
             async for delta in llm_stream(
@@ -668,29 +718,55 @@ async def run(state: dict) -> dict:
                 role="reasoner",
                 system=prompt_call.system,
                 temperature=0.25 if guided else 0.45,
-                max_tokens=2200 if guided else 1600,
+                max_tokens=700 if guided else 520,
                 allow_model_fallback=True,
                 allow_mock_fallback=False,
+                reasoning_mode="disabled",
             ):
-                parts.append(delta)
-            answer = "".join(parts)
-            answer = _normalize_tutor_answer(answer, question, has_context=bool(chunks))
+                raw_parts.append(delta)
+                if answer_streamed:
+                    filtered_delta = safety_filter(delta)
+                    safe_delta = str(filtered_delta.get("text") or delta)
+                    displayed_parts.append(safe_delta)
+                    await agent_token("tutor", safe_delta)
+                    await emit({"type": "token", "delta": safe_delta})
+                    continue
+
+                buffered = "".join(raw_parts)
+                if len(buffered) < 32:
+                    continue
+                candidate = _normalize_tutor_answer(
+                    buffered, question, has_context=bool(chunks),
+                )
+                preliminary_ground = grounding_check_local(
+                    candidate,
+                    ground_contexts,
+                    question=question,
+                )
+                preliminary_safety = safety_filter(candidate)
+                if (
+                    candidate
+                    and preliminary_ground.get("grounded", False)
+                    and preliminary_safety.get("passed", preliminary_safety.get("safe", True))
+                    and (
+                        interaction_resource
+                        or _answer_matches_current_question(candidate, question, topic_kp)
+                    )
+                ):
+                    displayed_parts.append(candidate)
+                    await _emit_answer(candidate)
+                    answer_streamed = True
+
+            raw_answer = "".join(raw_parts)
+            answer = (
+                "".join(displayed_parts)
+                if answer_streamed
+                else _normalize_tutor_answer(raw_answer, question, has_context=bool(chunks))
+            )
             if not answer:
                 raise RuntimeError("模型返回了内部提示模板，已阻止向学习者展示")
-            if learning_strategy and not _strategy_response_ok(answer):
-                await emit({
-                    "type": "progress",
-                    "agent": "tutor",
-                    "stage": "answer_style",
-                    "percent": 100,
-                    "degraded": True,
-                    "reason": "learning_strategy_style_gate",
-                    "detail": "路线回答过长、机械或含多余任务，已替换为简洁教学路线",
-                })
-                answer = _strategy_answer(topic_name)
             if (
-                not learning_strategy
-                and not interaction_resource
+                not interaction_resource
                 and not _answer_matches_current_question(answer, question, topic_kp)
             ):
                 answer_scope_fallback_reason = f"模型回答未严格围绕当前问题「{topic_name}」"
@@ -701,14 +777,18 @@ async def run(state: dict) -> dict:
                     "percent": 100,
                     "degraded": True,
                     "reason": "answer_scope_failed",
-                    "detail": "模型回答扩展了未提问的知识点，已替换为当前问题的最小讲解",
+                    "detail": (
+                        "回答扩展了未提问的知识点，已记录复核"
+                        if answer_streamed
+                        else "回答扩展了未提问的知识点，已替换为当前问题的最小讲解"
+                    ),
                 })
-                answer = _rag_demo_answer(
-                    question, chunks, guided=guided, topic_kp=topic_kp,
-                )
-                model_answer = False
+                if not answer_streamed:
+                    answer = _rag_demo_answer(
+                        question, chunks, guided=guided, topic_kp=topic_kp,
+                    )
+                    model_answer = False
         except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
-            model_answer = False
             await emit({
                 "type": "progress",
                 "agent": "tutor",
@@ -719,13 +799,19 @@ async def run(state: dict) -> dict:
                 "error": str(error)[:160],
                 "detail": f"模型暂不可用，已切换资料内讲解：{str(error)[:80]}",
             })
-            answer = (
-                _strategy_answer(topic_name)
-                if learning_strategy else
-                f"暂时无法连接讲解模型，并且课程资料中没有「{topic_name}」的可核对内容。请稍后重试。"
-                if custom_topic and not chunks else
-                _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
-            )
+            if answer_streamed:
+                interruption = "\n\n连接刚才短暂中断了，前面的讲解已经保留。你回复“继续”，我会从这里接着讲。"
+                await _emit_answer(interruption)
+                displayed_parts.append(interruption)
+                answer = "".join(displayed_parts)
+                model_answer = True
+            else:
+                model_answer = False
+                answer = (
+                    f"暂时无法连接讲解模型，并且课程资料中没有「{topic_name}」的可核对内容。请稍后重试。"
+                    if custom_topic and not chunks else
+                    _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
+                )
 
         if model_answer:
             if custom_topic and not chunks:
@@ -735,23 +821,11 @@ async def run(state: dict) -> dict:
                     "verdict": "自定义主题使用当前文本主脑的通用知识生成，未声明虚构资料引用。",
                 }
             else:
-                try:
-                    ground = await asyncio.wait_for(
-                        grounding_check(
-                            answer,
-                            [
-                                str(interaction_resource.get("markdown") or ""),
-                                *[c["text"] for c in chunks],
-                            ] if interaction_resource else [c["text"] for c in chunks],
-                        ),
-                        timeout=8,
-                    )
-                except TimeoutError:
-                    ground = {
-                        "grounded": False,
-                        "unsupported": [],
-                        "verdict": "grounding 校验超时",
-                    }
+                ground = grounding_check_local(
+                    answer,
+                    ground_contexts,
+                    question=question,
+                )
             if not ground.get("grounded", False):
                 grounding_fallback_reason = str(ground.get("verdict") or "存在资料外表述")
                 failed_grounding = {
@@ -764,24 +838,29 @@ async def run(state: dict) -> dict:
                     "agent": "tutor",
                     "stage": "grounding",
                     "percent": 100,
-                    "detail": "模型回答未通过资料溯源,不会展示原回答",
+                    "detail": (
+                        "流式回答需要进一步复核"
+                        if answer_streamed
+                        else "模型回答未通过资料溯源,不会展示原回答"
+                    ),
                     "grounding": failed_grounding,
                 })
-                await emit({
-                    "type": "progress",
-                    "agent": "tutor",
-                    "stage": "fallback",
-                    "percent": 100,
-                    "degraded": True,
-                    "reason": "grounding_failed",
-                    "detail": f"已替换为资料内确定性讲解：{grounding_fallback_reason[:100]}",
-                })
-                answer = _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
-                ground = {
-                    "grounded": True,
-                    "unsupported": [],
-                    "verdict": "原回答未通过溯源,已替换为资料片段整理",
-                }
+                if not answer_streamed:
+                    await emit({
+                        "type": "progress",
+                        "agent": "tutor",
+                        "stage": "fallback",
+                        "percent": 100,
+                        "degraded": True,
+                        "reason": "grounding_failed",
+                        "detail": f"已替换为资料内确定性讲解：{grounding_fallback_reason[:100]}",
+                    })
+                    answer = _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
+                    ground = {
+                        "grounded": True,
+                        "unsupported": [],
+                        "verdict": "原回答未通过溯源,已替换为资料片段整理",
+                    }
         else:
             ground = {
                 "grounded": True,
@@ -793,12 +872,14 @@ async def run(state: dict) -> dict:
                 ),
             }
 
-    # Only stream the final answer after grounding and content-safety checks.
+    # Deterministic and short guarded answers are emitted here. Longer model
+    # answers start streaming after a small validated prefix above.
     safety = safety_filter(answer)
     if not safety.get("passed", safety.get("safe", True)):
         answer = str(safety.get("text") or answer)
         await emit({"type": "safety", "level": "warn", "detail": "命中内容安全规则,已在展示前脱敏"})
-    await _emit_answer(answer)
+    if not answer_streamed:
+        await _emit_answer(answer)
     grounding = {
         "grounded": bool(ground.get("grounded", False)),
         "unsupported_count": len(ground.get("unsupported") or []),

@@ -902,8 +902,9 @@ async def _gen_one(
                 payload["audio"] = {
                     "status": "ready",
                     "provider": str(audio["data"].get("provider") or "spark_tts"),
-                    "error": "",
-                    "retryable": False,
+                    "error": str(audio.get("error") or "")[:240],
+                    "retryable": bool(audio.get("degraded")),
+                    "degraded": bool(audio.get("degraded")),
                 }
         elif interactive_audio:
             error = (

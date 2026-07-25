@@ -123,6 +123,7 @@ export interface ResourceItem {
       provider?: "spark_tts" | "browser_speech" | "none" | string;
       error?: string;
       retryable?: boolean;
+      degraded?: boolean;
     };
     cover_url?: string;
     ppt?: {

@@ -6,11 +6,75 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
 
 log = logging.getLogger("sparklearn.grounding")
+
+
+def grounding_check_local(
+    answer: str,
+    contexts: list[str],
+    *,
+    question: str = "",
+) -> dict:
+    """Fast, deterministic guard for the live tutor stream.
+
+    It validates citation bounds and catches a common definition mismatch
+    without adding a second provider request after every answer. The remote
+    judge remains available for offline audits and document generation.
+    """
+    text = str(answer or "").strip()
+    if not text:
+        return {"grounded": False, "unsupported": ["空回答"], "verdict": "回答为空"}
+    usable_contexts = [str(item or "").strip() for item in contexts if str(item or "").strip()]
+    if not usable_contexts:
+        return {"grounded": True, "unsupported": [], "verdict": "通用知识回答，无资料引用声明"}
+
+    citations = [int(value) for value in re.findall(r"\[\^(\d+)\]", text)]
+    invalid = [value for value in citations if value < 1 or value > len(usable_contexts)]
+    if invalid:
+        return {
+            "grounded": False,
+            "unsupported": [f"无效引用 [^{value}]" for value in invalid[:5]],
+            "verdict": "引用编号超出当前资料范围",
+        }
+
+    compact_question = re.sub(r"\s+", "", str(question or ""))
+    subject_match = re.search(
+        r"(?:什么是([\u4e00-\u9fffA-Za-z0-9]{1,12})|"
+        r"([\u4e00-\u9fffA-Za-z0-9]{1,12})是什么)",
+        compact_question,
+    )
+    subject = next((value for value in (subject_match.groups() if subject_match else ()) if value), "")
+    if subject and subject not in text:
+        return {
+            "grounded": False,
+            "unsupported": [f"没有回答“{subject}”的定义"],
+            "verdict": "回答对象与当前定义问题不一致",
+        }
+
+    if citations:
+        return {"grounded": True, "unsupported": [], "verdict": "本地引用边界校验通过"}
+
+    # Short explanations sometimes omit a citation marker. Require a modest
+    # lexical overlap with the selected material instead of inventing a
+    # citation or failing closed because a remote judge is unavailable.
+    def han_bigrams(value: str) -> set[str]:
+        han = "".join(re.findall(r"[\u4e00-\u9fff]", value))
+        return {han[index:index + 2] for index in range(max(0, len(han) - 1))}
+
+    overlap = han_bigrams(text).intersection(han_bigrams(" ".join(usable_contexts)))
+    if len(overlap) >= 2:
+        return {"grounded": True, "unsupported": [], "verdict": "本地资料关键词校验通过"}
+    return {
+        "grounded": False,
+        "unsupported": ["未找到资料关键词或有效引用"],
+        "verdict": "回答与当前资料缺少可核对联系",
+    }
+
 
 async def grounding_check(answer: str, contexts: list[str]) -> dict:
     ctx = "\n---\n".join(contexts) if contexts else "(无)"

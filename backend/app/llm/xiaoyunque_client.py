@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait_random_exponential
 
 from ..config import get_settings
 
@@ -24,6 +25,11 @@ _GET_THREAD_PATH = "/api/biz/v1/skill/get_thread"
 _UPLOAD_FILE_PATH = "/api/biz/v1/skill/upload_file"
 _VIDEO_AGENT = "pippit_video_part_agent"
 _TASK_PREFIX = "xyq_"
+_RETRYABLE_POLL_STATUSES = {408, 409, 425, 429}
+
+
+class _TransientPollError(RuntimeError):
+    """Retryable provider/network failure on the idempotent status endpoint."""
 
 
 def available() -> bool:
@@ -75,6 +81,44 @@ def _response_json(response: requests.Response, action: str) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise RuntimeError(f"Xiaoyunque {action} failed: response missing data")
     return data
+
+
+def _poll_data(payload: dict[str, str], *, timeout: float, action: str) -> dict[str, Any]:
+    """Poll safely with bounded exponential backoff.
+
+    Only ``get_thread`` is retried. Retrying ``submit_run`` could create
+    duplicate paid image/video jobs when a response is lost after acceptance.
+    """
+    retryer = Retrying(
+        stop=stop_after_attempt(3),
+        wait=wait_random_exponential(multiplier=0.05, max=0.25),
+        retry=retry_if_exception_type(
+            (requests.Timeout, requests.ConnectionError, _TransientPollError)
+        ),
+        reraise=True,
+        before_sleep=lambda state: log.warning(
+            "Xiaoyunque %s transient failure; retrying attempt=%s",
+            action,
+            state.attempt_number + 1,
+        ),
+    )
+    for attempt in retryer:
+        with attempt:
+            response = requests.post(
+                _base_url() + _GET_THREAD_PATH,
+                headers=_headers(),
+                json=payload,
+                timeout=timeout,
+            )
+            if (
+                response.status_code in _RETRYABLE_POLL_STATUSES
+                or response.status_code >= 500
+            ):
+                raise _TransientPollError(
+                    f"Xiaoyunque {action} transient status={response.status_code}"
+                )
+            return _response_json(response, action)
+    raise RuntimeError(f"Xiaoyunque {action} retry loop ended unexpectedly")
 
 
 def _encode_task_id(thread_id: str, run_id: str) -> str:
@@ -315,13 +359,11 @@ def _find_run(data: dict[str, Any], run_id: str) -> dict[str, Any]:
 def poll_task(task_id: str) -> dict[str, Any]:
     """查询一次任务状态，归一化为 running/succeeded/failed。"""
     thread_id, run_id = _decode_task_id(task_id)
-    response = requests.post(
-        _base_url() + _GET_THREAD_PATH,
-        headers=_headers(),
-        json={"thread_id": thread_id, "run_id": run_id},
+    data = _poll_data(
+        {"thread_id": thread_id, "run_id": run_id},
         timeout=_timeout("mm_video_poll_timeout_s", 15),
+        action="poll",
     )
-    data = _response_json(response, "poll")
     run = _find_run(data, run_id)
     try:
         state = int(run.get("state", 0))
@@ -337,11 +379,7 @@ def poll_task(task_id: str) -> dict[str, Any]:
     if state == 3:
         urls = _video_urls(run)
         if not urls:
-            return {
-                **result,
-                "status": "failed",
-                "error": "run succeeded without video artifact",
-            }
+            return {**result, "phase": "materializing"}
         return {**result, "status": "succeeded", "url": urls[0], "urls": urls}
     if state in {4, 5}:
         reason = "task cancelled" if state == 5 else _run_error(run)
@@ -352,13 +390,11 @@ def poll_task(task_id: str) -> dict[str, Any]:
 def poll_image_task(task_id: str) -> dict[str, Any]:
     """查询一次通用 Nest 文生图任务，归一化为 running/succeeded/failed。"""
     thread_id, run_id = _decode_task_id(task_id)
-    response = requests.post(
-        _base_url() + _GET_THREAD_PATH,
-        headers=_headers(),
-        json={"thread_id": thread_id, "run_id": run_id},
+    data = _poll_data(
+        {"thread_id": thread_id, "run_id": run_id},
         timeout=_timeout("mm_image_timeout_s", 30),
+        action="poll image",
     )
-    data = _response_json(response, "poll image")
     run = _find_run(data, run_id)
     raw_state = str(run.get("state") or "").strip().lower()
     result: dict[str, Any] = {
@@ -371,11 +407,7 @@ def poll_image_task(task_id: str) -> dict[str, Any]:
     if raw_state in {"3", "completed", "complete", "succeeded", "success", "done"}:
         urls = _image_urls(run)
         if not urls:
-            return {
-                **result,
-                "status": "failed",
-                "error": "run succeeded without image artifact",
-            }
+            return {**result, "phase": "materializing"}
         return {**result, "status": "succeeded", "url": urls[0], "urls": urls}
     if raw_state in {"4", "5", "failed", "failure", "error", "canceled", "cancelled"}:
         reason = "task cancelled" if raw_state in {"5", "canceled", "cancelled"} else _run_error(run)

@@ -116,7 +116,7 @@ def test_super_tts_rejects_unusably_short_audio(monkeypatch, tmp_path):
     monkeypatch.setattr(spark_super_tts, "GEN_DIR", tmp_path)
     monkeypatch.setitem(sys.modules, "websocket", SimpleNamespace(WebSocketApp=FakeWebSocketApp))
 
-    with pytest.raises(RuntimeError, match="unusably short audio"):
+    with pytest.raises(RuntimeError, match="silent/short audio frame"):
         spark_super_tts.synthesize("这段音频不能被误判为成功", filename="too-short.mp3")
 
     assert not (tmp_path / "too-short.mp3").exists()

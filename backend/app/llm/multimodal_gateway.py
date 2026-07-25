@@ -262,7 +262,18 @@ def _generate_xiaoyunque_image(prompt: str, digest: str, settings: Any) -> str:
 
 
 async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float) -> Any:
-    if not _MM_SLOTS.acquire(blocking=False):
+    started = time.monotonic()
+    queue_budget = min(2.0, max(0.01, timeout_s * 0.25))
+
+    def acquire_slot() -> bool:
+        try:
+            return bool(_MM_SLOTS.acquire(blocking=True, timeout=queue_budget))
+        except TypeError:
+            # Compatibility for lightweight test semaphores and older
+            # semaphore implementations without a timeout argument.
+            return bool(_MM_SLOTS.acquire(blocking=False))
+
+    if not await asyncio.to_thread(acquire_slot):
         raise _MMPoolSaturated("multimodal worker pool saturated")
 
     def wrapped() -> Any:
@@ -273,7 +284,8 @@ async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float) -> Any:
 
     loop = asyncio.get_running_loop()
     future = loop.run_in_executor(_MM_POOL, wrapped)
-    return await asyncio.wait_for(asyncio.shield(future), timeout=max(0.01, timeout_s))
+    remaining = max(0.01, timeout_s - (time.monotonic() - started))
+    return await asyncio.wait_for(asyncio.shield(future), timeout=remaining)
 
 
 def _trace_id(value: str) -> str:

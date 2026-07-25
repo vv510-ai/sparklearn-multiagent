@@ -203,6 +203,7 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
 async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      temperature: float = 0.7,
                      max_tokens: int | None = None,
+                     reasoning_mode: str = "",
                      allow_model_fallback: bool = True,
                      allow_mock_fallback: bool = True) -> AsyncIterator[str]:
     """流式补全,逐 token 产出(SSE 直接转发)。"""
@@ -225,7 +226,11 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
     if provider == "deepseek":
         settings = get_settings()
         client = _deepseek_client()
-        thinking_override = "disabled" if max_tokens and max_tokens < 1600 else ""
+        thinking_override = (
+            reasoning_mode
+            if reasoning_mode in {"enabled", "disabled"}
+            else "disabled" if max_tokens and max_tokens < 1600 else ""
+        )
 
         def _create_deepseek():
             return client.chat.completions.create(
@@ -270,7 +275,11 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
     for r in order:
         model, x2 = MODELS[r]
         client = _client(x2)
-        extra = {**token_extra, **_reasoning_extra(x2)}
+        if x2 and reasoning_mode in {"enabled", "disabled", "auto"}:
+            reasoning_extra = {"extra_body": {"thinking": {"type": reasoning_mode}}}
+        else:
+            reasoning_extra = _reasoning_extra(x2)
+        extra = {**token_extra, **reasoning_extra}
 
         def _create():
             return client.chat.completions.create(
@@ -454,15 +463,13 @@ class MockEngine:
             return MockEngine._doc()
         if "TASK=tutor" in p and "MODE=guided" in p and "二叉树" in p:
             return (
-                "## 一句话先懂\n\n二叉树像一张向下展开的小家谱：每个位置最多分出左、右两个分支。\n\n"
-                "## 从资料里抓重点\n\n- 每个节点最多有两个孩子，并区分左、右 [^1]。\n"
-                "- **普通二叉树没有大小顺序**；“左小右大”是二叉搜索树额外增加的规则 [^2]。\n\n"
-                "## 生活里的它\n\n把节点看成家谱卡片，把连线看成亲子关系；一张卡片最多连接左、右两张下一代卡片。"
-                "这个类比只表示分支结构，不表示年龄或数值大小。\n\n"
-                "## 最小例子\n\n让 A 做根节点，B 做左孩子，C 做右孩子，就是一棵含 3 个节点的二叉树。"
-                "删掉 C 后仍是二叉树，因为“至多两个”也允许只有一个孩子。\n\n"
-                "## 记忆钩子\n\n**一根往下分，左右最多二。** 正式地说：二叉树中每个节点的孩子数不超过两个，且左右有别。\n\n"
-                "## 现在只做什么\n\n先确认“每个节点至多两个孩子且左右有别”这一条；需要练习或导图时再单独提出。"
+                "可以，我们先不背整页定义。把二叉树想成一张向下展开的小家谱：每个节点最多只分出左、右两个位置，"
+                "而且“最多两个”也包括没有孩子或只有一个孩子 [^1]。\n\n"
+                "比如 A 是最上面的根节点，B 在 A 的左边，C 在 A 的右边，这就是一棵只有 3 个节点的二叉树。"
+                "删掉 C 后它仍然是二叉树，因为节点不必同时拥有两个孩子。\n\n"
+                "有个很容易混淆的地方：**普通二叉树没有大小顺序**；“左小右大”是二叉搜索树额外增加的规则 [^2]。\n\n"
+                "先记住这一句就够了：**每个节点最多两个孩子，而且区分左、右位置。**"
+                "我问你一个小问题确认一下：一个节点只有右孩子，它还能出现在二叉树里吗？"
             )
         if "TASK=tutor" in p:
             return ("中序遍历 BST 得到升序序列,核心在于 BST 的不变量:对任意结点,左子树所有键 < 根键 < 右子树所有键 "

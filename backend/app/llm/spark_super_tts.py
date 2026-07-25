@@ -77,6 +77,7 @@ def synthesize(
     output = GEN_DIR / (filename or f"super_tts_{abs(hash((chosen_voice, text))) % 10**8}.mp3")
     chunks: dict[int, bytes] = {}
     completed = threading.Event()
+    payload_sent = threading.Event()
     errors: list[str] = []
 
     speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
@@ -161,7 +162,30 @@ def synthesize(
         completed.set()
 
     def on_open(ws):  # noqa: ANN001
-        ws.send(json.dumps(payload, ensure_ascii=False))
+        # The provider's official websocket-client demo sends the first payload
+        # from a worker thread. Sending synchronously inside ``on_open`` can
+        # make websocket-client re-enter its receive loop too early: the
+        # service then closes with a single 288-byte MP3 frame (silence), which
+        # used to be misreported as a normal provider outage.
+        def send_payload() -> None:
+            try:
+                ws.send(json.dumps(payload, ensure_ascii=False))
+            except Exception as error:  # noqa: BLE001
+                errors.append(f"send failed: {error}"[:240])
+                completed.set()
+                try:
+                    ws.close()
+                except Exception:  # noqa: BLE001
+                    pass
+            finally:
+                payload_sent.set()
+
+        sender = threading.Thread(target=send_payload, daemon=True)
+        sender.start()
+        # The send still happens off the websocket callback thread. A tiny
+        # bounded wait makes the hand-off deterministic for fast providers and
+        # avoids racing a final frame against an unscheduled sender.
+        payload_sent.wait(0.25)
 
     ws = websocket.WebSocketApp(
         url,
@@ -196,5 +220,8 @@ def synthesize(
         if output.stat().st_size >= 1024:
             return f"/static/gen/{output.name}"
         output.unlink(missing_ok=True)
-        raise RuntimeError("super TTS returned unusably short audio")
+        raise RuntimeError(
+            "super TTS returned a silent/short audio frame; "
+            f"check service quota and voice authorization for {chosen_voice}"
+        )
     raise RuntimeError("super TTS returned no audio")
