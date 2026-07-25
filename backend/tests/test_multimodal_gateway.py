@@ -36,7 +36,7 @@ def _settings(**overrides):
         "spark_super_tts_api_key": "",
         "spark_super_tts_api_secret": "",
         "spark_super_tts_voice": "x6_lingxiaoxuan_pro",
-        "spark_super_tts_strict": True,
+        "spark_super_tts_strict": False,
         "spark_asr_appid": "",
         "spark_asr_api_key": "",
         "spark_asr_api_secret": "",
@@ -233,10 +233,10 @@ def test_standard_cache_does_not_mask_recovered_super_tts(monkeypatch, tmp_path:
     )
     text = "recovered super voice"
     standard_digest = hashlib.sha1(
-        f"standard\0xiaoyan\0{text}".encode("utf-8")
+        f"standard\0xiaoyan\0{42}\0{text}".encode("utf-8")
     ).hexdigest()[:16]
-    (tmp_path / f"tts_standard_{standard_digest}.mp3").write_bytes(
-        b"ID3-cached-standard" + b"x" * 200
+    (tmp_path / f"tts_standard_{standard_digest}.wav").write_bytes(
+        b"RIFF-cached-standard" + b"x" * 200
     )
     super_calls = 0
 
@@ -269,6 +269,7 @@ def test_tts_strict_super_voice_never_plays_standard_provider(monkeypatch, tmp_p
     settings = _settings(
         spark_super_tts_api_password="super-password",
         spark_super_tts_appid="super-app",
+        spark_super_tts_strict=True,
         mm_tts_timeout_s=0.2,
     )
 

@@ -10,6 +10,7 @@ import json
 import logging
 import ssl
 import threading
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,7 @@ def synthesize(
     voice: str | None = None,
     filename: str | None = None,
 ) -> str | None:
-    """Synthesize text to MP3 and return its ``/static/gen`` URL."""
+    """Synthesize text to an audible WAV and return its ``/static/gen`` URL."""
     s = get_settings()
     if not configured(s):
         log.info("超拟人 TTS 未配置鉴权，跳过")
@@ -74,7 +75,7 @@ def synthesize(
         ).replace("https://", "wss://")
 
     chosen_voice = str(voice or getattr(s, "spark_super_tts_voice", "") or "x6_lingxiaoxuan_pro")
-    output = GEN_DIR / (filename or f"super_tts_{abs(hash((chosen_voice, text))) % 10**8}.mp3")
+    output = GEN_DIR / (filename or f"super_tts_{abs(hash((chosen_voice, text))) % 10**8}.wav")
     chunks: dict[int, bytes] = {}
     completed = threading.Event()
     payload_sent = threading.Event()
@@ -85,6 +86,16 @@ def synthesize(
     payload = {
         "header": {"app_id": appid, "status": 2},
         "parameter": {
+            # The current dual-stream implementation used by real-world
+            # integrations sends this oral block even for one-shot synthesis.
+            # Keep it explicit so the Pro voice receives the same request
+            # parameters whether APIPassword or HMAC authentication is used.
+            "oral": {
+                "oral_level": "mid",
+                "spark_assist": 1,
+                "stop_split": 0,
+                "remain": 0,
+            },
             "tts": {
                 "vcn": chosen_voice,
                 "speed": speed,
@@ -95,7 +106,9 @@ def synthesize(
                 "rdn": 0,
                 "rhy": 0,
                 "audio": {
-                    "encoding": "lame",
+                    # Raw PCM lets us reject provider responses that report
+                    # success but contain no audible speech.
+                    "encoding": "raw",
                     "sample_rate": 24000,
                     "channels": 1,
                     "bit_depth": 16,
@@ -219,15 +232,29 @@ def synthesize(
     if errors:
         raise RuntimeError("super TTS " + "; ".join(errors))
     if chunks:
-        output.write_bytes(b"".join(chunks[index] for index in sorted(chunks)))
-        if output.stat().st_size >= 1024:
+        pcm = b"".join(chunks[index] for index in sorted(chunks))
+        peak = max(
+            (
+                abs(int.from_bytes(pcm[index:index + 2], "little", signed=True))
+                for index in range(0, len(pcm) - 1, 2)
+            ),
+            default=0,
+        )
+        if len(pcm) >= 1024 and peak > 32:
+            with wave.open(str(output), "wb") as wav:
+                wav.setnchannels(1)
+                wav.setsampwidth(2)
+                wav.setframerate(24000)
+                wav.writeframes(pcm)
             return f"/static/gen/{output.name}"
-        output.unlink(missing_ok=True)
         detail = (
-            "super TTS returned a silent/short audio frame; "
+            "super TTS returned silent/short PCM audio; "
             f"check service quota and voice authorization for {chosen_voice}"
         )
         if provider_sids:
             detail += f"; sid={provider_sids[-1]}"
         raise RuntimeError(detail)
-    raise RuntimeError("super TTS returned no audio")
+    detail = "super TTS returned no PCM audio"
+    if provider_sids:
+        detail += f"; sid={provider_sids[-1]}"
+    raise RuntimeError(detail)

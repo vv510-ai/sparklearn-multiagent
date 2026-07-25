@@ -588,14 +588,14 @@ async def tts(
     strict_super = bool(
         super_configured
         and dedicated_super_credentials
-        and getattr(s, "spark_super_tts_strict", True)
+        and getattr(s, "spark_super_tts_strict", False)
     )
     super_voice = str(getattr(s, "spark_super_tts_voice", "") or "x6_lingxiaoxuan_pro")
     speech_speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
     attempts: list[tuple[str, str, Callable[[], Any]]] = []
     if super_configured:
         digest = hashlib.sha1(f"super\0{super_voice}\0{speech_speed}\0{text}".encode("utf-8")).hexdigest()[:16]
-        filename = f"tts_super_{digest}.mp3"
+        filename = f"tts_super_{digest}.wav"
         attempts.append((
             "spark_super_tts",
             filename,
@@ -605,7 +605,7 @@ async def tts(
         ))
     if standard_configured and not strict_super:
         digest = hashlib.sha1(f"standard\0{voice}\0{speech_speed}\0{text}".encode("utf-8")).hexdigest()[:16]
-        filename = f"tts_standard_{digest}.mp3"
+        filename = f"tts_standard_{digest}.wav"
         attempts.append((
             "spark_tts",
             filename,

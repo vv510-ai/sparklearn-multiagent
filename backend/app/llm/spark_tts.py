@@ -9,6 +9,7 @@ import json
 import logging
 import ssl
 import threading
+import wave
 from pathlib import Path
 
 from ..config import GEN_DIR, get_settings
@@ -19,7 +20,7 @@ TTS_URL = "wss://tts-api.xfyun.cn/v2/tts"
 
 
 def synthesize(text: str, *, voice: str = "xiaoyan", filename: str | None = None) -> str | None:
-    """合成 mp3 到 static/gen,返回可访问的 /static 相对路径;失败/未配置返回 None。"""
+    """合成可验证的 WAV 到 static/gen,返回可访问的 /static 相对路径。"""
     s = get_settings()
     if not (s.spark_appid and s.spark_api_key and s.spark_api_secret):
         log.info("TTS 未配置三元组,跳过合成(降级为台词文本)")
@@ -30,14 +31,23 @@ def synthesize(text: str, *, voice: str = "xiaoyan", filename: str | None = None
         log.warning("websocket-client 未安装,TTS 跳过")
         return None
 
-    out = GEN_DIR / (filename or f"tts_{abs(hash(text)) % 10**8}.mp3")
+    out = GEN_DIR / (filename or f"tts_{abs(hash(text)) % 10**8}.wav")
     audio = bytearray()
     url = assemble_auth_url(TTS_URL.replace("wss://", "https://"), s.spark_api_key, s.spark_api_secret)
     url = url.replace("https://", "wss://")
     speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
     payload = {
         "common": {"app_id": s.spark_appid},
-        "business": {"aue": "lame", "sfl": 1, "vcn": voice, "tte": "UTF8", "speed": speed},
+        # Request PCM so a code=0 response can still be checked for actual
+        # audible samples. The provider can return a structurally valid but
+        # completely silent MP3 when the voice entitlement is unavailable.
+        "business": {
+            "aue": "raw",
+            "auf": "audio/L16;rate=16000",
+            "vcn": voice,
+            "tte": "UTF8",
+            "speed": speed,
+        },
         "data": {"status": 2, "text": base64.b64encode(text.encode("utf-8")).decode()},
     }
     done: list[bool] = []
@@ -79,6 +89,20 @@ def synthesize(text: str, *, voice: str = "xiaoyan", filename: str | None = None
     if timed_out:
         raise TimeoutError(f"TTS provider timeout after {timeout_s:g}s")
     if done and audio:
-        Path(out).write_bytes(bytes(audio))
+        pcm = bytes(audio)
+        peak = max(
+            (
+                abs(int.from_bytes(pcm[index:index + 2], "little", signed=True))
+                for index in range(0, len(pcm) - 1, 2)
+            ),
+            default=0,
+        )
+        if peak <= 32:
+            raise RuntimeError("standard TTS returned silent PCM audio")
+        with wave.open(str(out), "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(16000)
+            wav.writeframes(pcm)
         return f"/static/gen/{out.name}"
     return None

@@ -5,6 +5,7 @@ import base64
 import json
 import sys
 import threading
+import wave
 from io import BytesIO
 from types import SimpleNamespace
 
@@ -12,7 +13,7 @@ import pytest
 from starlette.datastructures import Headers, UploadFile
 
 from app.api import tutor as tutor_api
-from app.llm import spark_asr, spark_super_tts
+from app.llm import spark_asr, spark_super_tts, spark_tts
 
 
 def test_super_tts_apipassword_request_and_sequence_order(monkeypatch, tmp_path):
@@ -69,14 +70,22 @@ def test_super_tts_apipassword_request_and_sequence_order(monkeypatch, tmp_path)
     monkeypatch.setattr(spark_super_tts, "GEN_DIR", tmp_path)
     monkeypatch.setitem(sys.modules, "websocket", SimpleNamespace(WebSocketApp=FakeWebSocketApp))
 
-    url = spark_super_tts.synthesize("你好", filename="super.mp3")
+    url = spark_super_tts.synthesize("你好", filename="super.wav")
 
-    assert url == "/static/gen/super.mp3"
-    assert (tmp_path / "super.mp3").read_bytes() == b"a" * 700 + b"b" * 700
+    assert url == "/static/gen/super.wav"
+    with wave.open(str(tmp_path / "super.wav"), "rb") as wav:
+        assert wav.getframerate() == 24000
+        assert wav.readframes(wav.getnframes()) == b"a" * 700 + b"b" * 700
     assert connected["header"] == {"x-api-key": "private-password"}
     assert sent[0]["header"]["app_id"] == "super-app"
+    assert sent[0]["parameter"]["oral"] == {
+        "oral_level": "mid",
+        "spark_assist": 1,
+        "stop_split": 0,
+        "remain": 0,
+    }
     assert sent[0]["parameter"]["tts"]["vcn"] == "x6_lingxiaoxuan_pro"
-    assert sent[0]["parameter"]["tts"]["audio"]["encoding"] == "lame"
+    assert sent[0]["parameter"]["tts"]["audio"]["encoding"] == "raw"
     assert base64.b64decode(sent[0]["payload"]["text"]["text"]).decode("utf-8") == "你好"
 
 
@@ -116,10 +125,100 @@ def test_super_tts_rejects_unusably_short_audio(monkeypatch, tmp_path):
     monkeypatch.setattr(spark_super_tts, "GEN_DIR", tmp_path)
     monkeypatch.setitem(sys.modules, "websocket", SimpleNamespace(WebSocketApp=FakeWebSocketApp))
 
-    with pytest.raises(RuntimeError, match="silent/short audio frame"):
-        spark_super_tts.synthesize("这段音频不能被误判为成功", filename="too-short.mp3")
+    with pytest.raises(RuntimeError, match="silent/short PCM audio"):
+        spark_super_tts.synthesize("这段音频不能被误判为成功", filename="too-short.wav")
 
-    assert not (tmp_path / "too-short.mp3").exists()
+    assert not (tmp_path / "too-short.wav").exists()
+
+
+def test_standard_tts_writes_audible_pcm_as_wav(monkeypatch, tmp_path):
+    sent = []
+
+    class FakeWebSocketApp:
+        def __init__(self, _url, **callbacks):
+            self.callbacks = callbacks
+
+        def send(self, payload):
+            sent.append(json.loads(payload))
+
+        def close(self):
+            return None
+
+        def run_forever(self, **_kwargs):
+            self.callbacks["on_open"](self)
+            samples = [0, 200, -450, 900, -1200] * 400
+            pcm = b"".join(
+                sample.to_bytes(2, "little", signed=True) for sample in samples
+            )
+            self.callbacks["on_message"](
+                self,
+                json.dumps({
+                    "code": 0,
+                    "data": {
+                        "status": 2,
+                        "audio": base64.b64encode(pcm).decode("ascii"),
+                    },
+                }),
+            )
+
+    settings = SimpleNamespace(
+        spark_appid="app",
+        spark_api_key="key",
+        spark_api_secret="secret",
+        spark_tts_speed=42,
+        mm_tts_timeout_s=0.2,
+    )
+    monkeypatch.setattr(spark_tts, "get_settings", lambda: settings)
+    monkeypatch.setattr(spark_tts, "GEN_DIR", tmp_path)
+    monkeypatch.setitem(sys.modules, "websocket", SimpleNamespace(WebSocketApp=FakeWebSocketApp))
+
+    url = spark_tts.synthesize("你好", filename="standard.wav")
+
+    assert url == "/static/gen/standard.wav"
+    assert (tmp_path / "standard.wav").read_bytes().startswith(b"RIFF")
+    assert sent[0]["business"]["aue"] == "raw"
+    assert sent[0]["business"]["auf"] == "audio/L16;rate=16000"
+
+
+def test_standard_tts_rejects_silent_pcm(monkeypatch, tmp_path):
+    class FakeWebSocketApp:
+        def __init__(self, _url, **callbacks):
+            self.callbacks = callbacks
+
+        def send(self, _payload):
+            return None
+
+        def close(self):
+            return None
+
+        def run_forever(self, **_kwargs):
+            self.callbacks["on_open"](self)
+            self.callbacks["on_message"](
+                self,
+                json.dumps({
+                    "code": 0,
+                    "data": {
+                        "status": 2,
+                        "audio": base64.b64encode(b"\x00" * 4096).decode("ascii"),
+                    },
+                }),
+            )
+
+    settings = SimpleNamespace(
+        spark_appid="app",
+        spark_api_key="key",
+        spark_api_secret="secret",
+        spark_tts_speed=42,
+        mm_tts_timeout_s=0.2,
+    )
+    monkeypatch.setattr(spark_tts, "get_settings", lambda: settings)
+    monkeypatch.setattr(spark_tts, "GEN_DIR", tmp_path)
+    monkeypatch.setitem(sys.modules, "websocket", SimpleNamespace(WebSocketApp=FakeWebSocketApp))
+
+    with pytest.raises(RuntimeError, match="silent PCM"):
+        spark_tts.synthesize("你好", filename="silent.wav")
+
+    assert not (tmp_path / "silent.wav").exists()
 
 
 def test_asr_sends_model_parameters_and_decodes_text(monkeypatch):
