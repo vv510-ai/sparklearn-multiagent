@@ -163,16 +163,26 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         }
     else:
         payload.pop("audio_url", None)
+        result_data = result.get("data") if isinstance(result, dict) else {}
+        strict_super = bool(
+            isinstance(result_data, dict) and result_data.get("strict_voice")
+        )
         error = (
             str(result.get("error") or "云端语音暂时不可用")
             if isinstance(result, dict) else "云端语音暂时不可用"
         )
         payload["audio"] = {
-            "status": "fallback",
-            "provider": "browser_speech",
+            "status": "unavailable" if strict_super else "fallback",
+            "provider": (
+                str(result_data.get("provider") or "spark_super_tts")
+                if strict_super
+                else "browser_speech"
+            ),
             "error": error[:240],
             "retryable": True,
         }
+        if strict_super:
+            payload["audio"]["strict_voice"] = True
 
     with session() as s:
         resource = s.get(Resource, rid)

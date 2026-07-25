@@ -23,6 +23,10 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
   const videoUrl = apiAssetUrl(isManagedVideo || !video?.task_id ? providerUrl : undefined);
   const coverUrl = apiAssetUrl(payload.cover_url);
   const audioUrl = apiAssetUrl(payload.audio_url);
+  const strictSuperUnavailable = Boolean(
+    payload.audio?.strict_voice
+      || (payload.audio?.provider === "spark_super_tts" && !audioUrl),
+  );
   const preview = payload.animation_preview;
   const stages = preview?.stages || [];
 
@@ -218,7 +222,15 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         </div>
       )}
 
-      {!audioUrl && script?.narration && (
+      {strictSuperUnavailable && script?.narration && (
+        <Notice
+          tone="warn"
+          title="超拟人语音暂未生成"
+          desc="已锁定星火超拟人音色，系统不会改用普通星火或浏览器声音。可稍后重新生成云端语音。"
+        />
+      )}
+
+      {!audioUrl && script?.narration && !strictSuperUnavailable && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
           <div>
             <div className="text-[11px] font-bold tracking-[0.18em] text-emerald-700">即时语音讲解</div>

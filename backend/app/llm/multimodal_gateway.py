@@ -577,6 +577,19 @@ async def tts(
     demo = is_demo()
     super_configured = bool(spark_super_tts.configured(s) and not demo)
     standard_configured = bool(_triplet_configured() and not demo)
+    dedicated_super_credentials = bool(
+        getattr(s, "spark_super_tts_api_password", "")
+        or (
+            getattr(s, "spark_super_tts_appid", "")
+            and getattr(s, "spark_super_tts_api_key", "")
+            and getattr(s, "spark_super_tts_api_secret", "")
+        )
+    )
+    strict_super = bool(
+        super_configured
+        and dedicated_super_credentials
+        and getattr(s, "spark_super_tts_strict", True)
+    )
     super_voice = str(getattr(s, "spark_super_tts_voice", "") or "x6_lingxiaoxuan_pro")
     speech_speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
     attempts: list[tuple[str, str, Callable[[], Any]]] = []
@@ -590,7 +603,7 @@ async def tts(
                 text, voice=super_voice, filename=target
             ),
         ))
-    if standard_configured:
+    if standard_configured and not strict_super:
         digest = hashlib.sha1(f"standard\0{voice}\0{speech_speed}\0{text}".encode("utf-8")).hexdigest()[:16]
         filename = f"tts_standard_{digest}.mp3"
         attempts.append((
@@ -663,6 +676,12 @@ async def tts(
         started,
         ok=False,
         degraded=True,
+        data={
+            "provider": "spark_super_tts" if strict_super else "none",
+            "requested_voice": super_voice if strict_super else "",
+            "retryable": True,
+            "strict_voice": strict_super,
+        },
         error="; ".join(errors) or "TTS unavailable",
     )
     await _record(result, agent="media")

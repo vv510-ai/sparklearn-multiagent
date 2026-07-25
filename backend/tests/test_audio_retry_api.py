@@ -74,6 +74,41 @@ def test_audio_retry_persists_cloud_audio_and_clears_degraded_flag(monkeypatch):
         assert stored.safety["flags"] == []
 
 
+def test_audio_retry_never_substitutes_another_voice_in_strict_super_mode(monkeypatch):
+    resource_id = "audio-retry-strict-super"
+    _seed(resource_id)
+
+    async def failed_tts(_text: str, **_kwargs):
+        return {
+            "ok": False,
+            "degraded": True,
+            "data": {
+                "provider": "spark_super_tts",
+                "strict_voice": True,
+                "retryable": True,
+            },
+            "error": "super TTS returned a silent frame; sid=test-sid",
+        }
+
+    monkeypatch.setattr(resources_api.multimodal_gateway, "tts", failed_tts)
+    with TestClient(app) as client:
+        response = client.post(
+            f"/api/resources/{resource_id}/audio",
+            json={"user_id": USER_ID},
+        )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["audio"] == {
+        "status": "unavailable",
+        "provider": "spark_super_tts",
+        "error": "super TTS returned a silent frame; sid=test-sid",
+        "retryable": True,
+        "strict_voice": True,
+    }
+    assert "audio_url" not in payload["resource"]["payload"]
+
+
 def test_audio_retry_keeps_browser_fallback_and_exposes_provider_error(monkeypatch):
     resource_id = "audio-retry-fallback"
     _seed(resource_id, with_narration=False)

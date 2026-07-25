@@ -36,6 +36,7 @@ def _settings(**overrides):
         "spark_super_tts_api_key": "",
         "spark_super_tts_api_secret": "",
         "spark_super_tts_voice": "x6_lingxiaoxuan_pro",
+        "spark_super_tts_strict": True,
         "spark_asr_appid": "",
         "spark_asr_api_key": "",
         "spark_asr_api_secret": "",
@@ -264,10 +265,44 @@ def test_standard_cache_does_not_mask_recovered_super_tts(monkeypatch, tmp_path:
     assert super_calls == 1
 
 
-def test_tts_falls_back_to_standard_provider(monkeypatch, tmp_path: Path):
+def test_tts_strict_super_voice_never_plays_standard_provider(monkeypatch, tmp_path: Path):
     settings = _settings(
         spark_super_tts_api_password="super-password",
         spark_super_tts_appid="super-app",
+        mm_tts_timeout_s=0.2,
+    )
+
+    def broken_super(*args, **kwargs):
+        raise RuntimeError("super voice unavailable")
+
+    standard_called = False
+
+    def standard_provider(*args, **kwargs):
+        nonlocal standard_called
+        standard_called = True
+        raise AssertionError("strict super voice must not fall back to another voice")
+
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: settings)
+    monkeypatch.setattr(gateway.spark_super_tts, "synthesize", broken_super)
+    monkeypatch.setattr(gateway.spark_tts, "synthesize", standard_provider)
+
+    result = asyncio.run(gateway.tts("自动降级", trace_id="super-fallback"))
+
+    assert result["ok"] is False, result
+    assert result["degraded"] is True
+    assert result["data"]["provider"] == "spark_super_tts"
+    assert result["data"]["strict_voice"] is True
+    assert result["data"]["retryable"] is True
+    assert "super voice unavailable" in result["error"]
+    assert standard_called is False
+
+
+def test_tts_can_fall_back_when_strict_super_is_disabled(monkeypatch, tmp_path: Path):
+    settings = _settings(
+        spark_super_tts_api_password="super-password",
+        spark_super_tts_appid="super-app",
+        spark_super_tts_strict=False,
         mm_tts_timeout_s=0.2,
     )
 
@@ -283,7 +318,7 @@ def test_tts_falls_back_to_standard_provider(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(gateway.spark_super_tts, "synthesize", broken_super)
     monkeypatch.setattr(gateway.spark_tts, "synthesize", standard_provider)
 
-    result = asyncio.run(gateway.tts("自动降级", trace_id="super-fallback"))
+    result = asyncio.run(gateway.tts("explicit fallback", trace_id="super-fallback"))
 
     assert result["ok"] is True, result
     assert result["degraded"] is True

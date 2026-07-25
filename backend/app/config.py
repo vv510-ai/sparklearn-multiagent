@@ -60,6 +60,7 @@ try:  # pydantic-settings 可用时走标准路径
         spark_super_tts_api_secret: str = ""
         spark_super_tts_url: str = "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6"
         spark_super_tts_voice: str = "x6_lingxiaoxuan_pro"
+        spark_super_tts_strict: bool = True
         spark_tts_speed: int = 42
 
         # 讯飞中英识别大模型（与其他讯飞服务分开授权）
@@ -170,6 +171,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
                 "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6",
             )
             self.spark_super_tts_voice = g("SPARK_SUPER_TTS_VOICE", "x6_lingxiaoxuan_pro")
+            self.spark_super_tts_strict = b("SPARK_SUPER_TTS_STRICT", True)
             self.spark_tts_speed = int(g("SPARK_TTS_SPEED", "42"))
             self.spark_asr_appid = g("SPARK_ASR_APPID", "")
             self.spark_asr_api_key = g("SPARK_ASR_API_KEY", "")

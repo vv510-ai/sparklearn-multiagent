@@ -142,6 +142,7 @@ export default function ResourceCard({
   const audioProvider = String(audioState?.provider || "");
   const isSuperVoice = audioProvider === "spark_super_tts";
   const isStandardVoiceFallback = audioProvider === "spark_tts" && Boolean(audioState?.degraded);
+  const isStrictSuperUnavailable = isSuperVoice && !audioUrl;
   const coverUrl = apiAssetUrl(payload.cover_url);
   const narration = payload.audio_narration || "";
   const isText = TEXT_KINDS.has(r.kind);
@@ -201,7 +202,7 @@ export default function ResourceCard({
                   {narration
                     ? audioUrl
                       ? isSuperVoice ? "星火超拟人互动讲解" : "普通星火语音讲解"
-                      : "互动讲解 · 浏览器朗读"
+                      : isStrictSuperUnavailable ? "星火超拟人语音等待恢复" : "互动讲解 · 浏览器朗读"
                     : audioUrl
                       ? isSuperVoice ? "星火超拟人语音讲解" : "普通星火语音讲解"
                       : "星火知识封面"}

@@ -29,6 +29,7 @@ interface AudioState {
   provider?: string;
   error?: string;
   retryable?: boolean;
+  strict_voice?: boolean;
 }
 
 function formatClock(seconds: number): string {
@@ -65,7 +66,11 @@ export default function InteractiveAudioPlayer({
   const [speechState, setSpeechState] = useState<"idle" | "playing" | "paused">("idle");
   const [status, setStatus] = useState("");
   const useCloudAudio = Boolean(src && !audioLoadFailed);
-  const canUseBrowserSpeech = Boolean(narration.trim());
+  const strictSuperVoice = Boolean(
+    audioState?.strict_voice
+      || (audioState?.provider === "spark_super_tts" && !src),
+  );
+  const canUseBrowserSpeech = Boolean(narration.trim()) && !strictSuperVoice;
 
   useEffect(() => {
     setAudioLoadFailed(false);
@@ -211,6 +216,20 @@ export default function InteractiveAudioPlayer({
           aria-label={`${resourceTitle} 音频讲解`}
           className="h-9 w-full"
         />
+      ) : strictSuperVoice ? (
+        <div className="rounded-[10px] border border-emerald-200 bg-emerald-50/70 p-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+            <Volume2 size={15} /> 已锁定星火超拟人音色
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-emerald-800">
+            当前云端没有返回有效音频。为避免播放成普通星火或设备自带音色，系统已暂停朗读；可稍后点击“重新生成云端语音”。
+          </p>
+          {audioState?.error && (
+            <p className="mt-1 text-[10px] text-emerald-700">
+              云端状态：{audioState.error}
+            </p>
+          )}
+        </div>
       ) : canUseBrowserSpeech ? (
         <div className="rounded-[10px] border border-amber-200 bg-amber-50/70 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">

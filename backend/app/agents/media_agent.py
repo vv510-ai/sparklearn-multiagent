@@ -543,11 +543,22 @@ async def run(state: dict) -> dict:
             "error": str(audio.get("error") or "")[:240],
         }
     else:
+        audio_data = audio.get("data") if isinstance(audio, dict) else {}
+        strict_super = bool(
+            isinstance(audio_data, dict) and audio_data.get("strict_voice")
+        )
         payload["audio"] = {
-            "status": "fallback",
-            "provider": "browser_speech",
+            "status": "unavailable" if strict_super else "fallback",
+            "provider": (
+                str(audio_data.get("provider") or "spark_super_tts")
+                if strict_super
+                else "browser_speech"
+            ),
+            "retryable": True,
             "error": str(audio.get("error") or "云端旁白暂不可用")[:180] if isinstance(audio, dict) else str(audio)[:180],
         }
+        if strict_super:
+            payload["audio"]["strict_voice"] = True
     await emit({"type": "progress", "agent": "media", "stage": "post", "percent": 100,
                 "detail": "两分钟旁白处理完成"
                 if isinstance(audio, dict) and audio.get("ok")

@@ -124,6 +124,7 @@ export interface ResourceItem {
       error?: string;
       retryable?: boolean;
       degraded?: boolean;
+      strict_voice?: boolean;
     };
     cover_url?: string;
     ppt?: {

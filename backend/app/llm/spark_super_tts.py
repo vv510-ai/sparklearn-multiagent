@@ -79,6 +79,7 @@ def synthesize(
     completed = threading.Event()
     payload_sent = threading.Event()
     errors: list[str] = []
+    provider_sids: list[str] = []
 
     speed = max(0, min(100, int(getattr(s, "spark_tts_speed", 42))))
     payload = {
@@ -120,9 +121,11 @@ def synthesize(
         try:
             response = json.loads(message)
             header = response.get("header") or {}
+            sid = str(header.get("sid") or "")
+            if sid and sid not in provider_sids:
+                provider_sids.append(sid)
             code = int(header.get("code") or 0)
             if code != 0:
-                sid = str(header.get("sid") or "")
                 detail = str(header.get("message") or "provider error")
                 errors.append(f"code={code} sid={sid} message={detail}"[:240])
                 completed.set()
@@ -220,8 +223,11 @@ def synthesize(
         if output.stat().st_size >= 1024:
             return f"/static/gen/{output.name}"
         output.unlink(missing_ok=True)
-        raise RuntimeError(
+        detail = (
             "super TTS returned a silent/short audio frame; "
             f"check service quota and voice authorization for {chosen_voice}"
         )
+        if provider_sids:
+            detail += f"; sid={provider_sids[-1]}"
+        raise RuntimeError(detail)
     raise RuntimeError("super TTS returned no audio")
