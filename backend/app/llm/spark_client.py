@@ -8,7 +8,7 @@
 
 工程化设计:
 - 全项目仅通过 llm_complete()/llm_stream() 两个函数访问大模型,便于:
-  ① DeepSeek-V4-Pro 主用、星火互备;② 无密钥时切换 MockEngine;③ 统一计量与日志。
+  ① DeepSeek-V4-Pro 与星火按配置选择;② 无密钥时切换 MockEngine;③ 统一计量与日志。
 - 同时提供 get_spark_llm() 返回 LangChain ChatOpenAI,供需要 LangChain 生态的扩展使用。
 """
 from __future__ import annotations

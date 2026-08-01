@@ -5,7 +5,7 @@
 
 ## 项目是什么
 
-基于讯飞星火的多智能体个性化学习系统。后端 **FastAPI + LangGraph**(含 `MiniGraph` 兜底)编排 10 个智能体:`profile / orchestrator / planner / path / doc / mindmap / quiz / media / tutor / eval`;前端 **Next.js 14**(App Router + TypeScript)。当前课程为「数据结构与算法」。RAG 走「课程知识图谱 + 种子语料 + 上传资料 + 向量检索 + 引用溯源」。
+基于讯飞星火的多智能体个性化学习系统。后端 **FastAPI + LangGraph**(含 `MiniGraph` 兜底)编排 10 个智能体:`profile / orchestrator / planner / path / doc / mindmap / quiz / media / tutor / eval`;前端 **Next.js 16 + React 19**(App Router + TypeScript)。当前课程为「数据结构与算法」。RAG 走「课程知识图谱 + 种子语料 + 上传资料 + 向量检索 + 引用溯源」。
 
 ## 运行与测试
 

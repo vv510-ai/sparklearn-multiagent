@@ -1,17 +1,17 @@
-# SparkLearn 前端(Next.js 14,standalone 产物)
-FROM node:20-alpine AS deps
+# SparkLearn 前端(Next.js standalone 产物)
+FROM node:24.18.1-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --registry=https://registry.npmmirror.com
 
-FROM node:20-alpine AS builder
+FROM node:24.18.1-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:24.18.1-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 COPY --from=builder /app/.next/standalone ./

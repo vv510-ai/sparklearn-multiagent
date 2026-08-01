@@ -15,7 +15,7 @@ const BACKEND =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   "http://localhost:8000";
 
-type RouteContext = { params: { path: string[] } };
+type RouteContext = { params: Promise<{ path: string[] }> };
 
 function tokenSubject(token: string | undefined): string | null {
   if (!token) return null;
@@ -61,7 +61,8 @@ async function authResponse(req: NextRequest, action: "login" | "register") {
 }
 
 async function proxy(req: NextRequest, { params }: RouteContext) {
-  const path = [...params.path];
+  const { path: routePath } = await params;
+  const path = [...routePath];
   if (path[0] === "auth" && path[1] === "logout" && req.method === "POST") {
     const response = NextResponse.json({ ok: true });
     response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, maxAge: 0, path: "/", sameSite: "lax" });
