@@ -467,7 +467,11 @@ export default function Chat({
               </div>
               <div className="min-w-0 flex-1 space-y-3">
                 {(m.text || m.streaming) && (
-                  <div className="notebook-assistant-message rounded-[14px] rounded-tl-md border border-[#E5E9E3] px-4 py-3 shadow-sm">
+                  <div
+                    className="notebook-assistant-message rounded-[14px] rounded-tl-md border border-[#E5E9E3] px-4 py-3 shadow-sm"
+                    aria-label="学伴回答"
+                    aria-live={m.streaming ? "polite" : "off"}
+                  >
                     <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
                   </div>
                 )}

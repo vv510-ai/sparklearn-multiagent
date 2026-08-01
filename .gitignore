@@ -22,3 +22,6 @@ backend/runs/
 runs/
 *.log
 .tmp/
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/

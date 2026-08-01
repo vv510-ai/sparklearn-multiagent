@@ -296,7 +296,9 @@ def is_demo() -> bool:
 
 
 def auth_required() -> bool:
-    """离线 demo 保持一键可用；真实模式默认必须经过登录认证。"""
+    """离线 demo 默认一键可用；显式 AUTH_REQUIRED 可独立开启真实认证。"""
+    if os.environ.get("AUTH_REQUIRED") is not None:
+        return _env_bool("AUTH_REQUIRED")
     return False if is_demo() else bool(get_settings().auth_required)
 
 

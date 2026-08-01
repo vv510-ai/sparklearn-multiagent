@@ -38,6 +38,7 @@ function Wait-ForHealth {
 try {
     $env:DATABASE_URL = "sqlite:///$dbPath"
     $env:DEMO_MODE = "true"
+    $env:AUTH_REQUIRED = "true"
     $env:AUTH_SECRET = "local-e2e-only-0123456789-abcdefghijklmnopqrstuvwxyz"
     $env:SPARK_API_PASSWORD = ""
     $env:DEEPSEEK_API_KEY = ""
@@ -126,6 +127,7 @@ try {
         ready = $health.status -eq "ok"
         register_status = $register.StatusCode
         relogin_status = $login.StatusCode
+        real_account_after_register = $firstUser.id -ne "demo_user" -and -not [bool]$firstUser.demo
         same_user_after_relogin = $firstUser.id -eq $secondUser.id
         tutor_status = $tutor.StatusCode
         sse_events = $events.Count
@@ -135,7 +137,7 @@ try {
     }
     $result | ConvertTo-Json -Compress
 
-    if (-not $result.same_user_after_relogin -or -not $hasTutor -or -not $hasDone) {
+    if (-not $result.real_account_after_register -or -not $result.same_user_after_relogin -or -not $hasTutor -or -not $hasDone) {
         throw "Local end-to-end acceptance failed"
     }
 } finally {
