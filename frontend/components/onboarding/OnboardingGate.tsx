@@ -27,6 +27,10 @@ export type OnboardingAnswers = {
 
 export type QuickStartKey = "recommended" | "diagnostic" | "upload" | "example";
 
+const HERO_LEAD = Array.from("让世界享受");
+const HERO_ACCENT = Array.from("学习");
+const HERO_TAIL = Array.from("的乐趣");
+
 const STEPS = [
   { key: "topic", label: "学习方向", title: "你现在最想学什么？", hint: "选一个最接近的方向，之后还可以修改。" },
   { key: "current_level", label: "当前基础", title: "你大概学到哪一步了？", hint: "不用考试，凭感觉选就好。" },
@@ -176,12 +180,26 @@ export default function OnboardingGate({
 
         <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] lg:gap-14">
           <section className="hidden max-w-xl lg:block">
-            <p className="text-sm font-semibold tracking-[0.16em] text-[#B8F3D4]">WELCOME TO YOUR LEARNING SPACE</p>
-            <h1 className="mt-5 text-5xl font-normal leading-[0.98] text-white xl:text-7xl" style={{ fontFamily: "var(--font-display)" }}>先告诉我一点，<br /><span className="text-white/65">我就知道从哪里陪你开始。</span></h1>
-            <p className="mt-6 max-w-md text-base leading-7 text-white/65">回答几道很短的问题，推荐会从“泛泛的首页”变成适合你当前水平的第一项任务。所有答案都能在学习档案里修改。</p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              {["先了解你", "给出第一步", "边学习边更新"].map((item, index) => <div key={item} className="rounded-2xl border border-white/15 bg-white/[0.07] p-3"><div className="text-[11px] font-bold text-[#B8F3D4]">0{index + 1}</div><div className="mt-2 text-sm font-semibold text-white/85">{item}</div></div>)}
-            </div>
+            <h1 className="auth-hero-title" aria-label="让世界享受学习的乐趣">
+              <span className="auth-hero-visual" aria-hidden="true">
+                <span className="auth-hero-word">
+                  {HERO_LEAD.map((character, index) => (
+                    <span key={`lead-${character}-${index}`} className="auth-hero-character" style={{ animationDelay: `${180 + index * 72}ms` }}>{character}</span>
+                  ))}
+                </span>
+                <span className="auth-hero-accent">
+                  {HERO_ACCENT.map((character, index) => (
+                    <span key={`accent-${character}-${index}`} className="auth-hero-character" style={{ animationDelay: `${180 + (HERO_LEAD.length + index) * 72}ms` }}>{character}</span>
+                  ))}
+                </span>
+                <span className="auth-hero-word">
+                  {HERO_TAIL.map((character, index) => (
+                    <span key={`tail-${character}-${index}`} className="auth-hero-character" style={{ animationDelay: `${180 + (HERO_LEAD.length + HERO_ACCENT.length + index) * 72}ms` }}>{character}</span>
+                  ))}
+                </span>
+                <span className="auth-hero-cursor" />
+              </span>
+            </h1>
           </section>
 
           <section className="w-full max-w-xl justify-self-center rounded-[28px] border border-white/20 bg-white/[0.13] p-2 shadow-[0_28px_90px_rgba(0,12,22,0.35)] backdrop-blur-2xl">
