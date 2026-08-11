@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, BookPlus, FileUp, LoaderCircle, MessageSquarePlus, Mic, NotebookPen, Plus, Square } from "lucide-react";
+import { ArrowRight, BookPlus, FileUp, Gauge, LoaderCircle, MessageSquarePlus, Mic, NotebookPen, Plus, Route, Square } from "lucide-react";
 import { USER_ID, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
 import InlineConceptAnimation from "./InlineConceptAnimation";
@@ -103,6 +103,8 @@ export default function Chat({
   onSessionReady,
   onQuizEvaluated,
   onOpenMistakes,
+  recommendedTask,
+  onOpenPath,
 }: {
   onEvent?: (ev: SparkEvent) => void;
   /** 外部(首页快捷入口)注入的一次性发送内容 */
@@ -121,6 +123,8 @@ export default function Chat({
   onSessionReady?: (sessionId: string) => void;
   onQuizEvaluated?: (report: { path?: import("@/lib/types").PathPlan; profile_version?: number }) => void;
   onOpenMistakes?: () => void;
+  recommendedTask?: { title: string; prompt: string; reason: string };
+  onOpenPath?: () => void;
 }) {
   const [msgs, setMsgs] = useState<Msg[]>(() => initialMessages.map((message) => ({
     role: message.role,
@@ -412,6 +416,24 @@ export default function Chat({
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#EEF0FA] text-2xl">📘</div>
               <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[#1D2028]">从一个问题开始</h3>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">先判断你要学习路线还是具体讲解，只回答当前问题；导图、练习和笔记都按需生成。</p>
+            </div>
+            {recommendedTask && (
+              <div className="rounded-[16px] border border-[#B9D9C5] bg-[#EDF7F0] p-4 shadow-[0_1px_2px_rgba(18,30,22,0.04),0_10px_24px_rgba(18,30,22,0.06)]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-bold tracking-[0.16em] text-[#176C6B]">根据你的学习画像</div>
+                    <h3 className="mt-1 text-lg font-bold text-[#182119]">第一步：{recommendedTask.title}</h3>
+                    <p className="mt-1 text-xs leading-5 text-[#5D7062]">{recommendedTask.reason}</p>
+                  </div>
+                  {onOpenPath && <button type="button" onClick={onOpenPath} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#B9D9C5] bg-white px-3 text-xs font-bold text-[#176C6B] transition hover:bg-[#F5FBF7]"><Route size={14} /> 查看路径</button>}
+                </div>
+                <button type="button" onClick={() => void send(recommendedTask.prompt)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#176C6B] px-4 text-sm font-bold text-white transition hover:bg-[#125856]"><BookPlus size={16} /> 开始第一项任务 <ArrowRight size={15} /></button>
+              </div>
+            )}
+            <div className="grid gap-2 sm:grid-cols-3">
+              <button type="button" onClick={() => void send(recommendedTask?.prompt || "请从推荐课本开始，先带我了解数据结构与算法的学习路线，再给我第一道小题。")} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><BookPlus size={15} className="shrink-0 text-[#176C6B]" /> 从推荐课本开始</button>
+              <button type="button" onClick={() => void send("请先用 3 道小题测一下我在数据结构与算法上的当前水平，再告诉我下一步该学什么。", undefined, undefined, false)} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><Gauge size={15} className="shrink-0 text-[#176C6B]" /> 先测一下我的水平</button>
+              <button type="button" onClick={onUploadClick} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><FileUp size={15} className="shrink-0 text-[#176C6B]" /> 上传自己的资料</button>
             </div>
             <button
               type="button"

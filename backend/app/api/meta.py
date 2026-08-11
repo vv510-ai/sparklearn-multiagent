@@ -6,12 +6,15 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from ..auth import require_current_user_id
 from ..config import COURSE_NAME, is_demo
 from ..llm.spark_client import active_llm_label, active_provider
 from ..rag.embedding import embedding_status
 from ..rag.reranker import reranker_status
+from ..schemas.core import OnboardingRequest
 from ..services.knowledge_graph import load_kg
-from ..services.profile_service import ensure_user, get_profile
+from ..services.path_service import get_path, is_current_course_path, plan_path, save_path
+from ..services.profile_service import complete_onboarding, ensure_user, get_profile
 
 router = APIRouter(prefix="/api", tags=["meta"])
 
@@ -26,6 +29,41 @@ async def knowledge_graph():
 async def profile(user_id: str):
     ensure_user(user_id)
     return get_profile(user_id)
+
+
+@router.get("/onboarding")
+async def onboarding_status():
+    """Return whether the current account still needs first-use setup."""
+    user_id = require_current_user_id()
+    profile_data = get_profile(user_id)
+    required = profile_data.get("onboarding_completed") is not True
+    path = get_path(user_id)
+    if path and not is_current_course_path(path):
+        path = None
+    return {"required": required, "profile": profile_data, "path": path}
+
+
+@router.post("/onboarding")
+async def save_onboarding(req: OnboardingRequest):
+    """Persist first-use answers and immediately recalculate the first path."""
+    user_id = require_current_user_id()
+    profile_data = complete_onboarding(user_id, req.model_dump())
+    path = plan_path(profile_data, generated_by="onboarding")
+    save_path(user_id, path)
+    next_node = next(
+        (node for node in path.get("nodes", []) if node.get("id") == path.get("next_kp")),
+        {},
+    )
+    return {
+        "required": False,
+        "profile": profile_data,
+        "path": path,
+        "recommendation": {
+            "knowledge_point": path.get("next_kp"),
+            "title": next_node.get("name") or "课程基础",
+            "reason": next_node.get("reason") or "从当前画像的下一项开始",
+        },
+    }
 
 
 @router.get("/health")

@@ -26,12 +26,36 @@ from ..services.knowledge_graph import all_kp_ids, canonical_kp_id
 _PROFILE_FIELDS = {
     "knowledge_mastery", "cognitive_style", "error_prone", "goal", "pace",
     "difficulty_pref", "resource_pref", "metacognition", "evidence",
+    "focus_kps", "learning_topic", "current_level", "materials_status",
+    "onboarding_completed",
 }
 _COGNITIVE_STYLES = {"视觉型", "语言型", "动手型"}
 _GOALS = {"应试", "竞赛", "工程实践", "兴趣"}
 _DIFFICULTY_PREFS = {"循序渐进", "挑战式"}
 _RESOURCE_KINDS = {"doc", "video", "quiz", "mindmap", "code"}
 _FOCUS_LEVELS = {"高", "中", "低"}
+_CURRENT_LEVELS = {"刚开始接触", "学过一些概念", "能做基础题", "能独立解决综合题", "不确定"}
+_MATERIAL_STATUSES = {"已有资料", "暂时没有", "稍后上传"}
+_ONBOARDING_TOPICS = {
+    "从基础开始": ["complexity", "array", "linked_list", "stack", "queue"],
+    "排序与查找": ["sorting_basic", "sorting_adv", "hash"],
+    "树与图": ["binary_tree", "bst", "graph_basic", "graph_traverse"],
+    "动态规划": ["recursion", "dp"],
+    "还没想好": [],
+}
+_LEVEL_MASTERY = {
+    "刚开始接触": 0.18,
+    "学过一些概念": 0.36,
+    "能做基础题": 0.58,
+    "能独立解决综合题": 0.68,
+    "不确定": 0.30,
+}
+_STYLE_TO_PROFILE = {
+    "图示和例子": ("视觉型", {"video": 0.34, "mindmap": 0.30, "doc": 0.18, "quiz": 0.10, "code": 0.08}),
+    "讲解和文字": ("语言型", {"doc": 0.38, "video": 0.20, "mindmap": 0.18, "quiz": 0.14, "code": 0.10}),
+    "边写代码边学": ("动手型", {"code": 0.34, "doc": 0.20, "quiz": 0.22, "video": 0.14, "mindmap": 0.10}),
+    "先做题再讲解": ("动手型", {"quiz": 0.40, "doc": 0.18, "code": 0.18, "video": 0.14, "mindmap": 0.10}),
+}
 
 
 def default_profile() -> dict:
@@ -44,6 +68,11 @@ def default_profile() -> dict:
         "difficulty_pref": "循序渐进",
         "resource_pref": {"doc": 0.2, "video": 0.2, "quiz": 0.2, "mindmap": 0.2, "code": 0.2},
         "metacognition": 0.5,
+        "focus_kps": [],
+        "learning_topic": "",
+        "current_level": "",
+        "materials_status": "",
+        "onboarding_completed": False,
         "evidence": "冷启动默认画像(8-10 题诊断问卷或首次对话后更新)",
     }
 
@@ -113,6 +142,12 @@ def sanitize_profile_patch(patch: dict[str, Any] | None) -> dict[str, Any]:
                 clean_pace["daily_minutes"] = minutes
         except (TypeError, ValueError):
             pass
+        try:
+            weekly_minutes = int(pace.get("weekly_minutes"))
+            if 1 <= weekly_minutes <= 10080:
+                clean_pace["weekly_minutes"] = weekly_minutes
+        except (TypeError, ValueError):
+            pass
         frequency = str(pace.get("frequency") or "").strip()
         if frequency and frequency != "未知":
             clean_pace["frequency"] = frequency[:20]
@@ -133,6 +168,30 @@ def sanitize_profile_patch(patch: dict[str, Any] | None) -> dict[str, Any]:
                 clean_pref[kind] = round(value, 4)
         if clean_pref:
             out["resource_pref"] = clean_pref
+
+    focus_kps = patch.get("focus_kps")
+    if isinstance(focus_kps, list):
+        clean_focus = []
+        for raw_kp in focus_kps:
+            kp = canonical_kp_id(str(raw_kp))
+            if kp and kp not in clean_focus:
+                clean_focus.append(kp)
+        out["focus_kps"] = clean_focus[:8]
+
+    learning_topic = str(patch.get("learning_topic") or "").strip()
+    if learning_topic:
+        out["learning_topic"] = learning_topic[:80]
+
+    current_level = str(patch.get("current_level") or "").strip()
+    if current_level in _CURRENT_LEVELS:
+        out["current_level"] = current_level
+
+    materials_status = str(patch.get("materials_status") or "").strip()
+    if materials_status in _MATERIAL_STATUSES:
+        out["materials_status"] = materials_status
+
+    if isinstance(patch.get("onboarding_completed"), bool):
+        out["onboarding_completed"] = patch["onboarding_completed"]
 
     difficulty = str(patch.get("difficulty_pref") or "").strip()
     if difficulty == "挑战型":
@@ -169,7 +228,11 @@ def get_profile(user_id: str) -> dict:
         for kp in all_kp_ids():
             value = _bounded_float(raw_mastery.get(kp, 0.3))
             normalized_mastery[kp] = round(0.3 if value is None else value, 4)
-        if raw_mastery != normalized_mastery:
+        profile_changed = raw_mastery != normalized_mastery
+        if "onboarding_completed" not in data:
+            data["onboarding_completed"] = False
+            profile_changed = True
+        if profile_changed:
             data["knowledge_mastery"] = normalized_mastery
             p.data = data
             p.version = (p.version or 0) + 1
@@ -203,6 +266,8 @@ def merge_profile(user_id: str, patch: dict[str, Any]) -> dict:
                 merged = dict(data[k])
                 merged.update(v)
                 data[k] = merged
+            elif isinstance(v, bool):
+                data[k] = v
             elif v not in (None, "", "未知"):
                 data[k] = v
         if data == original:
@@ -216,6 +281,80 @@ def merge_profile(user_id: str, patch: dict[str, Any]) -> dict:
         p.version = (p.version or 0) + 1
         s.commit()
         return get_profile(user_id)
+
+
+def onboarding_patch(answers: dict[str, Any] | None) -> dict[str, Any]:
+    """Turn the short first-use questionnaire into a durable profile patch.
+
+    This is deliberately deterministic: an answer changes the starting
+    mastery, focus knowledge points, resource preference, and pace before the
+    first chat or quiz is created. Skipping is valid and still marks the
+    onboarding as completed with the safe cold-start defaults.
+    """
+    raw = answers if isinstance(answers, dict) else {}
+    topic = str(raw.get("topic") or "还没想好").strip()
+    if topic not in _ONBOARDING_TOPICS:
+        topic = "还没想好"
+    level = str(raw.get("current_level") or "不确定").strip()
+    if level not in _CURRENT_LEVELS:
+        level = "不确定"
+    base = _LEVEL_MASTERY[level]
+    focus_kps = list(_ONBOARDING_TOPICS[topic])
+    mastery = {kp: round(base, 4) for kp in all_kp_ids()}
+    # A learner's stated topic gets a small, explainable head start. The
+    # value remains below the done threshold so the first task is real.
+    for kp in focus_kps:
+        mastery[kp] = round(min(0.72, base + 0.08), 4)
+
+    goal = str(raw.get("goal") or "").strip()
+    if goal not in _GOALS:
+        goal = ""
+    style_label = str(raw.get("style") or "").strip()
+    cognitive_style, resource_pref = _STYLE_TO_PROFILE.get(
+        style_label,
+        ("未知", {"doc": 0.2, "video": 0.2, "quiz": 0.2, "mindmap": 0.2, "code": 0.2}),
+    )
+    try:
+        weekly_minutes = int(raw.get("weekly_minutes"))
+    except (TypeError, ValueError):
+        try:
+            weekly_minutes = int(raw.get("daily_minutes")) * 7
+        except (TypeError, ValueError):
+            weekly_minutes = 140
+    weekly_minutes = min(1260, max(30, weekly_minutes))
+    daily_minutes = min(180, max(5, round(weekly_minutes / 7)))
+    frequency = str(raw.get("frequency") or "每天").strip()[:20] or "每天"
+    materials_status = str(raw.get("materials_status") or "").strip()
+    if materials_status not in _MATERIAL_STATUSES:
+        materials_status = ""
+    difficulty = "挑战式" if level == "能独立解决综合题" else "循序渐进"
+    patch: dict[str, Any] = {
+        "knowledge_mastery": mastery,
+        "focus_kps": focus_kps,
+        "learning_topic": topic,
+        "current_level": level,
+        "difficulty_pref": difficulty,
+        "resource_pref": resource_pref,
+        "pace": {
+            "weekly_minutes": weekly_minutes,
+            "daily_minutes": daily_minutes,
+            "frequency": frequency,
+            "focus": "高" if daily_minutes >= 30 else "中",
+        },
+        "onboarding_completed": True,
+        "evidence": "注册后的首次学习引导答案",
+    }
+    if goal:
+        patch["goal"] = goal
+    if cognitive_style != "未知":
+        patch["cognitive_style"] = cognitive_style
+    if materials_status:
+        patch["materials_status"] = materials_status
+    return patch
+
+
+def complete_onboarding(user_id: str, answers: dict[str, Any] | None) -> dict:
+    return merge_profile(user_id, onboarding_patch(answers))
 
 
 def update_mastery(user_id: str, kp: str, correct: bool) -> float:

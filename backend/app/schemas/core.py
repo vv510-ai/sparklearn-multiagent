@@ -128,3 +128,18 @@ class RemediationRequest(BaseModel):
 class ReplanRequest(BaseModel):
     user_id: str = "demo_user"
     reason: str = "评估后重排"
+
+
+class OnboardingRequest(BaseModel):
+    """Short, skippable first-use learning profile answers."""
+
+    user_id: str = "demo_user"
+    topic: str = Field(default="", max_length=80)
+    current_level: str = Field(default="", max_length=40)
+    goal: str = Field(default="", max_length=40)
+    weekly_minutes: int | None = Field(default=None, ge=0, le=1260)
+    daily_minutes: int | None = Field(default=None, ge=0, le=180)
+    frequency: str = Field(default="", max_length=20)
+    style: str = Field(default="", max_length=40)
+    materials_status: str = Field(default="", max_length=20)
+    skipped: bool = False

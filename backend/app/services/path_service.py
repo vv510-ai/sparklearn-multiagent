@@ -84,7 +84,7 @@ def plan_path(profile: dict, goal_kps: list[str] | None = None,
     mastery: dict[str, float] = profile.get("knowledge_mastery", {})
     pref = profile.get("difficulty_pref", "循序渐进")
     errors = set(profile.get("error_prone", []))
-    goal_kps = set(goal_kps or [])
+    goal_kps = set(goal_kps or profile.get("focus_kps", []) or [])
     kg = load_kg()
 
     order = topological_order()

@@ -24,6 +24,7 @@ import MistakeBook from "@/components/profile/MistakeBook";
 import ProfileRadar from "@/components/profile/ProfileRadar";
 import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
+import OnboardingGate, { type OnboardingAnswers, type QuickStartKey } from "@/components/onboarding/OnboardingGate";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic, kpName } from "@/lib/kp";
@@ -33,6 +34,7 @@ type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes";
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
+type OnboardingResponse = { required: boolean; profile: StudentProfile; path?: PathPlan | null; recommendation?: { title?: string; reason?: string; knowledge_point?: string | null } };
 type UploadResult = { source: KnowledgeSource; duplicate?: boolean; sample?: { text: string; citation: string }[] };
 type QualityEvidence = {
   retrievalCount: number | null;
@@ -312,6 +314,8 @@ export default function Home() {
   const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "anonymous">("loading");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [entered, setEntered] = useState(false);
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
+  const [onboardingLoading, setOnboardingLoading] = useState(true);
   const [notebooks, setNotebooks] = useState<LearningNotebook[]>([]);
   const [activeNotebook, setActiveNotebook] = useState<LearningNotebook | null>(null);
   const [initialChatMessages, setInitialChatMessages] = useState<NonNullable<LearningNotebook["messages"]>>([]);
@@ -362,6 +366,7 @@ export default function Home() {
         if (!active) return;
         setAuthUser(null);
         setAuthStatus("anonymous");
+        setOnboardingLoading(false);
       });
     return () => { active = false; };
   }, []);
@@ -371,6 +376,8 @@ export default function Home() {
       setAuthUser(null);
       setAuthStatus("anonymous");
       setEntered(false);
+      setOnboardingRequired(false);
+      setOnboardingLoading(false);
     };
     window.addEventListener(UNAUTHORIZED_EVENT, expireSession);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, expireSession);
@@ -394,6 +401,26 @@ export default function Home() {
       else setProfile(await apiGet<StudentProfile>(`/profile/${USER_ID}`));
     } catch (error) {
       setPanelError(`学习情况暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, []);
+
+  const loadOnboarding = useCallback(async () => {
+    setOnboardingLoading(true);
+    try {
+      const data = await apiGet<OnboardingResponse>("/onboarding");
+      setOnboardingRequired(Boolean(data.required));
+      if (data.profile) setProfile(data.profile);
+      if (data.path) {
+        setPathPlan(data.path);
+        setSelectedPathNode(data.path.next_kp || data.path.nodes[0]?.id || null);
+      }
+      if (!data.required) setEntered(true);
+    } catch {
+      // A profile read should never strand a learner on a decorative gate.
+      setOnboardingRequired(false);
+      setEntered(true);
+    } finally {
+      setOnboardingLoading(false);
     }
   }, []);
 
@@ -472,6 +499,17 @@ export default function Home() {
   useEffect(() => {
     if (authStatus === "authenticated") void loadNotebooks();
   }, [authStatus, loadNotebooks]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    if (authUser?.demo) {
+      setOnboardingRequired(false);
+      setOnboardingLoading(false);
+      setEntered(true);
+      return;
+    }
+    void loadOnboarding();
+  }, [authStatus, authUser?.demo, loadOnboarding]);
 
   const uploadSources = async (files: File[]) => {
     if (!files.length || uploading || !activeNotebook) return;
@@ -605,6 +643,43 @@ export default function Home() {
   const startLearning = async (goal: string) => {
     if (activeNotebook && await openNotebook(activeNotebook, goal)) return;
     enterCourseWorkspace(goal, true);
+  };
+
+  const recommendationTitle = (path: PathPlan | null = pathPlan) => {
+    const node = path ? path.nodes.find((item) => item.id === path.next_kp) : undefined;
+    return node?.name || "数据结构与算法基础";
+  };
+
+  const firstTaskPrompt = (path: PathPlan | null = pathPlan) => {
+    const title = recommendationTitle(path);
+    return `请带我开始“${title}”的第一项学习任务。先用一句话说清今天要学什么，再给我一个可以马上作答的小问题。`;
+  };
+
+  const persistOnboarding = async (answers: OnboardingAnswers, skipped: boolean, quickStart?: QuickStartKey) => {
+    const result = await apiPost<OnboardingResponse>("/onboarding", { ...answers, skipped });
+    setOnboardingRequired(false);
+    setProfile(result.profile);
+    if (result.path) {
+      setPathPlan(result.path);
+      setSelectedPathNode(result.path.next_kp || result.path.nodes[0]?.id || null);
+    }
+    if (quickStart === "upload") {
+      await manageSources();
+      return;
+    }
+    if (!quickStart && answers.materials_status === "已有资料") {
+      await manageSources();
+      return;
+    }
+    if (quickStart === "diagnostic") {
+      await startLearning("请先用 3 道小题测一下我在数据结构与算法上的当前水平，再告诉我下一步该学什么。");
+      return;
+    }
+    if (quickStart === "example") {
+      await startLearning("为什么二叉树的中序遍历可以得到有序序列？请用一个小例子带我理解。");
+      return;
+    }
+    await startLearning(quickStart === "recommended" || !skipped ? firstTaskPrompt(result.path || null) : "请先带我快速了解数据结构与算法，并给我一个适合当前水平的第一步。" );
   };
 
   const manageSources = async () => {
@@ -844,17 +919,39 @@ export default function Home() {
         onAuthenticated={(user) => {
           setAuthUser(user);
           setAuthStatus("authenticated");
+          setOnboardingLoading(true);
+          setOnboardingRequired(false);
+          setEntered(false);
         }}
       />
     );
   }
 
-  if (!entered) {
+  if (onboardingLoading) {
     return (
-      <LearningGate
+      <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#062B38] text-white">
+        <CinematicBackground subdued />
+        <div className="relative z-10 flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm backdrop-blur-xl">
+          <SparkMark light running /> 正在准备你的学习起点…
+        </div>
+      </main>
+    );
+  }
+
+  if (!entered && onboardingRequired) {
+    return (
+      <OnboardingGate
         user={authUser}
-        onStart={(goal) => void startLearning(goal)}
-        onManageSources={() => void manageSources()}
+        onComplete={(answers, skipped) => persistOnboarding(answers, skipped)}
+        onQuickStart={(key) => persistOnboarding({
+          topic: "",
+          current_level: "",
+          goal: "",
+          weekly_minutes: 140,
+          frequency: "每天",
+          style: "",
+          materials_status: "",
+        }, true, key)}
         onLogout={() => void logout()}
       />
     );
@@ -963,6 +1060,12 @@ export default function Home() {
               onSessionReady={setChatSessionId}
               onQuizEvaluated={refreshAfterEvaluation}
               onOpenMistakes={() => openPanel("mistakes")}
+              recommendedTask={pathPlan ? {
+                title: recommendationTitle(),
+                prompt: firstTaskPrompt(),
+                reason: pathPlan.nodes.find((node) => node.id === pathPlan.next_kp)?.reason || "根据你的学习画像安排",
+              } : undefined}
+              onOpenPath={() => openPanel("path")}
             />
           </div>
 
@@ -970,7 +1073,7 @@ export default function Home() {
             <div className="notebook-content-scroll">
               <div className="notebook-content-heading">
                 <div><span>LEARNING PROFILE</span><h1>我的学习情况</h1><p>每次真实作答都会更新掌握度与错因。</p></div>
-                <button onClick={() => void loadProfile()} className="secondary-action">刷新</button>
+                <div className="flex items-center gap-2"><button onClick={() => { setOnboardingRequired(true); setEntered(false); setOnboardingLoading(false); }} className="secondary-action">调整学习起点</button><button onClick={() => void loadProfile()} className="secondary-action">刷新</button></div>
               </div>
               <div className="px-5 pt-5">
                 <ReviewQueue onEvaluated={refreshAfterEvaluation} />

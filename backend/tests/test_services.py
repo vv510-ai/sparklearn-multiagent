@@ -19,7 +19,7 @@ from app.services.path_service import (  # noqa: E402
     plan_conversation_path,
     plan_path,
 )
-from app.services.profile_service import default_profile, sanitize_profile_patch  # noqa: E402
+from app.services.profile_service import default_profile, onboarding_patch, sanitize_profile_patch  # noqa: E402
 from app.rag.ingest import ingest_corpus, load_all_chunks  # noqa: E402
 from app.rag.retriever import _format_citation  # noqa: E402
 from app.rag.vector_store import get_store  # noqa: E402
@@ -190,6 +190,31 @@ def test_profile_patch_and_kp_normalization():
     assert patch["resource_pref"] == {"mindmap": 1.0, "quiz": 0.0}
     assert patch["metacognition"] == 1.0
     assert "unexpected" not in patch
+
+
+def test_onboarding_answers_change_starting_path():
+    beginner = onboarding_patch({
+        "topic": "树与图",
+        "current_level": "刚开始接触",
+        "goal": "兴趣",
+        "weekly_minutes": 60,
+        "style": "图示和例子",
+        "materials_status": "暂时没有",
+    })
+    experienced = onboarding_patch({
+        "topic": "树与图",
+        "current_level": "能做基础题",
+        "goal": "竞赛",
+        "weekly_minutes": 420,
+        "style": "先做题再讲解",
+        "materials_status": "已有资料",
+    })
+    beginner_path = plan_path(beginner, generated_by="onboarding")
+    experienced_path = plan_path(experienced, generated_by="onboarding")
+    assert beginner["onboarding_completed"] is True
+    assert beginner["focus_kps"] == ["binary_tree", "bst", "graph_basic", "graph_traverse"]
+    assert beginner["knowledge_mastery"]["binary_tree"] < experienced["knowledge_mastery"]["binary_tree"]
+    assert beginner_path["next_kp"] != experienced_path["next_kp"]
 
 
 def test_extra_sources_ingest_and_citation():

@@ -12,7 +12,7 @@ from app.api import resources as resources_api
 from app.config import GEN_DIR, RUNS_DIR
 from app.main import app
 from app.models.db import get_engine, session
-from app.models.entities import AuthAccount, ExternalTask, Resource, User, UserAsset
+from app.models.entities import AuthAccount, ExternalTask, PathPlan, PersonalizationDecision, Profile, Resource, User, UserAsset
 from app.services.ownership_service import sync_resource_ownership
 
 
@@ -195,4 +195,67 @@ def test_register_login_and_user_scope(monkeypatch):
         if debug_dir is not None:
             shutil.rmtree(debug_dir, ignore_errors=True)
         _delete_accounts(created_ids)
+        config.get_settings.cache_clear()
+
+
+def test_onboarding_is_persisted_and_replans_path(monkeypatch):
+    _enable_real_auth(monkeypatch)
+    marker = uuid.uuid4().hex
+    created_id = ""
+    try:
+        with TestClient(app) as client:
+            registered = client.post(
+                "/api/auth/register",
+                json={"email": f"onboarding-{marker}@example.com", "password": "correct-horse", "name": "引导学习者"},
+            )
+            assert registered.status_code == 201, registered.text
+            data = registered.json()
+            created_id = data["user"]["id"]
+            headers = {"Authorization": f"Bearer {data['access_token']}"}
+
+            before = client.get("/api/onboarding", headers=headers)
+            assert before.status_code == 200, before.text
+            assert before.json()["required"] is True
+
+            saved = client.post(
+                "/api/onboarding",
+                headers=headers,
+                json={
+                    "topic": "树与图",
+                    "current_level": "能做基础题",
+                    "goal": "竞赛",
+                    "weekly_minutes": 420,
+                    "frequency": "每天",
+                    "style": "先做题再讲解",
+                    "materials_status": "已有资料",
+                },
+            )
+            assert saved.status_code == 200, saved.text
+            payload = saved.json()
+            assert payload["required"] is False
+            assert payload["profile"]["onboarding_completed"] is True
+            assert payload["profile"]["focus_kps"] == ["binary_tree", "bst", "graph_basic", "graph_traverse"]
+            assert payload["recommendation"]["knowledge_point"] == payload["path"]["next_kp"]
+
+            after = client.get("/api/onboarding", headers=headers)
+            assert after.status_code == 200
+            assert after.json()["required"] is False
+            assert after.json()["path"]["next_kp"] == payload["path"]["next_kp"]
+
+            skipped = client.post("/api/onboarding", headers=headers, json={"skipped": True})
+            assert skipped.status_code == 200, skipped.text
+            assert skipped.json()["required"] is False
+            assert skipped.json()["profile"]["onboarding_completed"] is True
+    finally:
+        if created_id:
+            with session() as db:
+                db.query(PersonalizationDecision).filter(PersonalizationDecision.user_id == created_id).delete()
+                db.query(PathPlan).filter(PathPlan.user_id == created_id).delete()
+                db.query(Profile).filter(Profile.user_id == created_id).delete()
+                db.query(UserAsset).filter(UserAsset.user_id == created_id).delete()
+                db.query(ExternalTask).filter(ExternalTask.user_id == created_id).delete()
+                db.query(Resource).filter(Resource.user_id == created_id).delete()
+                db.query(AuthAccount).filter(AuthAccount.user_id == created_id).delete()
+                db.query(User).filter(User.id == created_id).delete()
+                db.commit()
         config.get_settings.cache_clear()

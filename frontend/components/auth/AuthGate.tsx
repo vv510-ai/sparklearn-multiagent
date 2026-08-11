@@ -118,7 +118,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
             <div className="mb-6">
               <h2 className="text-2xl font-bold">{mode === "login" ? "欢迎回来" : "建立你的学习档案"}</h2>
               <p className="mt-1.5 text-sm leading-6 text-[#7A818D]">
-                {mode === "login" ? "继续上一次的学习进度。" : "以后每一次学习都会归档到这个账户。"}
+                {mode === "login" ? "继续上一次的学习进度。" : "注册后会先问你几道短问题，帮你找到适合自己的第一步；答案之后随时可以修改。"}
               </p>
             </div>
 
