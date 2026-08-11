@@ -180,6 +180,7 @@ export default function OnboardingGate({
 
         <div className="grid flex-1 items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] lg:gap-14">
           <section className="hidden max-w-xl lg:block">
+            <p className="mb-5 text-sm font-semibold tracking-[0.16em] text-[#B8F3D4]">WELCOME TO YOUR LEARNING SPACE</p>
             <h1 className="auth-hero-title" aria-label="让世界享受学习的乐趣">
               <span className="auth-hero-visual" aria-hidden="true">
                 <span className="auth-hero-word">
