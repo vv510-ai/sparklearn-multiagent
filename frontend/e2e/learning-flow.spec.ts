@@ -10,6 +10,7 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
   await test.step("创建一个隔离的测试账户", async () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
+    await expect(page.getByText("WELCOME TO YOUR LEARNING SPACE", { exact: true })).toBeVisible();
     await page.getByRole("tab", { name: "创建账户" }).click();
     await page.getByPlaceholder("怎么称呼你").fill(learnerName);
     await page.getByPlaceholder("you@example.com").fill(email);
@@ -17,6 +18,7 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await page.getByRole("button", { name: "创建账户" }).click();
 
     await expect(page.getByRole("heading", { name: "你现在最想学什么？" })).toBeVisible();
+    await expect(page.getByText("WELCOME TO YOUR LEARNING SPACE", { exact: true })).toBeVisible();
     await expect(page.getByText(learnerName, { exact: true })).toBeVisible();
   });
 
