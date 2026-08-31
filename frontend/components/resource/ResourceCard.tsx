@@ -13,6 +13,7 @@ import PptBlock from "./PptBlock";
 import { DataTableBlock, FlashcardsBlock, InfographicBlock, OnePageVisual } from "./StudyArtifactBlocks";
 import { apiAssetUrl, apiPost, USER_ID } from "@/lib/api";
 import { withoutCodeBlocks } from "@/lib/learningContent";
+import { isInteractiveAudioResource } from "./interaction";
 
 const KIND_META: Record<
   string,
@@ -129,7 +130,7 @@ export default function ResourceCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const payload = r.payload || {};
-  const interactiveAudio = payload.template === "interactive_audio";
+  const interactiveAudio = isInteractiveAudioResource(r);
   const baseMeta = KIND_META[r.kind] || { label: r.kind, code: r.kind.toUpperCase(), icon: "资", variant: "neutral" as const, hint: "" };
   const meta = interactiveAudio
     ? { label: "互动音频", code: "听讲", icon: "听", variant: "success" as const, hint: "来源约束的短讲解；可边听边暂停提问" }
@@ -209,9 +210,9 @@ export default function ResourceCard({
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#57635A]">
                     {audioPath || narration
-                      ? onAudioQuestion
+                      ? interactiveAudio && onAudioQuestion
                         ? "边听边问；提问时音频会暂停，回答后从原进度继续。"
-                      : "先听一遍重点，再结合正文中的例子深入学习。"
+                        : "先听一遍重点，再结合正文中的例子深入学习。"
                       : "用一张图先建立知识点的整体印象。"}
                 </p>
                 {(audioUrl || narration || audioState) && (
@@ -221,7 +222,7 @@ export default function ResourceCard({
                     audioState={audioState}
                     resourceTitle={r.title}
                     disabled={interactionBusy}
-                    onAsk={onAudioQuestion}
+                    onAsk={interactiveAudio ? onAudioQuestion : undefined}
                     onRetry={interactiveAudio ? retryAudio : undefined}
                   />
                 )}
