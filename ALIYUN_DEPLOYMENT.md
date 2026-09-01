@@ -88,7 +88,7 @@ certbot certonly \
   --preferred-profile shortlived \
   --webroot \
   --webroot-path /opt/sparklearn/shared/letsencrypt-webroot \
-  --ip-address 47.76.129.100
+  --ip-address 47.86.40.230
 ```
 
 证书签发且安全组已放行 TCP 443 后，在 `/opt/sparklearn/shared/.env` 中设置 `TLS_ENABLED=true`，再重建 Nginx：
