@@ -17,7 +17,7 @@ commit + push origin main
 失败：恢复上一个健康 release
 ```
 
-当前公网 IP：`47.76.129.100`。生产 Compose 支持 Let’s Encrypt 的短期 IP 证书。默认 `TLS_ENABLED=false`，即使证书已经签发也会继续提供 HTTP；只有确认安全组已放行 TCP 443，并在服务器共享 `.env` 中设置 `TLS_ENABLED=true` 后，Nginx 才会启用 HTTPS 并把 HTTP 重定向到 HTTPS。
+当前公网 IP：`47.86.40.230`，统一生产与求职展示入口为 `http://47.86.40.230/`。生产 Compose 支持 Let’s Encrypt 的短期 IP 证书。默认 `TLS_ENABLED=false`，即使证书已经签发也会继续提供 HTTP；只有确认安全组已放行 TCP 443，并在服务器共享 `.env` 中设置 `TLS_ENABLED=true` 后，Nginx 才会启用 HTTPS并把HTTP重定向到HTTPS。
 
 ## 哪些内容会自动更新
 
