@@ -85,7 +85,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      TLS_CERT_NAME: ${TLS_CERT_NAME:-47.86.40.230}
+      TLS_CERT_NAME: ${TLS_CERT_NAME:-47.121.24.54}
       TLS_ENABLED: ${TLS_ENABLED:-false}
     command: ["/bin/sh", "/usr/local/bin/sparklearn-nginx-start.sh"]
     volumes:

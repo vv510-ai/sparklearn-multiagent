@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-CERT_NAME="${TLS_CERT_NAME:-47.86.40.230}"
+CERT_NAME="${TLS_CERT_NAME:-47.121.24.54}"
 TLS_ENABLED="${TLS_ENABLED:-false}"
 case "${CERT_NAME}" in
   ''|*[!A-Za-z0-9._:-]*)
