@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Check, RotateCcw } from "lucide-react";
 import { BRAND } from "@/lib/brand";
 
@@ -12,6 +12,8 @@ const questions = [
 ];
 
 export default function ReviewPage() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const [step, setStep] = useState(0);
   const [choices, setChoices] = useState<number[]>([-1, -1]);
   const [hinted, setHinted] = useState(false);
@@ -21,7 +23,7 @@ export default function ReviewPage() {
   const initialCorrect = choices[0] === questions[0].answer;
   const retestCorrect = choices[1] === questions[1].answer;
   function reset() { setStep(0); setChoices([-1, -1]); setHinted(false); setRetestHint(false); }
-  return <main className="min-h-dvh bg-[#F5F5EE] px-5 py-7 text-[#193A31]">
+  return <main className="min-h-dvh bg-[#F5F5EE] px-5 py-7 text-[#193A31]" aria-busy={!ready}>
     <div className="mx-auto max-w-4xl">
       <nav className="flex flex-wrap items-center justify-between gap-3 text-sm"><Link href="/" className="text-lg font-bold">{BRAND.name} <span className="text-xs font-normal">LearnLoop</span></Link><Link href="/">回到学习</Link></nav>
       <div className="mt-14 max-w-2xl"><span className="rounded-full border border-emerald-900/20 px-3 py-1 text-xs">练习体验 · 无需登录</span><h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-5xl">答案之后，<br/>才是学习的下一步。</h1><p className="mt-5 text-sm leading-7 text-[#62766E]">亲手完成两次作答，看看独立完成与提示后完成，会怎样改变学习建议。这里使用数据结构的固定示例，作答仅在当前页面保留，不会写入你的学习记录。</p></div>
@@ -29,9 +31,9 @@ export default function ReviewPage() {
       <section className="rounded-[28px] border border-[#DEE4DC] bg-white p-6 shadow-sm sm:p-10" aria-live="polite">
         {(step === 0 || step === 2) && <>
           <p className="text-xs font-semibold text-[#728178]">数据结构 · 二叉树 · {step === 0 ? "初次诊断" : "独立复测"}</p><h2 className="mt-4 text-xl font-semibold leading-9">{question.stem}</h2>
-          <div className="my-6 grid gap-3">{question.choices.map((label, i) => <label key={label} className={`flex cursor-pointer gap-3 rounded-xl border p-4 text-sm ${choices[questionIndex] === i ? "border-emerald-700 bg-emerald-50" : "border-slate-200"}`}><input type="radio" name={`q${questionIndex}`} checked={choices[questionIndex] === i} onChange={() => setChoices(choices.map((v, n) => n === questionIndex ? i : v))}/>{label}</label>)}</div>
-          {(step === 0 ? hinted : retestHint) ? <p className="mb-5 rounded-xl bg-amber-50 p-4 text-sm leading-7">提示：中序先访问左子树，然后根结点，最后右子树。本次会记录为“使用了提示”。</p> : <button onClick={() => step === 0 ? setHinted(true) : setRetestHint(true)} className="mb-5 block text-sm text-[#6F796F] underline underline-offset-4">我需要一个提示</button>}
-          <button onClick={() => setStep(step+1)} disabled={choices[questionIndex] < 0} className="inline-flex items-center gap-2 rounded-full bg-[#173F34] px-6 py-3 text-sm text-white disabled:opacity-40">提交本次作答 <ArrowRight size={16}/></button>
+          <div className="my-6 grid gap-3">{question.choices.map((label, i) => <label key={label} className={`flex cursor-pointer gap-3 rounded-xl border p-4 text-sm ${choices[questionIndex] === i ? "border-emerald-700 bg-emerald-50" : "border-slate-200"}`}><input type="radio" name={`q${questionIndex}`} disabled={!ready} checked={choices[questionIndex] === i} onChange={() => setChoices(choices.map((v, n) => n === questionIndex ? i : v))}/>{label}</label>)}</div>
+          {(step === 0 ? hinted : retestHint) ? <p className="mb-5 rounded-xl bg-amber-50 p-4 text-sm leading-7">提示：中序先访问左子树，然后根结点，最后右子树。本次会记录为“使用了提示”。</p> : <button disabled={!ready} onClick={() => step === 0 ? setHinted(true) : setRetestHint(true)} className="mb-5 block text-sm text-[#6F796F] underline underline-offset-4">我需要一个提示</button>}
+          <button onClick={() => setStep(step+1)} disabled={!ready || choices[questionIndex] < 0} className="inline-flex items-center gap-2 rounded-full bg-[#173F34] px-6 py-3 text-sm text-white disabled:opacity-40">提交本次作答 <ArrowRight size={16}/></button>
         </>}
         {step === 1 && <>
           <p className="text-xs text-[#728178]">诊断依据 · 来自刚才的作答</p><h2 className="mt-4 text-2xl font-semibold">{initialCorrect ? hinted ? "答对了，再试一次独立完成。" : "顺序正确，接着检验能否迁移。" : "需要区分：根结点何时访问。"}</h2>

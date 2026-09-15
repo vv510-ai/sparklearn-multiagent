@@ -24,8 +24,20 @@ test("旧项目页面回到学习入口，手机可直接进入练习体验", as
   await expect(page.locator('a[href="/evidence"], a[href="/teacher"]')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "test-results/learning-entry-mobile.png", fullPage: true });
-  await page.getByRole("link", { name: "先体验一次练习", exact: true }).click();
-  await expect(page).toHaveURL(/\/review$/);
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>((resolve) => { releaseScripts = resolve; });
+  await page.route("**/_next/static/chunks/**", async (route) => {
+    await scriptsReady;
+    await route.continue();
+  });
+  try {
+    await page.getByRole("link", { name: "先体验一次练习", exact: true }).click({ noWaitAfter: true });
+    await page.waitForURL(/\/review$/, { waitUntil: "commit" });
+    await expect(page.getByRole("radio", { name: "B → A → C", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "我需要一个提示" })).toBeDisabled();
+  } finally {
+    releaseScripts();
+  }
   await expect(page.getByRole("button", { name: "提交本次作答" })).toBeDisabled();
   await page.getByRole("radio", { name: "B → A → C", exact: true }).check();
   await page.getByRole("button", { name: "提交本次作答" }).click();
