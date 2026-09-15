@@ -149,6 +149,8 @@ def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: floa
 async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
                        temperature: float = 0.7, json_mode: bool = False,
                        max_tokens: int | None = None,
+                       reasoning_mode: str = "", json_object: bool = False,
+                       allow_model_fallback: bool = True,
                        allow_mock_fallback: bool = True) -> str:
     """非流式补全。json_mode=True 时尽力让模型只回 JSON 并做容错解析前清洗。"""
     if is_demo():
@@ -156,7 +158,7 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
-    if json_mode:
+    if json_mode or json_object:
         prompt += "\n\n只输出 JSON,不要 Markdown 围栏,不要任何解释。"
     messages.append({"role": "user", "content": prompt})
     token_extra = {"max_tokens": max_tokens} if max_tokens else {}
@@ -168,8 +170,10 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
         try:
             def complete_openai():
                 with openai_client.client() as client:
-                    response = client.responses.create(**openai_client.response_params(
-                        messages, max_tokens=max_tokens))
+                    params = openai_client.response_params(messages, max_tokens=max_tokens, reasoning_mode=reasoning_mode)
+                    if json_object:
+                        params["text"] = {"format": {"type": "json_object"}}
+                    response = client.responses.create(**params)
                     if getattr(response, "status", "completed") != "completed" or not response.output_text:
                         raise RuntimeError("Incomplete or empty OpenAI response")
                     return response.output_text
@@ -182,7 +186,8 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
         # calls would otherwise spend their entire 260/1200-token allowance on
         # reasoning and return empty final content. They still use V4-Pro, just
         # in its official non-thinking mode.
-        thinking_override = "disabled" if max_tokens and max_tokens < 1600 else ""
+        thinking_override = (reasoning_mode if reasoning_mode in {"enabled", "disabled"}
+                             else "disabled" if max_tokens and max_tokens < 1600 else "")
         try:
             resp = await asyncio.to_thread(
                 lambda: _deepseek_client().chat.completions.create(
@@ -190,21 +195,27 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
                     messages=messages,
                     temperature=temperature,
                     stream=False,
+                    **({"response_format": {"type": "json_object"}} if json_object else {}),
                     **token_extra,
                     **_deepseek_extra(thinking_override=thinking_override),
                 )
             )
-            return resp.choices[0].message.content or ""
+            content = resp.choices[0].message.content or ""
+            if json_object and (getattr(resp.choices[0], "finish_reason", "stop") != "stop" or not content.strip()):
+                raise RuntimeError("Incomplete structured model response")
+            return content
         except Exception as error:  # noqa: BLE001
             last_err = error
-            log.warning("DeepSeek %s 调用失败:%s", settings.deepseek_model, error)
+            log.warning("DeepSeek %s 调用失败:%s", settings.deepseek_model, openai_client.error_label(error))
+            if not allow_model_fallback:
+                raise RuntimeError("DeepSeek 调用失败：" + openai_client.error_label(error)) from None
             if not settings.spark_api_password:
                 if not allow_mock_fallback:
                     raise RuntimeError(f"DeepSeek 模型调用失败: {error}") from error
                 return MockEngine.complete(prompt, role=role, json_mode=json_mode)
             log.warning("DeepSeek 不可用，按服务端降级策略尝试星火")
 
-    order = [role] + [r for r in _FALLBACK_ORDER if r != role] if role != "reasoner" else [role, "ultra", "lite"]
+    order = ([role] + [r for r in _FALLBACK_ORDER if r != role] if role != "reasoner" else [role, "ultra", "lite"]) if allow_model_fallback else [role]
     for r in order:  # 限流/故障时按序互备(对应方案"降级策略")
         model, x2 = MODELS[r]
         extra = {**token_extra, **_reasoning_extra(x2)}

@@ -58,6 +58,32 @@ def test_responses_sdk_contract_and_json_arrays(transport):
     assert "temperature" not in request
 
 
+def test_openai_structured_outline_uses_object_format_and_low_effort(transport):
+    calls=transport(lambda _: httpx.Response(200,json=response('{"title":"lesson"}')))
+    asyncio.run(spark_client.llm_complete("JSON outline",json_object=True,reasoning_mode="disabled",max_tokens=6500))
+    body=json.loads(calls[0].content)
+    assert body["text"]["format"]=={"type":"json_object"}
+    assert body["reasoning"]["effort"]=="low" and body["max_output_tokens"]==6500
+
+
+def test_deepseek_structured_outline_keeps_content_budget_and_fails_closed(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER","deepseek");monkeypatch.setenv("DEMO_MODE","false")
+    monkeypatch.setenv("DEEPSEEK_API_KEY","test-only");config.get_settings.cache_clear()
+    calls=[]
+    choice=SimpleNamespace(message=SimpleNamespace(content='{"title":"lesson"}'),finish_reason="stop")
+    def create(**kwargs):calls.append(kwargs);return SimpleNamespace(choices=[choice])
+    monkeypatch.setattr(spark_client,"_deepseek_client",lambda:SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create))))
+    def fail(*args):raise AssertionError("Unexpected fallback")
+    monkeypatch.setattr(spark_client,"_client",fail)
+    kwargs={"json_object":True,"reasoning_mode":"disabled","max_tokens":6500,"allow_model_fallback":False,"allow_mock_fallback":False}
+    assert json.loads(asyncio.run(spark_client.llm_complete("JSON outline",**kwargs)))["title"]=="lesson"
+    assert calls[0]["response_format"]=={"type":"json_object"}
+    assert calls[0]["extra_body"]["thinking"]["type"]=="disabled" and calls[0]["max_tokens"]==6500
+    choice.finish_reason="length";choice.message.content='{"title":'
+    with pytest.raises(RuntimeError,match="DeepSeek 调用失败"):
+        asyncio.run(spark_client.llm_complete("JSON outline",**kwargs))
+
+
 @pytest.mark.parametrize("status,text", [("incomplete","partial"),("completed","")])
 def test_incomplete_answers_never_become_mock_lessons(transport, status, text):
     transport(lambda _: httpx.Response(200,json=response(text,status)))
@@ -148,6 +174,8 @@ def test_native_deck_resolves_citations_and_rejects_fabricated_ones(monkeypatch,
     from app.services import native_ppt
     spec={"title":"二叉树复习", "slides":[{"title":"中序遍历", "bullets":["左子树、根结点、右子树。[^1]"]} for _ in range(3)]}
     async def complete(*args, **kwargs):
+        assert kwargs["json_object"] and kwargs["reasoning_mode"] == "disabled"
+        assert kwargs["allow_model_fallback"] is False
         return json.dumps(spec, ensure_ascii=False)
     monkeypatch.setattr(native_ppt,"llm_complete",complete)
     monkeypatch.setattr(native_ppt,"is_demo",lambda:False)

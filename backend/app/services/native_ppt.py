@@ -9,8 +9,8 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Annotated
 
-from ..config import GEN_DIR, is_demo
-from ..llm.spark_client import active_llm_label, llm_complete, parse_json
+from ..config import GEN_DIR, get_settings, is_demo
+from ..llm.spark_client import active_llm_label, active_provider, llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
 
 
@@ -70,7 +70,9 @@ async def create(query: str, *, citations: list[dict] | None = None) -> dict:
         raise RuntimeError("Editable AI slides require a configured text model")
     call = invoke_learning_prompt("media.ppt_outline", content=query)
     raw = await llm_complete(call.prompt, system=call.system, role="reasoner",
-                             json_mode=True, max_tokens=6500, allow_mock_fallback=False)
+                             json_mode=True, json_object=True, max_tokens=6500,
+                             reasoning_mode="disabled", temperature=0.2,
+                             allow_model_fallback=False, allow_mock_fallback=False)
     outline = Outline.model_validate(parse_json(raw))
     sources = {}
     for position, citation in enumerate(citations or [], start=1):
@@ -87,4 +89,5 @@ async def create(query: str, *, citations: list[dict] | None = None) -> dict:
     total_pages = await asyncio.to_thread(render, outline, target, references)
     return {"status": "ready", "title": outline.title, "total_pages": total_pages,
             "content_pages": len(outline.slides), "reference_pages": total_pages - len(outline.slides),
-            "url": "/static/gen/" + target.name, "provider": "native_pptx", "model": active_llm_label()}
+            "url": "/static/gen/" + target.name, "provider": "native_pptx",
+            "model": get_settings().deepseek_model if active_provider() == "deepseek" else active_llm_label()}
