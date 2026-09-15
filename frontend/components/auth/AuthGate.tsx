@@ -95,8 +95,9 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
           <div className="rounded-[22px] bg-white px-6 py-7 text-[#1D2028] sm:px-8 sm:py-8">
             <div className="mb-7 flex items-center gap-2.5">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#0F6B50] text-white"><Sparkles size={18} /></span>
-              <div><strong className="block text-lg">SparkLearn</strong><span className="text-xs text-[#7C8491]">星火学伴</span></div>
+              <div><strong className="block text-lg">知行循证</strong><span className="text-xs text-[#7C8491]">LearnLoop · 让学习发生，有据可循</span></div>
             </div>
+            <div className="mb-5 flex gap-5 text-xs text-[#0F6B50]"><a href="/review" className="underline underline-offset-4">体验学习闭环</a><a href="/evidence" className="underline underline-offset-4">查看项目证据</a></div>
 
             <div className="mb-6 grid grid-cols-2 rounded-xl bg-[#F0F2F5] p-1" role="tablist" aria-label="登录方式">
               {(["login", "register"] as const).map((item) => (

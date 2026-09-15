@@ -18,6 +18,8 @@ import requests
 
 from ..agents.emitter import emit
 from ..config import GEN_DIR, get_settings, is_demo
+from ..tenant import current_user_id
+from . import modern_media, openai_client, ark_video
 from . import (
     local_ocr,
     spark_asr,
@@ -107,18 +109,19 @@ def _download_video(
 def _poll_and_materialize_video(task_id: str, settings: Any) -> dict[str, Any]:
     """Return only a durable local URL after the provider task succeeds."""
     target = _video_target(task_id)
+    provider = "ark" if ark_video.is_task_id(task_id) else "xiaoyunque"
     local_url = f"/static/gen/{target.name}"
     if _valid_mp4(target):
         return {
             "status": "succeeded",
             "task_id": task_id,
-            "provider": "xiaoyunque",
+            "provider": provider,
             "url": local_url,
             "stored": True,
             "cached": True,
         }
 
-    state = dict(xiaoyunque_client.poll_task(task_id))
+    state = dict(ark_video.poll_task(task_id) if provider == "ark" else xiaoyunque_client.poll_task(task_id))
     if state.get("status") != "succeeded":
         return state
 
@@ -352,10 +355,10 @@ def _triplet_configured() -> bool:
     return bool(s.spark_appid and s.spark_api_key and s.spark_api_secret)
 
 
-def capability_status() -> dict[str, dict[str, bool]]:
+def capability_status() -> dict[str, dict[str, Any]]:
     s = get_settings()
     demo = is_demo()
-    return {
+    result = {
         "asr": {
             "enabled": bool(getattr(s, "mm_asr_enabled", True)),
             "configured": bool(spark_asr.configured(s) and not demo),
@@ -385,6 +388,34 @@ def capability_status() -> dict[str, dict[str, bool]]:
             "configured": bool(spark_ppt.configured(s) and not demo),
         },
     }
+    for capability in ("image", "tts", "asr", "ocr", "ppt"):
+        key = "vision" if capability == "ocr" else capability
+        provider = modern_media.select_provider(key, s)
+        result[capability]["provider"] = provider
+        if provider in {"openai", "elevenlabs", "native"}:
+            result[capability]["configured"] = bool(
+                (modern_media.configured(provider, s) or provider == "native") and not demo)
+            result[capability]["model"] = (
+                getattr(s, "elevenlabs_model", "eleven_v3") if provider == "elevenlabs" else
+                "text-model + python-pptx" if provider == "native" else getattr(s, "openai_" + key + "_model", ""))
+    result["video"].update(provider="xiaoyunque", model=getattr(s, "xyq_video_model", ""))
+    if ark_video.selected(s):
+        result["video"].update(provider="ark", model=s.ark_video_model,
+                              configured=bool(ark_video.available(s) and not demo))
+    return result
+
+
+async def _run_modern(capability: str, provider: str, call: Callable[[], Any], *, trace_id: str, agent: str) -> MMResult:
+    s = get_settings()
+    def safe_call():
+        try:
+            return call()
+        except Exception as error:
+            raise RuntimeError(openai_client.error_label(error)) from None
+    return await _run_sync(capability, safe_call, lambda data: dict(data),
+        enabled=bool(getattr(s, "mm_" + capability + "_enabled", True)),
+        configured=bool(modern_media.configured(provider, s) and not is_demo()),
+        timeout_s=float(getattr(s, "openai_timeout_s", 180)) + 5, trace_id=trace_id, agent=agent)
 
 
 async def _run_sync(
@@ -442,6 +473,11 @@ async def ocr_image(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
+    provider = modern_media.select_provider("vision", s)
+    if provider == "openai":
+        return await _run_modern("ocr", provider,
+            lambda: modern_media.recognize(image_bytes, hint, purpose),
+            trace_id=trace_id, agent="tutor" if purpose == "tutor" else "media")
     timeout_s = float(
         s.mm_ocr_ingest_timeout_s if purpose == "ingest" else s.mm_ocr_tutor_timeout_s
     )
@@ -466,7 +502,7 @@ async def ocr_image(
     attempts: list[tuple[str, Callable[[], Any], float, Callable[[Any], dict[str, Any]]]] = []
     errors: list[str] = []
     demo = is_demo()
-    if demo or spark_ocr.configured(s):
+    if provider != "local" and (demo or spark_ocr.configured(s)):
         attempts.append((
             "spark",
             lambda: spark_ocr.image_to_question(
@@ -540,6 +576,10 @@ async def speech_to_text(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
+    provider = modern_media.select_provider("asr", s)
+    if provider == "openai":
+        return await _run_modern("asr", provider,
+            lambda: modern_media.transcribe(audio, encoding, sample_rate), trace_id=trace_id, agent="tutor")
 
     def normalize(text: Any) -> dict[str, Any]:
         value = str(text or "").strip()
@@ -571,6 +611,11 @@ async def tts(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
+    provider = modern_media.select_provider("tts", s)
+    if provider in {"openai", "elevenlabs"}:
+        tenant = current_user_id() or "demo_user"
+        return await _run_modern("tts", provider,
+            lambda: modern_media.synthesize(text, provider, tenant), trace_id=trace_id, agent="media")
     started = time.monotonic()
     trace_id = _trace_id(trace_id)
     enabled = bool(s.mm_tts_enabled)
@@ -697,6 +742,11 @@ async def text_to_image(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
+    selected = str(preferred_provider or modern_media.select_provider("image", s)).lower()
+    if selected == "openai":
+        tenant = current_user_id() or "demo_user"
+        return await _run_modern("image", "openai",
+            lambda: modern_media.generate_image(prompt, width, height, tenant), trace_id=trace_id, agent="media")
     started = time.monotonic()
     trace_id = _trace_id(trace_id)
     if not bool(s.mm_image_enabled):
@@ -706,7 +756,9 @@ async def text_to_image(
         await _record(result, agent="media")
         return result
 
-    preferred = str(preferred_provider or "").strip().lower()
+    preferred = "xiaoyunque" if selected == "xiaoyunque" else ""
+    if selected not in {"spark", "xiaoyunque"}:
+        raise ValueError("Unsupported image provider")
     if preferred not in {"", "xiaoyunque"}:
         raise ValueError(f"unsupported preferred image provider: {preferred_provider}")
     cache_scope = f"{preferred}\0" if preferred else ""
@@ -822,16 +874,18 @@ async def video_create(
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
+    use_ark = ark_video.selected(s)
     return await _run_sync(
         "video",
-        lambda: xiaoyunque_client.create_task(prompt, image_url),
+        lambda: ark_video.create_task(prompt, image_url) if use_ark else xiaoyunque_client.create_task(prompt, image_url),
         lambda task_id: {
             "task_id": str(task_id),
             "status": "running",
-            "provider": "xiaoyunque",
+            "provider": "ark" if use_ark else "xiaoyunque",
+            "model": s.ark_video_model if use_ark else getattr(s, "xyq_video_model", ""),
         },
         enabled=bool(s.mm_video_enabled),
-        configured=bool(xiaoyunque_client.available() and not is_demo()),
+        configured=bool((ark_video.available(s) if use_ark else xiaoyunque_client.available()) and not is_demo()),
         timeout_s=float(s.mm_video_create_timeout_s),
         trace_id=trace_id,
         agent="media",
@@ -840,6 +894,19 @@ async def video_create(
 
 async def ppt_create(query: str, *, trace_id: str = "") -> MMResult:
     s = get_settings()
+    if modern_media.select_provider("ppt", s) == "native":
+        from ..services.native_ppt import create
+        started = time.monotonic()
+        try:
+            if not getattr(s, "mm_ppt_enabled", True) or is_demo():
+                raise RuntimeError("PPT generation is disabled or demo mode is active")
+            data = await create(query)
+            result = _result("ppt", _trace_id(trace_id), started, ok=True, degraded=False, data=data)
+        except Exception as error:
+            result = _result("ppt", _trace_id(trace_id), started, ok=False, degraded=True,
+                             data={"provider": "native_pptx"}, error=openai_client.error_label(error))
+        await _record(result, agent="doc")
+        return result
     # Existing deployments may still carry the old 30-second environment value.
     # PPT generation is an asynchronous provider job, so keep the create request
     # alive long enough even before operators refresh their environment file.
@@ -916,7 +983,8 @@ async def video_wait(
     started = time.monotonic()
     trace_id = _trace_id(trace_id)
     budget = float(budget_s if budget_s is not None else s.mm_video_wait_budget_s)
-    if is_demo() or not s.mm_video_enabled or not xiaoyunque_client.available():
+    available = ark_video.available(s) if ark_video.is_task_id(task_id) else xiaoyunque_client.available()
+    if is_demo() or not s.mm_video_enabled or not available:
         result = _result("video", trace_id, started, ok=False, degraded=True, error="video unavailable")
         await _record(result, agent="media")
         return result
@@ -972,7 +1040,7 @@ async def video_wait(
             data={
                 "status": "running",
                 "task_id": task_id,
-                "provider": "xiaoyunque",
+                "provider": "ark" if ark_video.is_task_id(task_id) else "xiaoyunque",
             },
         )
     except Exception as error:  # noqa: BLE001
@@ -996,7 +1064,7 @@ async def video_poll(task_id: str, *, trace_id: str = "") -> dict[str, Any]:
         lambda: _poll_and_materialize_video(task_id, s),
         lambda state: dict(state),
         enabled=bool(s.mm_video_enabled),
-        configured=bool(xiaoyunque_client.available() and not is_demo()),
+        configured=bool((ark_video.available(s) if ark_video.is_task_id(task_id) else xiaoyunque_client.available()) and not is_demo()),
         timeout_s=(
             float(s.mm_video_poll_timeout_s)
             + float(getattr(s, "mm_video_download_timeout_s", 90))

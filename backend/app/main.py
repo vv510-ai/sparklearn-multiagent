@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
+from .api import pilot
 from .auth import bind_request_user, decode_access_token, reset_request_user
 from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
@@ -33,12 +34,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="SparkLearn 星火学伴 · 多智能体个性化学习系统",
+app = FastAPI(title="知行循证 LearnLoop · 可验证个性化学习平台",
               version="1.0.0", lifespan=lifespan)
 
 _PUBLIC_PATHS = {
     "/",
     "/api/health",
+    "/api/competition",
     "/api/auth/login",
     "/api/auth/register",
     "/docs",
@@ -80,10 +82,10 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 for r in (assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
-          tutor.router, evaluate.router, demo.router, meta.router):
+          tutor.router, evaluate.router, demo.router, meta.router, pilot.router):
     app.include_router(r)
 
 
 @app.get("/")
 async def root():
-    return {"app": "SparkLearn", "docs": "/docs", "health": "/api/health"}
+    return {"app": "知行循证 LearnLoop", "docs": "/docs", "health": "/api/health"}

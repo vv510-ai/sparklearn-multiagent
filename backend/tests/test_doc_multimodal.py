@@ -195,7 +195,7 @@ def test_one_page_always_contains_a_visual_structure(monkeypatch):
     assert visual["image_status"] == "fallback"
 
 
-def test_one_page_uses_xiaoyunque_prompt_and_stores_real_image(monkeypatch):
+def test_one_page_uses_configured_provider_and_stores_image_provenance(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
     captured = {}
 
@@ -205,7 +205,8 @@ def test_one_page_uses_xiaoyunque_prompt_and_stores_real_image(monkeypatch):
             "ok": True,
             "data": {
                 "image_url": "/static/gen/one-page.png",
-                "provider": "xiaoyunque",
+                "provider": "openai",
+                "model": "gpt-image-2.5-sunburst",
             },
         }
 
@@ -222,9 +223,10 @@ def test_one_page_uses_xiaoyunque_prompt_and_stores_real_image(monkeypatch):
 
     visual = result["resource"]["payload"]["one_page_visual"]
     assert visual["image_url"] == "/static/gen/one-page.png"
-    assert visual["provider"] == "xiaoyunque"
+    assert visual["provider"] == "openai"
+    assert visual["model"] == "gpt-image-2.5-sunburst"
     assert visual["image_status"] == "ready"
-    assert captured["preferred_provider"] == "xiaoyunque"
+    assert "preferred_provider" not in captured
     assert (captured["width"], captured["height"]) == (1536, 864)
     assert "35—50" in captured["prompt"]
     assert "一图看懂二叉树" in captured["prompt"]

@@ -170,7 +170,7 @@ export default function OnboardingGate({
         <nav className="learning-gate-nav liquid-glass glass-readable flex items-center justify-between rounded-full px-5 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
             <span className="grid h-7 w-7 place-items-center rounded-full bg-white text-[#0F6B50]"><Sparkles size={15} /></span>
-            <span className="text-xl text-white" style={{ fontFamily: "var(--font-display)" }}>SparkLearn<sup className="ml-0.5 text-[9px]">®</sup></span>
+            <span className="text-xl text-white" style={{ fontFamily: "var(--font-display)" }}>知行循证</span>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block"><div className="max-w-32 truncate text-sm font-semibold text-white">{user.name}</div><div className="max-w-40 truncate text-[10px] text-white/50">{user.email}</div></div>

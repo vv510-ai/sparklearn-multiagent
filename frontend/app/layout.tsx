@@ -3,8 +3,8 @@ import "./globals.css";
 import "./learning-upgrade.css";
 
 export const metadata: Metadata = {
-  title: "SparkLearn 星火学伴 · 学习的左膀右臂",
-  description: "讯飞星火驱动的智能学习机:一句话整理讲解、练习、路线和可追溯出处。",
+  title: "知行循证 LearnLoop · 让学习发生，有据可循",
+  description: "面向高校专业课程的可验证个性化学习平台：从资料、诊断和独立作答，到有依据的下一步学习。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

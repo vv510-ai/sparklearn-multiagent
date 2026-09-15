@@ -5,6 +5,7 @@ import { Pause, Play } from "lucide-react";
 import { Notice } from "@/components/ui";
 import { apiAssetUrl, apiGet } from "@/lib/api";
 import type { ResourceItem } from "@/lib/types";
+import { voiceLabel } from "@/lib/media";
 
 export default function VideoBlock({ payload }: { payload: ResourceItem["payload"]; kind?: string }) {
   const [video, setVideo] = useState(payload.video);
@@ -105,7 +106,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs">
           <span className="min-w-0 text-slate-700">
             {shouldMaterialize || video.status === "succeeded"
-              ? "小云雀视频已生成，正在安全保存到 SparkLearn"
+              ? "小云雀视频已生成，正在安全保存到 知行循证"
               : "小云雀正在云端生成视频；下面的动态演示是等待期间的学习预览"}
           </span>
           <button
@@ -211,7 +212,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
       {audioUrl && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 text-[11px] font-bold tracking-[0.18em] text-emerald-600">
-            {payload.audio?.provider === "spark_super_tts" ? "星火超拟人语音讲解" : "普通星火语音讲解"}
+            {voiceLabel(payload.audio)}
           </div>
           <audio src={audioUrl} controls className="w-full" />
           {payload.audio?.provider === "spark_tts" && payload.audio?.degraded && (

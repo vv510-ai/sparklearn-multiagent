@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import AgentTrace, { applyTraceEvent, emptyTrace, type TraceState } from "@/components/agent/AgentTrace";
 import AuthGate, { type AuthUser } from "@/components/auth/AuthGate";
 import Chat from "@/components/chat/Chat";
@@ -159,10 +160,12 @@ function LearningGate({
           <div className="flex items-center gap-2.5">
             <SparkMark light />
             <span className="text-xl text-white" style={{ fontFamily: "var(--font-display)" }}>
-              SparkLearn<sup className="ml-0.5 text-[9px]">®</sup>
+              知行循证
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <Link href="/evidence" className="rounded-full px-3 py-2 text-xs text-white/85 hover:bg-white/10">项目证据</Link>
+            <Link href="/teacher" className="hidden rounded-full px-3 py-2 text-xs text-white/85 hover:bg-white/10 sm:block">教师试点</Link>
             <div className="hidden text-right sm:block">
               <div className="max-w-32 truncate text-sm font-semibold text-white">{user.name}</div>
               <div className="max-w-40 truncate text-[10px] text-white/50">{user.email}</div>
@@ -177,10 +180,12 @@ function LearningGate({
         </nav>
 
         <section className="learning-gate-hero cinematic-copy flex flex-1 flex-col items-center justify-center px-3 py-10 text-center lg:-translate-y-[2%]">
-          <h1 className="animate-fade-rise max-w-6xl text-[43px] font-normal leading-[0.98] text-white sm:text-7xl md:text-[82px]" style={{ fontFamily: "var(--font-display)" }}>
-            <span className="block">SparkLearn，</span>
-            <em className="mt-1 block whitespace-nowrap text-[37px] not-italic text-white/70 sm:text-7xl md:text-[82px]">学习的左膀右臂。</em>
+          <h1 className="animate-fade-rise max-w-6xl text-[35px] font-normal leading-tight text-white sm:text-6xl md:text-[72px]" style={{ fontFamily: "var(--font-display)" }}>
+            <span className="block">让学习发生，</span>
+            <em className="mt-1 block not-italic text-white/70">有据可循。</em>
           </h1>
+          <p className="mt-5 max-w-lg text-sm leading-7 text-white/70">从课程资料出发，诊断错因、独立复测。让每一次真实作答，都成为下一步学习的依据。</p>
+          <Link href="/review" className="mt-4 text-sm text-white/90 underline underline-offset-4">三分钟体验学习闭环</Link>
 
           <div className="liquid-glass glass-readable animate-fade-rise-delay mt-7 flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
             <button
@@ -1012,7 +1017,7 @@ export default function Home() {
       <header className="notebook-topbar relative z-20 flex h-[68px] shrink-0 items-center gap-3 px-4 sm:px-5">
         <button onClick={() => setActivePanel("chat")} className="flex items-center gap-2.5" title="返回学习对话">
           <SparkMark running={running} />
-          <strong className="hidden text-lg tracking-tight sm:block">SparkLearn</strong>
+          <strong className="hidden text-lg tracking-tight sm:block">知行循证</strong>
         </button>
         <span className="hidden h-5 w-px bg-[#DDE0E8] sm:block" />
         <div className="min-w-0 flex-1">
@@ -1023,6 +1028,8 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden sm:inline">测评与计划</span></button>
           <button onClick={toggleTransparency} className="notebook-icon-button" aria-label="减少透明效果" aria-pressed={reduceTransparency} title="减少透明效果"><Contrast size={17} /></button>
+          <Link href="/teacher" className="hidden text-xs text-[#0F6B50] md:block">教师试点</Link>
+          <Link href="/evidence" className="hidden text-xs text-[#0F6B50] md:block">项目证据</Link>
           <button onClick={() => setMobilePane("sources")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
           <button onClick={() => setMobilePane("studio")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>

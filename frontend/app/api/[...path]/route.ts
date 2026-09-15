@@ -75,7 +75,7 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const subject = tokenSubject(token);
   const isStatic = path[0] === "static";
-  const isPublicHealth = req.method === "GET" && path.length === 1 && path[0] === "health";
+  const isPublicHealth = req.method === "GET" && path.length === 1 && ["health", "competition"].includes(path[0]);
   // Audio/image/video elements request the BFF URL directly. They still send
   // the HttpOnly session cookie, so require it here and forward the JWT to the
   // backend ownership check instead of treating generated assets as public.
@@ -105,7 +105,7 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
       if (raw) {
         try {
           const body = JSON.parse(raw) as unknown;
-          if (subject && body && typeof body === "object" && !Array.isArray(body)) {
+          if (subject && path[0] !== "pilot" && body && typeof body === "object" && !Array.isArray(body)) {
             (body as Record<string, unknown>).user_id = subject;
           }
           init.body = JSON.stringify(body);

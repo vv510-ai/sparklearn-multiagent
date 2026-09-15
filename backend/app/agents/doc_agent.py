@@ -411,7 +411,7 @@ def _custom_topic_fallback_doc(name: str) -> str:
         "3. 用一个最小例子练习，最后检查常见误区与适用边界。",
         "",
         "## 下一步",
-        "当前为离线安全版本；连接星火 X2 后会补全同主题讲解，也可以上传资料生成可引用版本。",
+        "当前为离线安全版本；连接已配置的语言模型后会补全同主题讲解，也可以上传资料生成可引用版本。",
     ])
 
 
@@ -477,7 +477,7 @@ async def _gen_ppt_resource(
         ppt = {
             "status": "blocked",
             "error": "当前选中的资料没有可检索内容，请更换资料后再生成复习 PPT。",
-            "provider": "iflytek_ppt_v2",
+            "provider": "none",
         }
         flags.append({
             "agent": "doc",
@@ -501,7 +501,7 @@ async def _gen_ppt_resource(
             ppt = dict(result.get("data") or {})
         else:
             error = str(result.get("error") or "PPT 服务暂时不可用")[:240]
-            ppt = {"status": "failed", "error": error, "provider": "iflytek_ppt_v2"}
+            ppt = {"status": "failed", "error": error, "provider": str((result.get("data") or {}).get("provider") or "unavailable")}
             flags.append({
                 "agent": "doc",
                 "kind": "ppt",
@@ -808,7 +808,7 @@ async def _gen_one(
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
     elif custom_topic and not chunks:
         ground = {"grounded": True, "unsupported": [],
-                  "verdict": "自定义主题使用星火通用知识生成，未声明虚构资料引用。"}
+                  "verdict": "自定义主题使用模型通用知识生成，未声明虚构资料引用。"}
     elif demo_fallback:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "演示模式直接整理检索片段,未补写资料外事实。"}
@@ -877,7 +877,6 @@ async def _gen_one(
                     _one_page_image_prompt(name, md),
                     width=1536,
                     height=864,
-                    preferred_provider="xiaoyunque",
                     trace_id=trace_id,
                 )
             except Exception as exc:  # noqa: BLE001
@@ -902,6 +901,8 @@ async def _gen_one(
                 payload["audio"] = {
                     "status": "ready",
                     "provider": str(audio["data"].get("provider") or "spark_tts"),
+                    "model": str(audio["data"].get("model") or ""),
+                    "ai_generated": True,
                     "error": str(audio.get("error") or "")[:240],
                     "retryable": bool(audio.get("degraded")),
                     "degraded": bool(audio.get("degraded")),
@@ -929,17 +930,18 @@ async def _gen_one(
             if one_page:
                 payload["one_page_visual"].update({
                     "image_url": cover["data"]["image_url"],
-                    "provider": str(cover["data"].get("provider") or "xiaoyunque"),
+                    "provider": str(cover["data"].get("provider") or "unknown"),
+                    "model": str(cover["data"].get("model") or ""),
                     "image_status": "ready",
                 })
             else:
                 payload["cover_url"] = cover["data"]["image_url"]
         elif one_page:
             error = (
-                str(cover.get("error") or "小云雀生图暂时不可用")
+                str(cover.get("error") or "图像生成服务暂时不可用")
                 if isinstance(cover, dict)
                 else str(cover) if isinstance(cover, BaseException)
-                else "小云雀生图暂时不可用"
+                else "图像生成服务暂时不可用"
             )
             payload["one_page_visual"].update({
                 "image_status": "fallback",

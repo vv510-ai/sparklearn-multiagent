@@ -150,7 +150,7 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
         <div className="space-y-3">{nodes.filter((_, index) => index % 2 === 1).map((node) => <VisualNode key={node.label} node={node} />)}</div>
       </div>
       {(visual.steps || []).length > 0 && <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{(visual.steps || []).map((step, index) => <div key={step} className="flex items-center gap-2"><span className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-900">{index + 1}. {step}</span>{index < (visual.steps || []).length - 1 && <ArrowRight size={13} className="text-emerald-400" />}</div>)}</div>}
-      <figcaption className="mt-3 text-center text-[10px] text-slate-400">小云雀暂时不可用时保留可读结构，不让学习资源中断。</figcaption>
+      <figcaption className="mt-3 text-center text-[10px] text-slate-400">{imageUrl ? `AI 生成示意图${visual.model ? ` · ${visual.model}` : ""}，请结合正文核对细节。` : "当前使用内置结构示意；图像服务恢复后可重新生成。"}</figcaption>
     </figure>
   );
 }

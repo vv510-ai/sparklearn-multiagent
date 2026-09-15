@@ -86,6 +86,7 @@ export interface ResourceItem {
       rows?: string[][];
     };
     one_page_visual?: {
+      model?: string;
       title?: string;
       center?: string;
       nodes?: { label: string; text: string }[];
@@ -119,6 +120,8 @@ export interface ResourceItem {
     audio_url?: string;
     audio_narration?: string;
     audio?: {
+      model?: string;
+      ai_generated?: boolean;
       status?: "ready" | "fallback" | "blocked" | string;
       provider?: "spark_tts" | "browser_speech" | "none" | string;
       error?: string;
@@ -128,6 +131,7 @@ export interface ResourceItem {
     };
     cover_url?: string;
     ppt?: {
+      model?: string;
       status?: "building" | "ready" | "failed" | "blocked" | string;
       task_id?: string;
       url?: string;

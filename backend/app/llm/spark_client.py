@@ -20,6 +20,7 @@ import re
 from typing import AsyncIterator, Iterable
 
 from ..config import get_settings, is_demo
+from . import openai_client
 
 log = logging.getLogger("sparklearn.llm")
 
@@ -38,10 +39,16 @@ def active_provider() -> str:
     """Resolve the server-side provider without ever exposing credentials."""
     settings = get_settings()
     requested = str(settings.llm_provider or "auto").strip().lower()
+    if requested == "openai":
+        return "openai"
     if requested == "deepseek":
         return "deepseek"
     if requested == "spark":
         return "spark"
+    if requested != "auto":
+        raise ValueError("Unsupported LLM_PROVIDER")
+    if getattr(settings, "openai_api_key", ""):
+        return "openai"
     if settings.deepseek_api_key:
         return "deepseek"
     return "spark"
@@ -52,7 +59,9 @@ def active_llm_label() -> str:
         return "MockEngine（离线演示）"
     settings = get_settings()
     if active_provider() == "deepseek":
-        return "DeepSeek-V4-Pro（深度思考）"
+        return f"{settings.deepseek_model}（深度思考）"
+    if active_provider() == "openai":
+        return settings.openai_text_model
     return "讯飞星火 X2（自动深度思考）"
 
 
@@ -114,6 +123,10 @@ def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: floa
     from langchain_openai import ChatOpenAI
 
     s = get_settings()
+    if active_provider() == "openai":
+        return ChatOpenAI(model=s.openai_text_model, api_key=s.openai_api_key,
+                          base_url=s.openai_base_url, streaming=streaming,
+                          use_responses_api=True, reasoning={"effort": s.openai_reasoning_effort})
     if active_provider() == "deepseek":
         return ChatOpenAI(
             model=s.deepseek_model,
@@ -150,6 +163,19 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
 
     last_err: Exception | None = None
     provider = active_provider()
+    if provider == "openai":
+        # Never pass mock lessons off as an answer from the selected model.
+        try:
+            def complete_openai():
+                with openai_client.client() as client:
+                    response = client.responses.create(**openai_client.response_params(
+                        messages, max_tokens=max_tokens))
+                    if getattr(response, "status", "completed") != "completed" or not response.output_text:
+                        raise RuntimeError("Incomplete or empty OpenAI response")
+                    return response.output_text
+            return await asyncio.to_thread(complete_openai)
+        except Exception as error:
+            raise RuntimeError("OpenAI 调用失败：" + openai_client.error_label(error)) from None
     if provider == "deepseek":
         settings = get_settings()
         # Thinking tokens share the completion budget. Small structured helper
@@ -223,6 +249,36 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
     loop = asyncio.get_running_loop()
 
     provider = active_provider()
+    if provider == "openai":
+        client = openai_client.client()
+        stream = None
+        completed = False
+        emitted = False
+        try:
+            stream = await asyncio.to_thread(lambda: client.responses.create(
+                **openai_client.response_params(messages, max_tokens=max_tokens, reasoning_mode=reasoning_mode),
+                stream=True))
+            iterator = iter(stream)
+            while True:
+                event = await asyncio.to_thread(lambda: next(iterator, None))
+                if event is None:
+                    break
+                if event.type == "response.output_text.delta":
+                    emitted = emitted or bool(event.delta)
+                    yield event.delta
+                elif event.type == "response.completed":
+                    completed = True
+                elif event.type in {"response.failed", "response.incomplete", "error"}:
+                    raise RuntimeError("Incomplete OpenAI stream")
+            if not completed or not emitted:
+                raise RuntimeError("OpenAI stream ended before completion")
+            return
+        except Exception as error:
+            raise RuntimeError("OpenAI 流式调用失败：" + openai_client.error_label(error)) from None
+        finally:
+            if stream is not None:
+                await asyncio.to_thread(stream.close)
+            await asyncio.to_thread(client.close)
     if provider == "deepseek":
         settings = get_settings()
         client = _deepseek_client()

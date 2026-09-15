@@ -539,6 +539,8 @@ async def run(state: dict) -> dict:
         payload["audio"] = {
             "status": "ready",
             "provider": audio["data"].get("provider", "spark_tts"),
+            "model": str(audio["data"].get("model") or ""),
+            "ai_generated": True,
             "degraded": bool(audio.get("degraded")),
             "error": str(audio.get("error") or "")[:240],
         }

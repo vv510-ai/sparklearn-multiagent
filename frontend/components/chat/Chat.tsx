@@ -162,7 +162,7 @@ export default function Chat({
     }
 
     setTranscribing(true);
-    setVoiceStatus("正在用讯飞中文识别大模型转成文字…");
+    setVoiceStatus("正在将语音转成文字…");
     try {
       const form = new FormData();
       form.set("user_id", USER_ID);
@@ -582,7 +582,7 @@ export default function Chat({
                 : "text-[#596171] hover:bg-[#EEF0F6] hover:text-emerald-700"
             }`}
             aria-label={recording ? "停止录音并识别" : "语音提问"}
-            title={recording ? "停止录音并识别" : "使用讯飞中文识别大模型语音输入"}
+            title={recording ? "停止录音并识别" : "语音输入"}
           >
             {transcribing ? <LoaderCircle size={19} className="animate-spin" /> : <Mic size={19} />}
           </button>

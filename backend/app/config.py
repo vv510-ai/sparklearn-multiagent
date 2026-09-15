@@ -32,7 +32,32 @@ try:  # pydantic-settings 可用时走标准路径
         spark_reasoning_mode: str = "auto"  # enabled | disabled | auto
 
         # 统一文本大模型路由。deepseek 为当前主脑，spark 保留为可控降级。
-        llm_provider: str = "auto"  # auto | deepseek | spark
+        llm_provider: str = "auto"  # auto | openai | deepseek | spark
+        openai_api_key: str = ""
+        openai_base_url: str = "https://api.openai.com/v1"
+        openai_text_model: str = "gpt-6-astra"
+        openai_vision_model: str = "gpt-6-astra"
+        openai_image_model: str = "gpt-image-2.5-sunburst"
+        openai_image_quality: str = "high"
+        openai_asr_model: str = "gpt-transcribe"
+        openai_tts_model: str = "gpt-4o-mini-tts"
+        openai_tts_voice: str = "marin"
+        openai_reasoning_effort: str = "high"
+        openai_timeout_s: float = 180
+        image_provider: str = "auto"
+        vision_provider: str = "auto"
+        asr_provider: str = "auto"
+        tts_provider: str = "auto"
+        ppt_provider: str = "auto"
+        video_provider: str = "auto"
+        ark_api_key: str = ""
+        ark_base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
+        ark_video_model: str = "doubao-seedance-2-5-260628"
+        ark_video_duration: int = 10
+        ark_video_resolution: str = "720p"
+        elevenlabs_api_key: str = ""
+        elevenlabs_voice_id: str = ""
+        elevenlabs_model: str = "eleven_v3"
         deepseek_api_key: str = ""
         deepseek_base_url: str = "https://api.deepseek.com"
         deepseek_model: str = "deepseek-v4-pro"
@@ -147,6 +172,31 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_x2_base_url = g("SPARK_X2_BASE_URL", "https://spark-api-open.xf-yun.com/x2/")
             self.spark_reasoning_mode = g("SPARK_REASONING_MODE", "auto")
             self.llm_provider = g("LLM_PROVIDER", "auto")
+            self.openai_api_key = g("OPENAI_API_KEY", "")
+            self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            self.openai_text_model = g("OPENAI_TEXT_MODEL", "gpt-6-astra")
+            self.openai_vision_model = g("OPENAI_VISION_MODEL", "gpt-6-astra")
+            self.openai_image_model = g("OPENAI_IMAGE_MODEL", "gpt-image-2.5-sunburst")
+            self.openai_image_quality = g("OPENAI_IMAGE_QUALITY", "high")
+            self.openai_asr_model = g("OPENAI_ASR_MODEL", "gpt-transcribe")
+            self.openai_tts_model = g("OPENAI_TTS_MODEL", "gpt-4o-mini-tts")
+            self.openai_tts_voice = g("OPENAI_TTS_VOICE", "marin")
+            self.openai_reasoning_effort = g("OPENAI_REASONING_EFFORT", "high")
+            self.openai_timeout_s = float(g("OPENAI_TIMEOUT_S", "180"))
+            self.image_provider = g("IMAGE_PROVIDER", "auto")
+            self.vision_provider = g("VISION_PROVIDER", "auto")
+            self.asr_provider = g("ASR_PROVIDER", "auto")
+            self.tts_provider = g("TTS_PROVIDER", "auto")
+            self.ppt_provider = g("PPT_PROVIDER", "auto")
+            self.video_provider = g("VIDEO_PROVIDER", "auto")
+            self.ark_api_key = g("ARK_API_KEY", "")
+            self.ark_base_url = g("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+            self.ark_video_model = g("ARK_VIDEO_MODEL", "doubao-seedance-2-5-260628")
+            self.ark_video_duration = int(g("ARK_VIDEO_DURATION", "10"))
+            self.ark_video_resolution = g("ARK_VIDEO_RESOLUTION", "720p")
+            self.elevenlabs_api_key = g("ELEVENLABS_API_KEY", "")
+            self.elevenlabs_voice_id = g("ELEVENLABS_VOICE_ID", "")
+            self.elevenlabs_model = g("ELEVENLABS_MODEL", "eleven_v3")
             self.deepseek_api_key = g("DEEPSEEK_API_KEY", "")
             self.deepseek_base_url = g("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
             self.deepseek_model = g("DEEPSEEK_MODEL", "deepseek-v4-pro")
@@ -171,7 +221,7 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
                 "wss://cbm01.cn-huabei-1.xf-yun.com/v1/private/mcd9m97e6",
             )
             self.spark_super_tts_voice = g("SPARK_SUPER_TTS_VOICE", "x6_lingxiaoxuan_pro")
-            self.spark_super_tts_strict = b("SPARK_SUPER_TTS_STRICT", False)
+            self.spark_super_tts_strict = _env_bool("SPARK_SUPER_TTS_STRICT", False)
             self.spark_tts_speed = int(g("SPARK_TTS_SPEED", "42"))
             self.spark_asr_appid = g("SPARK_ASR_APPID", "")
             self.spark_asr_api_key = g("SPARK_ASR_API_KEY", "")
@@ -292,7 +342,9 @@ def is_demo() -> bool:
         return True
     if flag in {"0", "false", "no", "off"}:
         return False
-    return not bool(s.deepseek_api_key or s.spark_api_password)
+    requested = str(s.llm_provider or "auto").lower()
+    keys = {"openai": s.openai_api_key, "deepseek": s.deepseek_api_key, "spark": s.spark_api_password}
+    return not bool(keys.get(requested)) if requested in keys else not any(keys.values())
 
 
 def auth_required() -> bool:

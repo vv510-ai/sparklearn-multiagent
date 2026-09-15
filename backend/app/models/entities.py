@@ -210,3 +210,29 @@ class DemoBaseline(Base):
     data: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class PilotStudy(Base):
+    """Teacher-owned study. No access to another learner's private records."""
+    __tablename__ = "pilot_studies"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    course: Mapped[str] = mapped_column(String(120))
+    mode: Mapped[str] = mapped_column(String(16), default="demo")
+    protocol: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class PilotObservation(Base):
+    __tablename__ = "pilot_observations"
+    __table_args__ = (UniqueConstraint("study_id", "participant", "phase", "knowledge_point",
+                                      name="uq_pilot_observation"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    study_id: Mapped[str] = mapped_column(String(64), ForeignKey("pilot_studies.id", ondelete="CASCADE"), index=True)
+    participant: Mapped[str] = mapped_column(String(48))
+    phase: Mapped[str] = mapped_column(String(16))
+    knowledge_point: Mapped[str] = mapped_column(String(80))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)

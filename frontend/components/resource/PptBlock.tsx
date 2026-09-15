@@ -62,7 +62,7 @@ export default function PptBlock({ payload }: { payload: ResourceItem["payload"]
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="text-sm font-bold text-emerald-900">复习 PPT 已生成</div>
           <p className="mt-1 text-xs leading-5 text-emerald-800">
-            {ppt.total_pages ? `共 ${ppt.total_pages} 页，` : ""}文件已保存到 SparkLearn，可以下载后继续编辑。
+            {ppt.total_pages ? `共 ${ppt.total_pages} 页，` : ""}文件已保存到 知行循证，可以下载后继续编辑。
           </p>
           <a
             href={pptUrl}
@@ -75,7 +75,7 @@ export default function PptBlock({ payload }: { payload: ResourceItem["payload"]
       ) : ppt.task_id ? (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs">
           <div className="min-w-0 text-slate-700">
-            <div className="font-bold text-blue-900">星火正在整理复习 PPT</div>
+            <div className="font-bold text-blue-900">正在整理可编辑复习 PPT</div>
             <div className="mt-1">
               {ppt.total_pages ? `已完成 ${ppt.done_pages || 0}/${ppt.total_pages} 页` : "先生成大纲，再完成轻量排版"}
             </div>

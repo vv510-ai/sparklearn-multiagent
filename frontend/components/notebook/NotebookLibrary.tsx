@@ -44,7 +44,7 @@ export default function NotebookLibrary({
         <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center gap-3 px-4 sm:px-7">
           <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#0F6B50] text-white shadow-sm"><BookOpen size={20} /></span>
           <div className="min-w-0 flex-1">
-            <div className="text-lg font-black tracking-tight">SparkLearn</div>
+            <div className="text-lg font-black tracking-tight">知行循证</div>
             <div className="text-[11px] text-[#7A8190]">我的科目书本</div>
           </div>
           <div className="hidden max-w-36 truncate text-sm font-semibold text-[#616978] sm:block" title={user.email}>{user.name}</div>

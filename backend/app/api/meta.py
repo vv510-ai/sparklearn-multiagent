@@ -19,6 +19,19 @@ from ..services.profile_service import complete_onboarding, ensure_user, get_pro
 router = APIRouter(prefix="/api", tags=["meta"])
 
 
+@router.get("/competition")
+async def competition():
+    from ..services.competition_service import register
+    return register()
+
+
+@router.get("/model-status")
+async def model_status():
+    from ..llm.multimodal_gateway import capability_status
+    return {"demo_mode": is_demo(), "text": active_llm_label(),
+            "provider": active_provider(), "capabilities": capability_status()}
+
+
 @router.get("/kg")
 async def knowledge_graph():
     kg = load_kg()
@@ -74,4 +87,4 @@ async def health():
             "llm_provider": "mock" if is_demo() else active_provider(),
             "embedding": embedding_status(),
             "reranker": reranker_status(),
-            "app": "SparkLearn 星火学伴"}
+            "app": "知行循证 LearnLoop"}

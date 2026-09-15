@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
+import { voiceLabel } from "@/lib/media";
 import Markdown from "@/components/chat/Markdown";
 import { Badge, Notice, Panel } from "@/components/ui";
 import { kpName } from "@/lib/kp";
@@ -202,11 +203,11 @@ export default function ResourceCard({
                 <div className="text-[11px] font-bold tracking-[0.14em] text-[#0F6B50]">
                   {narration
                     ? audioUrl
-                      ? isSuperVoice ? "星火超拟人互动讲解" : "普通星火语音讲解"
+                      ? voiceLabel(audioState)
                       : isStrictSuperUnavailable ? "星火超拟人语音等待恢复" : "互动讲解 · 浏览器朗读"
                     : audioUrl
-                      ? isSuperVoice ? "星火超拟人语音讲解" : "普通星火语音讲解"
-                      : "星火知识封面"}
+                      ? voiceLabel(audioState)
+                      : "知识封面"}
                 </div>
                 <p className="mt-1 text-xs leading-5 text-[#57635A]">
                     {audioPath || narration

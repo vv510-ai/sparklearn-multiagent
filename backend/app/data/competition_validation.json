@@ -1,0 +1,11 @@
+{
+  "as_of": "2026-09-15",
+  "baseline_commit": "258b852",
+  "baseline_backend_tests": 239,
+  "backend_tests": 282,
+  "frontend_build": "passed",
+  "browser_scenarios": 4,
+  "real_model_generation": "pending_external_access",
+  "field_study": "not_provided",
+  "note": "测试覆盖模型协议、错误处理、租户隔离和试点统计。真实旗舰API仍需有效额度、模型权限及部署端连通性；不将接口桩或合成观测当成教学效果。"
+}
