@@ -892,7 +892,7 @@ async def video_create(
     )
 
 
-async def ppt_create(query: str, *, trace_id: str = "") -> MMResult:
+async def ppt_create(query: str, *, trace_id: str = "", citations: list[dict] | None = None) -> MMResult:
     s = get_settings()
     if modern_media.select_provider("ppt", s) == "native":
         from ..services.native_ppt import create
@@ -900,7 +900,7 @@ async def ppt_create(query: str, *, trace_id: str = "") -> MMResult:
         try:
             if not getattr(s, "mm_ppt_enabled", True) or is_demo():
                 raise RuntimeError("PPT generation is disabled or demo mode is active")
-            data = await create(query)
+            data = await create(query, citations=citations)
             result = _result("ppt", _trace_id(trace_id), started, ok=True, degraded=False, data=data)
         except Exception as error:
             result = _result("ppt", _trace_id(trace_id), started, ok=False, degraded=True,

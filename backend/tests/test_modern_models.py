@@ -5,6 +5,7 @@ import base64
 import io
 import json
 import wave
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -140,6 +141,25 @@ def test_native_deck_is_editable_and_schema_rejects_extra_data(tmp_path):
     assert len(deck.slides)==3
     assert any("左子树" in shape.text for shape in deck.slides[0].shapes if shape.has_text_frame)
     with pytest.raises(ValueError): Outline.model_validate({**spec,"speaker_script":"unvalidated"})
+
+
+def test_native_deck_resolves_citations_and_rejects_fabricated_ones(monkeypatch, tmp_path):
+    from pptx import Presentation
+    from app.services import native_ppt
+    spec={"title":"二叉树复习", "slides":[{"title":"中序遍历", "bullets":["左子树、根结点、右子树。[^1]"]} for _ in range(3)]}
+    async def complete(*args, **kwargs):
+        return json.dumps(spec, ensure_ascii=False)
+    monkeypatch.setattr(native_ppt,"llm_complete",complete)
+    monkeypatch.setattr(native_ppt,"is_demo",lambda:False)
+    monkeypatch.setattr(native_ppt,"GEN_DIR",tmp_path)
+    result=asyncio.run(native_ppt.create("按给定资料复习", citations=[{"index":1,"citation":"课程讲义 · 第6章 · 第1段"}]))
+    deck=Presentation(tmp_path/Path(result["url"]).name)
+    assert result["content_pages"]==3 and result["reference_pages"]==1 and result["total_pages"]==4
+    assert any("[^1] 课程讲义 · 第6章 · 第1段" in shape.text for shape in deck.slides[-1].shapes if shape.has_text_frame)
+    spec["slides"][0]["bullets"]=["无法核验的内容。[^2]"]
+    with pytest.raises(ValueError, match="without a supplied source"):
+        asyncio.run(native_ppt.create("按给定资料复习", citations=[{"index":1,"citation":"课程讲义"}]))
+    assert len(list(tmp_path.glob("*.pptx")))==1
 
 
 def test_ark_contract_validation_and_terminal_states(monkeypatch):

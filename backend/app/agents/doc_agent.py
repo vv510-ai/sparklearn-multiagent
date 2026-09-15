@@ -486,7 +486,7 @@ async def _gen_ppt_resource(
             "detail": "所选资料没有可检索内容，已阻止无依据生成 PPT",
         })
     else:
-        context, _ = build_context(chunks)
+        context, ppt_citations = build_context(chunks)
         result = await multimodal_gateway.ppt_create(
             _ppt_query(
                 name,
@@ -496,6 +496,7 @@ async def _gen_ppt_resource(
                 source_bound=bool(chunks),
             ),
             trace_id=trace_id,
+            citations=ppt_citations,
         )
         if result.get("ok"):
             ppt = dict(result.get("data") or {})

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from pathlib import Path
 
@@ -25,13 +26,20 @@ class Outline(BaseModel):
     slides: list[Slide] = Field(min_length=3, max_length=10)
 
 
-def render(outline: Outline, target: Path) -> None:
+def render(outline: Outline, target: Path, references: list[str] | None = None) -> int:
     from pptx import Presentation
     from pptx.dml.color import RGBColor
     from pptx.util import Inches, Pt
     deck = Presentation()
     deck.slide_width, deck.slide_height = Inches(13.333), Inches(7.5)
-    for index, item in enumerate(outline.slides):
+    pages = list(outline.slides)
+    reference_lines = []
+    for reference in references or []:
+        # Preserve the full source label while keeping every editable line readable.
+        reference_lines.extend(reference[i:i+76] for i in range(0, len(reference), 76))
+    for offset in range(0, len(reference_lines), 4):
+        pages.append(Slide(title="资料来源 · 引用编号对照", bullets=reference_lines[offset:offset+4]))
+    for index, item in enumerate(pages):
         slide = deck.slides.add_slide(deck.slide_layouts[6])
         slide.background.fill.solid()
         slide.background.fill.fore_color.rgb = RGBColor.from_string("F4F7F4")
@@ -47,24 +55,36 @@ def render(outline: Outline, target: Path) -> None:
             box(f"{j+1:02d}", .7, 2.2+j*1.02, .55, .45, 17, "167259", True)
             box(bullet, 1.5, 2.12+j*1.02, 10.7, .95, 19, "263E37")
         box("生成内容请结合课程资料核对；支持直接编辑。", .7, 6.95, 10.5, .3, 11, "63766E")
-        box(f"{index+1:02d} / {len(outline.slides):02d}", 11.9, 6.9, .9, .4, 12, "63766E")
+        box(f"{index+1:02d} / {len(pages):02d}", 11.9, 6.9, .9, .4, 12, "63766E")
     temp = target.with_suffix(".part")
     try:
         deck.save(temp)
         temp.replace(target)
     finally:
         temp.unlink(missing_ok=True)
+    return len(pages)
 
 
-async def create(query: str) -> dict:
+async def create(query: str, *, citations: list[dict] | None = None) -> dict:
     if is_demo():
         raise RuntimeError("Editable AI slides require a configured text model")
     call = invoke_learning_prompt("media.ppt_outline", content=query)
     raw = await llm_complete(call.prompt, system=call.system, role="reasoner",
                              json_mode=True, max_tokens=6500, allow_mock_fallback=False)
     outline = Outline.model_validate(parse_json(raw))
+    sources = {}
+    for position, citation in enumerate(citations or [], start=1):
+        index = int(citation.get("index", position))
+        label = str(citation.get("citation") or " · ".join(str(citation[k]) for k in ("source", "chapter", "page") if citation.get(k))).strip()
+        if index > 0 and label:
+            sources[index] = label
+    used = {int(index) for index in re.findall(r"\[\^(\d+)\]", outline.model_dump_json())}
+    if used - sources.keys():
+        raise ValueError("PPT contains a citation without a supplied source")
+    references = [f"[^{index}] {label}" for index, label in sorted(sources.items())]
     target = GEN_DIR / ("lesson_" + uuid.uuid4().hex + ".pptx")
     target.parent.mkdir(parents=True, exist_ok=True)
-    await asyncio.to_thread(render, outline, target)
-    return {"status": "ready", "title": outline.title, "total_pages": len(outline.slides),
+    total_pages = await asyncio.to_thread(render, outline, target, references)
+    return {"status": "ready", "title": outline.title, "total_pages": total_pages,
+            "content_pages": len(outline.slides), "reference_pages": total_pages - len(outline.slides),
             "url": "/static/gen/" + target.name, "provider": "native_pptx", "model": active_llm_label()}

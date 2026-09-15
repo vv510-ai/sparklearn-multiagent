@@ -308,6 +308,7 @@ def test_review_ppt_is_an_explicit_source_bound_async_resource(monkeypatch):
 
     async def fake_ppt_create(query: str, **kwargs):
         captured["query"] = query
+        captured["citations"] = kwargs["citations"]
         return {
             "ok": True,
             "data": {
@@ -333,6 +334,8 @@ def test_review_ppt_is_an_explicit_source_bound_async_resource(monkeypatch):
     assert resource["payload"]["explicit_only"] is True
     assert resource["payload"]["source_bound"] is True
     assert resource["payload"]["ppt"]["task_id"] == "ppt-task-123"
+    assert captured["citations"][0]["index"] == 1
+    assert captured["citations"][0]["source"] == _chunk()["source"]
     assert "不联网搜索" in captured["query"]
     assert "二叉树每个节点最多有两个孩子" in captured["query"]
 

@@ -2,7 +2,7 @@
   "as_of": "2026-09-15",
   "baseline_commit": "258b852",
   "baseline_backend_tests": 239,
-  "backend_tests": 282,
+  "backend_tests": 283,
   "frontend_build": "passed",
   "browser_scenarios": 4,
   "real_model_generation": "pending_external_access",
