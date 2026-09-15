@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./learning-upgrade.css";
 
 export const metadata: Metadata = {
   title: "SparkLearn 星火学伴 · 学习的左膀右臂",

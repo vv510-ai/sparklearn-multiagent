@@ -35,6 +35,8 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await page.getByRole("button", { name: /暂时没有/ }).click();
     await page.getByRole("button", { name: "保存并开始学习" }).click();
 
+    await expect(page.getByRole("heading", { name: "起点测评与学习计划" })).toBeVisible();
+    await page.getByRole("button", { name: "返回对话", exact: true }).click();
     await expect(page.getByRole("heading", { name: "学习对话" })).toBeVisible();
     await expect(page.getByPlaceholder("你今天想学什么知识？")).toBeVisible();
   });

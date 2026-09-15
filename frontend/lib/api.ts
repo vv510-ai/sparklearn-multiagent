@@ -98,8 +98,9 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   if (!res.ok) {
     let detail = text || `HTTP ${res.status}`;
     try {
-      const data = JSON.parse(text) as { detail?: string };
-      detail = data.detail || detail;
+      const data = JSON.parse(text) as { detail?: unknown };
+      if (typeof data.detail === "string") detail = data.detail;
+      else if (Array.isArray(data.detail)) detail = data.detail.map((item: { msg?: string }) => item.msg || "请检查填写的内容").join("；");
     } catch {
       /* keep raw response text */
     }

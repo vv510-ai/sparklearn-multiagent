@@ -35,6 +35,7 @@ _initialized_engine = None
 _init_lock = Lock()
 
 TENANT_TABLES = (
+    "assessment_sessions",
     "profiles",
     "notebooks",
     "resources",

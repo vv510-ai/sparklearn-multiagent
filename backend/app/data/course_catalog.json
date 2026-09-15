@@ -1,0 +1,15 @@
+[
+  {
+    "id": "wangdao-data-structures", "title": "王道计算机考研 数据结构", "author": "王道计算机教育", "bvid": "BV1b7411N798",
+    "kps": ["complexity", "array", "linked_list", "stack", "queue", "recursion", "sorting_basic", "sorting_adv", "binary_tree", "bst", "heap", "hash", "graph_basic", "graph_traverse", "shortest_path"],
+    "format": "课程合集", "note": "从课程目录选择对应章节。发布者说明：免费公开部分为旧版考点讲解；请对照当前课程要求。", "verified_at": "2026-09-15"
+  },
+  {
+    "id": "canoe-complexity", "title": "【考研408】算法时间复杂度 · 王道例题配套讲解", "author": "Canoe_Version2", "bvid": "BV1Lm4y1s7Uk",
+    "kps": ["complexity"], "format": "专题例题", "note": "适合在理解概念后跟进复杂度例题。先尝试独立计算，再观看讲解核对。", "verified_at": "2026-09-15"
+  },
+  {
+    "id": "xianyu-data-structures", "title": "2024、25王道408数据结构自制版（重点讲解＋课后习题）", "author": "仅仅是一条咸鱼", "bvid": "BV13T411d7Sf",
+    "kps": ["complexity"], "format": "个人讲解", "note": "已核验目录含时间与空间复杂度。个人讲解可作补充，先试听并核对教材。", "verified_at": "2026-09-15"
+  }
+]

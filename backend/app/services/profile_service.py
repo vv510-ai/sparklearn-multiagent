@@ -43,13 +43,6 @@ _ONBOARDING_TOPICS = {
     "动态规划": ["recursion", "dp"],
     "还没想好": [],
 }
-_LEVEL_MASTERY = {
-    "刚开始接触": 0.18,
-    "学过一些概念": 0.36,
-    "能做基础题": 0.58,
-    "能独立解决综合题": 0.68,
-    "不确定": 0.30,
-}
 _STYLE_TO_PROFILE = {
     "图示和例子": ("视觉型", {"video": 0.34, "mindmap": 0.30, "doc": 0.18, "quiz": 0.10, "code": 0.08}),
     "讲解和文字": ("语言型", {"doc": 0.38, "video": 0.20, "mindmap": 0.18, "quiz": 0.14, "code": 0.10}),
@@ -73,7 +66,7 @@ def default_profile() -> dict:
         "current_level": "",
         "materials_status": "",
         "onboarding_completed": False,
-        "evidence": "冷启动默认画像(8-10 题诊断问卷或首次对话后更新)",
+        "evidence": "尚未测评；掌握度数值是系统初始先验，不是测得的成绩。请完成起点测评并通过后续独立作答更新。",
     }
 
 
@@ -286,10 +279,8 @@ def merge_profile(user_id: str, patch: dict[str, Any]) -> dict:
 def onboarding_patch(answers: dict[str, Any] | None) -> dict[str, Any]:
     """Turn the short first-use questionnaire into a durable profile patch.
 
-    This is deliberately deterministic: an answer changes the starting
-    mastery, focus knowledge points, resource preference, and pace before the
-    first chat or quiz is created. Skipping is valid and still marks the
-    onboarding as completed with the safe cold-start defaults.
+    Self-report sets goals, presentation preferences and available time only.
+    It must never overwrite evidence from independent course questions.
     """
     raw = answers if isinstance(answers, dict) else {}
     topic = str(raw.get("topic") or "还没想好").strip()
@@ -298,19 +289,13 @@ def onboarding_patch(answers: dict[str, Any] | None) -> dict[str, Any]:
     level = str(raw.get("current_level") or "不确定").strip()
     if level not in _CURRENT_LEVELS:
         level = "不确定"
-    base = _LEVEL_MASTERY[level]
     focus_kps = list(_ONBOARDING_TOPICS[topic])
-    mastery = {kp: round(base, 4) for kp in all_kp_ids()}
-    # A learner's stated topic gets a small, explainable head start. The
-    # value remains below the done threshold so the first task is real.
-    for kp in focus_kps:
-        mastery[kp] = round(min(0.72, base + 0.08), 4)
 
     goal = str(raw.get("goal") or "").strip()
     if goal not in _GOALS:
         goal = ""
     style_label = str(raw.get("style") or "").strip()
-    cognitive_style, resource_pref = _STYLE_TO_PROFILE.get(
+    _, resource_pref = _STYLE_TO_PROFILE.get(
         style_label,
         ("未知", {"doc": 0.2, "video": 0.2, "quiz": 0.2, "mindmap": 0.2, "code": 0.2}),
     )
@@ -329,7 +314,6 @@ def onboarding_patch(answers: dict[str, Any] | None) -> dict[str, Any]:
         materials_status = ""
     difficulty = "挑战式" if level == "能独立解决综合题" else "循序渐进"
     patch: dict[str, Any] = {
-        "knowledge_mastery": mastery,
         "focus_kps": focus_kps,
         "learning_topic": topic,
         "current_level": level,
@@ -339,15 +323,12 @@ def onboarding_patch(answers: dict[str, Any] | None) -> dict[str, Any]:
             "weekly_minutes": weekly_minutes,
             "daily_minutes": daily_minutes,
             "frequency": frequency,
-            "focus": "高" if daily_minutes >= 30 else "中",
         },
         "onboarding_completed": True,
-        "evidence": "注册后的首次学习引导答案",
+        "evidence": "学习引导自述仅用于目标、时间与资料偏好；知识水平以独立作答为依据。",
     }
     if goal:
         patch["goal"] = goal
-    if cognitive_style != "未知":
-        patch["cognitive_style"] = cognitive_style
     if materials_status:
         patch["materials_status"] = materials_status
     return patch

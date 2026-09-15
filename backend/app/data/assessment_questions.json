@@ -1,0 +1,762 @@
+[
+  {
+    "id": "entry-array-1",
+    "type": "single",
+    "kp": "array",
+    "difficulty": 1,
+    "stem": "固定长度数组通过下标读取一个元素，通常需要多少次与数组长度有关的扫描？",
+    "options": [
+      "扫描所有元素",
+      "无需逐个扫描，可按地址计算定位",
+      "扫描一半元素",
+      "先排序再访问"
+    ],
+    "answer": "B",
+    "explain": "连续存储加上固定大小元素，允许根据基址与下标直接计算地址。",
+    "error_tags": [
+      "随机访问"
+    ]
+  },
+  {
+    "id": "entry-array-2",
+    "type": "single",
+    "kp": "array",
+    "difficulty": 3,
+    "stem": "长度为 n 的顺序表在最前面插入一个元素，空间已足够且要保持原有顺序。最坏需要移动多少个原元素？",
+    "options": [
+      "0 个",
+      "1 个",
+      "n 个",
+      "log n 个"
+    ],
+    "answer": "C",
+    "explain": "从后向前把全部 n 个原元素移动一位，给新元素腾出首位置。",
+    "error_tags": [
+      "插入代价"
+    ]
+  },
+  {
+    "id": "entry-linked-1",
+    "type": "single",
+    "kp": "linked_list",
+    "difficulty": 1,
+    "stem": "单链表节点通常保存哪两部分信息？",
+    "options": [
+      "数据与后继链接",
+      "数据与整张数组",
+      "根节点与树高",
+      "哈希值与堆顶"
+    ],
+    "answer": "A",
+    "explain": "数据域保存值，链接域指向后继节点。",
+    "error_tags": [
+      "节点结构"
+    ]
+  },
+  {
+    "id": "entry-stack-1",
+    "type": "single",
+    "kp": "stack",
+    "difficulty": 1,
+    "stem": "空栈依次压入 A、B、C，再弹出一个元素。弹出的是？",
+    "options": [
+      "A",
+      "B",
+      "C",
+      "不能确定"
+    ],
+    "answer": "C",
+    "explain": "栈是后进先出，最后压入的 C 首先弹出。",
+    "error_tags": [
+      "LIFO"
+    ]
+  },
+  {
+    "id": "entry-stack-2",
+    "type": "single",
+    "kp": "stack",
+    "difficulty": 3,
+    "stem": "检查字符串 ([)] 的括号匹配，遇到第一个右圆括号 ) 时，栈顶是 [。此时应该怎样处理？",
+    "options": [
+      "弹出 [ 并继续，最终必匹配",
+      "确认不匹配，不能跨过栈顶去匹配 ("
+    ],
+    "answer": "B",
+    "explain": "右括号必须与最近未闭合的左括号类型一致；括号不能交叉闭合。",
+    "error_tags": [
+      "括号嵌套"
+    ]
+  },
+  {
+    "id": "entry-queue-1",
+    "type": "single",
+    "kp": "queue",
+    "difficulty": 1,
+    "stem": "队列依次进入 A、B、C，再出队一个元素。取出的是？",
+    "options": [
+      "C",
+      "B",
+      "A",
+      "随机一个"
+    ],
+    "answer": "C",
+    "explain": "普通队列先进先出，A 最先进入也最先取出。",
+    "error_tags": [
+      "FIFO"
+    ]
+  },
+  {
+    "id": "entry-queue-2",
+    "type": "single",
+    "kp": "queue",
+    "difficulty": 2,
+    "stem": "容量为 8 的循环队列牺牲一个存储单元区分空满。最多可保存多少个元素？",
+    "options": [
+      "6",
+      "7",
+      "8",
+      "9"
+    ],
+    "answer": "B",
+    "explain": "牺牲一个单元，所以实际可用容量是 8−1=7。",
+    "error_tags": [
+      "循环队列容量"
+    ]
+  },
+  {
+    "id": "entry-queue-3",
+    "type": "single",
+    "kp": "queue",
+    "difficulty": 3,
+    "stem": "循环队列容量 n=8，约定 front 指向队头、rear 指向下一可插入位置，牺牲一个单元。front=3、rear=2 时状态是？",
+    "options": [
+      "空",
+      "满",
+      "恰好一个元素",
+      "状态非法"
+    ],
+    "answer": "B",
+    "explain": "(rear+1)%8=3=front，满足判满条件；有 7 个元素。",
+    "error_tags": [
+      "循环边界"
+    ]
+  },
+  {
+    "id": "entry-recursion-1",
+    "type": "single",
+    "kp": "recursion",
+    "difficulty": 1,
+    "stem": "一个递归函数在什么条件下才能可靠地结束？",
+    "options": [
+      "只要函数名与调用名相同",
+      "具有可到达的终止条件，且每次调用朝它推进",
+      "至少写两个递归分支",
+      "使用全局变量"
+    ],
+    "answer": "B",
+    "explain": "必须存在基础情形，同时递归调用要在某个良基度量上推进，避免无限递归。",
+    "error_tags": [
+      "递归终止"
+    ]
+  },
+  {
+    "id": "entry-sorting-1",
+    "type": "single",
+    "kp": "sorting_basic",
+    "difficulty": 1,
+    "stem": "排序后，相等关键字的记录仍保持原来的相对顺序，这种性质叫？",
+    "options": [
+      "稳定性",
+      "原地性",
+      "随机性",
+      "稀疏性"
+    ],
+    "answer": "A",
+    "explain": "稳定排序保留相等关键字记录的原相对次序。",
+    "error_tags": [
+      "稳定性"
+    ]
+  },
+  {
+    "id": "entry-sorting-2",
+    "type": "single",
+    "kp": "sorting_basic",
+    "difficulty": 3,
+    "stem": "使用普通选择排序，每轮从未排序部分找最小值。即使数组已经有序，比较次数仍是什么数量级？",
+    "options": [
+      "常数级",
+      "对数级",
+      "线性级",
+      "平方级"
+    ],
+    "answer": "D",
+    "explain": "每轮仍要扫描剩余元素，比较次数约为 n(n−1)/2。",
+    "error_tags": [
+      "最好情况"
+    ]
+  },
+  {
+    "id": "entry-hash-1",
+    "type": "single",
+    "kp": "hash",
+    "difficulty": 1,
+    "stem": "两个不同的键被哈希函数映射到同一个桶，称为？",
+    "options": [
+      "递归",
+      "碰撞",
+      "排序",
+      "遍历"
+    ],
+    "answer": "B",
+    "explain": "不同键映射到同一位置是哈希碰撞，需要链地址或开放地址等方法处理。",
+    "error_tags": [
+      "哈希碰撞"
+    ]
+  },
+  {
+    "id": "entry-shortest-1",
+    "type": "single",
+    "kp": "shortest_path",
+    "difficulty": 1,
+    "stem": "图中每条边的代价都相同，寻找从起点到各点的最少边数路径，优先使用哪种方法？",
+    "options": [
+      "普通 DFS 就一定最短",
+      "按层扩展的 BFS",
+      "堆排序",
+      "顺序查找"
+    ],
+    "answer": "B",
+    "explain": "BFS 按距离起点的边数逐层扩展，首次到达给出最少边数。",
+    "error_tags": [
+      "无权最短路"
+    ]
+  },
+  {
+    "id": "entry-shortest-2",
+    "type": "single",
+    "kp": "shortest_path",
+    "difficulty": 3,
+    "stem": "一个有向图存在起点可达的负权环，且从该环能够到达终点。允许重复走边时，这个起点到终点的最短路如何？",
+    "options": [
+      "一定是简单路径",
+      "一定为 0",
+      "不存在有限的最小值",
+      "仍可直接用标准 Dijkstra 求解"
+    ],
+    "answer": "C",
+    "explain": "负权环可以反复经过，使路径代价无限减小，无法取得有限最小值。",
+    "error_tags": [
+      "负环边界"
+    ]
+  },
+  {
+    "id": "entry-dp-1",
+    "type": "single",
+    "kp": "dp",
+    "difficulty": 1,
+    "stem": "记忆化递归保存已经求解的子问题结果，主要避免什么？",
+    "options": [
+      "输入数据过大",
+      "相同子问题被重复计算",
+      "所有函数调用",
+      "所有额外内存"
+    ],
+    "answer": "B",
+    "explain": "缓存子问题结果，使同一状态不必反复求解；仍可能使用函数调用和额外空间。",
+    "error_tags": [
+      "重叠子问题"
+    ]
+  },
+  {
+    "id": "entry-dp-2",
+    "type": "single",
+    "kp": "dp",
+    "difficulty": 2,
+    "stem": "用动态规划求解问题，定义状态之后，还需要明确哪一组内容？",
+    "options": [
+      "只需绘制流程图",
+      "状态转移、初始条件和计算顺序",
+      "只需选择最快的编程语言",
+      "只需设置随机种子"
+    ],
+    "answer": "B",
+    "explain": "转移定义依赖，初始条件提供起点，计算顺序保证使用的状态已经可用。",
+    "error_tags": [
+      "动态规划要素"
+    ]
+  },
+  {
+    "id": "entry-dp-3",
+    "type": "single",
+    "kp": "dp",
+    "difficulty": 3,
+    "stem": "0-1 背包用一维 dp 更新同一件物品时，容量从大到小遍历，主要为了什么？",
+    "options": [
+      "允许当前物品使用无限次",
+      "让容量自动排序",
+      "避免在同一轮重复使用当前物品",
+      "把时间复杂度变成常数"
+    ],
+    "answer": "C",
+    "explain": "倒序保留尚未更新的上一轮 dp[j-w]；正序可能引用本轮刚更新的值，重复使用当前物品。",
+    "error_tags": [
+      "状态压缩"
+    ]
+  },
+  {
+    "id": "entry-complexity-F1",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 1,
+    "stem": "log₂32 等于多少？",
+    "options": [
+      "4",
+      "6",
+      "5",
+      "16"
+    ],
+    "answer": "C",
+    "explain": "2⁵=32，所以 log₂32=5。",
+    "error_tags": [
+      "对数与求和"
+    ],
+    "facet": "foundations"
+  },
+  {
+    "id": "entry-complexity-F2",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "i=1；当 i≤16 时先执行一次操作，再令 i=2i。操作一共执行几次？",
+    "options": [
+      "4 次",
+      "5 次",
+      "8 次",
+      "16 次"
+    ],
+    "answer": "B",
+    "explain": "操作发生在 i=1、2、4、8、16，共 5 次。",
+    "error_tags": [
+      "对数与求和"
+    ],
+    "facet": "foundations"
+  },
+  {
+    "id": "entry-complexity-F3",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "1+2+…+n 的精确值是哪个？",
+    "options": [
+      "n²",
+      "2n",
+      "n(n−1)/2",
+      "n(n+1)/2"
+    ],
+    "answer": "D",
+    "explain": "首尾配对，每对之和为 n+1，一共相当于 n/2 对，结果 n(n+1)/2。",
+    "error_tags": [
+      "对数与求和"
+    ],
+    "facet": "foundations"
+  },
+  {
+    "id": "entry-complexity-F4",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 3,
+    "stem": "当 n 趋于无穷时，n/log₂n 的变化趋势是什么？",
+    "options": [
+      "趋于无穷",
+      "趋于 0",
+      "趋于 1",
+      "在两个常数间波动"
+    ],
+    "answer": "A",
+    "explain": "线性函数比对数增长更快，因此比值趋于无穷。",
+    "error_tags": [
+      "对数与求和"
+    ],
+    "facet": "foundations"
+  },
+  {
+    "id": "entry-complexity-A1",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 1,
+    "stem": "T(n)=3n²+2n+7 的紧确渐近阶是哪一个？",
+    "options": [
+      "Θ(n)",
+      "Θ(n²)",
+      "Θ(n³)",
+      "Θ(1)"
+    ],
+    "answer": "B",
+    "explain": "二次项在 n 增大时占主导，正的常数系数不改变阶。",
+    "error_tags": [
+      "增长率与渐近界"
+    ],
+    "facet": "asymptotic"
+  },
+  {
+    "id": "entry-complexity-A2",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "T(n)=4n+9。下列哪一个是它的紧确渐近界 Θ？",
+    "options": [
+      "Θ(4)",
+      "Θ(n²)",
+      "Θ(n)",
+      "Θ(log n)"
+    ],
+    "answer": "C",
+    "explain": "上下界都可由 n 的常数倍夹住，故为 Θ(n)。",
+    "error_tags": [
+      "增长率与渐近界"
+    ],
+    "facet": "asymptotic"
+  },
+  {
+    "id": "entry-complexity-A3",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "两个算法的操作数分别为 n²/100 与 100n。只依据这两个式子，哪项判断正确？",
+    "options": [
+      "第一个对所有 n 都更少",
+      "第二个对所有 n 都更少",
+      "常数可忽略，所以任何 n 下都不能比较",
+      "n 足够大时，第一个操作数更多"
+    ],
+    "answer": "D",
+    "explain": "两者的比值为 n/10000，n>10000 后第一个更大；有限规模仍受常数影响。",
+    "error_tags": [
+      "增长率与渐近界"
+    ],
+    "facet": "asymptotic"
+  },
+  {
+    "id": "entry-complexity-A4",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 3,
+    "stem": "已知 T(n)=Θ(n)，以下说法正确的是哪一项？",
+    "options": [
+      "T(n) 不可能属于 O(n²)",
+      "T(n) 也属于 O(n²)，但不属于 Θ(n²)",
+      "T(n) 必须等于 n",
+      "T(n) 属于 Θ(log n)"
+    ],
+    "answer": "B",
+    "explain": "O 是上界：线性增长当然可被二次函数的常数倍在足够大时界定，但紧确阶仍为 n。",
+    "error_tags": [
+      "增长率与渐近界"
+    ],
+    "facet": "asymptotic"
+  },
+  {
+    "id": "entry-complexity-L1",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 1,
+    "stem": "for(i=0; i<n; i++) 每次执行常数成本操作，紧确时间复杂度是什么？",
+    "options": [
+      "Θ(n)",
+      "Θ(log n)",
+      "Θ(n²)",
+      "Θ(1)"
+    ],
+    "answer": "A",
+    "explain": "循环恰好执行 n 次，每次成本固定，所以为 Θ(n)。",
+    "error_tags": [
+      "单循环与顺序结构"
+    ],
+    "facet": "loops"
+  },
+  {
+    "id": "entry-complexity-L2",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "x=n；while(x>1) { x=floor(x/2); }。紧确时间复杂度是什么？",
+    "options": [
+      "Θ(n)",
+      "Θ(n²)",
+      "Θ(log n)",
+      "Θ(1)"
+    ],
+    "answer": "C",
+    "explain": "每轮把规模缩减一半，到达 1 需要对数级轮数。",
+    "error_tags": [
+      "单循环与顺序结构"
+    ],
+    "facet": "loops"
+  },
+  {
+    "id": "entry-complexity-L3",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "代码段甲执行 n 次操作，结束后代码段乙执行 n² 次操作。总体紧确时间复杂度是什么？",
+    "options": [
+      "Θ(n³)",
+      "Θ(n log n)",
+      "Θ(log n)",
+      "Θ(n²)"
+    ],
+    "answer": "D",
+    "explain": "顺序执行的成本相加为 n+n²，再取主导项 n²。",
+    "error_tags": [
+      "单循环与顺序结构"
+    ],
+    "facet": "loops"
+  },
+  {
+    "id": "entry-complexity-L4",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 3,
+    "stem": "i=0；while(i<n) { i=i+3; }。n 为正整数，循环次数与紧确阶分别是什么？",
+    "options": [
+      "floor(n/3)，Θ(log n)",
+      "ceil(n/3)，Θ(n)",
+      "n³，Θ(n³)",
+      "3n，Θ(n)"
+    ],
+    "answer": "B",
+    "explain": "每轮增加 3，首次达到或超过 n 需要 ceil(n/3) 轮，常数步长不改变线性阶。",
+    "error_tags": [
+      "单循环与顺序结构"
+    ],
+    "facet": "loops"
+  },
+  {
+    "id": "entry-complexity-N1",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 1,
+    "stem": "外层循环执行 n 次，每次外层迭代内层都重新执行 n 次常数操作。总体紧确阶是什么？",
+    "options": [
+      "Θ(n)",
+      "Θ(2n)",
+      "Θ(log n)",
+      "Θ(n²)"
+    ],
+    "answer": "D",
+    "explain": "内层次数与外层位置无关，共 n×n 次操作。",
+    "error_tags": [
+      "嵌套循环与相关边界"
+    ],
+    "facet": "nested"
+  },
+  {
+    "id": "entry-complexity-N2",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "外层 i 从 1 到 n，内层 j 从 1 到 i，每次内层执行常数操作。总体紧确阶是什么？",
+    "options": [
+      "Θ(n²)",
+      "Θ(n)",
+      "Θ(log n)",
+      "Θ(n³)"
+    ],
+    "answer": "A",
+    "explain": "总操作数是 1+2+…+n=n(n+1)/2，紧确阶为 n²。",
+    "error_tags": [
+      "嵌套循环与相关边界"
+    ],
+    "facet": "nested"
+  },
+  {
+    "id": "entry-complexity-N3",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "外层 i=1，每轮 i*=2，直到 i≥n；每轮外层中内层都执行 n 次常数操作。紧确阶是什么？",
+    "options": [
+      "Θ(n)",
+      "Θ(n log n)",
+      "Θ(n²)",
+      "Θ((log n)²)"
+    ],
+    "answer": "B",
+    "explain": "外层对数级轮数，每一轮内层 n 次，所以乘积为 n log n。",
+    "error_tags": [
+      "嵌套循环与相关边界"
+    ],
+    "facet": "nested"
+  },
+  {
+    "id": "entry-complexity-N4",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 3,
+    "stem": "外层 i 依次取 1、2、4、… 且 i≤n；在每次外层迭代，内层执行 i 次常数操作。紧确阶是什么？",
+    "options": [
+      "Θ(n log n)",
+      "Θ(n²)",
+      "Θ(n)",
+      "Θ(log n)"
+    ],
+    "answer": "C",
+    "explain": "总成本为等比和 1+2+…+2^floor(log₂n)，在 n 的常数倍范围内，为 Θ(n)。",
+    "error_tags": [
+      "嵌套循环与相关边界"
+    ],
+    "facet": "nested"
+  },
+  {
+    "id": "entry-complexity-R1",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 1,
+    "stem": "有序数组二分查找每次只继续搜索一半区间，不复制数组，单次比较为常数成本。最坏时间的紧确阶是什么？",
+    "options": [
+      "Θ(log n)",
+      "Θ(n)",
+      "Θ(n log n)",
+      "Θ(n²)"
+    ],
+    "answer": "A",
+    "explain": "只沿一个分支把规模减半，最多对数级比较。",
+    "error_tags": [
+      "递归时间复杂度"
+    ],
+    "facet": "recurrence"
+  },
+  {
+    "id": "entry-complexity-R2",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "n 为 2 的幂，T(1)=1，T(n)=2T(n/2)+n。紧确阶是什么？",
+    "options": [
+      "Θ(n)",
+      "Θ(log n)",
+      "Θ(n log n)",
+      "Θ(n²)"
+    ],
+    "answer": "C",
+    "explain": "每一层合计线性成本，层数为 log₂n，因此为 Θ(n log n)。",
+    "error_tags": [
+      "递归时间复杂度"
+    ],
+    "facet": "recurrence"
+  },
+  {
+    "id": "entry-complexity-R3",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "T(1)=1，T(n)=T(n−1)+n。紧确阶是什么？",
+    "options": [
+      "Θ(log n)",
+      "Θ(n)",
+      "Θ(n log n)",
+      "Θ(n²)"
+    ],
+    "answer": "D",
+    "explain": "展开后为 1+2+…+n，所以为 Θ(n²)。",
+    "error_tags": [
+      "递归时间复杂度"
+    ],
+    "facet": "recurrence"
+  },
+  {
+    "id": "entry-complexity-R4",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 3,
+    "stem": "n 为 2 的幂，T(1)=1，T(n)=4T(n/2)+n。紧确阶是什么？",
+    "options": [
+      "Θ(n log n)",
+      "Θ(n²)",
+      "Θ(n³)",
+      "Θ(log n)"
+    ],
+    "answer": "B",
+    "explain": "第 k 层总非递归成本 n·2^k，直到 k=log₂n；几何和及 n² 个叶子的成本都是平方级。",
+    "error_tags": [
+      "递归时间复杂度"
+    ],
+    "facet": "recurrence"
+  },
+  {
+    "id": "entry-complexity-S1",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 1,
+    "stem": "算法遍历输入数组，仅新增三个整数变量，不修改或复制输入。辅助空间紧确阶是什么？",
+    "options": [
+      "Θ(n)",
+      "Θ(1)",
+      "Θ(log n)",
+      "Θ(n²)"
+    ],
+    "answer": "B",
+    "explain": "新增变量数量与 n 无关；本题辅助空间不计输入数组自身。",
+    "error_tags": [
+      "辅助空间与递归栈"
+    ],
+    "facet": "space"
+  },
+  {
+    "id": "entry-complexity-S2",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "算法额外创建一个含 n 个固定大小整数的数组，另外只使用常数个变量。辅助空间紧确阶是什么？",
+    "options": [
+      "Θ(1)",
+      "Θ(log n)",
+      "Θ(n²)",
+      "Θ(n)"
+    ],
+    "answer": "D",
+    "explain": "额外数组包含 n 个固定大小元素，辅助空间为线性。",
+    "error_tags": [
+      "辅助空间与递归栈"
+    ],
+    "facet": "space"
+  },
+  {
+    "id": "entry-complexity-S3",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 2,
+    "stem": "f(n) 在返回前调用 f(n−1)，直到 f(1) 返回。每层保存常数个变量，运行环境不做尾调用优化。峰值辅助空间紧确阶是什么？",
+    "options": [
+      "Θ(1)",
+      "Θ(log n)",
+      "Θ(n)",
+      "Θ(n²)"
+    ],
+    "answer": "C",
+    "explain": "最深处同时存在 n 层调用栈，每层常数空间，因此为 Θ(n)。",
+    "error_tags": [
+      "辅助空间与递归栈"
+    ],
+    "facet": "space"
+  },
+  {
+    "id": "entry-complexity-S4",
+    "type": "single",
+    "kp": "complexity",
+    "difficulty": 3,
+    "stem": "分治函数依次调用两个规模 n/2 的子问题；第一个完全返回后才调用第二个。每层只新增常数变量，不复制输入、不保存子问题数组。峰值辅助空间紧确阶是什么？",
+    "options": [
+      "Θ(log n)",
+      "Θ(n)",
+      "Θ(n log n)",
+      "Θ(n²)"
+    ],
+    "answer": "A",
+    "explain": "同时存活的是一条深度为 log₂n 的调用链；两个分支按顺序执行，不同时保留整棵递归树。",
+    "error_tags": [
+      "辅助空间与递归栈"
+    ],
+    "facet": "space"
+  }
+]

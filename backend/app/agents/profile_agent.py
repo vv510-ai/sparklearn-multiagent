@@ -101,8 +101,9 @@ async def run(state: dict) -> dict:
                         {"version": profile.get("_version")})
         return {"student_profile": profile}
 
-    dialog = "\n".join(f"{m.get('role')}: {m.get('content','')}"
-                       for m in (state.get("messages") or [])[-6:]) or "(无新对话)"
+    # Tutor suggestions are not the student's own preferences or difficulties.
+    dialog = "\n".join(f"user: {m.get('content','')}"
+                       for m in (state.get("messages") or [])[-6:] if m.get("role") == "user") or "(无新对话)"
     events = recent_events(user_id, limit=12)
     patch = _gate_profile_patch(_local_profile_patch(dialog), dialog, events)
 

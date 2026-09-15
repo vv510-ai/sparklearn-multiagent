@@ -10,6 +10,8 @@ import {
   Plus,
   Route,
   ShieldCheck,
+  Contrast,
+  Target,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -24,13 +26,15 @@ import MistakeBook from "@/components/profile/MistakeBook";
 import ProfileRadar from "@/components/profile/ProfileRadar";
 import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
+import AssessmentPanel from "@/components/assessment/AssessmentPanel";
+import CourseRecommendations from "@/components/courses/CourseRecommendations";
 import OnboardingGate, { type OnboardingAnswers, type QuickStartKey } from "@/components/onboarding/OnboardingGate";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
-type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes";
+type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
@@ -331,6 +335,13 @@ export default function Home() {
   const [creatingNotebook, setCreatingNotebook] = useState(false);
   const [createNotebookError, setCreateNotebookError] = useState("");
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
+  const [courseKp, setCourseKp] = useState("");
+  const [reduceTransparency, setReduceTransparency] = useState(false);
+  useEffect(() => { try { setReduceTransparency(localStorage.getItem("sparklearn:reduce-transparency") === "true"); } catch { /* optional preference */ } }, []);
+  const toggleTransparency = () => setReduceTransparency((value) => {
+    try { localStorage.setItem("sparklearn:reduce-transparency", String(!value)); } catch { /* private browsing */ }
+    return !value;
+  });
   const [mobilePane, setMobilePane] = useState<"sources" | "studio" | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [traceDetailsOpen, setTraceDetailsOpen] = useState(false);
@@ -671,12 +682,13 @@ export default function Home() {
       await manageSources();
       return;
     }
-    if (quickStart === "diagnostic") {
-      await startLearning("请先用 3 道小题测一下我在数据结构与算法上的当前水平，再告诉我下一步该学什么。");
+    if (quickStart === "diagnostic" || (!quickStart && !skipped)) {
+      enterCourseWorkspace();
+      setActivePanel("assessment");
       return;
     }
     if (quickStart === "example") {
-      await startLearning("为什么二叉树的中序遍历可以得到有序序列？请用一个小例子带我理解。");
+      await startLearning("为什么二叉搜索树的中序遍历可以得到有序序列？请用一个小例子带我理解，并说明普通二叉树是否也满足这个性质。");
       return;
     }
     await startLearning(quickStart === "recommended" || !skipped ? firstTaskPrompt(result.path || null) : "请先带我快速了解数据结构与算法，并给我一个适合当前水平的第一步。" );
@@ -837,12 +849,13 @@ export default function Home() {
     });
   };
 
-  const openPanel = (panel: "profile" | "path" | "resources" | "mistakes") => {
+  const openPanel = (panel: Exclude<PanelKey, "chat">) => {
     setActivePanel(panel);
     setMobilePane(null);
     if (panel === "profile") void loadProfile();
     if (panel === "path") void loadPath();
     if (panel === "resources") void loadResources();
+    if (panel === "courses") setCourseKp("");
   };
 
   const refreshAfterEvaluation = useCallback((report?: EvalReportSummary) => {
@@ -979,9 +992,10 @@ export default function Home() {
     />
   );
   const studioPanel = <StudioPanel onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
+  const profilePace = asRecord(profile?.pace);
 
   return (
-    <main className="notebook-app notebook-app-enter flex h-dvh flex-col overflow-hidden text-[#1D2028]">
+    <main data-transparency={reduceTransparency ? "reduced" : "standard"} className="notebook-app notebook-app-enter flex h-dvh flex-col overflow-hidden text-[#1D2028]">
       <input
         ref={sourceInputRef}
         type="file"
@@ -1007,6 +1021,8 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden sm:inline">测评与计划</span></button>
+          <button onClick={toggleTransparency} className="notebook-icon-button" aria-label="减少透明效果" aria-pressed={reduceTransparency} title="减少透明效果"><Contrast size={17} /></button>
           <button onClick={() => setMobilePane("sources")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
           <button onClick={() => setMobilePane("studio")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
@@ -1069,13 +1085,16 @@ export default function Home() {
             />
           </div>
 
+          {activePanel === "assessment" && <AssessmentPanel initialSurvey={{ daily_minutes: Math.max(8, Math.min(180, Number(profilePace?.daily_minutes) || 30)), goal: ({ "应试": "准备课程考试", "竞赛": "竞赛与算法练习", "工程实践": "编程项目应用", "兴趣": "兴趣理解" } as Record<string, string>)[String(profile?.goal)] || "掌握课程基础", study_days: profilePace?.frequency === "每天" ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5] }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
+          {activePanel === "courses" && <CourseRecommendations initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
           {activePanel === "profile" && (
             <div className="notebook-content-scroll">
               <div className="notebook-content-heading">
-                <div><span>LEARNING PROFILE</span><h1>我的学习情况</h1><p>每次真实作答都会更新掌握度与错因。</p></div>
+                <div><span>LEARNING PROFILE</span><h1>我的学习情况</h1><p>每次独立作答积累证据；初始先验不代表实际成绩。</p></div>
                 <div className="flex items-center gap-2"><button onClick={() => { setOnboardingRequired(true); setEntered(false); setOnboardingLoading(false); }} className="secondary-action">调整学习起点</button><button onClick={() => void loadProfile()} className="secondary-action">刷新</button></div>
               </div>
               <div className="px-5 pt-5">
+                <button className="entry-profile-cta" onClick={() => openPanel("assessment")}><Target size={20} /><span><strong>查看起点测评与两周计划</strong><small>真实题目、逐题解析、按时间安排的学习任务</small></span><ArrowRight size={18} /></button>
                 <ReviewQueue onEvaluated={refreshAfterEvaluation} />
               </div>
               <div className="px-5 pt-4">

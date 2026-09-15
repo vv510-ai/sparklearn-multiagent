@@ -154,7 +154,7 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
         </div>
       </div>
       <div className="mt-2">
-        <Row k="认知风格" v={asText(profile.cognitive_style)} />
+        <Row k="讲解偏好" v={({ "视觉型": "偏好图示（自述）", "语言型": "偏好文字（自述）", "动手型": "偏好操作（自述）" } as Record<string, string>)[asText(profile.cognitive_style)] || "尚未记录"} />
         <Row k="学习目标" v={asText(profile.goal)} />
         <Row k="学习节奏" v={asText(profile.pace, "常规节奏")} />
         <Row k="难度偏好" v={asText(profile.difficulty_pref, "循序渐进")} />

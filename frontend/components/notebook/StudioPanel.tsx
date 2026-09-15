@@ -18,9 +18,10 @@ import {
   Sparkles,
   Star,
   Table2,
+  Target,
 } from "lucide-react";
 
-type StudioPanelKey = "profile" | "path" | "resources" | "mistakes";
+type StudioPanelKey = "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
 
 const GENERATORS = [
   {
@@ -153,6 +154,11 @@ export default function StudioPanel({
       </div>
 
       <div className="studio-panel-body min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="studio-learning-start">
+          <button type="button" disabled={disabled} onClick={() => onOpen("assessment")}><span><Target size={20} /></span><span><strong>起点测评与计划</strong><small>找到起点，安排下一步</small></span><ChevronRight size={16} /></button>
+          <button type="button" disabled={disabled} onClick={() => onOpen("courses")}><span><PlaySquare size={20} /></span><span><strong>推荐网课</strong><small>按知识点找课，先预览</small></span><ChevronRight size={16} /></button>
+        </div>
+        <div className="studio-divider"><span>学习工具</span></div>
         <div className="grid grid-cols-2 gap-2">
           {GENERATORS.map((tool) => {
             const Icon = tool.icon;

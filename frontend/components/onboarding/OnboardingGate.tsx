@@ -33,7 +33,7 @@ const HERO_TAIL = Array.from("的乐趣");
 
 const STEPS = [
   { key: "topic", label: "学习方向", title: "你现在最想学什么？", hint: "选一个最接近的方向，之后还可以修改。" },
-  { key: "current_level", label: "当前基础", title: "你大概学到哪一步了？", hint: "不用考试，凭感觉选就好。" },
+  { key: "current_level", label: "当前基础", title: "你大概学到哪一步了？", hint: "先记录你的感受，接下来用题目确认起点。" },
   { key: "goal", label: "学习目的", title: "这段时间最想得到什么？", hint: "目标会影响推荐的顺序和练习。" },
   { key: "weekly_minutes", label: "投入时间", title: "每周大概能留出多少时间？", hint: "我们会把任务拆成能完成的小段。" },
   { key: "style", label: "讲解方式", title: "你更喜欢怎样学？", hint: "选你愿意坚持的方式，不是能力测试。" },
@@ -63,9 +63,9 @@ const OPTIONS: Record<string, { value: string; label: string; note: string }[]> 
   ],
   weekly_minutes: [
     { value: "60", label: "每周 1 小时", note: "每天约 8 分钟" },
-    { value: "140", label: "每周 2 小时", note: "每天约 20 分钟" },
-    { value: "210", label: "每周 3 小时", note: "每天约 30 分钟" },
-    { value: "420", label: "每周 6 小时以上", note: "适合连续推进" },
+    { value: "120", label: "每周 2 小时", note: "每天约 17 分钟" },
+    { value: "180", label: "每周 3 小时", note: "每天约 26 分钟" },
+    { value: "360", label: "每周 6 小时", note: "适合连续推进" },
   ],
   style: [
     { value: "图示和例子", label: "图示和例子", note: "先看清楚，再记住" },

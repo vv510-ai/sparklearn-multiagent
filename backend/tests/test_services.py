@@ -213,8 +213,12 @@ def test_onboarding_answers_change_starting_path():
     experienced_path = plan_path(experienced, generated_by="onboarding")
     assert beginner["onboarding_completed"] is True
     assert beginner["focus_kps"] == ["binary_tree", "bst", "graph_basic", "graph_traverse"]
-    assert beginner["knowledge_mastery"]["binary_tree"] < experienced["knowledge_mastery"]["binary_tree"]
-    assert beginner_path["next_kp"] != experienced_path["next_kp"]
+    assert "knowledge_mastery" not in beginner and "knowledge_mastery" not in experienced
+    assert "cognitive_style" not in beginner and "focus" not in beginner["pace"]
+    assert beginner["resource_pref"] != experienced["resource_pref"]
+    assert beginner["pace"]["weekly_minutes"] == 60
+    assert experienced["pace"]["weekly_minutes"] == 420
+    assert beginner_path["nodes"] and experienced_path["nodes"]
 
 
 def test_extra_sources_ingest_and_citation():
