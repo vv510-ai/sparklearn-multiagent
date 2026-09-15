@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { completeIntake } from "./intake-helpers";
 
 test("学生能注册、获得学伴回答并重新登录", async ({ page }) => {
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -18,23 +19,12 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await page.getByPlaceholder("至少 8 位").fill(password);
     await page.getByRole("button", { name: "创建账户" }).click();
 
-    await expect(page.getByRole("heading", { name: "你现在最想学什么？" })).toBeVisible();
-    await expect(page.getByText("WELCOME TO YOUR LEARNING SPACE", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "先找到适合你的第一步" })).toBeVisible();
     await expect(page.getByText(learnerName, { exact: true })).toBeVisible();
   });
 
   await test.step("回答短引导并获得个性化第一步", async () => {
-    const choose = async (name: RegExp) => {
-      await page.getByRole("button", { name }).click();
-      await page.getByRole("button", { name: "下一题" }).click();
-    };
-    await choose(/树与图.*二叉树/);
-    await choose(/能做基础题/);
-    await choose(/竞赛 \/ 刷题/);
-    await choose(/每周 3 小时/);
-    await choose(/先做题再讲解/);
-    await page.getByRole("button", { name: /暂时没有/ }).click();
-    await page.getByRole("button", { name: "保存并开始学习" }).click();
+    await completeIntake(page);
 
     await expect(page.getByRole("heading", { name: "起点测评与学习计划" })).toBeVisible();
     await page.getByRole("button", { name: "返回对话", exact: true }).click();

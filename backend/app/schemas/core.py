@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
+from .study import StudySurvey
 
 
 class ChatRequest(BaseModel):
@@ -143,3 +144,4 @@ class OnboardingRequest(BaseModel):
     style: str = Field(default="", max_length=40)
     materials_status: str = Field(default="", max_length=20)
     skipped: bool = False
+    survey: StudySurvey | None = None

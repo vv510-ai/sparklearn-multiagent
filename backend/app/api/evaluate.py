@@ -181,6 +181,7 @@ async def submit(req: EvalSubmit):
             error_tags.append(misconception)
         kp = canonical_kp_id(q.get("kp") or req.kp)
         enriched.append({"question_id": a.question_id,
+                         "stem": q.get("stem", ""),
                          "kp": kp or "",
                          "correct": correct,
                          "mastery_correct": mastery_correct,
@@ -497,6 +498,7 @@ async def retest(req: EvalRetestRequest):
         kp = canonical_kp_id(question.get("kp") or attempt.kp)
         enriched.append({
             "question_id": answer.question_id,
+            "stem": question.get("stem", ""),
             "kp": kp or "",
             "correct": correct,
             "mastery_correct": correct,
@@ -616,6 +618,7 @@ async def practice_mistake(item_id: int, req: MistakePracticeRequest):
         "review_item_id": item_id,
         "quiz_resource_id": resource_id,
         "question_id": question_id,
+        "stem": question.get("stem", ""),
         "kp": kp or "",
         "correct": correct,
         "mastery_correct": correct,
@@ -695,6 +698,7 @@ async def submit_review(req: EvalReviewRequest):
             "review_item_id": row["id"],
             "quiz_resource_id": resource_id,
             "question_id": row["question_id"],
+            "stem": question.get("stem", ""),
             "kp": kp or "",
             "correct": correct,
             "mastery_correct": correct,

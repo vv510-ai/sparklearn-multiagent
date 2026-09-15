@@ -21,255 +21,9 @@ import {
   type StudyTask,
 } from "@/lib/assessment";
 
-const DEFAULT_SURVEY: StudySurvey = {
-  daily_minutes: 30,
-  study_days: [1, 2, 3, 4, 5],
-  goal: "掌握课程基础",
-  stage: "大学课程",
-  prior_experience: "不确定",
-  pressure: "skip",
-  study_habit: "skip",
-  support: "",
-  target_date: null,
-};
-const WEEK = ["一", "二", "三", "四", "五", "六", "日"];
+import LearningIntake, { DEFAULT_SURVEY } from "@/components/onboarding/LearningIntake";
 
-function SurveyForm({
-  initial,
-  busy,
-  isReplan,
-  onSubmit,
-  onCancel,
-}: {
-  initial: StudySurvey;
-  busy: boolean;
-  isReplan: boolean;
-  onSubmit: (survey: StudySurvey, mode: Assessment["mode"]) => void;
-  onCancel: () => void;
-}) {
-  const [survey, setSurvey] = useState(initial);
-  const [mode, setMode] = useState<Assessment["mode"]>("comprehensive");
-  const set = <K extends keyof StudySurvey>(key: K, value: StudySurvey[K]) =>
-    setSurvey((s) => ({ ...s, [key]: value }));
-  return (
-    <form
-      className="entry-setup"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit(survey, mode);
-      }}
-    >
-      <div className="entry-intro">
-        <span className="entry-symbol">
-          <Target size={26} />
-        </span>
-        <p className="entry-eyebrow">YOUR STARTING POINT</p>
-        <h2>{isReplan ? "让计划适合现在的你" : "先找到起点，再往前走"}</h2>
-        <p>
-          当前课程：数据结构与算法。
-          {isReplan
-            ? "调整时间后，根据已有作答重新安排未来两周。"
-            : "先了解你的安排，再用真实题目检查基础、应用和常见混淆。可以分几次完成。"}
-        </p>
-      </div>
-      {!isReplan && (
-        <fieldset className="entry-modes">
-          <legend>选择摸底范围</legend>
-          <label className={mode === "comprehensive" ? "is-selected" : ""}>
-            <input
-              type="radio"
-              name="assessment-mode"
-              checked={mode === "comprehensive"}
-              onChange={() => setMode("comprehensive")}
-            />
-            <span>
-              <strong>课程全面摸底</strong>
-              <small>16 个知识点 · 最多 48 题 · 约 25–40 分钟</small>
-            </span>
-          </label>
-          <label className={mode === "foundation" ? "is-selected" : ""}>
-            <input
-              type="radio"
-              name="assessment-mode"
-              checked={mode === "foundation"}
-              onChange={() => setMode("foundation")}
-            />
-            <span>
-              <strong>先检查入门基础</strong>
-              <small>6 个知识点 · 通常 18 题 · 约 10–15 分钟</small>
-            </span>
-          </label>
-        </fieldset>
-      )}
-      <div className="entry-fields">
-        <label>
-          这阶段的目标
-          <select
-            value={survey.goal}
-            onChange={(e) => set("goal", e.target.value)}
-          >
-            {[
-              "掌握课程基础",
-              "准备课程考试",
-              "考研 408 复习",
-              "竞赛与算法练习",
-              "编程项目应用",
-              "兴趣理解",
-            ].map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          每天可用时间（分钟）
-          <input
-            type="number"
-            min={8}
-            max={180}
-            required
-            value={survey.daily_minutes}
-            onChange={(e) => set("daily_minutes", Number(e.target.value))}
-          />
-        </label>
-        <label>
-          学习阶段
-          <select
-            value={survey.stage}
-            onChange={(e) => set("stage", e.target.value)}
-          >
-            {[
-              "大学课程",
-              "高中提前学习",
-              "考研复习",
-              "工作后自学",
-              "不方便回答",
-            ].map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          目标日期（选填）
-          <input
-            type="date"
-            min={new Intl.DateTimeFormat("en-CA", {
-              timeZone: "Asia/Shanghai",
-            }).format(new Date())}
-            value={survey.target_date || ""}
-            onChange={(e) => set("target_date", e.target.value || null)}
-          />
-          <small>日期前安排不下的内容会保留在待安排清单。</small>
-        </label>
-      </div>
-      <fieldset className="entry-week">
-        <legend>哪些天可以学习？</legend>
-        <div>
-          {WEEK.map((name, i) => (
-            <label
-              key={name}
-              className={survey.study_days.includes(i + 1) ? "is-selected" : ""}
-            >
-              <input
-                type="checkbox"
-                checked={survey.study_days.includes(i + 1)}
-                onChange={(e) =>
-                  set(
-                    "study_days",
-                    e.target.checked
-                      ? [...survey.study_days, i + 1].sort()
-                      : survey.study_days.filter((day) => day !== i + 1),
-                  )
-                }
-              />
-              <span>周{name}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <details className="entry-context" open>
-        <summary>
-          学习经历与支持需求 <span>选填，不计入成绩</span>
-        </summary>
-        <div className="entry-fields">
-          <label>
-            已有学习经历
-            <select
-              value={survey.prior_experience}
-              onChange={(e) => set("prior_experience", e.target.value)}
-            >
-              {[
-                "不确定",
-                "第一次系统学习",
-                "学过概念但做题困难",
-                "能做基础题",
-                "做过综合题或项目",
-                "不方便回答",
-              ].map((v) => (
-                <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            平时主要怎样复习？
-            <select
-              value={survey.study_habit}
-              onChange={(e) =>
-                set("study_habit", e.target.value as StudySurvey["study_habit"])
-              }
-            >
-              <option value="skip">暂不回答</option>
-              <option value="reread">重读、看课、划重点</option>
-              <option value="practice">做题后核对答案</option>
-              <option value="mixed">讲解、回忆与练习交替</option>
-            </select>
-          </label>
-          <label>
-            最近学习的感受
-            <select
-              value={survey.pressure}
-              onChange={(e) =>
-                set("pressure", e.target.value as StudySurvey["pressure"])
-              }
-            >
-              <option value="skip">暂不回答</option>
-              <option value="normal">可以按自己的节奏推进</option>
-              <option value="high">有点吃力，希望任务更小</option>
-            </select>
-          </label>
-          <label>
-            希望怎样帮助你？
-            <input
-              value={survey.support}
-              maxLength={120}
-              onChange={(e) => set("support", e.target.value)}
-              placeholder="例如：步骤写细一些，多解释符号"
-            />
-          </label>
-        </div>
-      </details>
-      <p className="entry-note">
-        自述只调整学习安排与讲解支持。摸底依据独立作答，不限单题用时；这不是智力、性格或心理健康测评。
-      </p>
-      <div className="entry-actions">
-        <button
-          type="button"
-          className="secondary-action"
-          onClick={onCancel}
-          disabled={busy}
-        >
-          稍后再做
-        </button>
-        <button
-          className="primary-action"
-          disabled={busy || !survey.study_days.length}
-        >
-          {busy ? "正在保存…" : isReplan ? "保存并重新安排" : "开始独立作答"}
-          <ArrowRight size={16} />
-        </button>
-      </div>
-    </form>
-  );
-}
+const SurveyForm = LearningIntake;
 
 export default function AssessmentPanel({
   onBack,
@@ -292,6 +46,9 @@ export default function AssessmentPanel({
   const [setup, setSetup] = useState(false);
   const [replan, setReplan] = useState(false);
   const [choice, setChoice] = useState("");
+  const [choices, setChoices] = useState<string[]>([]);
+  const [studyTask, setStudyTask] = useState<StudyTask | null>(null);
+  const studyHeading = useRef<HTMLHeadingElement>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const started = useRef(Date.now());
   const questionHeading = useRef<HTMLHeadingElement>(null);
@@ -319,11 +76,20 @@ export default function AssessmentPanel({
   }, []);
   useEffect(() => {
     setChoice("");
+    setChoices([]);
+    setStudyTask(null);
     setConfidence(null);
     started.current = Date.now();
     questionHeading.current?.focus({ preventScroll: true });
     panel.current?.scrollTo({ top: 0 });
   }, [data?.question?.id, data?.status, setup]);
+  useEffect(() => {
+    const container = panel.current, heading = studyHeading.current;
+    if (studyTask && container && heading) {
+      heading.focus({ preventScroll: true });
+      container.scrollTo({ top: container.scrollTop + heading.getBoundingClientRect().top - container.getBoundingClientRect().top - 76 });
+    }
+  }, [studyTask]);
   const submit = async (status: "answered" | "dont_know" | "skipped") => {
     if (!data?.question || busy) return;
     setBusy(true);
@@ -335,7 +101,8 @@ export default function AssessmentPanel({
           revision: data.revision,
           question_id: data.question.id,
           status,
-          choice: status === "answered" ? choice : null,
+          choice: status === "answered" && data.question.type !== "multiple" ? choice : null,
+          choices: status === "answered" && data.question.type === "multiple" ? choices : [],
           confidence: status === "answered" ? confidence : null,
           elapsed_ms: Math.min(86_400_000, Date.now() - started.current),
         },
@@ -386,9 +153,18 @@ export default function AssessmentPanel({
       setBusy(false);
     }
   };
+  const continueAssessment = async () => {
+    if (!data || busy) return;
+    setBusy(true); setError("");
+    try { setData(await apiPost<Assessment>(`/assessment/${data.id}/extend`, { revision: data.revision })); }
+    catch (e) { setError(e instanceof Error ? e.message : "暂时无法继续，请重试。"); }
+    finally { setBusy(false); }
+  };
   const report = data?.report;
   const plan = data?.plan;
   const allTasks = plan?.days.flatMap((day) => day.tasks) || [];
+  const firstTask = allTasks.find(t => !t.done && t.requires.every(dep => allTasks.some(p => p.id === dep && p.done)));
+  const studyMaterial = data?.materials.find(m => m.kp === studyTask?.kp);
   const exportPlan = () => {
     if (!plan) return;
     downloadMarkdown(
@@ -439,7 +215,7 @@ export default function AssessmentPanel({
           initial={data?.survey || { ...DEFAULT_SURVEY, ...initialSurvey }}
           busy={busy}
           isReplan={replan}
-          onSubmit={(s, m) => void saveSurvey(s, m)}
+          onSubmit={saveSurvey}
           onCancel={() => (data ? setSetup(false) : onBack())}
         />
       ) : data.status === "active" && data.question ? (
@@ -457,30 +233,30 @@ export default function AssessmentPanel({
           />
           <div className="entry-question-card">
             <p className="entry-eyebrow">
-              {data.question.topic} · 第 {data.answered + 1} 题
+              {data.question.topic} · 第 {data.answered + 1} 题 · {data.question.type === "multiple" ? "多选题" : "单选题"}
             </p>
             <h2 tabIndex={-1} ref={questionHeading}>
               {data.question.stem}
             </h2>
             <fieldset className="entry-options" disabled={busy}>
-              <legend className="sr-only">选择一个答案</legend>
+              <legend>{data.question.type === "multiple" ? "选择所有正确选项（多选）" : "选择一个答案"}</legend>
               {data.question.options.map((option, index) => {
                 const key = String.fromCharCode(65 + index);
                 return (
                   <label
                     key={key}
-                    className={choice === key ? "is-selected" : ""}
+                    className={(data.question?.type === "multiple" ? choices.includes(key) : choice === key) ? "is-selected" : ""}
                   >
                     <input
-                      type="radio"
+                      type={data.question?.type === "multiple" ? "checkbox" : "radio"}
                       name="entry-answer"
                       value={key}
-                      checked={choice === key}
-                      onChange={() => setChoice(key)}
+                      checked={data.question?.type === "multiple" ? choices.includes(key) : choice === key}
+                      onChange={() => data.question?.type === "multiple" ? setChoices(v => v.includes(key) ? v.filter(k => k !== key) : [...v, key].sort()) : setChoice(key)}
                     />
                     <b>{key}</b>
                     <span>{option}</span>
-                    {choice === key && <Check size={18} />}
+                    {(data.question?.type === "multiple" ? choices.includes(key) : choice === key) && <Check size={18} />}
                   </label>
                 );
               })}
@@ -518,7 +294,7 @@ export default function AssessmentPanel({
               </button>
               <button
                 className="primary-action"
-                disabled={busy || !choice}
+                disabled={busy || (data.question.type === "multiple" ? !choices.length : !choice)}
                 onClick={() => void submit("answered")}
               >
                 {busy ? "正在保存…" : "提交，继续下一题"}
@@ -550,13 +326,29 @@ export default function AssessmentPanel({
               <p>
                 本次完成 {report.coverage}/{report.total_skills}{" "}
                 个知识点的初步测评。
-                {data.mode === "foundation"
+                {data.mode === "screening" ? "这是起点抽样；其余知识点保留待测，可以接着补全。" : data.mode === "foundation"
                   ? "范围为入门基础，其他章节仍需测评。"
                   : "从薄弱环节开始，逐步用新题验证。"}
               </p>
             </div>
           </section>
           <p className="entry-note">{report.boundary}</p>
+          {plan.practice_update && <p className="intake-response" role="status">{plan.practice_update}</p>}
+          {firstTask && !studyTask && <section className="entry-first-step">
+            <p className="entry-eyebrow">把下一步变得具体</p><h3>{firstTask.title}</h3>
+            <p>{firstTask.reason}。这一步约 {firstTask.minutes} 分钟，先完成它就好。</p>
+            <button className="intake-primary" onClick={() => setStudyTask(firstTask)}>开始第一项学习任务 <ArrowRight size={18} /></button>
+          </section>}
+          {studyTask && <section className="entry-study">
+            <button className="secondary-action" onClick={() => setStudyTask(null)}><ArrowLeft size={15} /> 返回起点报告</button>
+            <h2 ref={studyHeading} tabIndex={-1}>{studyTask.title}</h2><p className="entry-note">{studyTask.reason}</p>
+            <ol>{(studyTask.steps || [studyTask.criterion]).map((s, i) => <li key={i}>{s}</li>)}</ol>
+            <p className="entry-note">完成标准：{studyTask.criterion}</p>
+            {studyMaterial ? <><p className="entry-eyebrow">对应学习资料 · 按作答与当前目标整理</p><Markdown text={studyMaterial.markdown} allowCodeBlocks /></> : <p className="intake-response">这一步先补充作答证据。学伴会逐题等待你回答，再决定需要哪些讲解。</p>}
+            <button className="intake-primary" onClick={() => onLearn(studyTask.goal)}><Play size={16} />请学伴带我练习</button>
+          </section>}
+          {!!plan.adaptations?.length && <details className="entry-adaptations" open><summary>为什么这样安排 · 根据你的选择</summary><ul>{plan.adaptations.map((s, i) => <li key={i}>{s}</li>)}</ul></details>}
+          {data.mode !== "comprehensive" && <div className="entry-result-actions"><button className="intake-secondary" disabled={busy} onClick={() => void continueAssessment()}>继续补全课程摸底 <ArrowRight size={16} /></button><p className="entry-note">已做题目保留，最多再提交 {48 - data.answered} 题，可随时暂停。</p></div>}
           <section>
             <div className="entry-section-heading">
               <h2>
@@ -595,6 +387,7 @@ export default function AssessmentPanel({
                       题很确定但答错，建议解释原因后再复测。
                     </small>
                   )}
+                  {skill.after_intro && <small>该主题在引导中已有讲解，不作为未经教学的初始水平。</small>}
                   <button onClick={() => onCourses(skill.kp)}>
                     找对应网课 <ArrowRight size={13} />
                   </button>
@@ -686,7 +479,7 @@ export default function AssessmentPanel({
                             <button
                               className="entry-start-task"
                               disabled={blocked}
-                              onClick={() => onLearn(task.goal)}
+                              onClick={() => setStudyTask(task)}
                               aria-label={`开始 ${task.title}`}
                             >
                               <Play size={14} />

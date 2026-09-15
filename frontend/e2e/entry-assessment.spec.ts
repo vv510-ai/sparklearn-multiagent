@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { completeIntake } from "./intake-helpers";
 
 test("起点测评可续答，并生成计划、资料与可预览的网课", async ({
   page,
@@ -17,7 +18,7 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
     .fill(`entry-e2e-${marker}@example.test`);
   await page.getByPlaceholder("至少 8 位").fill("Entry-E2E-2026!pass");
   await page.getByRole("button", { name: "创建账户", exact: true }).click();
-  await page.getByRole("button", { name: /先测.*水平|先测一下/ }).click();
+  await completeIntake(page, "foundation");
   await expect(
     page.getByRole("heading", { name: "起点测评与学习计划" }),
   ).toBeVisible();
@@ -25,10 +26,8 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
     path: testInfo.outputPath("assessment-desktop.png"),
     fullPage: true,
   });
-  await page.getByLabel(/先检查入门基础/).check();
-  await page.getByRole("button", { name: "开始独立作答" }).click();
   const answer = async (index: number) => {
-    const radios = page.locator(".entry-options input[type=radio]");
+    const radios = page.locator(".entry-options input");
     await radios.first().check();
     await page.getByRole("button", { name: "很确定", exact: true }).click();
     await page.getByRole("button", { name: "提交，继续下一题" }).click();

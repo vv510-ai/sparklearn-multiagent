@@ -8,6 +8,12 @@ export type StudySurvey = {
   study_habit: "reread" | "practice" | "mixed" | "skip";
   support: string;
   target_date: string | null;
+  goals?: string[];
+  barriers?: string[];
+  supports?: string[];
+  study_cue?: string;
+  materials_status?: "已有资料" | "暂时没有" | "稍后上传";
+  intro_practiced?: boolean;
 };
 export type StudyTask = {
   id: string;
@@ -21,12 +27,13 @@ export type StudyTask = {
   goal: string;
   criterion: string;
   deferred_reason?: string;
+  steps?: string[];
 };
 export type Assessment = {
   id: string;
   revision: number;
   status: "active" | "completed";
-  mode: "comprehensive" | "foundation";
+  mode: "screening" | "comprehensive" | "foundation";
   answered: number;
   maximum: number;
   survey: StudySurvey;
@@ -36,6 +43,7 @@ export type Assessment = {
     stem: string;
     options: string[];
     topic: string;
+    type: "single" | "multiple";
   } | null;
   report: null | {
     coverage: number;
@@ -52,6 +60,8 @@ export type Assessment = {
       status: "unmeasured" | "gap" | "developing" | "strength";
       label: string;
       high_confidence_errors: number;
+      in_scope?: boolean;
+      after_intro?: boolean;
     }[];
     explanations: {
       id: string;
@@ -75,6 +85,8 @@ export type Assessment = {
     support: string;
     goal: string;
     reflection: string;
+    adaptations?: string[];
+    practice_update?: string;
   };
   materials: { id: string; kp: string; title: string; markdown: string }[];
 };

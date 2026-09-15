@@ -143,6 +143,13 @@ async def run(state: dict) -> dict:
     return {"progress_events": [{"agent": "eval", "summary": summary}]}
 
 
+def _calendar_evidence(answers: list[dict]) -> list[dict]:
+    from ..services.assessment_service import evidence_key
+    return [{"key": evidence_key(str(a["kp"]), str(a["stem"])), "kp": a["kp"],
+             "correct": bool(a.get("correct")), "support_level": a.get("support_level", "independent")}
+            for a in answers if a.get("stem") and a.get("kp")]
+
+
 def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
     """答题闭环:BKT 逐题更新掌握度 → 错因标签回写画像 → 路径重排 → 评估报告。
     answers: [{question_id, kp, correct, mastery_correct?, error_tags?, type?, difficulty?}]
@@ -225,6 +232,7 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
     save_path(user_id, path)
     mindmap_refresh = _refresh_mindmap_labels(user_id, affected_kps, profile)
     log_event(user_id, "quiz_eval", {"per_kp": per_kp, "errors": error_counter,
+                                     "learning_evidence": _calendar_evidence(answers),
                                      "evidence_phases": sorted({
                                          str(a.get("evidence_phase", "initial")) for a in answers
                                      }),

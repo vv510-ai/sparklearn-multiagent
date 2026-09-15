@@ -181,6 +181,7 @@ export interface LearningDiagnosis {
 }
 
 export interface StudentProfile {
+  learning_intake?: import("./assessment").StudySurvey;
   knowledge_mastery: Record<string, number>;
   cognitive_style: string;
   error_prone: string[];

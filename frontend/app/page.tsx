@@ -29,7 +29,8 @@ import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
 import AssessmentPanel from "@/components/assessment/AssessmentPanel";
 import CourseRecommendations from "@/components/courses/CourseRecommendations";
-import OnboardingGate, { type OnboardingAnswers, type QuickStartKey } from "@/components/onboarding/OnboardingGate";
+import OnboardingGate from "@/components/onboarding/OnboardingGate";
+import type { Assessment, StudySurvey } from "@/lib/assessment";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic, kpName } from "@/lib/kp";
@@ -669,32 +670,22 @@ export default function Home() {
     return `请带我开始“${title}”的第一项学习任务。先用一句话说清今天要学什么，再给我一个可以马上作答的小问题。`;
   };
 
-  const persistOnboarding = async (answers: OnboardingAnswers, skipped: boolean, quickStart?: QuickStartKey) => {
-    const result = await apiPost<OnboardingResponse>("/onboarding", { ...answers, skipped });
+  const completeIntake = async (survey: StudySurvey, mode: Assessment["mode"]) => {
+    await apiPost<Assessment>("/assessment/start", { survey, mode });
+    setOnboardingRequired(false);
+    await loadProfile();
+    enterCourseWorkspace();
+    setActivePanel("assessment");
+  };
+
+  const skipIntake = async (introPracticed: boolean) => {
+    const result = await apiPost<OnboardingResponse>("/onboarding", { skipped: true,
+      ...(introPracticed ? { survey: { intro_practiced: true, stage: "不方便回答", prior_experience: "不方便回答" } } : {}),
+    });
     setOnboardingRequired(false);
     setProfile(result.profile);
-    if (result.path) {
-      setPathPlan(result.path);
-      setSelectedPathNode(result.path.next_kp || result.path.nodes[0]?.id || null);
-    }
-    if (quickStart === "upload") {
-      await manageSources();
-      return;
-    }
-    if (!quickStart && answers.materials_status === "已有资料") {
-      await manageSources();
-      return;
-    }
-    if (quickStart === "diagnostic" || (!quickStart && !skipped)) {
-      enterCourseWorkspace();
-      setActivePanel("assessment");
-      return;
-    }
-    if (quickStart === "example") {
-      await startLearning("为什么二叉搜索树的中序遍历可以得到有序序列？请用一个小例子带我理解，并说明普通二叉树是否也满足这个性质。");
-      return;
-    }
-    await startLearning(quickStart === "recommended" || !skipped ? firstTaskPrompt(result.path || null) : "请先带我快速了解数据结构与算法，并给我一个适合当前水平的第一步。" );
+    if (result.path) setPathPlan(result.path);
+    enterCourseWorkspace();
   };
 
   const manageSources = async () => {
@@ -955,22 +946,7 @@ export default function Home() {
   }
 
   if (!entered && onboardingRequired) {
-    return (
-      <OnboardingGate
-        user={authUser}
-        onComplete={(answers, skipped) => persistOnboarding(answers, skipped)}
-        onQuickStart={(key) => persistOnboarding({
-          topic: "",
-          current_level: "",
-          goal: "",
-          weekly_minutes: 140,
-          frequency: "每天",
-          style: "",
-          materials_status: "",
-        }, true, key)}
-        onLogout={() => void logout()}
-      />
-    );
+    return <OnboardingGate user={authUser} onComplete={completeIntake} onSkip={skipIntake} onLogout={() => void logout()} />;
   }
 
   if (!entered) {
@@ -1096,10 +1072,11 @@ export default function Home() {
                 reason: pathPlan.nodes.find((node) => node.id === pathPlan.next_kp)?.reason || "根据你的学习画像安排",
               } : undefined}
               onOpenPath={() => openPanel("path")}
+              onOpenAssessment={() => openPanel("assessment")}
             />
           </div>
 
-          {activePanel === "assessment" && <AssessmentPanel initialSurvey={{ daily_minutes: Math.max(8, Math.min(180, Number(profilePace?.daily_minutes) || 30)), goal: ({ "应试": "准备课程考试", "竞赛": "竞赛与算法练习", "工程实践": "编程项目应用", "兴趣": "兴趣理解" } as Record<string, string>)[String(profile?.goal)] || "掌握课程基础", study_days: profilePace?.frequency === "每天" ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5] }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
+          {activePanel === "assessment" && <AssessmentPanel initialSurvey={profile?.learning_intake || { daily_minutes: Math.max(8, Math.min(180, Number(profilePace?.daily_minutes) || 30)), goal: ({ "应试": "准备课程考试", "竞赛": "竞赛与算法练习", "工程实践": "编程项目应用", "兴趣": "兴趣理解" } as Record<string, string>)[String(profile?.goal)] || "掌握课程基础", study_days: profilePace?.frequency === "每天" ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5] }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
           {activePanel === "courses" && <CourseRecommendations initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
           {activePanel === "profile" && (
             <div className="notebook-content-scroll">

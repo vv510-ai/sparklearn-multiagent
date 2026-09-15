@@ -55,6 +55,9 @@ async def save_onboarding(req: OnboardingRequest):
     """Persist first-use answers and immediately recalculate the first path."""
     user_id = require_current_user_id()
     profile_data = complete_onboarding(user_id, req.model_dump())
+    if req.survey is not None:
+        from ..services.assessment_service import save_intake_context
+        profile_data = save_intake_context(user_id, req.survey.model_dump(mode="json"))
     path = plan_path(profile_data, generated_by="onboarding")
     save_path(user_id, path)
     next_node = next(

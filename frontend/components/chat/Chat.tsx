@@ -105,6 +105,7 @@ export default function Chat({
   onOpenMistakes,
   recommendedTask,
   onOpenPath,
+  onOpenAssessment,
 }: {
   onEvent?: (ev: SparkEvent) => void;
   /** 外部(首页快捷入口)注入的一次性发送内容 */
@@ -125,6 +126,7 @@ export default function Chat({
   onOpenMistakes?: () => void;
   recommendedTask?: { title: string; prompt: string; reason: string };
   onOpenPath?: () => void;
+  onOpenAssessment?: () => void;
 }) {
   const [msgs, setMsgs] = useState<Msg[]>(() => initialMessages.map((message) => ({
     role: message.role,
@@ -432,7 +434,7 @@ export default function Chat({
             )}
             <div className="grid gap-2 sm:grid-cols-3">
               <button type="button" onClick={() => void send(recommendedTask?.prompt || "请从推荐课本开始，先带我了解数据结构与算法的学习路线，再给我第一道小题。")} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><BookPlus size={15} className="shrink-0 text-[#176C6B]" /> 从推荐课本开始</button>
-              <button type="button" onClick={() => void send("请先用 3 道小题测一下我在数据结构与算法上的当前水平，再告诉我下一步该学什么。", undefined, undefined, false)} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><Gauge size={15} className="shrink-0 text-[#176C6B]" /> 先测一下我的水平</button>
+              {onOpenAssessment && <button type="button" onClick={onOpenAssessment} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><Gauge size={15} className="shrink-0 text-[#176C6B]" /> 先测一下我的水平</button>}
               <button type="button" onClick={onUploadClick} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><FileUp size={15} className="shrink-0 text-[#176C6B]" /> 上传自己的资料</button>
             </div>
             <button

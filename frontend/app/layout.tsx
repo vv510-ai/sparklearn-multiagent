@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
 import "./globals.css";
 import "./learning-upgrade.css";
+import "./learning-intake.css";
 
 export const metadata: Metadata = {
   title: "知行循证 LearnLoop · 让学习发生，有据可循",
