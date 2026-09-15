@@ -19,12 +19,6 @@ from ..services.profile_service import complete_onboarding, ensure_user, get_pro
 router = APIRouter(prefix="/api", tags=["meta"])
 
 
-@router.get("/competition")
-async def competition():
-    from ..services.competition_service import register
-    return register()
-
-
 @router.get("/model-status")
 async def model_status():
     from ..llm.multimodal_gateway import capability_status

@@ -76,21 +76,21 @@ def test_demo_study_cannot_be_promoted_to_field(study):
         pilot.create_study(study[0],pilot.StudyInput(title="现场试点",course="数据结构",mode="field",protocol="此协议不能在离线演示模式建立现场试点。"))
 
 
-def test_private_routes_and_public_evidence_separate(monkeypatch):
+def test_pilot_routes_stay_private_and_competition_api_is_retired(monkeypatch):
     monkeypatch.setenv("DEMO_MODE","false");monkeypatch.setenv("AUTH_REQUIRED","true")
     monkeypatch.setenv("AUTH_SECRET","test-only-pilot-auth-secret-at-least-32-characters");config.get_settings.cache_clear()
     ids=[]
     try:
         with TestClient(app) as client:
-            assert client.get("/api/competition").status_code==200
-            public=client.get("/api/competition").json()
-            assert public["field_results"]==[]
+            assert client.get("/api/competition").status_code==401
+            assert "/api/competition" not in client.get("/openapi.json").json()["paths"]
             assert client.get("/api/pilot/studies").status_code==401
             headers=[]
             for _ in range(2):
                 result=client.post("/api/auth/register",json={"email":uuid.uuid4().hex+"@example.test","password":"test-pilot-password","name":"隔离测试"})
                 assert result.status_code==201
                 ids.append(result.json()["user"]["id"]);headers.append({"Authorization":"Bearer "+result.json()["access_token"]})
+            assert client.get("/api/competition",headers=headers[0]).status_code==404
             result=client.post("/api/pilot/studies",headers=headers[0],json={"title":"私有试点","course":"数据结构","mode":"demo","protocol":"仅使用明确标注的匿名合成测试数据。"})
             assert result.status_code==200
             target="/api/pilot/studies/"+result.json()["id"]

@@ -40,7 +40,6 @@ app = FastAPI(title="知行循证 LearnLoop · 可验证个性化学习平台",
 _PUBLIC_PATHS = {
     "/",
     "/api/health",
-    "/api/competition",
     "/api/auth/login",
     "/api/auth/register",
     "/docs",

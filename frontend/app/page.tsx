@@ -164,8 +164,6 @@ function LearningGate({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/evidence" className="rounded-full px-3 py-2 text-xs text-white/85 hover:bg-white/10">项目证据</Link>
-            <Link href="/teacher" className="hidden rounded-full px-3 py-2 text-xs text-white/85 hover:bg-white/10 sm:block">教师试点</Link>
             <div className="hidden text-right sm:block">
               <div className="max-w-32 truncate text-sm font-semibold text-white">{user.name}</div>
               <div className="max-w-40 truncate text-[10px] text-white/50">{user.email}</div>
@@ -184,8 +182,8 @@ function LearningGate({
             <span className="block">让学习发生，</span>
             <em className="mt-1 block not-italic text-white/70">有据可循。</em>
           </h1>
-          <p className="mt-5 max-w-lg text-sm leading-7 text-white/70">从课程资料出发，诊断错因、独立复测。让每一次真实作答，都成为下一步学习的依据。</p>
-          <Link href="/review" className="mt-4 text-sm text-white/90 underline underline-offset-4">三分钟体验学习闭环</Link>
+          <p className="mt-5 max-w-lg text-sm leading-7 text-white/70">带上你的资料和目标，从理解一个概念、解决一道难题开始，在练习与反馈中找到下一步。</p>
+          <Link href="/review" className="mt-4 text-sm text-white/90 underline underline-offset-4">先体验一次练习</Link>
 
           <div className="liquid-glass glass-readable animate-fade-rise-delay mt-7 flex w-full max-w-[760px] items-center gap-2 rounded-full p-2 pl-2.5 shadow-[0_24px_80px_rgba(0,16,27,0.28)]">
             <button
@@ -975,6 +973,17 @@ export default function Home() {
     );
   }
 
+  if (!entered) {
+    return (
+      <LearningGate
+        user={authUser}
+        onStart={(goal) => void startLearning(goal)}
+        onManageSources={() => void manageSources()}
+        onLogout={() => void logout()}
+      />
+    );
+  }
+
   const sourcePanel = (
     <SourcePanel
       notebooks={notebooks}
@@ -1021,15 +1030,13 @@ export default function Home() {
         </button>
         <span className="hidden h-5 w-px bg-[#DDE0E8] sm:block" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[#343944]">{activeNotebook ? `${activeNotebook.emoji} ${activeNotebook.title}` : "课程学习工作台"}</div>
+          <div className="truncate text-sm font-semibold text-[#343944]">{activeNotebook ? `${activeNotebook.emoji} ${activeNotebook.title}` : "我的学习工作台"}</div>
           <div className="hidden text-[11px] text-[#818795] sm:block">当前主题：{currentTopicTitle} · 已选 {selectedSourceIds.length} 项资料</div>
         </div>
 
         <div className="flex items-center gap-2">
           <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden sm:inline">测评与计划</span></button>
           <button onClick={toggleTransparency} className="notebook-icon-button" aria-label="减少透明效果" aria-pressed={reduceTransparency} title="减少透明效果"><Contrast size={17} /></button>
-          <Link href="/teacher" className="hidden text-xs text-[#0F6B50] md:block">教师试点</Link>
-          <Link href="/evidence" className="hidden text-xs text-[#0F6B50] md:block">项目证据</Link>
           <button onClick={() => setMobilePane("sources")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
           <button onClick={() => setMobilePane("studio")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>

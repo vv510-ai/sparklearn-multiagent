@@ -50,7 +50,6 @@ export default function TeacherPage() {
   const [message,setMessage]=useState("");
   const [error,setError]=useState("");
   const [showCreate,setShowCreate]=useState(false);
-  const [model,setModel]=useState("");
   const refresh = useCallback(()=>apiGet<{studies: Study[]}>("/pilot/studies").then(r=>setStudies(r.studies)),[]);
   useEffect(()=>{
     apiGet<AuthUser>("/auth/me").then(setUser).catch(()=>setUser(null)).finally(()=>setChecking(false));
@@ -58,7 +57,7 @@ export default function TeacherPage() {
     window.addEventListener(UNAUTHORIZED_EVENT,expired);
     return ()=>window.removeEventListener(UNAUTHORIZED_EVENT,expired);
   },[]);
-  useEffect(()=>{if(user){refresh().catch(()=>setError("试点列表加载失败"));apiGet<{text:string;demo_mode:boolean}>("/model-status").then(r=>setModel(r.demo_mode?"离线演示":r.text)).catch(()=>setModel("状态待核验"));}},[user,refresh]);
+  useEffect(()=>{if(user){refresh().catch(()=>setError("试点列表加载失败"));}},[user,refresh]);
   useEffect(()=>{
     setReport(null);setImportData(null);setFileName("");
     if(!selected)return;
@@ -91,13 +90,13 @@ export default function TeacherPage() {
     try {const result=await apiPost<{inserted:number;duplicates:number}>(`/pilot/studies/${selected}/observations`,importData);setReport(await apiGet<Report>(`/pilot/studies/${selected}`));setImportData(null);setFileName("");setMessage(`已导入 ${result.inserted} 条，跳过 ${result.duplicates} 条完全相同的记录。`);}
     catch(e){setError(e instanceof Error?e.message:"导入失败");}finally{setBusy(false);}
   }
-  if(checking)return <main className="grid min-h-screen place-items-center bg-[#F5F7F3] text-emerald-950" role="status">正在打开教师工作台…</main>;
+  if(checking)return <main className="grid min-h-screen place-items-center bg-[#F5F7F3] text-emerald-950" role="status">正在打开教学研究…</main>;
   if(!user)return <AuthGate onAuthenticated={setUser}/>;
   const inputClass="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
   return <main className="min-h-screen bg-[#F5F7F3] text-[#19372E]"><div className="mx-auto max-w-7xl px-5 py-7 sm:px-9">
-    <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-950/10 pb-6"><Link href="/" className="flex items-center gap-3 font-bold"><BookOpen size={24}/>{BRAND.name}<span className="text-xs font-normal text-slate-500">教师工作台</span></Link><div className="flex gap-5 text-sm"><Link href="/evidence" className="hover:underline">实证与应用</Link><Link href="/" className="flex items-center gap-1"><ArrowLeft size={15}/>回到学习</Link></div></nav>
+    <nav className="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-950/10 pb-6"><Link href="/" className="flex items-center gap-3 font-bold"><BookOpen size={24}/>{BRAND.name}<span className="text-xs font-normal text-slate-500">教学研究</span></Link><Link href="/" className="flex items-center gap-1 text-sm"><ArrowLeft size={15}/>回到学习</Link></nav>
     <header className="flex flex-wrap items-end justify-between gap-6 py-10"><div><p className="text-xs font-semibold tracking-[.2em] text-emerald-700">CLASSROOM EVIDENCE</p><h1 className="mt-3 text-3xl font-bold sm:text-4xl">看见共性薄弱点，验证教学改变。</h1><p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">建立课程试点，导入获同意的匿名观测，按同一受试者比较前后表现。数据仅对当前账户可见。</p></div><button onClick={()=>setShowCreate(!showCreate)} className="inline-flex items-center gap-2 rounded-full bg-[#173F34] px-5 py-3 text-sm font-semibold text-white"><Plus size={16}/>建立试点</button></header>
-    <div className="mb-5 flex flex-wrap justify-between gap-3 text-xs text-slate-500"><span>{user.name}的私有工作空间</span><span>文本服务：{model||"正在读取"}</span></div>
+    <div className="mb-5 text-xs text-slate-500">{user.name}的私有研究空间</div>
     {showCreate&&<form onSubmit={create} className="mb-7 grid gap-5 rounded-2xl border border-[#DDE5D9] bg-white p-6 md:grid-cols-2"><label className="text-sm font-semibold">试点名称<input className={inputClass} required minLength={2} maxLength={120} value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：秋季数据结构课程试点"/></label><label className="text-sm font-semibold">课程<input className={inputClass} required minLength={2} maxLength={120} value={course} onChange={e=>setCourse(e.target.value)}/></label><label className="text-sm font-semibold">数据类型<select className={inputClass} value={mode} onChange={e=>setMode(e.target.value as "demo"|"field")}><option value="demo">演示试点（合成数据）</option><option value="field" disabled={user.demo}>现场试点（真实采集，待核验）</option></select></label><label className="text-sm font-semibold">研究方案<textarea className={inputClass} required minLength={10} maxLength={4000} rows={3} value={protocol} onChange={e=>setProtocol(e.target.value)} placeholder="记录分组方法、前后测题组、周期、知情同意及原始资料存放位置。"/></label><div className="md:col-span-2"><button disabled={busy} className="rounded-full bg-[#173F34] px-6 py-2.5 text-sm text-white disabled:opacity-50">{busy?"正在保存…":"保存试点"}</button></div></form>}
     {error&&<div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
     {message&&<div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">{message}</div>}

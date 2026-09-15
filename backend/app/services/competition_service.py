@@ -1,4 +1,4 @@
-"""One public register of competition criteria and evidence boundaries."""
+"""Historical competition register for team material exports; no product API."""
 from __future__ import annotations
 
 import json

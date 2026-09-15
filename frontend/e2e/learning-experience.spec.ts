@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("公开体验记录真实选择，提示后答对仍需独立复测", async ({ page }) => {
   await page.goto("/review");
+  await expect(page.locator('a[href="/evidence"], a[href="/teacher"]')).toHaveCount(0);
   await page.getByRole("radio", { name: "A → B → C" }).check();
   await page.getByRole("button", { name: "提交本次作答" }).click();
   await expect(page.getByRole("heading", { name: /需要区分/ })).toBeVisible();
@@ -15,13 +16,22 @@ test("公开体验记录真实选择，提示后答对仍需独立复测", async
   await page.screenshot({ path: "test-results/review-desktop.png", fullPage: true });
 });
 
-test("评分证据页在手机可读，并且不伪造真实效果", async ({ page }) => {
+test("旧项目页面回到学习入口，手机可直接进入练习体验", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/evidence");
-  await expect(page.getByText("高教主赛道 · 本科生创意组 · 人工智能+", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /立德树人/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { name: "欢迎回来" })).toBeVisible();
+  await expect(page.locator('a[href="/evidence"], a[href="/teacher"]')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "test-results/evidence-mobile.png", fullPage: true });
+  await page.screenshot({ path: "test-results/learning-entry-mobile.png", fullPage: true });
+  await page.getByRole("link", { name: "先体验一次练习", exact: true }).click();
+  await expect(page).toHaveURL(/\/review$/);
+  await expect(page.getByRole("button", { name: "提交本次作答" })).toBeDisabled();
+  await page.getByRole("radio", { name: "B → A → C", exact: true }).check();
+  await page.getByRole("button", { name: "提交本次作答" }).click();
+  await expect(page.getByRole("heading", { name: "顺序正确，接着检验能否迁移。" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/review-mobile.png", fullPage: true });
 });
 
 test("教师可导入匿名试点并看到配对统计和未采集阶段", async ({ page }) => {
@@ -29,6 +39,8 @@ test("教师可导入匿名试点并看到配对统计和未采集阶段", async
   const account=await page.request.post("/api/auth/register", { data: {email:`pilot-${marker}@example.test`, password:"Pilot-Test-2026!", name:"试点功能测试"} });
   expect(account.status()).toBe(201);
   await page.goto("/teacher");
+  await expect(page.getByText("教学研究", { exact: true })).toBeVisible();
+  await expect(page.locator('a[href="/evidence"]')).toHaveCount(0);
   await page.getByRole("button", { name: "建立试点", exact: true }).click();
   await page.getByLabel("试点名称", { exact: true }).fill("合成数据功能验证");
   await page.getByLabel("研究方案", { exact: true }).fill("仅用于工程验证；两名合成受试者，前后测配对，不声明真实效果。");

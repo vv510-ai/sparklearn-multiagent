@@ -93,7 +93,7 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
       const response = await apiGet<EvidenceResponse>(`/eval/evidence?user_id=${USER_ID}&limit=12`);
       setData(response);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "学习证据读取失败");
+      setError(caught instanceof Error ? caught.message : "学习记录读取失败");
     } finally {
       setLoading(false);
     }
@@ -109,14 +109,14 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
   );
 
   if (loading && !data) {
-    return <div className="insight-panel p-5 text-sm text-[#6F7684]">正在核对学习证据...</div>;
+    return <div className="insight-panel p-5 text-sm text-[#6F7684]">正在读取学习记录...</div>;
   }
 
   if (!data) {
     return (
       <Notice
         tone="warn"
-        title="学习证据暂时无法读取"
+        title="学习记录暂时无法读取"
         desc={error || "请稍后刷新。"}
         action={<button onClick={() => void loadEvidence()} className="text-xs font-bold">重试</button>}
       />
@@ -128,19 +128,19 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
           <div className="flex items-center gap-2">
-            <Badge variant="info" mono>EVIDENCE LEDGER</Badge>
-            <span className="text-xs font-bold text-[#0F6B50]">学习证据账本</span>
+            <Badge variant="info" mono>LEARNING RECORDS</Badge>
+            <span className="text-xs font-bold text-[#0F6B50]">学习记录</span>
           </div>
-          <h2 className="mt-3 text-xl font-bold text-[#1D2028]">每一次掌握度变化，都能说清依据</h2>
+          <h2 className="mt-3 text-xl font-bold text-[#1D2028]">查看每次练习与掌握度变化</h2>
           <p className="mt-2 text-sm leading-6 text-[#6F7684]">
             判对表示答案正确；计入掌握表示这次表现真正参与了掌握度计算。揭晓后答对不会被当作已掌握，使用提示也会单独留下记录。
           </p>
         </div>
-        <button onClick={() => void loadEvidence()} className="secondary-action">刷新证据</button>
+        <button onClick={() => void loadEvidence()} className="secondary-action">刷新记录</button>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="有效证据轮次" value={data.summary.rounds} sub="首次、复测与间隔复习" tone="action" />
+        <Stat label="作答轮次" value={data.summary.rounds} sub="首次、复测与间隔复习" tone="action" />
         <Stat label="独立作答" value={data.summary.independent} sub={`共作答 ${data.summary.answers} 次`} tone="success" />
         <Stat label="计入掌握的答对" value={data.summary.mastery_correct} sub={`原始判对 ${data.summary.raw_correct} 次`} tone="warn" />
         <Stat
@@ -157,7 +157,7 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
 
       {data.items.length === 0 ? (
         <div className="mt-5 rounded-lg border border-dashed border-[#CDD3DE] bg-[#F8F9FC] px-4 py-6 text-center">
-          <div className="text-sm font-bold text-[#303641]">还没有真实作答证据</div>
+          <div className="text-sm font-bold text-[#303641]">还没有练习记录</div>
           <p className="mt-1 text-xs leading-5 text-[#6F7684]">完成一次题组后，这里会展示判分、支持使用和掌握度前后变化。</p>
         </div>
       ) : (
@@ -230,7 +230,7 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
           onClick={() => setExpanded((current) => !current)}
           className="mt-4 text-xs font-bold text-[#0F6B50] hover:underline"
         >
-          {expanded ? "收起历史记录" : `查看最近 ${data.items.length} 轮证据`}
+          {expanded ? "收起历史记录" : `查看最近 ${data.items.length} 轮记录`}
         </button>
       )}
     </section>

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 import "./learning-upgrade.css";
 
 export const metadata: Metadata = {
   title: "知行循证 LearnLoop · 让学习发生，有据可循",
-  description: "面向高校专业课程的可验证个性化学习平台：从资料、诊断和独立作答，到有依据的下一步学习。",
+  description: `${BRAND.title}。${BRAND.promise}`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

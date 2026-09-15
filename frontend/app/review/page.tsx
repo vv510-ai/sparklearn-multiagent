@@ -23,8 +23,8 @@ export default function ReviewPage() {
   function reset() { setStep(0); setChoices([-1, -1]); setHinted(false); setRetestHint(false); }
   return <main className="min-h-dvh bg-[#F5F5EE] px-5 py-7 text-[#193A31]">
     <div className="mx-auto max-w-4xl">
-      <nav className="flex flex-wrap items-center justify-between gap-3 text-sm"><Link href="/" className="text-lg font-bold">{BRAND.name} <span className="text-xs font-normal">LearnLoop</span></Link><div className="flex gap-5"><Link href="/evidence">项目证据</Link><Link href="/teacher">教师试点</Link></div></nav>
-      <div className="mt-14 max-w-2xl"><span className="rounded-full border border-emerald-900/20 px-3 py-1 text-xs">三分钟 · 交互演示</span><h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-5xl">答案之后，<br/>才是学习的下一步。</h1><p className="mt-5 text-sm leading-7 text-[#62766E]">亲手完成两次作答，看看独立完成与提示后完成，会怎样改变学习建议。此页是固定示例，记录只保留在当前页面，不计入个人画像或教学效果统计。</p></div>
+      <nav className="flex flex-wrap items-center justify-between gap-3 text-sm"><Link href="/" className="text-lg font-bold">{BRAND.name} <span className="text-xs font-normal">LearnLoop</span></Link><Link href="/">回到学习</Link></nav>
+      <div className="mt-14 max-w-2xl"><span className="rounded-full border border-emerald-900/20 px-3 py-1 text-xs">练习体验 · 无需登录</span><h1 className="mt-5 text-3xl font-semibold leading-tight sm:text-5xl">答案之后，<br/>才是学习的下一步。</h1><p className="mt-5 text-sm leading-7 text-[#62766E]">亲手完成两次作答，看看独立完成与提示后完成，会怎样改变学习建议。这里使用数据结构的固定示例，作答仅在当前页面保留，不会写入你的学习记录。</p></div>
       <ol className="my-9 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="体验进度">{steps.map((label, i) => <li key={label} aria-current={step === i ? "step" : undefined} className={`rounded-2xl border p-4 text-xs ${i === step ? "border-[#173F34] bg-[#173F34] text-white" : "border-[#DEE4DC] bg-white/60"}`}><span className="mb-2 block text-lg">{i < step ? <Check size={20}/> : `0${i+1}`}</span>{label}</li>)}</ol>
       <section className="rounded-[28px] border border-[#DEE4DC] bg-white p-6 shadow-sm sm:p-10" aria-live="polite">
         {(step === 0 || step === 2) && <>
@@ -43,11 +43,11 @@ export default function ReviewPage() {
           <p className="text-xs text-[#728178]">本页作答记录 · 固定示例规则</p><h2 className="mt-4 text-2xl font-semibold">{retestCorrect && !retestHint ? "下一步：练习多层二叉树。" : "下一步：再练一次访问顺序。"}</h2>
           <div className="my-6 grid gap-3 sm:grid-cols-2">{[0,1].map(i => <div key={i} className="rounded-2xl border border-slate-200 p-5"><p className="text-xs text-slate-500">{i === 0 ? "初次诊断" : "换题复测"}</p><p className="mt-2 font-semibold">{choices[i] === questions[i].answer ? "正确" : "错误"} · {(i === 0 ? hinted : retestHint) ? "使用提示" : "独立完成"}</p><p className="mt-2 text-xs text-slate-500">实际选择：{questions[i].choices[choices[i]]}</p></div>)}</div>
           <p className="text-sm leading-8">{retestCorrect && !retestHint ? "新题独立答对支持进入更复杂练习；仍需隔日或隔周复习检验保持。" : retestCorrect ? "提示后答对说明规则可以理解；下一次需要不看提示，才能增加独立掌握的证据。" : "复测尚未答对，继续巩固先序、中序、后序的差别，并用新题复查。"} 当前没有延迟复习记录，因此不会显示保持率。</p>
-          <p className="mt-4 text-xs leading-6 text-slate-500">正式学习工作台会保存作答、提示使用和引用记录，并更新知识追踪估计。此体验不调用付费模型，也不宣称测量了学习效果。</p>
-          <div className="mt-7 flex flex-wrap gap-3"><Link href="/" className="inline-flex items-center gap-2 rounded-full bg-[#173F34] px-6 py-3 text-sm text-white">开始我的课程学习 <ArrowRight size={16}/></Link><button onClick={reset} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-3 text-sm"><RotateCcw size={15}/>重新体验</button></div>
+          <p className="mt-4 text-xs leading-6 text-slate-500">登录后，你可以围绕自己的资料开始学习，并保存正式练习的作答记录。这次体验不会计入个人掌握度。</p>
+          <div className="mt-7 flex flex-wrap gap-3"><Link href="/" className="inline-flex items-center gap-2 rounded-full bg-[#173F34] px-6 py-3 text-sm text-white">开始我的学习 <ArrowRight size={16}/></Link><button onClick={reset} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-3 text-sm"><RotateCcw size={15}/>重新体验</button></div>
         </>}
       </section>
-      <p className="my-8 text-xs text-[#7B877D]">学习路径可以提出建议；真实教学效果需要预先确定实验方案、收集原始记录并独立复核。</p>
+      <p className="my-8 text-xs text-[#7B877D]">按自己的节奏尝试。需要时可以查看提示，也可以重新练习。</p>
     </div>
   </main>;
 }
