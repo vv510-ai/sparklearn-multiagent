@@ -4,6 +4,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
+# Apply the mainland package mirror to both dependency installation steps.
+ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 RUN pip install --no-cache-dir -r requirements.txt
 ENV FASTEMBED_CACHE_DIR=/opt/fastembed_cache
 ENV FASTEMBED_MODEL_PATH=/opt/bge-small-zh-int8
@@ -12,7 +14,6 @@ ENV FASTEMBED_BATCH_SIZE=2
 # 生产服务器位于中国内地，构建期经 hf-mirror.com 下载模型
 ENV HF_ENDPOINT=https://hf-mirror.com
 ENV HF_HUB_DISABLE_XET=1
-ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 COPY scripts/prepare_fastembed.py /tmp/prepare_fastembed.py
 RUN pip install --no-cache-dir "onnx>=1.16,<2" \
     && python /tmp/prepare_fastembed.py \
