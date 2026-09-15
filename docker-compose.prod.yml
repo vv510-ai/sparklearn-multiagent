@@ -73,14 +73,26 @@ services:
         condition: service_healthy
     expose:
       - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/', {signal: AbortSignal.timeout(5000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 8s
+      retries: 12
+      start_period: 15s
     mem_limit: 768m
     restart: unless-stopped
 
   nginx:
     image: nginx:1.27-alpine
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
