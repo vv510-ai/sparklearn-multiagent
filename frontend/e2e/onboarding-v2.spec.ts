@@ -99,7 +99,9 @@ test("跳过引导后仍能找到测评入口", async ({ page }) => {
   await page.getByRole("button", { name: "先体验一次讲解" }).click();
   await page.getByRole("radio", { name: "页面 B" }).check();
   await page.getByRole("button", { name: "看看原因" }).click();
+  await expect(page.getByText("对，你抓住了最近访问的顺序。")).toBeVisible();
   await page.getByRole("button", { name: "已有明确方向，直接进入" }).click();
+  await expect(page.getByRole("button", { name: "先测一下我的水平", exact: true })).toBeVisible();
   const profile = (await (await page.request.get("/api/onboarding")).json()).profile;
   expect(profile.learning_intake.intro_practiced).toBe(true);
   await page.getByRole("button", { name: "先测一下我的水平", exact: true }).click();
