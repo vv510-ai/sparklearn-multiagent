@@ -534,3 +534,13 @@ def test_topic_gate_rejects_notes_that_mix_current_and_stale_topics():
         "基础排序",
         "sorting_basic",
     ) is False
+
+
+def test_uploaded_course_fallback_extracts_requested_concepts_without_dsa_advice():
+    markdown = doc_agent._rag_fallback_doc(
+        "生态系统的能量流动与物质循环",
+        [{"text": "生产者通过光合作用获取能量。消费者通过摄食获取能量。能量流动是单向的。物质循环可在生物和非生物环境间发生。"}],
+        "doc",
+    )
+    assert "能量流动是单向的" in markdown and "物质循环可在生物和非生物环境间发生" in markdown
+    assert "[^1]" in markdown and "时间复杂度" not in markdown

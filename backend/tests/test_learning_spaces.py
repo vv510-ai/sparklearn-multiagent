@@ -130,7 +130,7 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
     async def model(prompt, **kwargs):
         captured.append(prompt)
         assert body in prompt
-        return json.dumps({"topics": [{"name": f"生态系统概念{i}", "objective": "区分生态系统中的能量来源", "lesson": "先区分生产者和消费者，再举生活中的食物链例子。", "chunk_ids": ["s1c1"], "quote": "生产者通过光合作用将太阳能转化为化学能。", "questions": [
+        return json.dumps({"topics": [{"name": ["生产者与消费者", "能量流动", "物质循环"][i], "objective": "区分生态系统中的能量来源", "lesson": "先区分生产者和消费者，再举生活中的食物链例子。", "chunk_ids": ["s1c1"], "quote": "生产者通过光合作用将太阳能转化为化学能。", "questions": [
             {"stem": f"第{i}组情境{j}：判断生产者的能量来源与转化。", "type": "multiple" if j == 2 else "single", "options": ["光合作用", "太阳能转化为化学能", "吞食动物", "不需能量"], "answer": ["A", "B"] if j == 2 else "A", "explain": "资料说明生产者通过光合作用将太阳能转化为化学能。", "difficulty": 1} for j in range(3)]} for i in range(3)]}, ensure_ascii=False)
     monkeypatch.setattr(course_learning_service, "llm_complete", model)
     survey = {"notebook_id": book["id"], "course_key": "custom", "course_title": "生态学笔记", "source_ids": [source["id"]], "goal": "看懂学习资料", "goals": ["看懂学习资料"], "daily_minutes": 15, "supports": ["steps"]}
@@ -146,7 +146,7 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
     # Exercise the real upload -> retriever -> topic filter -> prompt chain.
     # Mock only model inference, so a source discarded after retrieval fails.
     from app.agents import doc_agent
-    from app.services.knowledge_graph import resolve_conversation_topic
+    from app.services.knowledge_graph import resolve_conversation_topic, resolve_topic
     from app.services.topic_scope import focus_chunks_on_topic
     goal = "根据已选资料，分步骤讲解生态系统的能量流动与物质循环，并留下一个独立思考问题。"
     followup_prompts = []
@@ -160,6 +160,9 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
     with course_scope(user, book["id"]):
         kp, topic, custom = resolve_conversation_topic(goal, topic_label="生态学笔记")
+        assert (kp, topic, custom) == ("custom_topic", "生态系统的能量流动与物质循环", True)
+        assert resolve_topic([kp], goal, topic) == (kp, topic, custom)
+        assert resolve_conversation_topic("请讲解物质循环") == ("topic_3", "物质循环", True)
         resource = asyncio.run(doc_agent._gen_one("doc", kp, {}, topic_name=topic,
             custom_topic=custom, source_ids=[source["id"]], goal=goal, prompt_template="complete_notes",
             user_id=user, trace_id="upload-followup", skip_multimodal=True))["resource"]
@@ -169,6 +172,8 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
     assert body in followup_prompts[0] and "看懂学习资料" in followup_prompts[0]
     assert "15" in followup_prompts[0] and "每次只推进一个推理步骤" in followup_prompts[0]
     assert "生态课资料" in resource["citations"][0]
+    assert resource["payload"]["source_evidence"][0]["source_id"] == source["id"]
+    assert resource["payload"]["source_evidence"][0]["preview"].rstrip("…") in body
     assert resource["payload"]["markdown"].startswith("# 能量流动与物质循环")
     assert "资料不足" not in resource["payload"]["markdown"]
     other = client.post("/api/notebooks", json={"user_id": user, "title": "其他课程"}).json()

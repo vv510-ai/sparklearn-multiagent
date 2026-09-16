@@ -11,6 +11,7 @@ def build_context(chunks: list[dict]) -> tuple[str, list[dict]]:
         cites.append({
             "index": i,
             "citation": c.get("citation", ""),
+            "source_id": c.get("source_id", ""),
             "source": c.get("source", ""),
             "chapter": c.get("chapter", ""),
             "page": c.get("page", 0),

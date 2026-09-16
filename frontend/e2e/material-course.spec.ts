@@ -87,8 +87,12 @@ test("真实资料经模型生成起点题，目标与来源继续进入学习�
   expect(followup.payload.learning_context.goals).toContain("安排计划与复习");
   expect(followup.payload.learning_context.bound_sources[0].title).toBe("生态学入门验收资料.txt");
   expect(followup.payload.generation_scope.source_ids).toEqual(course.source_ids);
-  expect(followup.citations.some((c: { source: string; preview: string }) => c.source === "生态学入门验收资料.txt" && NOTES.replace(/\s+/g, "").includes(c.preview.replace(/…$/, "").replace(/\s+/g, "")))).toBe(true);
-  expect(followup.payload.markdown).toMatch(/能量|物质/);
+  expect(followup.citations.some((c: string) => c.includes("生态学入门验收资料.txt"))).toBe(true);
+  expect(followup.payload.source_evidence.some((c: { source_id: string; source: string; preview: string }) => course.source_ids.includes(c.source_id) && c.source === "生态学入门验收资料.txt" && NOTES.replace(/\s+/g, "").includes(c.preview.replace(/…$/, "").replace(/\s+/g, "")))).toBe(true);
+  expect(followup.payload.topic_label).toContain("能量流动");
+  expect(followup.payload.topic_label).toContain("物质循环");
+  expect(followup.payload.markdown).toContain("能量流动");
+  expect(followup.payload.markdown).toContain("物质循环");
   expect(followup.payload.markdown).not.toMatch(/演示数据|离线示例|资料不足/);
   await writeFile(testInfo.outputPath("verified-learning-chain.json"), JSON.stringify({ course, questions: shown, report: state.report, plan: state.plan, followup }, null, 2));
 });

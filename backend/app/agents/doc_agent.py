@@ -336,14 +336,18 @@ def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
         lines += ["", "- 当前知识库没有检索到可用片段，请补充课程资料后重新生成。"]
     else:
         for i, chunk in enumerate(chunks[:5], 1):
-            excerpt = _clean_source_excerpt(chunk.get("text", ""))
+            raw = str(chunk.get("text") or "")
+            terms = topic_terms(name)
+            sentences = re.split(r"(?<=[。！？；])|\n+", raw)
+            relevant = [part for part in sentences if any(term in re.sub(r"\s+", "", part).casefold() for term in terms)]
+            excerpt = _clean_source_excerpt("".join(relevant) if relevant else raw)
             if excerpt:
                 lines.append(f"- {excerpt} [^{i}]")
     lines += [
         "",
         "## 学习建议",
-        f"- 先按上面的教材片段梳理「{name}」的定义、操作和复杂度。",
-        "- 再结合题组检查边界条件、概念区分和时间复杂度。",
+        f"- 先按上面的教材片段梳理「{name}」的定义、关键关系与适用条件。",
+        "- 用自己的话复述，再完成一道新题，核对概念区别。",
         "- 需要更完整的讲义时，可补充资料或在真实模型可用后重新生成。",
     ]
     return "\n".join(lines)
@@ -626,6 +630,7 @@ async def _gen_structured_resource(
         "prompt_skill": prompt_call.metadata(),
         "topic_label": name,
         "source_ids": source_ids,
+        "source_evidence": citations[:6],
     }
     resource = {
         "id": rid,
@@ -853,6 +858,7 @@ async def _gen_one(
         "prompt_skill": prompt_call.metadata(),
         "topic_label": name,
         "source_ids": source_ids,
+        "source_evidence": cite_used,
     }
     one_page = kind == "doc" and prompt_template == "one_page"
     if one_page:

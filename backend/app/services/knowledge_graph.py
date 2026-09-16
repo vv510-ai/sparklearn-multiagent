@@ -196,13 +196,25 @@ def resolve_topic(
 ) -> tuple[str, str, bool]:
     """Resolve a request to either a known course KP or a first-class custom topic."""
     explicit = canonical_kp_id((knowledge_points or [None])[0])
+    from .learning_scope import current_space
+    space = current_space()
+    if space and space["course"].get("kind") != "ds_algo":
+        label = clean_topic_label(topic_label or learning_goal)
+        if explicit and explicit != CUSTOM_TOPIC_KP:
+            return explicit, kp_name(explicit), True
+        if explicit != CUSTOM_TOPIC_KP:
+            # Generated outline labels are not a fixed taxonomy. An incidental
+            # match to one node must not erase the rest of a compound question.
+            compact = re.sub(r"\s+", "", label).casefold()
+            for kp, node in load_kg()["nodes"].items():
+                if compact in {kp.casefold(), re.sub(r"\s+", "", node["name"]).casefold()}:
+                    return kp, kp_name(kp), True
+        return CUSTOM_TOPIC_KP, label, True
     combined = "\n".join(part for part in (str(topic_label or ""), str(learning_goal or "")) if part)
     inferred = infer_kp_id(combined)
     kp = explicit if explicit and explicit != CUSTOM_TOPIC_KP else inferred
     if kp and kp != CUSTOM_TOPIC_KP:
-        from .learning_scope import current_space
-        space = current_space()
-        return kp, kp_name(kp), bool(space and space["course"].get("kind") != "ds_algo")
+        return kp, kp_name(kp), False
     label = clean_topic_label(topic_label or learning_goal)
     return CUSTOM_TOPIC_KP, label, True
 
@@ -231,7 +243,14 @@ def resolve_conversation_topic(
     topic_label: str | None = None,
 ) -> tuple[str, str, bool]:
     """Resolve the current conversational focus without binding it to the opening title."""
+    from .learning_scope import current_space
+    space = current_space()
+    named_course = bool(space and space["course"].get("kind") != "ds_algo")
     current = str(current_text or "").strip()
+    if named_course:
+        current_label = explicit_topic_label(current)
+        if current_label:
+            return resolve_topic([], current_label, "")
     current_kp = infer_kp_id(current)
     if current_kp:
         return resolve_topic([current_kp], current, "")
@@ -250,6 +269,10 @@ def resolve_conversation_topic(
         if not skipped_current and current and content == current:
             skipped_current = True
             continue
+        if named_course:
+            recent_label = explicit_topic_label(content)
+            if recent_label:
+                return resolve_topic([], recent_label, "")
         recent_kp = infer_kp_id(content)
         if recent_kp:
             return resolve_topic([recent_kp], content, "")
