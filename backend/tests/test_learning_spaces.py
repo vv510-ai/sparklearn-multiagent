@@ -122,7 +122,7 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
     from app.services import course_learning_service
     client, user = learner
     book = client.post("/api/notebooks", json={"user_id": user, "title": "生态学笔记"}).json()
-    body = "生产者通过光合作用将太阳能转化为化学能。消费者通过摄食获取能量。分解者把有机物分解为无机物。能量在食物链中逐级传递，并以热的形式散失。"
+    body = "生产者通过光合作用将太阳能转化为化学能。消费者通过摄食获取能量。分解者把有机物分解为无机物。能量流动沿食物链逐级传递，并以热的形式散失。物质循环使元素在生物与非生物环境间循环。"
     upload = client.post("/api/knowledge/upload", data={"user_id": user, "notebook_id": book["id"], "title": "生态课资料"}, files={"file": ("ecology.txt", body.encode(), "text/plain")})
     assert upload.status_code == 200, upload.text
     source = upload.json()["source"]
@@ -133,7 +133,7 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
         return json.dumps({"topics": [{"name": f"生态系统概念{i}", "objective": "区分生态系统中的能量来源", "lesson": "先区分生产者和消费者，再举生活中的食物链例子。", "chunk_ids": ["s1c1"], "quote": "生产者通过光合作用将太阳能转化为化学能。", "questions": [
             {"stem": f"第{i}组情境{j}：判断生产者的能量来源与转化。", "type": "multiple" if j == 2 else "single", "options": ["光合作用", "太阳能转化为化学能", "吞食动物", "不需能量"], "answer": ["A", "B"] if j == 2 else "A", "explain": "资料说明生产者通过光合作用将太阳能转化为化学能。", "difficulty": 1} for j in range(3)]} for i in range(3)]}, ensure_ascii=False)
     monkeypatch.setattr(course_learning_service, "llm_complete", model)
-    survey = {"notebook_id": book["id"], "course_key": "custom", "course_title": "生态学笔记", "source_ids": [source["id"]], "goal": "看懂学习资料", "goals": ["看懂学习资料"]}
+    survey = {"notebook_id": book["id"], "course_key": "custom", "course_title": "生态学笔记", "source_ids": [source["id"]], "goal": "看懂学习资料", "goals": ["看懂学习资料"], "daily_minutes": 15, "supports": ["steps"]}
     response = client.post(f"/api/notebooks/{book['id']}/learning/prepare", json={"title": "生态学笔记", "source_ids": [source["id"]], "survey": survey})
     assert response.status_code == 200, response.text
     course = response.json()
@@ -142,6 +142,35 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
     survey["course_revision"] = course["revision"]
     result = finish(client, survey, False)
     assert all("生态课资料" in m["markdown"] and "生产者通过光合作用" in m["markdown"] for m in result["materials"])
+
+    # Exercise the real upload -> retriever -> topic filter -> prompt chain.
+    # Mock only model inference, so a source discarded after retrieval fails.
+    from app.agents import doc_agent
+    from app.services.knowledge_graph import resolve_conversation_topic
+    from app.services.topic_scope import focus_chunks_on_topic
+    goal = "根据已选资料，分步骤讲解生态系统的能量流动与物质循环，并留下一个独立思考问题。"
+    followup_prompts = []
+    async def followup_model(prompt, **kwargs):
+        followup_prompts.append(prompt)
+        return "# 能量流动与物质循环\n\n" + body + "[^1]"
+    async def grounding(*args, **kwargs):
+        return {"grounded": True, "unsupported": [], "verdict": "ok"}
+    monkeypatch.setattr(doc_agent, "llm_complete", followup_model)
+    monkeypatch.setattr(doc_agent, "grounding_check", grounding)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+    with course_scope(user, book["id"]):
+        kp, topic, custom = resolve_conversation_topic(goal, topic_label="生态学笔记")
+        resource = asyncio.run(doc_agent._gen_one("doc", kp, {}, topic_name=topic,
+            custom_topic=custom, source_ids=[source["id"]], goal=goal, prompt_template="complete_notes",
+            user_id=user, trace_id="upload-followup", skip_multimodal=True))["resource"]
+        assert focus_chunks_on_topic([{"text": body}], "topic_1", "食物链中的能量流动特点")
+        assert not focus_chunks_on_topic([{"text": "生态系统中的种群数量。"}], "topic_1", "生态系统的能量流动特点")
+    assert followup_prompts
+    assert body in followup_prompts[0] and "看懂学习资料" in followup_prompts[0]
+    assert "15" in followup_prompts[0] and "每次只推进一个推理步骤" in followup_prompts[0]
+    assert "生态课资料" in resource["citations"][0]
+    assert resource["payload"]["markdown"].startswith("# 能量流动与物质循环")
+    assert "资料不足" not in resource["payload"]["markdown"]
     other = client.post("/api/notebooks", json={"user_id": user, "title": "其他课程"}).json()
     wrong_scope = client.post(f"/api/notebooks/{other['id']}/learning/prepare", json={"title": "其他课程", "source_ids": [source["id"]], "survey": survey})
     assert wrong_scope.status_code == 400

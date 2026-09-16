@@ -43,7 +43,7 @@ _STANDALONE_GRAPH_RE = re.compile(
 )
 
 _TOPIC_INTRO_PATTERNS = (
-    re.compile(r"^(?:请|能否|可以)?(?:先)?(?:给我)?(?:解释|介绍|讲解|讲讲|说说|教我|学习|了解)(?:一下)?\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
+    re.compile(r"^(?:请|能否|可以)?(?:先)?(?:给我)?(?:分步骤|分步|逐步|详细|简单|通俗地)?(?:解释|介绍|讲解|讲讲|说说|教我|学习|了解)(?:一下)?\s*(?P<topic>[^，,。！？?\n]+)", re.IGNORECASE),
     re.compile(r"^(?:什么是|何为)\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
     re.compile(
         r"^(?P<topic>[^，。！？?\n]{2,60}?)(?:是什么|的定义(?:是什么)?|怎么(?:工作|运行|实现|使用|学习|理解)?|如何(?:工作|运行|实现|使用|学习|理解)?|为什么)",
@@ -146,6 +146,11 @@ def canonical_kp_id(value: str | None) -> str | None:
 
 
 _TOPIC_MARKER_RE = re.compile(r"当前学习主题\s*[：:]\s*([^\r\n]+)", re.IGNORECASE)
+_SOURCE_REQUEST_PREFIX_RE = re.compile(
+    r"^(?:请)?(?:根据|结合|参考|基于|围绕)"
+    r"(?:我(?:上传|提供)的|已选|选中|这些|这份|当前|所选)?"
+    r"(?:资料|讲义|笔记|课件|教材|原文)[，,：:\s]*"
+)
 _TOPIC_PREFIXES = (
     "请用完全零基础、由浅入深的方式教我", "请从零开始教我", "请从零讲解",
     "我刚开始学习", "我想要学习", "我想学习", "我想学", "想学习", "学习", "了解",
@@ -164,6 +169,11 @@ def clean_topic_label(value: str | None) -> str:
     if marker:
         raw = marker.group(1).strip()
     raw = raw.strip("【】[]《》<>：:，,。.!！?？;； \t\r\n")
+    raw = _SOURCE_REQUEST_PREFIX_RE.sub("", raw)
+    instruction = _TOPIC_INTRO_PATTERNS[0].match(raw)
+    if instruction:
+        # Keep the subject, not a later request about teaching style or output.
+        raw = instruction.group("topic").strip()
     changed = True
     while changed and raw:
         changed = False

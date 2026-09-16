@@ -76,6 +76,19 @@ def test_custom_conversation_focus_keeps_subject_and_removes_learning_request_wo
     assert topic == ("custom_topic", "量子纠缠", True)
 
 
+def test_uploaded_topic_does_not_include_source_or_teaching_instructions():
+    goal = "根据已选资料，分步骤讲解生态系统的能量流动与物质循环，并留下一个独立思考问题。"
+    kp, name, custom = resolve_conversation_topic(goal, topic_label="生态学入门")
+    assert (kp, name, custom) == ("custom_topic", "生态系统的能量流动与物质循环", True)
+    original = [{"text": "## 能量流动\n能量流动逐级传递，并以热的形式散失。\n## 种群\n种群密度描述同一物种的数量。", "source_id": "ecology"},
+                {"text": "这份资料讲解问题求解的步骤。", "source_id": "unrelated"}]
+    focused = focus_chunks_on_topic(original, kp, name)
+    assert len(focused) == 1 and focused[0]["source_id"] == "ecology"
+    assert "热的形式散失" in focused[0]["text"] and "种群" not in focused[0]["text"]
+    assert "种群" in original[0]["text"]  # The stored source stays intact.
+    assert focus_chunks_on_topic(original, "custom_topic", "根据已选资料，分步骤讲解量子纠缠，并给出例子") == []
+
+
 def test_conversation_topics_collect_all_questions_and_ignore_product_help():
     topics = collect_conversation_topics([
         {"role": "user", "content": "你能帮助我干嘛"},

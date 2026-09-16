@@ -19,7 +19,7 @@ from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
-from ..services.topic_scope import focus_chunks_on_topic
+from ..services.topic_scope import focus_chunks_on_topic, topic_terms
 from .emitter import agent_end, agent_start, emit
 
 _STYLE = {
@@ -238,8 +238,7 @@ def _content_on_topic(value: object, topic_name: str, kp: str) -> bool:
 
     raw = json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value or "")
     output = re.sub(r"\s+", "", raw).lower()
-    pieces = re.split(r"[与和、/·（）()\s]+", str(topic_name or ""))
-    candidates = [str(topic_name or "").strip().lower(), *pieces]
+    candidates = topic_terms(topic_name)
     if kp and kp != "custom_topic":
         candidates.append(str(kp).strip().lower())
     terms = {
