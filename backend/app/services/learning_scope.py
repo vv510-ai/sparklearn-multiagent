@@ -94,7 +94,10 @@ def profile_row(db, user_id: str):
     if space:
         if space["user_id"] != user_id:
             raise HTTPException(403, "学习记录不属于当前用户")
-        return db.scalar(select(LearningSpace).where(LearningSpace.notebook_id == notebook_id(), LearningSpace.user_id == user_id).with_for_update())
+        row = db.scalar(select(LearningSpace).where(LearningSpace.notebook_id == notebook_id(), LearningSpace.user_id == user_id).with_for_update())
+        if not row or row.course.get("revision") != space["course"].get("revision"):
+            raise HTTPException(409, "课程范围已更新，请刷新当前课程后继续；已有作答仍保留")
+        return row
     return db.scalar(select(Profile).where(Profile.user_id == user_id).with_for_update())
 
 

@@ -5,6 +5,7 @@ import json
 import uuid
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app import config
@@ -211,3 +212,18 @@ def test_confirmed_subset_controls_assessment_coverage(learner):
     assert result["report"]["coverage"] == 1
     measured = [s for s in result["report"]["skills"] if s["attempts"]]
     assert [s["kp"] for s in measured] == ["py_functions"]
+
+
+def test_inflight_old_scope_cannot_write_changed_profile(learner):
+    from app.models.entities import LearningSpace
+    from app.services.learning_scope import profile_row
+    client, user = learner
+    book, _, _ = prepare(client, user)
+    with course_scope(user, book["id"]):
+        with session() as db:
+            row = db.get(LearningSpace, book["id"])
+            row.course = {**row.course, "revision": "changed-by-concurrent-request"}
+            db.commit()
+        with session() as db, pytest.raises(HTTPException) as caught:
+            profile_row(db, user)
+        assert caught.value.status_code == 409
