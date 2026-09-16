@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 export async function completeIntake(page: Page, mode: "screening" | "foundation" | "comprehensive" = "screening") {
-  await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？" })).toBeVisible();
   await page.getByRole("checkbox", { name: /准备课程考试/ }).check();
   await page.getByRole("checkbox", { name: /完成项目或实际任务/ }).check();
   await page.getByLabel("当前优先解决").selectOption("准备课程考试");
@@ -34,7 +34,7 @@ export async function registerLearner(page: Page, prefix: string) {
   await page.getByPlaceholder("you@example.com").fill(`${prefix}-${marker}@example.test`);
   await page.getByPlaceholder("至少 8 位").fill("Intake-E2E-2026!pass");
   await page.getByRole("button", { name: "创建账户", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？" })).toBeVisible();
 }
 
 export async function currentAssessment(page: Page) {

@@ -390,7 +390,7 @@ def _build_materials(db, row, data, report):
         data["exposed_question_ids"] = sorted(set(data.get("exposed_question_ids", [])) | {q["id"] for q in practice})
         exercises = "\n\n".join(f"### 练习 {i + 1}\n{q['stem']}\n" + "\n".join(f"- {chr(65+j)}. {o}" for j, o in enumerate(q["options"])) + ("\n（多选）" if q["type"] == "multiple" else "") for i, q in enumerate(practice))
         checks = "\n\n".join(f"练习 {i + 1}：{'、'.join(q['answer']) if isinstance(q['answer'], list) else q['answer']}。{q['explain']}" for i, q in enumerate(practice))
-        markdown = f"# {skill['name']} · 起点学习资料\n\n依据{'近期独立作答' if skill.get('practice_updated') else '本次起点作答'} {skill['correct']}/{skill['attempts']}：{instruction}\n\n{lesson_guidance(data['survey'], skill)}\n\n## 起点错题回顾\n\n{recap or '本次该知识点没有错题；仍需换题和延迟复测确认。'}\n\n## 课程讲义\n\n{body}\n\n## 先尝试，再核对\n\n{exercises or '合上资料，用自己的话解释关键步骤，再请学伴给一道新题。'}\n\n## 核对与复盘\n\n{checks or '请用课程讲义核对自己的解释。'}\n\n资料内练习用于自学，不计测评分。请在学习工坊完成新的无提示题，之后返回计划查看调整。\n\n来源：课程自编种子讲义 {filename}（CC BY-SA 4.0）；本次诊断题解析与自编练习。"
+        markdown = f"# {skill['name']} · 起点学习资料\n\n依据{'近期独立作答' if skill.get('practice_updated') else '本次起点作答'} {skill['correct']}/{skill['attempts']}：{instruction}\n\n{lesson_guidance(data['survey'], skill)}\n\n## 起点错题回顾\n\n{recap or '本次该知识点没有错题；仍需换题和延迟复测确认。'}\n\n## 课程讲义\n\n{body}\n\n## 先尝试，再核对\n\n{exercises or '合上资料，用自己的话解释关键步骤，再请小知给一道新题。'}\n\n## 核对与复盘\n\n{checks or '请用课程讲义核对自己的解释。'}\n\n资料内练习用于自学，不计测评分。请在学习工坊完成新的无提示题，之后返回计划查看调整。\n\n来源：课程自编种子讲义 {filename}（CC BY-SA 4.0）；本次诊断题解析与自编练习。"
         resource_id = f"baseline-{row.id}-{skill['kp']}"
         resource = Resource(id=resource_id, user_id=row.user_id, kind="doc", kp=skill["kp"], title=f"起点资料 · {skill['name']}",
                             payload={"markdown": markdown}, citations=[{"source": filename, "chapter": skill["name"]}], safety={"source": "course_seed", "generated_by": "entry_assessment"})
@@ -422,7 +422,7 @@ def _course_materials(db, row, data, report):
             f"{lesson_guidance(data['survey'], skill)}\n\n## 本课目标\n\n解释核心概念，并在新情境中独立应用。\n\n"
             f"## 概念与分步示例\n\n{body}\n\n## 起点错题回顾\n\n{recap or '没有已记录的错题，仍需新题复核。'}\n\n"
             "## 轮到你尝试\n\n1. 合上讲义，用自己的话解释一个核心概念。\n2. 改变例题中的条件，自己完成推理。\n"
-            "3. 点击向学伴提问，索取一道未见过的新题；先独立作答，卡住再展开提示。\n\n"
+            "3. 点击向小知提问，索取一道未见过的新题；先独立作答，卡住再展开提示。\n\n"
             f"## 内容依据\n\n{source_text or source_note}\n\n{course['boundary']}\n\n"
             "看例题和重做原题属于学习过程，不计为新的独立掌握证据。")
         rid = f"baseline-{row.id}-{kp}"

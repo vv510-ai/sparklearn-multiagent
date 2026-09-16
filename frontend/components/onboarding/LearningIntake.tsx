@@ -38,7 +38,7 @@ const SUPPORTS = [
 ] as const;
 const STAGES = ["大学课程", "高中提前学习", "考研复习", "工作后自学", "不方便回答"];
 const EXPERIENCE = ["不确定", "第一次系统学习", "学过概念但做题困难", "能做基础题", "做过综合题或项目", "不方便回答"];
-const TITLES = ["你希望学伴先帮你完成什么？", "这次，我们一起学什么？", "哪些地方需要我们多帮一步？", "给学习留一段真实的时间", "核对范围，再找到学习起点"];
+const TITLES = ["你希望小知先帮你完成什么？", "这次，我们一起学什么？", "哪些地方需要小知多帮一步？", "给学习留一段真实的时间", "核对范围，再找到学习起点"];
 const COURSES = [["ds_algo", "数据结构与算法"], ["python", "Python 入门"], ["calculus", "高等数学入门"], ["custom", "其他课程或主题"]] as const;
 type IntakeSource = { id: string; title: string; selectable?: boolean; status_detail?: string };
 type Option = readonly [string, string, string];
@@ -194,7 +194,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
     {localBusy && step === 4 && !course && !isReplan && <p className="intake-response" role="status">正在根据目标与资料准备知识点和题目，通常需要几十秒。准备好后，请先核对范围，再开始作答。</p>}
     <fieldset className="intake-body" disabled={locked}>
       {step === 0 && <>
-        <p className="intake-value">带上你的目标和资料。学伴会用题目找起点，把讲解、练习和复习安排成你今天就能开始的一步。</p>
+        <p className="intake-value">带上你的目标和资料。小知会用题目找起点，把讲解、练习和复习安排成你今天就能开始的一步。</p>
         <p className="intake-hint">可以同时选择几个目标。我们会先解决最重要的一项，其余一起纳入安排。</p>
         <ChoiceGroup legend="你的学习目标" options={GOALS} values={goals} onChange={values => {
           const latest = values[values.length - 1];
@@ -224,7 +224,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
         <ChoiceGroup legend="常见的困难" options={BARRIERS} values={survey.barriers || []} onChange={v => set("barriers", v)} optional />
         <ChoiceGroup legend="你希望怎样得到帮助" options={SUPPORTS} values={survey.supports || []} onChange={v => set("supports", v)} optional />
         {!!survey.barriers?.length && <div className="intake-response" role="status">{BARRIERS.filter(o => survey.barriers?.includes(o[0])).map(o => <p key={o[0]}>{o[2]}。</p>)}</div>}
-        <label className="intake-field">还有想告诉学伴的吗？<input maxLength={120} value={survey.support} onChange={e => set("support", e.target.value)} placeholder="选填，例如：请解释英文术语" /></label>
+        <label className="intake-field">还有想告诉小知的吗？<input maxLength={120} value={survey.support} onChange={e => set("support", e.target.value)} placeholder="选填，例如：请解释英文术语" /></label>
       </>}
       {step === 3 && <>
         <p className="intake-hint">从能坚持的时间开始。计划会给休息日留白，安排不下的内容会明确列出。</p>
@@ -237,7 +237,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
       {step === 4 && <>
         <div className="intake-summary"><Sparkles size={20} /><div><strong>优先：{survey.goal}</strong><p>{goals.filter(g => g !== survey.goal).length ? `同时兼顾：${goals.filter(g => g !== survey.goal).join("、")}。` : ""}每周 {survey.study_days.length} 天，每个学习日 {survey.daily_minutes} 分钟。</p><small>你的目标、困难与帮助选择会进入计划和资料，下一步无需重复填写。</small></div></div>
         {!isReplan && <>
-          {survey.course_key === "ds_algo" && <details className="intake-example-details"><summary><Play size={15} /> 先体验一次学伴怎样讲解（可选）</summary><IntroExample onPracticed={() => set("intro_practiced", true)} /></details>}
+          {survey.course_key === "ds_algo" && <details className="intake-example-details"><summary><Play size={15} /> 先体验一次小知怎样讲解（可选）</summary><IntroExample onPracticed={() => set("intro_practiced", true)} /></details>}
           {course ? <section className="intake-outline" aria-label="本次学习范围"><h3>{course.title} · 核对学习范围</h3><p>{course.coverage_note}</p>
             {course.outline.map(node => <label key={node.id}><input type="checkbox" checked={survey.target_kps?.includes(node.id) || false} onChange={e => setSurvey(s => ({ ...s, target_kps: e.target.checked ? [...(s.target_kps || []), node.id] : s.target_kps?.filter(id => id !== node.id) }))} /><span><strong>{node.name}</strong><small>{node.objective}</small></span></label>)}
             {!!course.sources?.length && <details><summary>这次使用了哪些资料？</summary>{course.sources.map(source => <p key={source.id}>{source.title}：读取 {source.sampled_chunks}/{source.total_chunks} 个解析片段；{source.location_kind} {source.locations.join("、")}。</p>)}</details>}

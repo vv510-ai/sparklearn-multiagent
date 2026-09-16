@@ -487,13 +487,13 @@ export default function Chat({
           ) : (
             <div key={i} className="flex gap-3">
               <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-emerald-200 bg-[#E3F0E9] font-mono text-[10px] font-bold text-emerald-800">
-                学伴
+                小知
               </div>
               <div className="min-w-0 flex-1 space-y-3">
                 {(m.text || m.streaming) && (
                   <div
                     className="notebook-assistant-message rounded-[14px] rounded-tl-md border border-[#E5E9E3] px-4 py-3 shadow-sm"
-                    aria-label="学伴回答"
+                    aria-label="小知回答"
                     aria-live={m.streaming ? "polite" : "off"}
                   >
                     <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />

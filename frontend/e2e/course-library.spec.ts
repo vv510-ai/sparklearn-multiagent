@@ -37,7 +37,7 @@ test("工作台可直接选经典课程，失败续建不重复，切换课程�
   expect(python.kind).toBe("python");
   expect(python.question_count).toBe(12);
   await expect(page.locator(".course-source-summary").first()).toContainText("Python 入门");
-  await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "新建课程", exact: true }).click();
   await dialog.getByRole("radio", { name: "高等数学入门", exact: true }).check();

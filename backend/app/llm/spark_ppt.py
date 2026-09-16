@@ -79,7 +79,7 @@ def create_task(query: str, *, timeout_s: float = 75.0) -> dict[str, Any]:
     fields = {
         "query": (None, value),
         "language": (None, "cn"),
-        "author": (None, "SparkLearn 星火学伴"),
+        "author": (None, "知行循证 · 小知"),
         "search": (None, "false"),
         "isCardNote": (None, "false"),
         # Provider-side AI figures add a second long-running stage. Keep the

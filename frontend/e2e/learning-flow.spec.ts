@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { completeIntake } from "./intake-helpers";
 
-test("学生能注册、获得学伴回答并重新登录", async ({ page }) => {
+test("学生能注册、获得小知回答并重新登录", async ({ page }) => {
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const learnerName = `E2E 学员 ${runId.slice(-6)}`;
   const email = `sparklearn-e2e-${runId}@example.test`;
@@ -19,7 +19,7 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await page.getByPlaceholder("至少 8 位").fill(password);
     await page.getByRole("button", { name: "创建账户" }).click();
 
-    await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？" })).toBeVisible();
     await expect(page.getByText(learnerName, { exact: true })).toBeVisible();
   });
 
@@ -43,7 +43,7 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await page.getByLabel("发送", { exact: true }).click();
 
     await expect(page.getByText(question, { exact: true })).toBeVisible();
-    await expect(page.getByLabel("学伴回答").last()).toContainText(/\S/);
+    await expect(page.getByLabel("小知回答").last()).toContainText(/\S/);
   });
 
   await test.step("刷新后仍保持登录身份", async () => {

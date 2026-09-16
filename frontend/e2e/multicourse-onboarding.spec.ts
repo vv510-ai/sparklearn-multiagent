@@ -55,7 +55,7 @@ test("注册直接多选引导，Python 计划与高数课程独立，并自动�
   await page.reload();
   await page.getByRole("combobox", { name: "切换科目书本" }).selectOption(maths.id);
   await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？" })).toBeVisible();
   expect((await (await page.request.get(`/api/assessment?notebook_id=${maths.id}`)).json()).assessment).toBeNull();
   await page.route(`**/api/notebooks/${pythonId}?*`, async route => {
     await new Promise(resolve => setTimeout(resolve, 750));
@@ -81,5 +81,5 @@ test("引导状态读取失败提供重试，不把用户静默放行", async ({
   await expect(page.locator("main.notebook-app")).toHaveCount(0);
   await page.unroute("**/api/onboarding");
   await page.getByRole("button", { name: "重试读取学习进度" }).click();
-  await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？" })).toBeVisible();
 });

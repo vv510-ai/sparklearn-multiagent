@@ -47,7 +47,7 @@ def _persona(profile: dict) -> str:
 def _conversation_text(state: dict, limit: int = 10000) -> str:
     items = state.get("conversation") or state.get("messages") or []
     lines = [
-        f"{('学习者' if item.get('role') == 'user' else '学伴')}：{str(item.get('content') or '').strip()}"
+        f"{('学习者' if item.get('role') == 'user' else '小知')}：{str(item.get('content') or '').strip()}"
         for item in items
         if str(item.get("content") or "").strip()
     ]
@@ -370,7 +370,7 @@ def _conversation_fallback_doc(name: str, conversation: str, chunks: list[dict])
         for line in dialog_lines
         if line.startswith("学习者：") and not any(word in line for word in ("整理", "总结", "个人笔记"))
     ]
-    assistant_lines = [line.removeprefix("学伴：") for line in dialog_lines if line.startswith("学伴：")]
+    assistant_lines = [line.removeprefix("小知：") for line in dialog_lines if line.startswith("小知：")]
     lines = [
         f"# 本次学习笔记：{name}",
         "",

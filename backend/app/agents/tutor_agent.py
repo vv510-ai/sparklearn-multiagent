@@ -53,7 +53,7 @@ def _lightweight_chat_answer(question: str) -> str:
         return "下次见。已经形成的学习笔记可以继续作为后续复习资料。"
     if any(marker in compact for marker in _HELP_MARKERS):
         return "你可以先选择学习资料，再让我从零讲解、针对卡点答疑、生成练习，最后把本次对话整理成可复用笔记。"
-    return "你好，我是星火学伴。你可以选中资料后问一个具体问题，或者直接说“从零学习某个主题”。"
+    return "你好，我是小知。你可以选中资料后问一个具体问题，或者直接说“从零学习某个主题”。"
 
 
 def _is_short_definition_question(question: str) -> bool:

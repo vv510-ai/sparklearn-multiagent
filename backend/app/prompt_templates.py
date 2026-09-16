@@ -177,7 +177,7 @@ def _dialog_text(conversation: list[dict] | None) -> str:
         content = " ".join(str(item.get("content") or "").strip().split())
         if not content:
             continue
-        line = f"{('学习者' if item.get('role') == 'user' else '学伴')}: {content}"
+        line = f"{('学习者' if item.get('role') == 'user' else '小知')}: {content}"
         if selected and used + len(line) + 1 > budget:
             break
         selected.append(line[:budget] if not selected else line)

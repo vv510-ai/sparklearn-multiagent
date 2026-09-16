@@ -106,5 +106,5 @@ test("跳过引导后仍能找到测评入口", async ({ page }) => {
   const profile = (await (await page.request.get("/api/onboarding")).json()).profile;
   expect(profile.learning_intake.intro_practiced).toBe(true);
   await page.getByRole("button", { name: "先测一下我的水平", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？" })).toBeVisible();
 });

@@ -350,8 +350,8 @@ export default function AssessmentPanel({
             <h2 ref={studyHeading} tabIndex={-1}>{studyTask.title}</h2><p className="entry-note">{studyTask.reason}</p>
             <ol>{(studyTask.steps || [studyTask.criterion]).map((s, i) => <li key={i}>{s}</li>)}</ol>
             <p className="entry-note">完成标准：{studyTask.criterion}</p>
-            {studyMaterial ? <><p className="entry-eyebrow">对应学习资料 · 按作答与当前目标整理</p><Markdown text={studyMaterial.markdown} allowCodeBlocks /></> : <p className="intake-response">这一步先补充作答证据。学伴会逐题等待你回答，再决定需要哪些讲解。</p>}
-            <button className="intake-primary" onClick={() => onLearn(studyTask.goal)}><Play size={16} />请学伴带我练习</button>
+            {studyMaterial ? <><p className="entry-eyebrow">对应学习资料 · 按作答与当前目标整理</p><Markdown text={studyMaterial.markdown} allowCodeBlocks /></> : <p className="intake-response">这一步先补充作答证据。小知会逐题等待你回答，再决定需要哪些讲解。</p>}
+            <button className="intake-primary" onClick={() => onLearn(studyTask.goal)}><Play size={16} />请小知带我练习</button>
           </section>}
           {!!plan.adaptations?.length && <details className="entry-adaptations" open><summary>为什么这样安排 · 根据你的选择</summary><ul>{plan.adaptations.map((s, i) => <li key={i}>{s}</li>)}</ul></details>}
           {data.mode !== "comprehensive" && report.coverage < report.total_skills && <div className="entry-result-actions"><button className="intake-secondary" disabled={busy} onClick={() => void continueAssessment()}>继续补全课程摸底 <ArrowRight size={16} /></button><p className="entry-note">已做题目保留，继续检查尚未覆盖的知识点，可随时暂停。</p></div>}

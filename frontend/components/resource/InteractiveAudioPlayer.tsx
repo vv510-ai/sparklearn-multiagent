@@ -142,7 +142,7 @@ export default function InteractiveAudioPlayer({
     if (cloudWasPlaying) audio?.pause();
     if (browserWasPlaying) pauseBrowserSpeech();
     setAsking(true);
-    setStatus("学伴正在根据当前资料回答，讲解已暂停…");
+    setStatus("小知正在根据当前资料回答，讲解已暂停…");
 
     const prompt = [
       `我正在听来源约束的学习资料《${resourceTitle}》，在${positionLabel}暂停。`,
@@ -295,7 +295,7 @@ export default function InteractiveAudioPlayer({
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               disabled={disabled || asking}
-              aria-label="播放中向学伴提问"
+              aria-label="播放中向小知提问"
               placeholder="没听懂？暂停并问一句…"
               className="min-w-0 flex-1 rounded-[8px] border border-[#DCE2DD] bg-white px-3 py-2 text-xs text-[#182119] outline-none transition placeholder:text-[#9AA0AD] focus:border-emerald-400"
             />
