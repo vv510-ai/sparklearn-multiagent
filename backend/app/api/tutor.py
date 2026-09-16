@@ -1,6 +1,7 @@
 """POST /api/tutor —— 多模态答疑(SSE)。支持 image_base64 拍照搜题(讯飞 OCR),
 intent 固定 tutor,直达 Tutor Agent,逐 token 流式 + Mermaid 图解 + 引用溯源。"""
 from __future__ import annotations
+from ..services.learning_scope import scoped_endpoint
 
 import uuid
 
@@ -57,10 +58,19 @@ async def transcribe_question(
 
 
 @router.post("/tutor")
+@scoped_endpoint
 async def tutor(req: TutorRequest):
+    from ..rag.ingest import validate_source_scope
+    from ..services.learning_scope import selected_sources
     ensure_user(req.user_id)
+    try:
+        source_ids = validate_source_scope(req.user_id, selected_sources(req.source_ids), req.notebook_id or None)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     state = {
         "user_id": req.user_id,
+        "notebook_id": req.notebook_id,
+        "source_ids": source_ids,
         "session_id": uuid.uuid4().hex[:8],
         "messages": [{"role": "user", "content": req.question or "请讲讲这道题"}],
         "intent": "tutor",

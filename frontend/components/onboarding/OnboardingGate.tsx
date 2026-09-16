@@ -13,7 +13,7 @@ export default function OnboardingGate({ user, onComplete, onSkip, onLogout }: {
   onSkip: (introPracticed: boolean) => Promise<void>;
   onLogout: () => void;
 }) {
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(true);
   const [example, setExample] = useState(false);
   const [practiced, setPracticed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -38,14 +38,14 @@ export default function OnboardingGate({ user, onComplete, onSkip, onLogout }: {
       <nav className="onboarding-nav"><div><Sparkles size={23} /><strong>知行循证<span>LearnLoop</span></strong></div><div><span>{user.name}</span><button type="button" aria-label="退出登录" onClick={onLogout} disabled={busy}><LogOut size={19} /></button></div></nav>
       <div className="onboarding-layout">
         <section className="onboarding-story">
-          <p className="onboarding-kicker">数据结构与算法 · 你的学习伙伴</p>
+          <p className="onboarding-kicker">你的目标 · 你的资料 · 你的学习伙伴</p>
           <h1>从卡住的那一步，<br /><span>开始真正学会。</span></h1>
           <p>先了解你想解决什么，用题目找到起点，再把讲解、练习和复习排进你真实的生活。</p>
           <ol><li><Compass size={20} /><div><strong>说说你的目标</strong><span>多选你的需要，明确当前优先项</span></div></li><li><Target size={20} /><div><strong>用题目找到起点</strong><span>从短测开始，需要时再深入</span></div></li><li><BookOpen size={20} /><div><strong>带着计划开始学习</strong><span>第一项任务、对应资料一起准备好</span></div></li></ol>
           <small>你可以调整节奏、暂停测评，或随时换一种帮助方式。</small>
         </section>
         <section className="onboarding-card" aria-label="学习起点引导">
-          {started ? <LearningIntake initial={{ intro_practiced: practiced }} draftKey={draftKey} onCancel={() => setStarted(false)} onSubmit={onComplete} /> : <div className="onboarding-welcome">
+          {started ? <><LearningIntake initial={{ intro_practiced: practiced }} draftKey={draftKey} onCancel={() => setStarted(false)} onSubmit={onComplete} /><button type="button" className="onboarding-skip" disabled={busy} onClick={() => void skip()}>先进入，稍后继续</button>{error && <p role="alert">{error}</p>}</> : <div className="onboarding-welcome">
             <p className="intake-eyebrow"><Sparkles size={17} /> 欢迎来到知行循证</p>
             <h2>先找到适合你的第一步</h2>
             <p>不确定从哪学，或者看懂了却做不出？告诉我们你的目标和困难，接下来用实际题目一起确认。</p>

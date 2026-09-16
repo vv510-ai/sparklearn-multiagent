@@ -15,6 +15,7 @@ from ..schemas.core import OnboardingRequest
 from ..services.knowledge_graph import load_kg
 from ..services.path_service import get_path, is_current_course_path, plan_path, save_path
 from ..services.profile_service import complete_onboarding, ensure_user, get_profile
+from ..services.learning_scope import scoped_endpoint
 
 router = APIRouter(prefix="/api", tags=["meta"])
 
@@ -27,13 +28,15 @@ async def model_status():
 
 
 @router.get("/kg")
-async def knowledge_graph():
+@scoped_endpoint
+async def knowledge_graph(notebook_id: str = ""):
     kg = load_kg()
-    return {"course": COURSE_NAME, **kg}
+    return kg
 
 
 @router.get("/profile/{user_id}")
-async def profile(user_id: str):
+@scoped_endpoint
+async def profile(user_id: str, notebook_id: str = ""):
     ensure_user(user_id)
     return get_profile(user_id)
 
@@ -44,10 +47,18 @@ async def onboarding_status():
     user_id = require_current_user_id()
     profile_data = get_profile(user_id)
     required = profile_data.get("onboarding_completed") is not True
+    resume = profile_data.get("onboarding_state")
+    if not required and not resume:
+        from ..services.assessment_service import latest
+        assessment = latest(user_id).get("assessment")
+        if assessment:
+            resume = {"phase": "assessment" if assessment["status"] == "active" else "plan",
+                      "notebook_id": "", "assessment_id": assessment["id"]}
     path = get_path(user_id)
     if path and not is_current_course_path(path):
         path = None
-    return {"required": required, "profile": profile_data, "path": path}
+    return {"required": required, "profile": profile_data, "path": path,
+            "resume": resume}
 
 
 @router.post("/onboarding")

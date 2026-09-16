@@ -19,7 +19,7 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await page.getByPlaceholder("至少 8 位").fill(password);
     await page.getByRole("button", { name: "创建账户" }).click();
 
-    await expect(page.getByRole("heading", { name: "先找到适合你的第一步" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
     await expect(page.getByText(learnerName, { exact: true })).toBeVisible();
   });
 
@@ -48,6 +48,8 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
 
   await test.step("刷新后仍保持登录身份", async () => {
     await page.reload();
+    await expect(page.locator(".entry-question-card")).toBeVisible();
+    await page.getByRole("button", { name: "返回对话", exact: true }).click();
     await expect(page.getByPlaceholder("你今天想学什么知识？")).toBeVisible();
     await expect(page.getByText(learnerName, { exact: true })).toBeVisible();
   });
@@ -77,6 +79,8 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await page.getByPlaceholder("至少 8 位").fill(password);
     await page.getByRole("button", { name: "登录并继续" }).click();
 
+    await expect(page.locator(".entry-question-card")).toBeVisible();
+    await page.getByRole("button", { name: "返回对话", exact: true }).click();
     await expect(page.getByPlaceholder("你今天想学什么知识？")).toBeVisible();
     await expect(page.getByText(learnerName, { exact: true })).toBeVisible();
   });

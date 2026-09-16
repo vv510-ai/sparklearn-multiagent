@@ -4,6 +4,28 @@
 @tailwind components;
 @tailwind utilities;
 
+.intake-value { padding: 16px 18px; border-radius: 14px; background: #e7f2ed; color: #215349; line-height: 1.8; margin-bottom: 18px; }
+.intake-materials { display: grid; gap: 12px; padding: 18px; margin: 16px 0; border: 1px solid #d9e4de; border-radius: 16px; }
+.intake-materials small, .intake-outline small { display: block; color: #67776e; line-height: 1.7; }
+.intake-upload { display: grid; gap: 10px; font-weight: 650; }
+.intake-upload input { width: 100%; max-width: 100%; font-size: 13px; }
+.intake-source, .intake-outline > label { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; }
+.intake-source input, .intake-outline input { margin-top: 5px; accent-color: #167563; flex-shrink: 0; }
+.intake-outline { padding: 20px; margin: 20px 0; border-radius: 16px; background: #f1f7f3; border: 1px solid #d7e6dc; }
+.intake-outline h3 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+.intake-outline strong { display: block; }
+.intake-outline details { padding: 14px 0; }
+.entry-course-context { margin: 18px 0; padding: 16px 20px; border: 1px solid #dbe7df; border-radius: 14px; background: #f2f7f3; line-height: 1.8; overflow-wrap: anywhere; }
+.entry-course-context summary { cursor: pointer; font-weight: 650; }
+.entry-course-context p { margin-top: 8px; font-size: 14px; }
+.onboarding-retry { min-height: 100dvh; display: flex; flex-direction: column; gap: 22px; align-items: center; justify-content: center; padding: 28px; background: #f2f7f3; }
+.onboarding-retry h1 { font-size: 28px; font-weight: 700; }
+.learning-context-strip { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; background: #eff6f1; border-bottom: 1px solid #dbe7df; font-size: 12px; }
+.learning-context-strip strong, .learning-context-strip span { display: block; }
+.learning-context-strip span { margin-top: 4px; color: #617569; }
+.learning-context-strip button { display: flex; align-items: center; gap: 5px; color: #176650; white-space: nowrap; }
+@media (max-width: 640px) { .learning-context-strip { align-items: flex-start; padding: 12px; } .intake-outline { padding: 14px; } }
+
 /* ============================================================
    Phase 0 · 语义色 token(全站唯一色彩语义来源)
    规则:一个颜色只承担一种语义。

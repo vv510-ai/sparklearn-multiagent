@@ -1,4 +1,10 @@
 export type StudySurvey = {
+  notebook_id?: string;
+  course_key?: "ds_algo" | "python" | "calculus" | "custom";
+  course_title?: string;
+  source_ids?: string[];
+  course_revision?: string;
+  target_kps?: string[] | null;
   daily_minutes: number;
   study_days: number[];
   goal: string;
@@ -30,6 +36,8 @@ export type StudyTask = {
   steps?: string[];
 };
 export type Assessment = {
+  notebook_id?: string;
+  course?: CourseScope | null;
   id: string;
   revision: number;
   status: "active" | "completed";
@@ -89,6 +97,18 @@ export type Assessment = {
     practice_update?: string;
   };
   materials: { id: string; kp: string; title: string; markdown: string }[];
+};
+
+export type CourseScope = {
+  title: string;
+  kind: string;
+  revision: string;
+  source_ids: string[];
+  sources: { id: string; title: string; sha256: string; sampled_chunks: number; total_chunks: number; location_kind: string; locations: number[] }[];
+  outline: { id: string; name: string; objective: string }[];
+  question_count: number;
+  boundary: string;
+  coverage_note: string;
 };
 
 export function downloadMarkdown(title: string, markdown: string) {

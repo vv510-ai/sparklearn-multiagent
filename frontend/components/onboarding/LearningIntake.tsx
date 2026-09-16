@@ -2,22 +2,24 @@
 
 import { ArrowLeft, ArrowRight, Check, Compass, Lightbulb, Play, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Assessment, StudySurvey } from "@/lib/assessment";
+import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
+import { apiGet, apiPost, apiUpload, USER_ID } from "@/lib/api";
 
 export const DEFAULT_SURVEY: StudySurvey = {
   daily_minutes: 20, study_days: [1, 2, 3, 4, 5], goal: "掌握课程基础",
   goals: [], barriers: [], supports: [], stage: "大学课程", prior_experience: "不确定",
   pressure: "skip", study_habit: "skip", support: "", target_date: null,
   study_cue: "", materials_status: "暂时没有", intro_practiced: false,
+  course_key: "custom", course_title: "", notebook_id: "", source_ids: [], course_revision: "",
 };
 
 const GOALS = [
-  ["掌握课程基础", "跟上课程，补齐基础", "把概念和例题一步步学明白"],
+  ["看懂学习资料", "看懂手头的课件或教材", "围绕你的资料解释概念、例子与难点"],
+  ["掌握课程基础", "从零开始，系统学习", "把概念和例题一步步学明白"],
   ["准备课程考试", "准备课程考试", "围绕考点、题型和剩余时间安排"],
-  ["考研 408 复习", "准备考研 408", "先查基础，再做综合辨析"],
-  ["竞赛与算法练习", "提升算法解题能力", "多比较解法，练习迁移与推理"],
-  ["编程项目应用", "用于项目或技术面试", "连接代码、应用场景与边界条件"],
-  ["兴趣理解", "出于兴趣，系统了解", "按自己的节奏探索"],
+  ["独立解题与纠错", "听懂了，但自己不会做", "找到卡点，练到可以独立完成"],
+  ["安排计划与复习", "制定计划，安排复习", "把学习放进实际可用的时间"],
+  ["完成项目或实践", "完成项目或实际任务", "拆分任务，用具体成果检查进步"],
   ["探索学习起点", "还不确定，帮我找起点", "先用小题了解，再一起决定"],
 ] as const;
 const BARRIERS = [
@@ -36,7 +38,9 @@ const SUPPORTS = [
 ] as const;
 const STAGES = ["大学课程", "高中提前学习", "考研复习", "工作后自学", "不方便回答"];
 const EXPERIENCE = ["不确定", "第一次系统学习", "学过概念但做题困难", "能做基础题", "做过综合题或项目", "不方便回答"];
-const TITLES = ["这次来，你最希望解决什么？", "从你的学习经历开始", "哪些地方需要我们多帮一步？", "给学习留一段真实的时间", "你的起点探索，准备好了"];
+const TITLES = ["你希望学伴先帮你完成什么？", "这次，我们一起学什么？", "哪些地方需要我们多帮一步？", "给学习留一段真实的时间", "核对范围，再找到学习起点"];
+const COURSES = [["ds_algo", "数据结构与算法"], ["python", "Python 入门"], ["calculus", "高等数学入门"], ["custom", "其他课程或主题"]] as const;
+type IntakeSource = { id: string; title: string; selectable?: boolean; status_detail?: string };
 type Option = readonly [string, string, string];
 
 function ChoiceGroup({ legend, options, values, onChange, optional = false }: {
@@ -79,6 +83,9 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
   const [ready, setReady] = useState(!draftKey);
   const [localBusy, setLocalBusy] = useState(false);
   const [error, setError] = useState("");
+  const [course, setCourse] = useState<CourseScope | null>(null);
+  const [sources, setSources] = useState<IntakeSource[]>([]);
+  const [uploadNote, setUploadNote] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     if (draftKey) {
@@ -105,11 +112,56 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
       heading.current?.scrollIntoView({ block: "nearest" });
     }
   }, [step, ready]);
-  const set = <K extends keyof StudySurvey>(key: K, value: StudySurvey[K]) => { setSurvey(s => ({ ...s, [key]: value })); setError(""); };
+  useEffect(() => {
+    if (!survey.notebook_id) return;
+    let cancelled = false;
+    void apiGet<{ items: IntakeSource[] }>(`/knowledge/sources?user_id=${USER_ID}&notebook_id=${encodeURIComponent(survey.notebook_id)}`).then(result => {
+      if (!cancelled) setSources(result.items || []);
+    }).catch(() => { if (!cancelled) setError("暂时无法读取本课程资料，请稍后重试。"); });
+    return () => { cancelled = true; };
+  }, [survey.notebook_id]);
+  const set = <K extends keyof StudySurvey>(key: K, value: StudySurvey[K]) => { setSurvey(s => ({ ...s, [key]: value })); setCourse(null); setError(""); };
+  const ensureNotebook = async () => {
+    if (survey.notebook_id) return survey.notebook_id;
+    if (!survey.course_title?.trim()) throw new Error("请先选择课程或填写学习主题。");
+    const notebook = await apiPost<{ id: string }>("/notebooks", { user_id: USER_ID, title: survey.course_title.trim() });
+    setSurvey(s => ({ ...s, notebook_id: notebook.id }));
+    return notebook.id;
+  };
+  const upload = async (files: File[]) => {
+    if (!files.length) return;
+    setLocalBusy(true); setError(""); setCourse(null);
+    try {
+      const id = await ensureNotebook();
+      for (const file of files.slice(0, 6)) {
+        setUploadNote(`正在解析 ${file.name}…`);
+        const form = new FormData(); form.append("file", file); form.append("user_id", USER_ID); form.append("notebook_id", id); form.append("title", file.name);
+        const result = await apiUpload<{ source: IntakeSource }>("/knowledge/upload", form);
+        setSources(rows => [...rows.filter(s => s.id !== result.source.id), result.source]);
+        if (result.source.selectable) setSurvey(s => ({ ...s, materials_status: "已有资料", source_ids: Array.from(new Set([...(s.source_ids || []), result.source.id])).slice(0, 6) }));
+        else throw new Error(result.source.status_detail || "资料尚未解析完成，请重新检查。");
+      }
+      setUploadNote("解析完成，已选中的资料将用于准备课程范围与起点题。");
+    } catch (e) { setError(e instanceof Error ? e.message : "资料上传失败，请重试。"); }
+    finally { setLocalBusy(false); }
+  };
+  const prepare = async () => {
+    setLocalBusy(true); setError("");
+    try {
+      const id = await ensureNotebook();
+      const result = await apiPost<CourseScope>(`/notebooks/${id}/learning/prepare`, {
+        title: survey.course_title, course_key: survey.course_key, source_ids: survey.source_ids || [], survey: { ...survey, notebook_id: id },
+      });
+      setCourse(result);
+      setSurvey(s => ({ ...s, notebook_id: id, course_title: result.title, course_revision: result.revision, target_kps: result.outline.map(n => n.id) }));
+    } catch (e) { setError(e instanceof Error ? e.message : "课程范围暂时没有准备好，请重试。"); }
+    finally { setLocalBusy(false); }
+  };
   const goals = survey.goals || [];
   const locked = busy || localBusy;
   const validate = () => {
     if (!goals.length || !goals.includes(survey.goal)) return "请至少选择一个目标，并确认当前优先目标。";
+    if (!survey.course_title?.trim()) return "请先选择课程或填写学习主题。";
     if (!survey.study_days.length) return "请至少留出一个学习日。";
     if (!Number.isInteger(survey.daily_minutes) || survey.daily_minutes < 8 || survey.daily_minutes > 180) return "每次学习时间请填写 8–180 分钟。";
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" }).format(new Date());
@@ -118,11 +170,13 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
   };
   const next = () => {
     const problem = validate();
-    if ((step === 0 && !goals.length) || ((step === 3 || step === 4) && problem)) { setError(problem); return; }
+    if ((step === 0 && !goals.length) || (step === 1 && !survey.course_title?.trim()) || ((step === 3 || step === 4) && problem)) { setError(problem); return; }
     setError(""); setStep(s => Math.min(4, s + 1));
   };
   const submit = async () => {
     const problem = validate(); if (problem) { setError(problem); return; }
+    if (!isReplan && !course) { await prepare(); return; }
+    if (!isReplan && !survey.target_kps?.length) { setError("请至少保留一个要检查的知识点。"); return; }
     setLocalBusy(true); setError("");
     try { await onSubmit(survey, mode); if (draftKey) try { localStorage.removeItem(draftKey); } catch { /* Optional browser storage. */ } }
     catch (e) { setError(e instanceof Error ? e.message : "保存失败，请重试。你的选择还在这里。"); }
@@ -133,23 +187,33 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
     <div className="intake-step-label"><span>{isReplan ? "调整你的学习安排" : "一起找到适合你的起点"}</span><span>{step + 1} / 5</span></div>
     <progress value={step + 1} max={5} aria-label="学习引导进度" />
     <h2 ref={heading} tabIndex={-1}>{TITLES[step]}</h2>
+    {localBusy && step === 4 && !course && !isReplan && <p className="intake-response" role="status">正在根据目标与资料准备知识点和题目，通常需要几十秒。准备好后，请先核对范围，再开始作答。</p>}
     <fieldset className="intake-body" disabled={locked}>
       {step === 0 && <>
+        <p className="intake-value">带上你的目标和资料。学伴会用题目找起点，把讲解、练习和复习安排成你今天就能开始的一步。</p>
         <p className="intake-hint">可以同时选择几个目标。我们会先解决最重要的一项，其余一起纳入安排。</p>
         <ChoiceGroup legend="你的学习目标" options={GOALS} values={goals} onChange={values => {
           const latest = values[values.length - 1];
           const cleaned = latest === "探索学习起点" ? [latest] : values.filter(v => v !== "探索学习起点");
-          setSurvey(s => ({ ...s, goals: cleaned, goal: cleaned.includes(s.goal) ? s.goal : cleaned[0] || "掌握课程基础" })); setError("");
+          setSurvey(s => ({ ...s, goals: cleaned, goal: cleaned.includes(s.goal) ? s.goal : cleaned[0] || "掌握课程基础" })); setCourse(null); setError("");
         }} />
         {goals.length > 1 && <label className="intake-field">当前优先解决<select value={survey.goal} onChange={e => set("goal", e.target.value)}>{goals.map(g => <option key={g}>{g}</option>)}</select></label>}
         {!!goals.length && <p className="intake-response" role="status"><Compass size={17} /> 将优先围绕“{survey.goal}”安排；具体难度等你做题后确定。</p>}
       </>}
       {step === 1 && <>
-        <p className="intake-hint">这些信息用来调整课程背景与解释方式。实际起点由题目确认。</p>
+        <p className="intake-hint">你希望优先“{survey.goal}”。下面选定这次的课程和资料，之后的测评、计划与讲解会围绕它们展开。</p>
+        {!isReplan ? <>
+          <fieldset className="intake-radio-group"><legend>选择课程起点</legend>{COURSES.map(([key, title]) => <label key={key}><input type="radio" name="intake-course" checked={survey.course_key === key} onChange={() => { setSurvey(s => ({ ...s, course_key: key, course_title: key === "custom" ? "" : title, course_revision: "" })); setCourse(null); }} />{title}</label>)}</fieldset>
+          <label className="intake-field">课程或学习主题<input maxLength={120} value={survey.course_title || ""} readOnly={survey.course_key !== "custom"} onChange={e => set("course_title", e.target.value)} placeholder="例如：细胞生物学、英语阅读、市场营销" /></label>
+          <div className="intake-materials"><label className="intake-upload">上传本次学习资料<input type="file" multiple accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg" disabled={locked || !survey.course_title?.trim()} onChange={e => { const files = Array.from(e.target.files || []); e.target.value = ""; void upload(files); }} /></label><small>支持 PDF、Word、文字与图片。可选最多 6 份已解析资料；也可以先使用内置课程。</small>
+            {uploadNote && <p role="status">{uploadNote}</p>}
+            {sources.map(source => <label key={source.id} className="intake-source"><input type="checkbox" disabled={!source.selectable} checked={!!survey.source_ids?.includes(source.id)} onChange={e => set("source_ids", e.target.checked ? [...(survey.source_ids || []), source.id].slice(0, 6) : survey.source_ids?.filter(id => id !== source.id))} /><span>{source.title}<small>{source.selectable ? "已解析，可用于本次学习" : source.status_detail}</small></span></label>)}
+          </div>
+        </> : <p className="intake-response">本次调整“{survey.course_title || "当前课程"}”的目标和安排，测评范围及原始作答保留。</p>}
         <label className="intake-field">你现在的学习场景<select value={survey.stage} onChange={e => set("stage", e.target.value)}>{STAGES.map(s => <option key={s}>{s}</option>)}</select></label>
         <label className="intake-field">以前接触过多少？<select value={survey.prior_experience} onChange={e => set("prior_experience", e.target.value)}>{EXPERIENCE.map(s => <option key={s}>{s}</option>)}</select></label>
         <fieldset className="intake-radio-group"><legend>手边有自己的课件或资料吗？</legend>{["暂时没有", "已有资料", "稍后上传"].map(s => <label key={s}><input type="radio" name="intake-materials" checked={survey.materials_status === s} onChange={() => set("materials_status", s as StudySurvey["materials_status"])} />{s}</label>)}</fieldset>
-        <p className="intake-response">{survey.materials_status === "暂时没有" ? "我们已经准备了数据结构与算法的课程讲义和练习，可以直接开始。" : "进入学习后可以上传课件。起点测评先检查本课程基础，上传后再对齐你的具体范围。"}</p>
+        <p className="intake-response">{survey.source_ids?.length ? `已选 ${survey.source_ids.length} 份资料。我们将列出实际读取的范围，请你核对后再测。` : survey.course_key === "custom" ? "还没有资料：将围绕这个主题生成初步检查，并说明适用范围。" : "将使用所选课程的自编入门讲义和题目。"}</p>
       </>}
       {step === 2 && <>
         <p className="intake-hint">选最贴近最近经历的几项，也可以不选。帮助方式之后随时能改。</p>
@@ -169,11 +233,15 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
       {step === 4 && <>
         <div className="intake-summary"><Sparkles size={20} /><div><strong>优先：{survey.goal}</strong><p>{goals.filter(g => g !== survey.goal).length ? `同时兼顾：${goals.filter(g => g !== survey.goal).join("、")}。` : ""}每周 {survey.study_days.length} 天，每个学习日 {survey.daily_minutes} 分钟。</p><small>你的目标、困难与帮助选择会进入计划和资料，下一步无需重复填写。</small></div></div>
         {!isReplan && <>
-          <details className="intake-example-details"><summary><Play size={15} /> 先体验一次学伴怎样讲解（可选）</summary><IntroExample onPracticed={() => set("intro_practiced", true)} /></details>
+          {survey.course_key === "ds_algo" && <details className="intake-example-details"><summary><Play size={15} /> 先体验一次学伴怎样讲解（可选）</summary><IntroExample onPracticed={() => set("intro_practiced", true)} /></details>}
+          {course ? <section className="intake-outline" aria-label="本次学习范围"><h3>{course.title} · 核对学习范围</h3><p>{course.coverage_note}</p>
+            {course.outline.map(node => <label key={node.id}><input type="checkbox" checked={survey.target_kps?.includes(node.id) || false} onChange={e => setSurvey(s => ({ ...s, target_kps: e.target.checked ? [...(s.target_kps || []), node.id] : s.target_kps?.filter(id => id !== node.id) }))} /><span><strong>{node.name}</strong><small>{node.objective}</small></span></label>)}
+            {!!course.sources?.length && <details><summary>这次使用了哪些资料？</summary>{course.sources.map(source => <p key={source.id}>{source.title}：读取 {source.sampled_chunks}/{source.total_chunks} 个解析片段；{source.location_kind} {source.locations.join("、")}。</p>)}</details>}
+            <small>{course.boundary}</small></section> : <p className="intake-response">下一步先准备“{survey.course_title}”的知识点范围，供你选择和核对；确认之后才开始作答。</p>}
           <fieldset className="intake-mode"><legend>这次想了解多少？</legend>{[
-            ["screening", "先找学习起点", "最多 12 题 · 先检查 4 个关键知识点，其他内容之后补测"],
-            ["foundation", "检查入门基础", "通常 18 题，跳过时最多 22 题 · 可暂停续答"],
-            ["comprehensive", "课程全面摸底", "最多 48 题 · 覆盖 16 个知识点，可分次完成"],
+            ["screening", "先找学习起点", "最多 12 题 · 先检查至多 4 个知识点，可暂停"],
+            ...(survey.course_key === "ds_algo" && !survey.source_ids?.length ? [["foundation", "检查入门基础", "通常 18 题，跳过时最多 22 题 · 可暂停续答"]] : []),
+            ["comprehensive", "完成所选范围摸底", course ? `${Math.min(48, (survey.target_kps?.length || course.outline.length) * 3)} 题左右 · 分模块检查，可暂停续答` : "按核对后的知识点范围出题，可分次完成"],
           ].map(([v, title, note]) => <label key={v} className={mode === v ? "is-selected" : ""}><input type="radio" name="intake-mode" checked={mode === v} onChange={() => setMode(v as Assessment["mode"])} /><span><strong>{title}{v === "screening" && <em>推荐</em>}</strong><small>{note}</small></span></label>)}</fieldset>
           <p className="intake-hint">独立作答，没有单题倒计时。可以选择“还不会”或暂停；完成后会解释依据，并准备第一项任务。</p>
         </>}
@@ -181,7 +249,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
     </fieldset>
     {error && <p className="intake-error" role="alert">{error}</p>}
     <div className="intake-footer"><button type="button" className="intake-secondary" disabled={locked} onClick={() => step ? (setStep(s => s - 1), setError("")) : onCancel()}><ArrowLeft size={16} />{step ? "上一步" : "返回"}</button>
-      <button type="button" className="intake-primary" disabled={locked} onClick={() => step < 4 ? next() : void submit()}>{locked ? "正在保存…" : step < 4 ? "继续" : isReplan ? "保存并重新安排" : "开始独立作答"}<ArrowRight size={18} /></button></div>
+      <button type="button" className="intake-primary" disabled={locked} onClick={() => step < 4 ? next() : void submit()}>{locked ? (step === 4 && !course ? "正在准备课程范围…" : "正在保存…") : step < 4 ? "继续" : isReplan ? "保存并重新安排" : course ? "确认范围，开始独立作答" : "生成并核对学习范围"}<ArrowRight size={18} /></button></div>
     {draftKey && <p className="intake-draft-note">当前选择会保存在本浏览器，回来可以继续。</p>}
   </div>;
 }

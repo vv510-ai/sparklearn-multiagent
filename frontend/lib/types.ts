@@ -181,6 +181,9 @@ export interface LearningDiagnosis {
 }
 
 export interface StudentProfile {
+  notebook_id?: string;
+  course_title?: string;
+  knowledge_labels?: Record<string, string>;
   learning_intake?: import("./assessment").StudySurvey;
   knowledge_mastery: Record<string, number>;
   cognitive_style: string;

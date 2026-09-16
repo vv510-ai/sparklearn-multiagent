@@ -46,6 +46,8 @@ def test_manifest_is_ready_for_an_mcp_wrapper():
 
 def test_every_capability_is_loaded_from_a_standalone_markdown_file():
     sample_values = {
+        "title": "示例课程",
+        "survey": "{}",
         "topic": "示例主题",
         "goal": "从零学习",
         "persona": "循序渐进",

@@ -94,6 +94,10 @@ def retrieve(
     selected_sources = _clean_ids(source_ids)
     uploaded_sources = [source_id for source_id in selected_sources if source_id != COURSE_SCOPE_ID]
     include_course = not selected_sources or COURSE_SCOPE_ID in selected_sources
+    from ..services.learning_scope import current_space
+    space = current_space()
+    if space and space["course"].get("kind") != "ds_algo":
+        include_course = False
     hits: list[dict] = []
     if uploaded_sources:
         hits.extend(_hits_from_sources(

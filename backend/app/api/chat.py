@@ -2,6 +2,7 @@
 任意自然语言进入编排图:Orchestrator 意图识别后路由到 闲聊/答疑/生成/评估 分支,
 事件流包含 agent_start/agent_token/token/resource/path/profile/citations/done。"""
 from __future__ import annotations
+from ..services.learning_scope import scoped_endpoint
 
 import re
 import uuid
@@ -130,7 +131,10 @@ async def _persisted_events(
 
 
 @router.post("/chat")
+@scoped_endpoint
 async def chat(req: ChatRequest):
+    from ..services.learning_scope import selected_sources
+    req.source_ids = selected_sources(req.source_ids)
     ensure_user(req.user_id)
     notebook = ensure_notebook_owner(req.user_id, req.notebook_id) if req.notebook_id else None
     session_id = notebook.session_id if notebook else req.session_id or uuid.uuid4().hex[:8]

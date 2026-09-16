@@ -51,6 +51,8 @@ class AudioRetryRequest(BaseModel):
 
 class TutorRequest(BaseModel):
     user_id: str = "demo_user"
+    notebook_id: str = ""
+    source_ids: list[str] = Field(default_factory=list)
     question: str = ""
     image_base64: Optional[str] = None
     want: Literal["text", "diagram", "video", "auto"] = "auto"
@@ -127,6 +129,7 @@ class RemediationRequest(BaseModel):
 
 
 class ReplanRequest(BaseModel):
+    notebook_id: str = ""
     user_id: str = "demo_user"
     reason: str = "评估后重排"
 

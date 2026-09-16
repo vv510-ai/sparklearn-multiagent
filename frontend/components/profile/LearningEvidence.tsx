@@ -80,7 +80,7 @@ function formatTime(value: string): string {
   });
 }
 
-export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: number }) {
+export default function LearningEvidence({ refreshToken = 0, notebookId = "" }: { refreshToken?: number; notebookId?: string }) {
   const [data, setData] = useState<EvidenceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -90,14 +90,14 @@ export default function LearningEvidence({ refreshToken = 0 }: { refreshToken?: 
     setLoading(true);
     setError("");
     try {
-      const response = await apiGet<EvidenceResponse>(`/eval/evidence?user_id=${USER_ID}&limit=12`);
+      const response = await apiGet<EvidenceResponse>(`/eval/evidence?user_id=${USER_ID}&limit=12&notebook_id=${encodeURIComponent(notebookId)}`);
       setData(response);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "学习记录读取失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notebookId]);
 
   useEffect(() => {
     void loadEvidence();

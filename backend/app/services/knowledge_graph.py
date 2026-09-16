@@ -73,7 +73,7 @@ _ARTIFACT_REQUEST_RE = re.compile(
 
 
 @lru_cache
-def load_kg() -> dict:
+def _load_builtin_kg() -> dict:
     data = json.loads(KG_FILE.read_text(encoding="utf-8"))
     nodes = {n["id"]: n for n in data["nodes"]}
     if len(nodes) != len(data["nodes"]):
@@ -108,6 +108,15 @@ def load_kg() -> dict:
         "adj": adj,
         "indeg": indeg,
     }
+
+
+def load_kg() -> dict:
+    from .learning_scope import current_space
+    space = current_space()
+    return space["graph"] if space else _load_builtin_kg()
+
+
+load_kg.cache_clear = _load_builtin_kg.cache_clear
 
 
 def all_kp_ids() -> list[str]:
@@ -181,7 +190,9 @@ def resolve_topic(
     inferred = infer_kp_id(combined)
     kp = explicit if explicit and explicit != CUSTOM_TOPIC_KP else inferred
     if kp and kp != CUSTOM_TOPIC_KP:
-        return kp, kp_name(kp), False
+        from .learning_scope import current_space
+        space = current_space()
+        return kp, kp_name(kp), bool(space and space["course"].get("kind") != "ds_algo")
     label = clean_topic_label(topic_label or learning_goal)
     return CUSTOM_TOPIC_KP, label, True
 

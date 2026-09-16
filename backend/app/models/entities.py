@@ -40,6 +40,18 @@ class Profile(Base):
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)
 
 
+class LearningSpace(Base):
+    """A notebook's isolated profile, curriculum snapshot and learning path."""
+    __tablename__ = "learning_spaces"
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    course: Mapped[dict] = mapped_column(JSON, default=dict)
+    path: Mapped[dict] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
 class Notebook(Base):
     """A durable, tenant-owned subject workspace with its own sources and chat."""
     __tablename__ = "notebooks"

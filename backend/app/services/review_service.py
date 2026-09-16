@@ -13,6 +13,7 @@ from sqlalchemy import select
 from ..models.db import session
 from ..models.entities import Resource, ReviewItem
 from .knowledge_graph import kp_name
+from .learning_scope import event_in_scope
 
 INTERVAL_DAYS = (1, 3, 7, 14, 30)
 
@@ -193,6 +194,7 @@ def review_queue(user_id: str, *, limit: int = 10, at: dt.datetime | None = None
             )).scalars().all()
         } if rows else {}
 
+    rows = [row for row in rows if row.quiz_resource_id in resources and event_in_scope(resources[row.quiz_resource_id].payload)]
     scheduled_rows = [row for row in rows if row.status == "scheduled"]
     due_rows = [row for row in scheduled_rows if as_utc(row.due_at) <= current]
     upcoming_rows = [row for row in scheduled_rows if as_utc(row.due_at) > current]
@@ -265,6 +267,8 @@ def mistake_book(user_id: str, *, limit: int = 100) -> dict:
 
     items: list[dict[str, Any]] = []
     for row in rows:
+        if row.quiz_resource_id not in resources or not event_in_scope(resources[row.quiz_resource_id].payload):
+            continue
         data = row.data if isinstance(row.data, dict) else {}
         history = [event for event in data.get("history", []) if isinstance(event, dict)]
         if not any(event.get("correct") is False for event in history):

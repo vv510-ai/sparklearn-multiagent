@@ -14,6 +14,7 @@ from ..services.path_service import (
     save_path,
 )
 from ..services.profile_service import ensure_user, get_profile, log_event
+from ..services.learning_scope import scoped_endpoint
 
 router = APIRouter(prefix="/api/path", tags=["path"])
 
@@ -25,19 +26,13 @@ async def read_decisions(user_id: str = Query("demo_user"), limit: int = 20):
 
 
 @router.get("")
+@scoped_endpoint
 async def read_path(
     user_id: str = Query("demo_user"),
     notebook_id: str = Query(""),
 ):
-    """Return the complete course graph used by the Knowledge Relation panel.
-
-    ``notebook_id`` remains accepted for older frontend clients, but it must not
-    narrow this endpoint to topics mentioned in one conversation. Conversation-
-    wide maps are separate learning artifacts; this page is the stable course
-    map and must always expose the full current taxonomy.
-    """
+    """Return this learning space's course graph; conversation maps stay separate."""
     ensure_user(user_id)
-    _ = notebook_id
     path = get_path(user_id)
     if not is_current_course_path(path):
         path = plan_path(get_profile(user_id))
@@ -46,6 +41,7 @@ async def read_path(
 
 
 @router.post("/replan")
+@scoped_endpoint
 async def replan(req: ReplanRequest):
     ensure_user(req.user_id)
     path = plan_path(get_profile(req.user_id))

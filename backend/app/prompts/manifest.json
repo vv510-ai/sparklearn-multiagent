@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.15.2",
+  "version": "2026.09.16.1",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -9,6 +9,10 @@
     "output_rules": "shared/output-check.md"
   },
   "capabilities": {
+    "assessment.course_draft": {
+      "description": "基于主题与资料准备可核对范围的课程起点题",
+      "file": "assessment/course-draft.md"
+    },
     "media.ppt_outline": {
       "description": "来源约束的可编辑课程复习幻灯片提纲",
       "file": "media/ppt-outline.md"

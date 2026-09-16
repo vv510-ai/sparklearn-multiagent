@@ -164,7 +164,9 @@ async def run_with_events(state: dict[str, Any]) -> AsyncIterator[dict]:
 
     async def runner():
         try:
-            final_state = await graph.ainvoke(state, cfg)
+            from ..services.learning_scope import course_scope
+            with course_scope(state.get("user_id", "demo_user"), state.get("notebook_id", "")):
+                final_state = await graph.ainvoke(state, cfg)
             trace.record_final_state(final_state)
         except Exception as exc:                            # pragma: no cover
             detail = str(exc)[:300]

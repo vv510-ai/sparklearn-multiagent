@@ -11,9 +11,43 @@ from ..services.notebook_service import (
     start_new_conversation,
 )
 from ..services.profile_service import ensure_user
+from ..auth import require_current_user_id
+from ..schemas.study import StudySurvey
+from pydantic import BaseModel, Field
+from ..services import course_learning_service as course_service
+from ..services.learning_scope import course_scope, ensure_space
+
+
+class CoursePrepareRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    course_key: str = Field(default="custom", max_length=40)
+    source_ids: list[str] = Field(default_factory=list, max_length=6)
+    survey: StudySurvey = Field(default_factory=StudySurvey)
 
 
 router = APIRouter(prefix="/api/notebooks", tags=["notebooks"])
+
+
+@router.get("/learning/catalogue")
+async def learning_catalogue():
+    return {"items": course_service.catalogue()}
+
+
+@router.post("/{notebook_id}/learning/prepare")
+async def prepare_learning(notebook_id: str, req: CoursePrepareRequest):
+    return await course_service.prepare(require_current_user_id(), notebook_id,
+        title=req.title, course_key=req.course_key, source_ids=req.source_ids,
+        survey=req.survey.model_dump(mode="json"))
+
+
+@router.get("/{notebook_id}/learning")
+async def learning_state(notebook_id: str):
+    from ..services.profile_service import get_profile
+    user_id = require_current_user_id()
+    row = ensure_space(user_id, notebook_id)
+    with course_scope(user_id, notebook_id):
+        return {"course": course_service.public_course(row.course), "profile": get_profile(user_id),
+                "context": course_service.context_summary()}
 
 
 @router.get("")

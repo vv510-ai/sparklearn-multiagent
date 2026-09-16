@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 from .knowledge_graph import all_kp_ids, kp_name
 from .profile_service import get_profile
+from .learning_scope import current_space
 
 
 def video_urls(bvid: str) -> dict:
@@ -30,6 +31,9 @@ def recommend(user_id: str, query: str = "", kp: str = "") -> dict:
     query = query.strip()[:120]
     search_text = query or (f"数据结构 {kp_name(target)}" if target else "数据结构与算法 入门")
     catalog = json.loads((Path(__file__).resolve().parents[1] / "data" / "course_catalog.json").read_text(encoding="utf-8"))
+    if current_space() and current_space()["course"].get("kind") != "ds_algo":
+        catalog = []
+        search_text = query or f"{current_space()['course']['title']} {kp_name(target) if target else '入门'}"
     results = []
     for item in catalog:
         haystack = " ".join([item["title"], item["author"], *[kp_name(k) for k in item["kps"]]]).casefold()
@@ -45,5 +49,5 @@ def recommend(user_id: str, query: str = "", kp: str = "") -> dict:
     return {"items": results, "query": query, "target_kp": target, "reason": reason,
             "search_url": "https://search.bilibili.com/all?" + urlencode({"keyword": search_text}),
             "search_text": search_text, "source": "curated_catalog",
-            "notice": "当前展示已核验公开页面的课程资料库，并非 B 站实时搜索结果。内容质量需试听确认；播放、登录与可用性由 B 站决定。",
+            "notice": ("当前课程尚无人工核验的视频条目，可按本课程主题在 B 站搜索。" if current_space() and current_space()["course"].get("kind") != "ds_algo" else "当前展示已核验公开页面的课程资料库，并非 B 站实时搜索结果。内容质量需试听确认；播放、登录与可用性由 B 站决定。"),
             "topics": [{"id": k, "name": kp_name(k)} for k in known]}

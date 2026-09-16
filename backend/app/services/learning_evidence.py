@@ -8,6 +8,7 @@ from sqlalchemy import select
 from ..models.db import session
 from ..models.entities import EventLog
 from .knowledge_graph import kp_name
+from .learning_scope import event_in_scope
 
 _DEFAULT_MASTERY = 0.30
 _PHASE_PRIORITY = ("spaced_review", "retest", "initial")
@@ -78,6 +79,8 @@ def build_learning_evidence(user_id: str, limit: int = 12) -> dict[str, Any]:
 
     for row in rows:
         payload = row.payload if isinstance(row.payload, dict) else {}
+        if not event_in_scope(payload):
+            continue
         phase = _phase(payload)
         points: list[dict[str, Any]] = []
         for raw in _per_kp(payload):

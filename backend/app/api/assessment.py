@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from ..auth import require_current_user_id
 from ..services import assessment_service as service
 from ..schemas.study import StudySurvey
+from ..services.learning_scope import scoped_endpoint
 
 router = APIRouter(prefix="/api/assessment", tags=["assessment"])
 
@@ -37,30 +38,37 @@ class ExtendRequest(BaseModel):
 
 
 @router.get("")
-def latest():
+@scoped_endpoint
+def latest(notebook_id: str = ""):
     return service.latest(require_current_user_id())
 
 
 @router.post("/start")
+@scoped_endpoint
 def start(req: StartRequest):
-    return service.start(require_current_user_id(), req.survey.model_dump(mode="json"), req.mode)
+    return service.start(require_current_user_id(), req.survey.model_dump(mode="json"), req.mode,
+                         req.survey.course_revision, req.survey.target_kps)
 
 
 @router.post("/{assessment_id}/answers")
+@scoped_endpoint
 def answer(assessment_id: str, req: AnswerRequest):
     return service.answer(require_current_user_id(), assessment_id, req.model_dump())
 
 
 @router.post("/{assessment_id}/tasks/{task_id}")
+@scoped_endpoint
 def update_task(assessment_id: str, task_id: str, req: TaskRequest):
     return service.update_task(require_current_user_id(), assessment_id, task_id, req.done)
 
 
 @router.post("/{assessment_id}/replan")
+@scoped_endpoint
 def replan(assessment_id: str, req: StartRequest):
     return service.replan(require_current_user_id(), assessment_id, req.survey.model_dump(mode="json"))
 
 
 @router.post("/{assessment_id}/extend")
+@scoped_endpoint
 def extend(assessment_id: str, req: ExtendRequest):
     return service.extend(require_current_user_id(), assessment_id, req.revision)

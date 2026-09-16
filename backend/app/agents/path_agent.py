@@ -33,6 +33,9 @@ async def run(state: dict) -> dict:
             "generated_by": "path_agent_custom_topic",
             "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         }
+        from ..services.learning_scope import current_space
+        if current_space() and current_space()["graph"]["nodes"]:
+            path = plan_path(profile, generated_by="course_learning_space")
     else:
         path = plan_path(profile, goal_kps=[topic_kp], generated_by="path_agent")
     save_path(state.get("user_id", "demo_user"), path)

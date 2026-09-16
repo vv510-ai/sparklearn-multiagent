@@ -95,8 +95,10 @@ function displayAnswer(question: ReviewQuestion, answer: string): string {
 
 export default function ReviewQueue({
   onEvaluated,
+  notebookId = "",
 }: {
   onEvaluated?: (report: EvaluationReport) => void;
+  notebookId?: string;
 }) {
   const [queue, setQueue] = useState<QueueResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,7 +127,7 @@ export default function ReviewQueue({
     setLoading(true);
     setError("");
     try {
-      const data = await apiGet<QueueResponse>(`/eval/review-queue?user_id=${USER_ID}&limit=10`);
+      const data = await apiGet<QueueResponse>(`/eval/review-queue?user_id=${USER_ID}&limit=10&notebook_id=${encodeURIComponent(notebookId)}`);
       setQueue(data);
       setStarted(false);
       setAnswers({});
@@ -137,7 +139,7 @@ export default function ReviewQueue({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notebookId]);
 
   useEffect(() => {
     void loadQueue();

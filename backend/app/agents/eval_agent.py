@@ -65,6 +65,9 @@ def _refresh_mindmap_labels(user_id: str, affected_kps: set[str], profile: dict)
         for row in rows:
             try:
                 payload = row.payload if isinstance(row.payload, dict) else {}
+                from ..services.learning_scope import event_in_scope
+                if not event_in_scope(payload):
+                    continue
                 if payload.get("conversation_map"):
                     # 会话全景导图的标题表达学习顺序，不应被单知识点掌握度重写。
                     continue
@@ -115,6 +118,9 @@ async def run(state: dict) -> dict:
             payload = dict(r.get("payload", {}) or {})
             if state.get("notebook_id"):
                 payload["notebook_id"] = str(state["notebook_id"])
+                from ..services.course_learning_service import context_summary
+                payload["learning_context"] = context_summary()
+                payload["course_revision"] = (payload["learning_context"] or {}).get("course_revision")
             payload["generation_scope"] = {
                 "notebook_id": str(state.get("notebook_id") or ""),
                 "session_id": str(state.get("session_id") or ""),

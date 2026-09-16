@@ -55,7 +55,7 @@ function choiceLabel(options: string[], answer: string) {
   return option ? `${letter}. ${option.replace(/^[A-D][.、：:\s]*/, "")}` : letter;
 }
 
-export default function MistakeBook({ onEvaluated }: { onEvaluated?: (report?: { path?: PathPlan; profile_version?: number }) => void }) {
+export default function MistakeBook({ onEvaluated, notebookId = "" }: { notebookId?: string; onEvaluated?: (report?: { path?: PathPlan; profile_version?: number }) => void }) {
   const [data, setData] = useState<MistakeResponse | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [loading, setLoading] = useState(true);
@@ -71,13 +71,13 @@ export default function MistakeBook({ onEvaluated }: { onEvaluated?: (report?: {
     setLoading(true);
     setError("");
     try {
-      setData(await apiGet<MistakeResponse>(`/eval/mistake-book?user_id=${USER_ID}&limit=150`));
+      setData(await apiGet<MistakeResponse>(`/eval/mistake-book?user_id=${USER_ID}&limit=150&notebook_id=${encodeURIComponent(notebookId)}`));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "错题本加载失败");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notebookId]);
 
   useEffect(() => { void load(); }, [load]);
 

@@ -163,7 +163,9 @@ def test_path_api_replaces_a_saved_conversation_map_with_the_full_course(monkeyp
     monkeypatch.setattr(path_api, "get_profile", lambda _user_id: default_profile())
     monkeypatch.setattr(path_api, "save_path", lambda _user_id, path: saved.append(path))
 
-    result = asyncio.run(path_api.read_path(user_id="learner", notebook_id="book"))
+    # The unscoped legacy course retains its full graph. Notebook requests now
+    # require real ownership and use their own graph (covered by learning-space tests).
+    result = asyncio.run(path_api.read_path(user_id="learner", notebook_id=""))
 
     assert result["course_id"] == "data_structures_algorithms"
     assert len(result["nodes"]) == len(all_kp_ids())

@@ -28,7 +28,7 @@ def context_reasons(survey: dict) -> list[str]:
     if survey.get("study_cue"):
         reasons.append(f"开始时机：{survey['study_cue']}。")
     if survey.get("materials_status") in ("已有资料", "稍后上传"):
-        reasons.append("可在资料栏补充课件或考试范围；上传前按本课程自编讲义安排。")
+        reasons.append("围绕已绑定资料的解析内容安排，并在讲解中核对来源。" if survey.get("source_ids") else "可在资料栏补充课件或考试范围；当前尚未绑定上传资料。")
     return reasons
 
 
@@ -51,6 +51,12 @@ def task_approach(survey: dict) -> tuple[str, str]:
         return "考点辨析与限时前练习", "先说明常见考查方式与适用条件，再做一道无提示典型题；首次理解阶段不倒计时。"
     if goal == "编程项目应用":
         return "代码追踪与应用", "从一个小型应用场景出发，写伪代码、追踪变量并检查边界情况。"
+    if goal == "完成项目或实践":
+        return "实践任务与检验", "从一个可完成的小任务出发，说明交付结果与检查标准，再让学习者独立尝试。"
+    if goal == "看懂学习资料":
+        return "资料精读与复述", "解释资料中的关键概念与论证，再合上原文用自己的话复述，核对原文纠错。"
+    if goal == "独立解题与纠错":
+        return "独立尝试与错因纠正", "先尝试，再提供必要的一步提示；之后用一道未见过的新题复核。"
     if goal == "竞赛与算法练习":
         return "推理与迁移", "比较两种解法及复杂度，再尝试换条件的迁移题。"
     return "例题与独立练习", "解释必要概念，先看一个分步例题，再独立完成不同情境的练习。"

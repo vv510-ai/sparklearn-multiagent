@@ -60,6 +60,7 @@ export default function SourcePanel({
   onSelectNotebook,
   onToggleCourse,
   onToggle,
+  includeBuiltin = true,
 }: {
   notebooks: LearningNotebook[];
   activeNotebookId?: string;
@@ -75,6 +76,7 @@ export default function SourcePanel({
   onSelectNotebook: (notebookId: string) => void;
   onToggleCourse: () => void;
   onToggle: (sourceId: string) => void;
+  includeBuiltin?: boolean;
 }) {
   const usingCourse = selectedIds.includes(COURSE_SOURCE_ID);
   const selectedCount = selectedIds.length;
@@ -139,7 +141,7 @@ export default function SourcePanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        <button onClick={onToggleCourse} className={`source-row ${usingCourse ? "is-selected" : ""}`}>
+        {includeBuiltin && <button onClick={onToggleCourse} className={`source-row ${usingCourse ? "is-selected" : ""}`}>
           <span className="source-icon is-course"><BookOpen size={17} /></span>
           <span className="min-w-0 flex-1 text-left">
             <strong>课程知识库</strong>
@@ -148,7 +150,7 @@ export default function SourcePanel({
           <span className={`source-check ${usingCourse ? "is-checked" : ""}`}>
             {usingCourse && <Check size={13} />}
           </span>
-        </button>
+        </button>}
 
         {sources.map((source) => {
           const selected = selectedIds.includes(source.id);

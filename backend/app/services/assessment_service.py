@@ -22,6 +22,7 @@ from .knowledge_graph import kp_name, load_kg, prerequisites, topological_order
 from .path_service import plan_path
 from .profile_service import ensure_user, get_profile
 from .learning_intake import context_reasons, lesson_guidance, screening_targets, small_steps, task_approach
+from .learning_scope import current_space, notebook_id, profile_row, event_in_scope
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 STATUS_LABELS = {"unmeasured": "待补充测评", "gap": "优先补基础", "developing": "需要巩固", "strength": "本次表现较好"}
@@ -36,6 +37,8 @@ LESSONS = {
 
 
 def question_bank() -> list[dict]:
+    if current_space() and current_space()["course"].get("bank"):
+        return copy.deepcopy(current_space()["course"]["bank"])
     seed = json.loads((DATA / "seed_quiz.json").read_text(encoding="utf-8"))["questions"]
     extra = json.loads((DATA / "assessment_questions.json").read_text(encoding="utf-8"))
     extra += json.loads((DATA / "entry_v2_questions.json").read_text(encoding="utf-8"))
@@ -138,7 +141,7 @@ def study_plan(report: dict, survey: dict, *, today: dt.date | None = None) -> d
         task = {"id": f"{kp}-{kind}", "kp": kp, "title": f"{kp_name(kp)} · " + {"diagnose": "补充独立测评", "transfer": "换情境验证", "study": approach_title}[kind],
                 "kind": kind, "minutes": minutes, "done": False, "requires": deps,
                 "reason": "证据不足，先补测再确定深度" if kind == "diagnose" else f"独立作答证据：{s['correct']}/{s['attempts']} 题正确" + ("（含后续新题）" if s.get("practice_updated") else ""),
-                "goal": f"我的课程是数据结构与算法，学习目标是{survey.get('goal', '掌握基础')}。请根据课程资料带我学习{kp_name(kp)}，先给学习目标、必要概念和一个带步骤例题，再给一题不同情境的无提示练习。每步不超过{minutes}分钟。",
+                "goal": f"我的课程是{load_kg()['course']}，学习目标是{survey.get('goal', '掌握基础')}。请根据课程资料带我学习{kp_name(kp)}，先给学习目标、必要概念和一个带步骤例题，再给一题不同情境的无提示练习。每步不超过{minutes}分钟。",
                 "criterion": "用自己的话解释关键步骤，并独立完成一道新题；未通过则回到先修知识。"}
         task["steps"] = ["先回忆概念与适用条件", approach, "合上资料，完成一道不同情境的题", "记录仍需帮助的一步"]
         last[kp] = task["id"]
@@ -151,7 +154,7 @@ def study_plan(report: dict, survey: dict, *, today: dt.date | None = None) -> d
         if survey.get("stage") != "不方便回答":
             task["goal"] += f" 学习场景：{survey.get('stage', '大学课程')}。"
         if survey.get("prior_experience") == "第一次系统学习" or survey.get("stage") == "高中提前学习":
-            task["goal"] += "先解释需要用到的符号、变量与循环含义，再进入算法。"
+            task["goal"] += "先解释需要用到的符号和先备概念，再逐步进入本课内容。"
         task["goal"] += " 学习安排：" + " ".join(context_reasons(survey))
         if kind != "diagnose":
             task["goal"] += " " + approach
@@ -185,42 +188,75 @@ def study_plan(report: dict, survey: dict, *, today: dt.date | None = None) -> d
 def _public(row: AssessmentSession) -> dict:
     data = row.data
     q = _next(data) if data["status"] == "active" else None
+    from .course_learning_service import public_course
     return {"id": row.id, "revision": row.revision, "status": data["status"], "mode": data["mode"],
+            "notebook_id": data.get("notebook_id", ""), "course": public_course(data["course_snapshot"]) if data.get("course_snapshot") else None,
             "answered": len(data["answers"]), "maximum": data["limit"], "survey": data["survey"],
             "question": {"id": q["id"], "stem": q["stem"], "options": q["options"], "topic": kp_name(q["kp"]), "type": "multiple" if q["type"] == "multiple" else "single"} if q else None,
             "report": data.get("report"), "plan": data.get("plan"), "materials": data.get("materials", []), "bank_version": data["bank_version"]}
 
 
+def _sessions(user_id: str):
+    query = select(AssessmentSession).where(AssessmentSession.user_id == user_id)
+    key = AssessmentSession.data["notebook_id"].as_string()
+    return query.where(key == notebook_id()) if notebook_id() else query.where(key.is_(None) | (key == ""))
+
+
 def latest(user_id: str) -> dict:
     ensure_user(user_id)
     with session() as db:
-        row = db.scalar(select(AssessmentSession).where(AssessmentSession.user_id == user_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc()).limit(1).with_for_update())
+        row = db.scalar(_sessions(user_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc()).limit(1).with_for_update())
+        if row and current_space() and (row.data.get("course_snapshot") or {}).get("revision") != current_space()["course"].get("revision"):
+            row = None
         if row and row.data["status"] == "completed":
             _refresh_from_practice(db, row)
             db.commit()
         return {"assessment": _public(row) if row else None, "course": load_kg()["course"]}
 
 
-def start(user_id: str, survey: dict, mode: str) -> dict:
+def start(user_id: str, survey: dict, mode: str, course_revision: str = "", target_kps: list[str] | None = None) -> dict:
     profile_data = get_profile(user_id)
+    space = current_space()
+    if space and (not space["course"].get("bank") or course_revision != space["course"].get("revision")):
+        raise HTTPException(409, "请先核对这门课程的学习范围，再开始测评")
     survey = copy.deepcopy(survey)
+    if space:
+        survey.update(notebook_id=notebook_id(), course_title=space["course"]["title"],
+            source_ids=space["course"].get("source_ids", []), course_revision=space["course"].get("revision"))
     survey["intro_practiced"] = bool(survey.get("intro_practiced") or profile_data.get("learning_intake", {}).get("intro_practiced"))
     bank = question_bank()
     targets = topological_order()
-    if mode == "screening":
+    if space and space["course"].get("kind") != "ds_algo":
+        targets = targets[:4] if mode in ("screening", "foundation") else targets
+    elif mode == "screening":
         targets = screening_targets(survey)
-    if mode == "foundation":
+    if mode == "foundation" and (not space or space["course"].get("kind") == "ds_algo"):
         targets = [k for k in targets if k in {"complexity", "array", "linked_list", "stack", "queue", "recursion"}]
+    if target_kps is not None:
+        if not target_kps or not set(target_kps) <= set(topological_order()):
+            raise HTTPException(422, "请选择课程范围内至少一个知识点")
+        if mode == "foundation":
+            targets = [k for k in targets if k in target_kps]
+        elif mode == "screening":
+            ordered = list(dict.fromkeys([*targets, *topological_order()]))
+            targets = [k for k in ordered if k in target_kps][:4]
+        else:
+            targets = [k for k in topological_order() if k in target_kps]
+        if not targets:
+            raise HTTPException(422, "当前模式没有选中的知识点，请调整范围或选择全面摸底")
     count = sum(min(3, sum(q["kp"] == kp for q in bank)) for kp in targets)
+    available = sum(q["kp"] in targets for q in bank)
     row = AssessmentSession(id=uuid.uuid4().hex, user_id=user_id, revision=0, data={"status": "active", "mode": mode, "survey": survey,
         "bank": bank, "bank_version": hashlib.sha256(json.dumps(bank, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:16],
-        "targets": targets, "limit": 12 if mode == "screening" else min(48, count + 4), "answers": []})
+        "targets": targets, "limit": min(12 if mode == "screening" else 48, count + 4, available), "answers": [],
+        "notebook_id": notebook_id(), "course_snapshot": copy.deepcopy(space["course"]) if space else None})
     with session() as db:
-        profile = db.scalar(select(Profile).where(Profile.user_id == user_id).with_for_update())
-        active = db.scalar(select(AssessmentSession).where(AssessmentSession.user_id == user_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc()).limit(1))
+        profile = profile_row(db, user_id)
+        active = db.scalar(_sessions(user_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc()).limit(1))
         if active and active.data["status"] == "active":
             return _public(active)
         past = db.scalars(select(EventLog).where(EventLog.user_id == user_id, EventLog.etype == "quiz_eval").order_by(EventLog.id)).all()
+        past = [event for event in past if event_in_scope(event.payload)]
         row.data["practice_cursor"] = past[-1].id if past else 0
         row.data["practice_seen"] = sorted({item["key"] for event in past for item in (event.payload or {}).get("learning_evidence", []) if item.get("key")})
         if profile:
@@ -228,6 +264,7 @@ def start(user_id: str, survey: dict, mode: str) -> dict:
             _apply_survey_context(value, survey)
             profile.data, profile.version = value, (profile.version or 0) + 1
         db.add(row)
+        _save_journey(db, user_id, row.id, "assessment")
         db.commit()
     return _public(row)
 
@@ -237,6 +274,11 @@ def _owned(db, user_id: str, assessment_id: str):
     row = db.scalar(select(AssessmentSession).where(AssessmentSession.id == assessment_id, AssessmentSession.user_id == user_id).with_for_update())
     if not row:
         raise HTTPException(404, "测评不存在")
+    if row.data.get("notebook_id"):
+        from ..models.entities import LearningSpace
+        course = db.get(LearningSpace, row.data["notebook_id"])
+        if not course or course.course.get("revision") != (row.data.get("course_snapshot") or {}).get("revision"):
+            raise HTTPException(409, "课程范围已经更新，请从当前课程重新开始测评；之前的作答仍保留")
     return row
 
 
@@ -251,10 +293,19 @@ def _apply_survey_context(value: dict, survey: dict) -> None:
     value["materials_status"] = survey.get("materials_status", "暂时没有")
 
 
+def _save_journey(db, user_id: str, assessment_id: str, phase: str) -> None:
+    account = db.get(Profile, user_id)
+    if account:
+        value = copy.deepcopy(account.data)
+        value.update(onboarding_completed=True, onboarding_state={"phase": phase,
+            "notebook_id": notebook_id(), "assessment_id": assessment_id})
+        account.data = value
+
+
 def save_intake_context(user_id: str, survey: dict) -> dict:
     get_profile(user_id)
     with session() as db:
-        profile = db.scalar(select(Profile).where(Profile.user_id == user_id).with_for_update())
+        profile = profile_row(db, user_id)
         value = copy.deepcopy(profile.data)
         _apply_survey_context(value, survey)
         profile.data, profile.version = value, (profile.version or 0) + 1
@@ -278,7 +329,7 @@ def _finish(db, row, data):
     data.setdefault("practice_seen", [])
     if "practice_cursor" not in data:
         data["practice_cursor"] = db.scalar(select(EventLog.id).where(EventLog.user_id == row.user_id, EventLog.etype == "quiz_eval").order_by(EventLog.id.desc()).limit(1)) or 0
-    profile = db.scalar(select(Profile).where(Profile.user_id == row.user_id).with_for_update())
+    profile = profile_row(db, row.user_id)
     if profile:
         value = copy.deepcopy(profile.data)
         value["baseline_assessment"] = {"id": row.id, "skills": report["skills"], "bank_version": data["bank_version"]}
@@ -286,6 +337,8 @@ def _finish(db, row, data):
         practice_events = db.scalars(select(EventLog).where(EventLog.user_id == row.user_id, EventLog.etype == "quiz_eval")).all()
         practiced = set()
         for event in practice_events:
+            if not event_in_scope(event.payload):
+                continue
             # Old events without objective-level provenance conservatively protect all scores.
             practiced.update((event.payload or {}).get("per_kp") or value["knowledge_mastery"])
         applied = set(value.get("baseline_assessment_applied_kps", []))
@@ -299,8 +352,10 @@ def _finish(db, row, data):
         profile.data = value
         profile.version = (profile.version or 0) + 1
         path = plan_path(value, generated_by="entry_assessment")
-        stored_path = db.get(PathPlan, row.user_id)
-        if stored_path:
+        stored_path = db.get(PathPlan, row.user_id) if not current_space() else None
+        if current_space():
+            profile.path = path
+        elif stored_path:
             stored_path.data = path
         else:
             db.add(PathPlan(user_id=row.user_id, data=path))
@@ -309,10 +364,13 @@ def _finish(db, row, data):
             output={"next_kp": path.get("next_kp"), "generated_by": "entry_assessment"},
             reason="独立作答用于首次先验，已有练习证据保持优先；日历依据本次作答和时间预算"))
     _build_materials(db, row, data, plan_evidence)
-    db.add(EventLog(user_id=row.user_id, etype="entry_assessment", payload={"assessment_id": row.id, "bank_version": data["bank_version"], "report": report}))
+    _save_journey(db, row.user_id, row.id, "plan")
+    db.add(EventLog(user_id=row.user_id, etype="entry_assessment", payload={"notebook_id": notebook_id(), "assessment_id": row.id, "bank_version": data["bank_version"], "report": report}))
 
 
 def _build_materials(db, row, data, report):
+    if data.get("course_snapshot"):
+        return _course_materials(db, row, data, report)
     """Keep every measured task paired with current learner-specific material."""
     materials = []
     material_skills = [s for s in report["skills"] if s.get("in_scope", True) and s["status"] != "unmeasured"]
@@ -339,6 +397,44 @@ def _build_materials(db, row, data, report):
         db.merge(resource)
         materials.append({"id": resource_id, "kp": skill["kp"], "title": resource.title, "markdown": markdown})
     data["materials"] = materials
+
+def _course_materials(db, row, data, report):
+    course = data["course_snapshot"]
+    materials = []
+    for skill in report["skills"]:
+        kp = skill["kp"]
+        if not skill.get("in_scope", True):
+            continue
+        body = course.get("lessons", {}).get(kp)
+        if not body:
+            continue
+        evidence = course.get("evidence", {}).get(kp, [])
+        source_text = "\n\n".join(
+            f"### {item['source']} · {item.get('location_kind', '片段')} {item.get('page', '')}\n\n{item['text']}"
+            for item in evidence)
+        wrong = [q for q in report["explanations"] if q["kp"] == kp and not q["correct"] and q["status"] != "skipped"]
+        recap = "\n\n".join(f"### {q['stem']}\n\n{q['explain']}" for q in wrong)
+        source_note = "围绕当前主题由模型生成；未使用上传文件，请结合教材核对。" if course["kind"] == "generated" else "本课程自编入门讲义；未使用上传文件。"
+        if course["kind"] == "ds_algo":
+            source_note = f"课程自编种子讲义 {LESSONS.get(kp, '')}（CC BY-SA 4.0）；未使用上传文件。"
+        markdown = (f"# {skill['name']} · {course['title']}\n\n"
+            f"本次作答：{skill['correct']}/{skill['attempts']}。{skill['label']}。\n\n"
+            f"{lesson_guidance(data['survey'], skill)}\n\n## 本课目标\n\n解释核心概念，并在新情境中独立应用。\n\n"
+            f"## 概念与分步示例\n\n{body}\n\n## 起点错题回顾\n\n{recap or '没有已记录的错题，仍需新题复核。'}\n\n"
+            "## 轮到你尝试\n\n1. 合上讲义，用自己的话解释一个核心概念。\n2. 改变例题中的条件，自己完成推理。\n"
+            "3. 点击向学伴提问，索取一道未见过的新题；先独立作答，卡住再展开提示。\n\n"
+            f"## 内容依据\n\n{source_text or source_note}\n\n{course['boundary']}\n\n"
+            "看例题和重做原题属于学习过程，不计为新的独立掌握证据。")
+        rid = f"baseline-{row.id}-{kp}"
+        citations = [{k: v for k, v in e.items() if k != "text"} for e in evidence]
+        resource = Resource(id=rid, user_id=row.user_id, kind="doc", kp=kp, title=f"{course['title']} · {skill['name']}",
+            payload={"markdown": markdown, "notebook_id": data["notebook_id"], "course_revision": course["revision"],
+                     "source_ids": course.get("source_ids", [])}, citations=citations,
+            safety={"source": "course_assessment", "generated_by": "entry_assessment"})
+        db.merge(resource)
+        materials.append({"id": rid, "kp": kp, "title": resource.title, "markdown": markdown})
+    data["materials"] = materials
+
 
 def answer(user_id: str, assessment_id: str, payload: dict) -> dict:
     with session() as db:
@@ -408,6 +504,10 @@ def replan(user_id: str, assessment_id: str, survey: dict) -> dict:
     with session() as db:
         row = _owned(db, user_id, assessment_id)
         data = copy.deepcopy(row.data)
+        survey = copy.deepcopy(survey)
+        for key in ("notebook_id", "course_key", "course_title", "source_ids", "course_revision", "target_kps"):
+            if key in data["survey"]:
+                survey[key] = data["survey"][key]
         if data["status"] != "completed":
             raise HTTPException(409, "请先完成测评")
         completed = {task["id"] for day in data["plan"]["days"] for task in day["tasks"] if task["done"]}
@@ -425,7 +525,7 @@ def replan(user_id: str, assessment_id: str, survey: dict) -> dict:
             raise HTTPException(409, "计划已更新，请刷新后继续")
         _build_materials(db, row, data, data.get("plan_evidence", data["report"]))
         row.data, row.revision = data, revision + 1
-        profile = db.scalar(select(Profile).where(Profile.user_id == user_id).with_for_update())
+        profile = profile_row(db, user_id)
         if profile:
             value = copy.deepcopy(profile.data)
             _apply_survey_context(value, survey)
@@ -446,12 +546,15 @@ def extend(user_id: str, assessment_id: str, revision: int) -> dict:
         snapshot = {q["id"]: q for q in data["bank"]}
         for q in question_bank():
             snapshot.setdefault(q["id"], q)
-        data.update(bank=list(snapshot.values()), mode="comprehensive", status="active", targets=topological_order(), limit=48)
+        targets = topological_order()
+        data.update(bank=list(snapshot.values()), mode="comprehensive", status="active", targets=targets,
+                    limit=min(48, sum(q["kp"] in targets for q in snapshot.values())))
         data["bank_version"] = hashlib.sha256(json.dumps(data["bank"], ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:16]
         changed = db.execute(update(AssessmentSession).where(AssessmentSession.id == row.id, AssessmentSession.revision == revision).values(revision=revision + 1))
         if changed.rowcount != 1:
             raise HTTPException(409, "测评已更新，请重新读取后继续")
         row.data, row.revision = data, revision + 1
+        _save_journey(db, user_id, row.id, "assessment")
         if _next(data) is None:
             _finish(db, row, data)
             row.data = data
@@ -473,6 +576,7 @@ def _refresh_from_practice(db, row) -> None:
     if "practice_cursor" not in data:
         return
     events = db.scalars(select(EventLog).where(EventLog.user_id == row.user_id, EventLog.etype == "quiz_eval", EventLog.id > data["practice_cursor"]).order_by(EventLog.id)).all()
+    events = [event for event in events if event_in_scope(event.payload)]
     if not events:
         return
     seen = set(data.get("practice_seen", []))
@@ -483,6 +587,8 @@ def _refresh_from_practice(db, row) -> None:
     skills = {s["kp"]: s for s in evidence["skills"]}
     changed_skills = set()
     for event in events:
+        if not event_in_scope(event.payload):
+            continue
         for item in (event.payload or {}).get("learning_evidence", []):
             kp, key = item.get("kp"), item.get("key")
             if not key or key in seen or kp not in topological_order():

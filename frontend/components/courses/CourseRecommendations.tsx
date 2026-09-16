@@ -29,10 +29,12 @@ export default function CourseRecommendations({
   initialKp = "",
   onBack,
   onAssess,
+  notebookId = "",
 }: {
   initialKp?: string;
   onBack: () => void;
   onAssess: () => void;
+  notebookId?: string;
 }) {
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
@@ -47,7 +49,7 @@ export default function CourseRecommendations({
     setLoading(true);
     setError("");
     setPreview("");
-    apiGet<CourseResponse>(`/courses?${new URLSearchParams({ q: query, kp })}`)
+    apiGet<CourseResponse>(`/courses?${new URLSearchParams({ q: query, kp, notebook_id: notebookId })}`)
       .then((response) => {
         if (active) setData(response);
       })
@@ -63,7 +65,7 @@ export default function CourseRecommendations({
     return () => {
       active = false;
     };
-  }, [query, kp, retry]);
+  }, [query, kp, retry, notebookId]);
   const searchUrl =
     data?.search_url ||
     `https://search.bilibili.com/all?${new URLSearchParams({ keyword: query || "数据结构与算法 入门" })}`;

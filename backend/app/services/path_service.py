@@ -15,6 +15,7 @@ import hashlib
 from ..models.db import init_db, session
 from ..models.entities import PathPlan, PersonalizationDecision, Profile
 from .knowledge_graph import kp_name, load_kg, prerequisites, topological_order
+from .learning_scope import current_space, profile_row
 
 DONE_T, READY_T = 0.8, 0.6
 
@@ -162,6 +163,12 @@ def _reason(kp: str, m: float, status: str, is_goal: bool, pref: str) -> str:
 
 
 def save_path(user_id: str, path: dict) -> None:
+    if current_space():
+        with session() as db:
+            row = profile_row(db, user_id)
+            row.path = path
+            db.commit()
+        return
     init_db()
     with session() as s:
         row = s.get(PathPlan, user_id)
@@ -204,6 +211,9 @@ def save_path(user_id: str, path: dict) -> None:
 def get_path(user_id: str) -> dict | None:
     init_db()
     with session() as s:
+        if current_space():
+            row = profile_row(s, user_id)
+            return dict(row.path or {})
         row = s.get(PathPlan, user_id)
         return dict(row.data) if row else None
 

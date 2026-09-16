@@ -6,12 +6,18 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-Goal = Literal["掌握课程基础", "准备课程考试", "考研 408 复习", "竞赛与算法练习", "编程项目应用", "兴趣理解", "探索学习起点"]
+Goal = Literal["掌握课程基础", "准备课程考试", "考研 408 复习", "竞赛与算法练习", "编程项目应用", "兴趣理解", "探索学习起点", "看懂学习资料", "从零系统学习", "独立解题与纠错", "安排计划与复习", "完成项目或实践"]
 Barrier = Literal["concepts", "application", "coding", "forgetting", "starting"]
 Support = Literal["visual", "steps", "examples", "hints", "small_steps"]
 
 
 class StudySurvey(BaseModel):
+    notebook_id: str = Field(default="", max_length=64)
+    course_key: Literal["ds_algo", "python", "calculus", "custom"] = "ds_algo"
+    course_title: str = Field(default="数据结构与算法", max_length=120)
+    source_ids: list[str] = Field(default_factory=list, max_length=6)
+    course_revision: str = Field(default="", max_length=64)
+    target_kps: list[str] | None = Field(default=None, max_length=30)
     daily_minutes: int = Field(default=20, ge=8, le=180)
     study_days: list[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5], min_length=1, max_length=7)
     goal: str = Field(default="掌握课程基础", max_length=120)

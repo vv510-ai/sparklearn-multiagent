@@ -8,6 +8,7 @@ POST /api/eval/review —— 提交独立回忆并推进或重置复习间隔;
 GET  /api/eval/evidence —— 可解释学习证据账本;
 GET  /api/eval/report —— 学情报告(画像 + 掌握度雷达数据 + 近期事件)。"""
 from __future__ import annotations
+from ..services.learning_scope import scoped_endpoint, event_in_scope, notebook_id
 
 import re
 import uuid
@@ -145,6 +146,7 @@ def _hint_for(question: dict) -> str:
 
 
 @router.post("/support")
+@scoped_endpoint
 async def support(req: EvalSupportRequest):
     """Human-in-the-loop support: attempt first, then hint or reveal."""
     ensure_user(req.user_id)
@@ -161,6 +163,7 @@ async def support(req: EvalSupportRequest):
 
 
 @router.post("/submit")
+@scoped_endpoint
 async def submit(req: EvalSubmit):
     ensure_user(req.user_id)
     # 从题组资源还原每题的 kp / error_tags / 参考答案
@@ -243,6 +246,7 @@ async def submit(req: EvalSubmit):
 
 
 @router.post("/remediation")
+@scoped_endpoint
 async def remediation(req: RemediationRequest):
     """Generate a source-grounded micro-lesson and a fresh transfer retest."""
     ensure_user(req.user_id)
@@ -448,6 +452,7 @@ async def remediation(req: RemediationRequest):
 
 
 @router.post("/retest")
+@scoped_endpoint
 async def retest(req: EvalRetestRequest):
     """Grade one independent recovery attempt, including fresh transfer items."""
     ensure_user(req.user_id)
@@ -574,13 +579,15 @@ async def retest(req: EvalRetestRequest):
 
 
 @router.get("/review-queue")
-async def get_review_queue(user_id: str = Query("demo_user"), limit: int = Query(10, ge=1, le=50)):
+@scoped_endpoint
+async def get_review_queue(user_id: str = Query("demo_user"), limit: int = Query(10, ge=1, le=50), notebook_id: str = ""):
     ensure_user(user_id)
     return review_queue(user_id, limit=limit)
 
 
 @router.get("/mistake-book")
-async def get_mistake_book(user_id: str = Query("demo_user"), limit: int = Query(100, ge=1, le=200)):
+@scoped_endpoint
+async def get_mistake_book(user_id: str = Query("demo_user"), limit: int = Query(100, ge=1, le=200), notebook_id: str = ""):
     """List every recorded mistake, including items already recovered later."""
     ensure_user(user_id)
     return mistake_book(user_id, limit=limit)
@@ -596,6 +603,7 @@ async def favorite_mistake(item_id: int, req: MistakeFavoriteRequest):
 
 
 @router.post("/mistake-book/{item_id}/practice")
+@scoped_endpoint
 async def practice_mistake(item_id: int, req: MistakePracticeRequest):
     """Allow an immediate independent retry from the mistake book.
 
@@ -654,6 +662,7 @@ async def practice_mistake(item_id: int, req: MistakePracticeRequest):
 
 
 @router.post("/review")
+@scoped_endpoint
 async def submit_review(req: EvalReviewRequest):
     """Grade due spaced-review items and advance/reset their schedules."""
     ensure_user(req.user_id)
@@ -733,14 +742,16 @@ async def submit_review(req: EvalReviewRequest):
 
 
 @router.get("/evidence")
-async def evidence(user_id: str = Query("demo_user"), limit: int = Query(12, ge=1, le=50)):
+@scoped_endpoint
+async def evidence(user_id: str = Query("demo_user"), limit: int = Query(12, ge=1, le=50), notebook_id: str = ""):
     """Explain which assessment rounds changed mastery and why."""
     ensure_user(user_id)
     return build_learning_evidence(user_id, limit=limit)
 
 
 @router.get("/report")
-async def report(user_id: str = Query("demo_user")):
+@scoped_endpoint
+async def report(user_id: str = Query("demo_user"), notebook_id: str = ""):
     ensure_user(user_id)
     profile = get_profile(user_id)
     mastery = profile.get("knowledge_mastery") or {}
@@ -750,10 +761,11 @@ async def report(user_id: str = Query("demo_user")):
     with session() as s:
         attempts = (s.query(QuizAttempt).filter(QuizAttempt.user_id == user_id)
                     .order_by(QuizAttempt.id.desc()).limit(100).all())
+        resource_ids = {a.quiz_resource_id for a in attempts}
+        resources = {r.id: r for r in s.query(Resource).filter(Resource.id.in_(resource_ids)).all()}
+        attempts = [a for a in attempts if a.quiz_resource_id in resources and event_in_scope(resources[a.quiz_resource_id].payload)]
     n_attempt = len(attempts)
     avg_score = round(sum(a.score for a in attempts) / n_attempt, 3) if n_attempt else None
-    if not radar:
-        raise HTTPException(404, "profile not found")
     return {"profile": profile, "radar": radar,
             "weakest": radar[:3], "strongest": radar[-3:][::-1],
             "attempts": {"total": n_attempt, "accuracy": avg_score},

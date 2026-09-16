@@ -85,7 +85,7 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
     return Object.entries(m)
       .sort((a, b) => a[1] - b[1])
       .slice(0, 6)
-      .map(([k, v]) => ({ name: KP_NAME[k] || k, v: Number(v) }));
+      .map(([k, v]) => ({ name: profile.knowledge_labels?.[k] || KP_NAME[k] || k, v: Number(v) }));
   }, [profile]);
 
   useEffect(() => {

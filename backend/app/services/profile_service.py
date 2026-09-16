@@ -22,6 +22,7 @@ from ..models.db import init_db, session
 from ..models.entities import EventLog, Profile, User
 from ..services.bkt import bkt_update
 from ..services.knowledge_graph import all_kp_ids, canonical_kp_id
+from .learning_scope import current_space, profile_row, event_in_scope, notebook_id
 
 _PROFILE_FIELDS = {
     "knowledge_mastery", "cognitive_style", "error_prone", "goal", "pace",
@@ -206,7 +207,7 @@ def sanitize_profile_patch(patch: dict[str, Any] | None) -> dict[str, Any]:
 def get_profile(user_id: str) -> dict:
     ensure_user(user_id)
     with session() as s:
-        p = s.get(Profile, user_id)
+        p = profile_row(s, user_id)
         if p is None:
             p = Profile(user_id=user_id, data=default_profile(), version=1)
             s.add(p)
@@ -232,6 +233,11 @@ def get_profile(user_id: str) -> dict:
             s.commit()
         data["_version"] = p.version
         data["_updated_at"] = (p.updated_at or dt.datetime.now(dt.timezone.utc)).isoformat()
+        if current_space():
+            data["notebook_id"] = notebook_id()
+            data["course_title"] = current_space()["course"]["title"]
+            data["knowledge_labels"] = {k: v["name"] for k, v in current_space()["graph"]["nodes"].items()}
+            current_space()["profile"] = dict(data)
         return data
 
 
@@ -243,7 +249,7 @@ def merge_profile(user_id: str, patch: dict[str, Any]) -> dict:
         return get_profile(user_id)
     evidence = patch.pop("evidence", None)
     with session() as s:
-        p = s.get(Profile, user_id)
+        p = profile_row(s, user_id)
         if p is None:
             p = Profile(user_id=user_id, data=default_profile(), version=0)
             s.add(p)
@@ -352,7 +358,8 @@ def update_mastery(user_id: str, kp: str, correct: bool) -> float:
 def log_event(user_id: str, etype: str, payload: dict) -> None:
     ensure_user(user_id)
     with session() as s:
-        s.add(EventLog(user_id=user_id, etype=etype, payload=payload))
+        s.add(EventLog(user_id=user_id, etype=etype, payload={**payload, "notebook_id": notebook_id(),
+            "course_revision": (current_space() or {}).get("course", {}).get("revision")}))
         s.commit()
 
 
@@ -360,7 +367,8 @@ def recent_events(user_id: str, limit: int = 30) -> list[dict]:
     with session() as s:
         rows = s.execute(
             select(EventLog).where(EventLog.user_id == user_id)
-            .order_by(EventLog.id.desc()).limit(limit)
+            .order_by(EventLog.id.desc()).limit(max(limit, 500))
         ).scalars().all()
+        rows = [r for r in rows if event_in_scope(r.payload)][:limit]
         return [{"etype": r.etype, "payload": r.payload,
                  "ts": r.created_at.isoformat() if r.created_at else ""} for r in rows]

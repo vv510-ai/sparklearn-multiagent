@@ -27,13 +27,17 @@ from ..services.ownership_service import (
     task_resource_id,
 )
 from ..auth import require_current_user_id
+from ..services.learning_scope import scoped_endpoint
 from .sse import sse_response
 
 router = APIRouter(prefix="/api/resources", tags=["resources"])
 
 
 @router.post("/generate")
+@scoped_endpoint
 async def generate(req: GenerateRequest):
+    from ..services.learning_scope import selected_sources
+    req.source_ids = selected_sources(req.source_ids)
     ensure_user(req.user_id)
     notebook = ensure_notebook_owner(req.user_id, req.notebook_id) if req.notebook_id else None
     try:

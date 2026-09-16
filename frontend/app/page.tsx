@@ -30,7 +30,7 @@ import ResourceCard from "@/components/resource/ResourceCard";
 import AssessmentPanel from "@/components/assessment/AssessmentPanel";
 import CourseRecommendations from "@/components/courses/CourseRecommendations";
 import OnboardingGate from "@/components/onboarding/OnboardingGate";
-import type { Assessment, StudySurvey } from "@/lib/assessment";
+import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic, kpName } from "@/lib/kp";
@@ -40,7 +40,7 @@ type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes" | "assess
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
-type OnboardingResponse = { required: boolean; profile: StudentProfile; path?: PathPlan | null; recommendation?: { title?: string; reason?: string; knowledge_point?: string | null } };
+type OnboardingResponse = { required: boolean; profile: StudentProfile; path?: PathPlan | null; resume?: { phase: string; notebook_id: string; assessment_id: string }; recommendation?: { title?: string; reason?: string; knowledge_point?: string | null } };
 type UploadResult = { source: KnowledgeSource; duplicate?: boolean; sample?: { text: string; citation: string }[] };
 type QualityEvidence = {
   retrievalCount: number | null;
@@ -324,6 +324,7 @@ export default function Home() {
   const [entered, setEntered] = useState(false);
   const [onboardingRequired, setOnboardingRequired] = useState(false);
   const [onboardingLoading, setOnboardingLoading] = useState(true);
+  const [onboardingError, setOnboardingError] = useState("");
   const [notebooks, setNotebooks] = useState<LearningNotebook[]>([]);
   const [activeNotebook, setActiveNotebook] = useState<LearningNotebook | null>(null);
   const [initialChatMessages, setInitialChatMessages] = useState<NonNullable<LearningNotebook["messages"]>>([]);
@@ -355,6 +356,7 @@ export default function Home() {
   const [seed, setSeed] = useState<string | undefined>();
   const [request, setRequest] = useState<ChatRequest | undefined>();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [activeCourse, setActiveCourse] = useState<CourseScope | null>(null);
   const [pathPlan, setPathPlan] = useState<PathPlan | null>(null);
   const [selectedPathNode, setSelectedPathNode] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceItem[]>([]);
@@ -410,10 +412,12 @@ export default function Home() {
 
   const loadProfile = useCallback(async () => {
     setPanelError("");
+    const notebookId = activeNotebookIdRef.current;
     try {
-      const report = await apiGet<{ profile?: StudentProfile }>(`/eval/report?user_id=${USER_ID}`);
+      const report = await apiGet<{ profile?: StudentProfile }>(`/eval/report?user_id=${USER_ID}&notebook_id=${encodeURIComponent(notebookId)}`);
+      if (activeNotebookIdRef.current !== notebookId) return;
       if (report.profile) setProfile(report.profile);
-      else setProfile(await apiGet<StudentProfile>(`/profile/${USER_ID}`));
+      else setProfile(await apiGet<StudentProfile>(`/profile/${USER_ID}?notebook_id=${encodeURIComponent(notebookId)}`));
     } catch (error) {
       setPanelError(`学习情况暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     }
@@ -421,6 +425,7 @@ export default function Home() {
 
   const loadOnboarding = useCallback(async () => {
     setOnboardingLoading(true);
+    setOnboardingError("");
     try {
       const data = await apiGet<OnboardingResponse>("/onboarding");
       setOnboardingRequired(Boolean(data.required));
@@ -429,11 +434,20 @@ export default function Home() {
         setPathPlan(data.path);
         setSelectedPathNode(data.path.next_kp || data.path.nodes[0]?.id || null);
       }
-      if (!data.required) setEntered(true);
+      if (!data.required) {
+        setEntered(true);
+        if (data.resume?.assessment_id && ["assessment", "plan"].includes(data.resume.phase)) {
+          if (data.resume.notebook_id) {
+            const notebook = await apiGet<LearningNotebook>(`/notebooks/${data.resume.notebook_id}?user_id=${USER_ID}`);
+            enterNotebook(notebook);
+            await loadSources(notebook.id);
+            await loadProfile();
+          }
+          setActivePanel("assessment");
+        }
+      }
     } catch {
-      // A profile read should never strand a learner on a decorative gate.
-      setOnboardingRequired(false);
-      setEntered(true);
+      setOnboardingError("暂时无法读取你的学习进度。请重试，已保存的选择和作答不会丢失。");
     } finally {
       setOnboardingLoading(false);
     }
@@ -441,10 +455,10 @@ export default function Home() {
 
   const loadPath = useCallback(async () => {
     setPanelError("");
+    const notebookId = activeNotebookIdRef.current;
     try {
-      // Knowledge Relation is the complete course graph. Conversation-wide
-      // topics belong to framework-map artifacts and must not narrow this page.
-      const plan = await apiGet<PathPlan>(`/path?user_id=${USER_ID}`);
+      const plan = await apiGet<PathPlan>(`/path?user_id=${USER_ID}&notebook_id=${encodeURIComponent(notebookId)}`);
+      if (activeNotebookIdRef.current !== notebookId) return;
       setPathPlan(plan);
       setSelectedPathNode(null);
     } catch (error) {
@@ -469,21 +483,26 @@ export default function Home() {
   const loadSources = useCallback(async (notebookId: string) => {
     if (!notebookId) return;
     try {
-      const data = await apiGet<{ items: KnowledgeSource[] }>(`/knowledge/sources?user_id=${USER_ID}&notebook_id=${encodeURIComponent(notebookId)}`);
+      const [data, learning] = await Promise.all([
+        apiGet<{ items: KnowledgeSource[] }>(`/knowledge/sources?user_id=${USER_ID}&notebook_id=${encodeURIComponent(notebookId)}`),
+        apiGet<{ course: CourseScope }>(`/notebooks/${encodeURIComponent(notebookId)}/learning`),
+      ]);
       if (activeNotebookIdRef.current !== notebookId) return;
+      setActiveCourse(learning.course);
       const items = dedupeSources(data.items || []);
       setSources(items);
       setSelectedSourceIds((ids) => {
         const personal = items.filter(isSourceSelectable).map((item) => item.id);
         const available = new Set([
-          COURSE_SOURCE_ID,
+          ...(learning.course.kind === "ds_algo" ? [COURSE_SOURCE_ID] : []),
           ...items.filter(isSourceSelectable).map((item) => item.id),
         ]);
         const valid = ids.filter((id) => available.has(id));
         if (personal.length && valid.length === 1 && valid[0] === COURSE_SOURCE_ID) {
           return personal;
         }
-        return valid.length ? valid : [COURSE_SOURCE_ID];
+        const bound = (learning.course.source_ids || []).filter(id => available.has(id));
+        return valid.length ? valid : bound.length ? bound : personal.length ? personal : learning.course.kind === "ds_algo" ? [COURSE_SOURCE_ID] : [];
       });
     } catch (error) {
       if (activeNotebookIdRef.current !== notebookId) return;
@@ -500,9 +519,9 @@ export default function Home() {
       const items = data.items || [];
       setNotebooks(items);
       setActiveNotebook((current) => {
-        if (!current) return items[0] || null;
+        if (!current) return null;
         const refreshed = items.find((item) => item.id === current.id);
-        return refreshed ? { ...current, ...refreshed, messages: current.messages } : items[0] || null;
+        return refreshed ? { ...current, ...refreshed, messages: current.messages } : null;
       });
     } catch (error) {
       setLibraryError(`书本列表暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
@@ -593,6 +612,9 @@ export default function Home() {
     const goal = initialGoal.trim();
     activeNotebookIdRef.current = notebook.id;
     setActiveNotebook(notebook);
+    setProfile(null);
+    setActiveCourse(null);
+    setPathPlan(null);
     setEntered(true);
     setNotebookTopic(notebook.title);
     setConversationFocus(goal || latestUserQuestion(notebook.messages));
@@ -623,6 +645,7 @@ export default function Home() {
       if (notebookSwitchRef.current !== switchToken || activeNotebookIdRef.current !== notebook.id) return false;
       enterNotebook(detail, initialGoal);
       await loadSources(detail.id);
+      await loadProfile();
       return true;
     } catch (error) {
       if (notebookSwitchRef.current !== switchToken) return false;
@@ -637,6 +660,7 @@ export default function Home() {
     const next = goal.trim();
     notebookSwitchRef.current += 1;
     activeNotebookIdRef.current = "";
+    setActiveNotebook(null);
     setEntered(true);
     setNotebookTopic(next || "课程学习");
     setConversationFocus(next);
@@ -662,7 +686,7 @@ export default function Home() {
 
   const recommendationTitle = (path: PathPlan | null = pathPlan) => {
     const node = path ? path.nodes.find((item) => item.id === path.next_kp) : undefined;
-    return node?.name || "数据结构与算法基础";
+    return node?.name || activeCourse?.title || activeNotebook?.title || "课程基础";
   };
 
   const firstTaskPrompt = (path: PathPlan | null = pathPlan) => {
@@ -671,11 +695,25 @@ export default function Home() {
   };
 
   const completeIntake = async (survey: StudySurvey, mode: Assessment["mode"]) => {
-    await apiPost<Assessment>("/assessment/start", { survey, mode });
+    const assessment = await apiPost<Assessment>("/assessment/start", { survey, mode });
     setOnboardingRequired(false);
+    if (assessment.notebook_id) {
+      const notebook = await apiGet<LearningNotebook>(`/notebooks/${assessment.notebook_id}?user_id=${USER_ID}`);
+      await openNotebook(notebook);
+      await loadNotebooks();
+    } else enterCourseWorkspace();
     await loadProfile();
-    enterCourseWorkspace();
     setActivePanel("assessment");
+  };
+
+  const assessmentStarted = async (assessment: Assessment) => {
+    if (assessment.notebook_id && assessment.notebook_id !== activeNotebookIdRef.current) {
+      const notebook = await apiGet<LearningNotebook>(`/notebooks/${assessment.notebook_id}?user_id=${USER_ID}`);
+      await openNotebook(notebook);
+      await loadNotebooks();
+      setActivePanel("assessment");
+    }
+    await loadProfile();
   };
 
   const skipIntake = async (introPracticed: boolean) => {
@@ -945,6 +983,10 @@ export default function Home() {
     );
   }
 
+  if (onboardingError) {
+    return <main className="onboarding-retry"><h1>继续你的学习起点</h1><p role="alert">{onboardingError}</p><button className="primary-action" onClick={() => void loadOnboarding()}>重试读取学习进度</button><button className="secondary-action" onClick={() => void logout()}>退出登录</button></main>;
+  }
+
   if (!entered && onboardingRequired) {
     return <OnboardingGate user={authUser} onComplete={completeIntake} onSkip={skipIntake} onLogout={() => void logout()} />;
   }
@@ -962,6 +1004,7 @@ export default function Home() {
 
   const sourcePanel = (
     <SourcePanel
+      includeBuiltin={!activeNotebook || activeCourse?.kind === "ds_algo"}
       notebooks={notebooks}
       activeNotebookId={activeNotebook?.id}
       notebookLoading={notebookLoading || Boolean(openingNotebookId)}
@@ -1036,6 +1079,7 @@ export default function Home() {
         <aside className="hidden min-h-0 xl:block">{sourcePanel}</aside>
 
         <section className="notebook-column relative min-h-0 overflow-hidden">
+          {activePanel === "chat" && profile?.learning_intake && <div className="learning-context-strip"><div><strong>{profile.course_title || activeNotebook?.title}</strong><span>优先：{profile.learning_intake.goal} · 每次 {profile.learning_intake.daily_minutes} 分钟 · 已绑定 {activeCourse?.source_ids?.length || 0} 份资料</span></div><button onClick={() => openPanel("assessment")}>查看依据与计划 <ArrowRight size={14} /></button></div>}
           {openingNotebookId && (
             <div className="absolute inset-0 z-40 grid place-items-center bg-white/82 px-6 text-center backdrop-blur-sm">
               <div className="rounded-2xl border border-emerald-200 bg-white px-6 py-5 shadow-xl">
@@ -1076,8 +1120,8 @@ export default function Home() {
             />
           </div>
 
-          {activePanel === "assessment" && <AssessmentPanel initialSurvey={profile?.learning_intake || { daily_minutes: Math.max(8, Math.min(180, Number(profilePace?.daily_minutes) || 30)), goal: ({ "应试": "准备课程考试", "竞赛": "竞赛与算法练习", "工程实践": "编程项目应用", "兴趣": "兴趣理解" } as Record<string, string>)[String(profile?.goal)] || "掌握课程基础", study_days: profilePace?.frequency === "每天" ? [1, 2, 3, 4, 5, 6, 7] : [1, 2, 3, 4, 5] }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
-          {activePanel === "courses" && <CourseRecommendations initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
+          {activePanel === "assessment" && <AssessmentPanel key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} initialSurvey={{ course_title: activeCourse?.title || activeNotebook?.title || "", course_key: "custom", source_ids: selectedSourceIds.filter(id => id !== COURSE_SOURCE_ID), ...profile?.learning_intake }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
+          {activePanel === "courses" && <CourseRecommendations key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
           {activePanel === "profile" && (
             <div className="notebook-content-scroll">
               <div className="notebook-content-heading">
@@ -1086,10 +1130,10 @@ export default function Home() {
               </div>
               <div className="px-5 pt-5">
                 <button className="entry-profile-cta" onClick={() => openPanel("assessment")}><Target size={20} /><span><strong>查看起点测评与两周计划</strong><small>真实题目、逐题解析、按时间安排的学习任务</small></span><ArrowRight size={18} /></button>
-                <ReviewQueue onEvaluated={refreshAfterEvaluation} />
+                <ReviewQueue key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} onEvaluated={refreshAfterEvaluation} />
               </div>
               <div className="px-5 pt-4">
-                <LearningEvidence refreshToken={profile?._version ?? profile?.version ?? 0} />
+                <LearningEvidence key={activeNotebook?.id || "legacy"} notebookId={activeNotebook?.id || ""} refreshToken={profile?._version ?? profile?.version ?? 0} />
               </div>
               <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_280px]">
                 <ProfileRadar profile={profile} />
@@ -1162,7 +1206,7 @@ export default function Home() {
               <div className="notebook-content-heading">
                 <div><span>MISTAKE BOOK</span><h1>我的错题本</h1><p>答错或揭晓的题自动收录；可以收藏、查看错因并随时重做。</p></div>
               </div>
-              <div className="p-5"><MistakeBook onEvaluated={refreshAfterEvaluation} /></div>
+              <div className="p-5"><MistakeBook key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} onEvaluated={refreshAfterEvaluation} /></div>
             </div>
           )}
 

@@ -31,12 +31,16 @@ export default function AssessmentPanel({
   onCourses,
   onUpdated,
   initialSurvey = {},
+  notebookId = "",
+  onStarted,
 }: {
   onBack: () => void;
   onLearn: (prompt: string) => void;
   onCourses: (kp?: string) => void;
   onUpdated: () => void;
   initialSurvey?: Partial<StudySurvey>;
+  notebookId?: string;
+  onStarted?: (assessment: Assessment) => void | Promise<void>;
 }) {
   const [data, setData] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +63,7 @@ export default function AssessmentPanel({
     setLoadFailed(false);
     try {
       const response = await apiGet<{ assessment: Assessment | null }>(
-        "/assessment",
+        `/assessment?notebook_id=${encodeURIComponent(notebookId)}`,
       );
       setData(response.assessment);
     } catch {
@@ -73,7 +77,7 @@ export default function AssessmentPanel({
   };
   useEffect(() => {
     void load();
-  }, []);
+  }, [notebookId]);
   useEffect(() => {
     setChoice("");
     setChoices([]);
@@ -121,18 +125,19 @@ export default function AssessmentPanel({
     setBusy(true);
     setError("");
     try {
-      setData(
-        await apiPost<Assessment>(
+      const result = await apiPost<Assessment>(
           replan && data
             ? `/assessment/${data.id}/replan`
             : "/assessment/start",
           { survey, mode },
-        ),
-      );
+        );
+      setData(result);
       setSetup(false);
       setReplan(false);
+      if (!replan && onStarted) await onStarted(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存失败，请重试");
+      throw e;
     } finally {
       setBusy(false);
     }
@@ -190,7 +195,7 @@ export default function AssessmentPanel({
         <div>
           <span>ASSESS · PLAN · LEARN</span>
           <h1>起点测评与学习计划</h1>
-          <p>每一步，都有作答依据。</p>
+          <p>{data?.course?.title || initialSurvey.course_title || "当前课程"} · 每一步，都有作答依据。</p>
         </div>
         <button className="secondary-action" onClick={onBack}>
           <ArrowLeft size={15} />
@@ -205,6 +210,7 @@ export default function AssessmentPanel({
           </button>
         </div>
       )}
+      {data?.course && <details className="entry-course-context"><summary>这份计划依据哪些目标与资料？</summary><p>优先：{data.survey.goal}；每个学习日 {data.survey.daily_minutes} 分钟，每周 {data.survey.study_days.length} 天。</p><p>{data.course.coverage_note}</p>{data.course.sources?.map(source => <p key={source.id}>{source.title} · {source.location_kind} {source.locations.join("、")} · 已取样 {source.sampled_chunks}/{source.total_chunks} 个片段</p>)}{!data.course.sources?.length && <p>使用本课程入门内容；尚未绑定上传文件。</p>}<p>{data.course.boundary}</p></details>}
       {loading ? (
         <p className="entry-loading" role="status">
           正在读取你的学习起点…
@@ -212,7 +218,7 @@ export default function AssessmentPanel({
       ) : loadFailed ? null : !data || setup ? (
         <SurveyForm
           key={`${data?.id || "new"}-${replan}`}
-          initial={data?.survey || { ...DEFAULT_SURVEY, ...initialSurvey }}
+          initial={data?.survey || { ...DEFAULT_SURVEY, ...initialSurvey, notebook_id: notebookId }}
           busy={busy}
           isReplan={replan}
           onSubmit={saveSurvey}
@@ -348,7 +354,7 @@ export default function AssessmentPanel({
             <button className="intake-primary" onClick={() => onLearn(studyTask.goal)}><Play size={16} />请学伴带我练习</button>
           </section>}
           {!!plan.adaptations?.length && <details className="entry-adaptations" open><summary>为什么这样安排 · 根据你的选择</summary><ul>{plan.adaptations.map((s, i) => <li key={i}>{s}</li>)}</ul></details>}
-          {data.mode !== "comprehensive" && <div className="entry-result-actions"><button className="intake-secondary" disabled={busy} onClick={() => void continueAssessment()}>继续补全课程摸底 <ArrowRight size={16} /></button><p className="entry-note">已做题目保留，最多再提交 {48 - data.answered} 题，可随时暂停。</p></div>}
+          {data.mode !== "comprehensive" && report.coverage < report.total_skills && <div className="entry-result-actions"><button className="intake-secondary" disabled={busy} onClick={() => void continueAssessment()}>继续补全课程摸底 <ArrowRight size={16} /></button><p className="entry-note">已做题目保留，继续检查尚未覆盖的知识点，可随时暂停。</p></div>}
           <section>
             <div className="entry-section-heading">
               <h2>
