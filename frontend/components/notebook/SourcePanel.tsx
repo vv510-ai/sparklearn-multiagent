@@ -2,6 +2,7 @@
 
 import { BookOpen, Check, CircleAlert, FileText, FolderPlus, LoaderCircle, Plus, ShieldAlert, TriangleAlert, UploadCloud } from "lucide-react";
 import type { LearningNotebook } from "@/lib/types";
+import type { CourseScope } from "@/lib/assessment";
 
 export type KnowledgeSourceStatus = "processing" | "indexed" | "degraded" | "failed" | "quarantined" | "inactive";
 
@@ -60,7 +61,8 @@ export default function SourcePanel({
   onSelectNotebook,
   onToggleCourse,
   onToggle,
-  includeBuiltin = true,
+  includeBuiltin = false,
+  course,
 }: {
   notebooks: LearningNotebook[];
   activeNotebookId?: string;
@@ -77,9 +79,10 @@ export default function SourcePanel({
   onToggleCourse: () => void;
   onToggle: (sourceId: string) => void;
   includeBuiltin?: boolean;
+  course?: CourseScope | null;
 }) {
   const usingCourse = selectedIds.includes(COURSE_SOURCE_ID);
-  const selectedCount = selectedIds.length;
+  const selectedCount = activeNotebookId ? selectedIds.filter(id => id !== COURSE_SOURCE_ID || includeBuiltin).length : 0;
 
   return (
     <div className="notebook-column flex h-full min-h-0 flex-col" aria-label="学习来源">
@@ -95,10 +98,10 @@ export default function SourcePanel({
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
           <div>
             <div className="text-[10px] font-bold tracking-[0.14em] text-[#8A91A0]">SUBJECT FOLDER</div>
-            <div className="mt-0.5 text-sm font-bold text-[#2B303B]">当前科目书本</div>
+            <div className="mt-0.5 text-sm font-bold text-[#2B303B]">我的课程</div>
           </div>
           <button type="button" onClick={onCreateNotebook} className="inline-flex items-center gap-1 rounded-full border border-[#CFE0D8] bg-[#EFF7F3] px-2.5 py-1.5 text-[11px] font-bold text-[#0F6B50] transition hover:bg-[#E4F2EB]">
-            <FolderPlus size={14} />新建
+            <FolderPlus size={14} />新建课程
           </button>
         </div>
 
@@ -123,7 +126,7 @@ export default function SourcePanel({
         ) : (
           <button type="button" onClick={onCreateNotebook} className="flex w-full items-center gap-3 rounded-[10px] border border-dashed border-[#BFC9D6] bg-[#F8F9FC] px-3 py-3 text-left transition hover:border-[#83B7A5] hover:bg-[#F1F7F4]">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[9px] bg-[#E7F3ED] text-[#0F6B50]"><Plus size={17} /></span>
-            <span><strong className="block text-sm text-[#343944]">新建第一个科目书本</strong><small className="mt-0.5 block text-[11px] text-[#858C9A]">每个科目的资料相互独立</small></span>
+            <span><strong className="block text-sm text-[#343944]">选择或创建第一门课</strong><small className="mt-0.5 block text-[11px] text-[#858C9A]">数据结构 · Python · 高数 · 自定义</small></span>
           </button>
         )}
         <p className="mt-2 px-1 text-[11px] leading-5 text-[#858C9A]">切换科目后，下方只显示这本书的资料与学习记录。</p>
@@ -131,12 +134,12 @@ export default function SourcePanel({
       </div>
 
       <div className="border-b border-[#E1E4EC] p-3">
-        <button onClick={onAdd} disabled={uploading || !activeNotebookId} className="source-add-button" title={activeNotebookId ? "向当前科目上传资料" : "请先新建或选择一个科目书本"}>
+        <button onClick={onAdd} disabled={uploading} className="source-add-button" title={activeNotebookId ? "向当前课程上传资料" : "上传课本并创建课程"}>
           {uploading ? <UploadCloud size={17} className="animate-pulse" /> : <Plus size={18} />}
-          {uploading ? "正在建立索引" : "添加学习资料"}
+          {uploading ? "正在建立索引" : activeNotebookId ? "添加学习资料" : "上传课本 / 自定义课程"}
         </button>
         <p className="mt-2 px-1 text-[11px] leading-5 text-[#777D8B]">
-          {activeNotebookId ? "支持 Word、PDF、图片、Markdown 和文本，资料只会保存到当前科目。" : "请先新建或选择科目书本，再上传对应的讲义和笔记。"}
+          {activeNotebookId ? "支持 Word、PDF、图片、Markdown 和文本，资料只会保存到当前课程。" : "选择经典课程，或直接用自己的主题与课本开始。"}
         </p>
       </div>
 
@@ -144,13 +147,17 @@ export default function SourcePanel({
         {includeBuiltin && <button onClick={onToggleCourse} className={`source-row ${usingCourse ? "is-selected" : ""}`}>
           <span className="source-icon is-course"><BookOpen size={17} /></span>
           <span className="min-w-0 flex-1 text-left">
-            <strong>课程知识库</strong>
-            <small>可与个人资料一起参与回答</small>
+            <strong>数据结构基础讲义</strong>
+            <small>11 篇自编讲义 · 可与上传资料一起引用</small>
           </span>
           <span className={`source-check ${usingCourse ? "is-checked" : ""}`}>
             {usingCourse && <Check size={13} />}
           </span>
         </button>}
+
+        {activeNotebookId && course && course.kind !== "ds_algo" && !!course.outline?.length && <div className="course-source-summary">
+          <BookOpen size={18} /><div><strong>{course.title}</strong><p>{course.source_ids?.length ? `课程已绑定 ${course.source_ids.length} 份上传资料，讲解和题目围绕所列资料展开。` : course.kind === "generated" ? "围绕主题生成的初步讲义与题目，可上传教材补充依据。" : "已配入门讲义与起点题，可上传自己的课本补充依据。"}</p><small>{course.outline.length} 个知识点 · {course.question_count} 道起点题</small></div>
+        </div>}
 
         {sources.map((source) => {
           const selected = selectedIds.includes(source.id);
@@ -179,16 +186,16 @@ export default function SourcePanel({
         {sources.length === 0 && activeNotebookId && (
           <div className="source-empty">
             <UploadCloud size={20} />
-            <strong>这本书还没有资料</strong>
-            <span>上传这门科目的讲义或笔记后，它会出现在这里。</span>
+            <strong>还没有上传自己的资料</strong>
+            <span>可以使用已配讲义，也可以添加这门课的教材与笔记。</span>
           </div>
         )}
 
         {!activeNotebookId && (
           <div className="source-empty">
             <FolderPlus size={20} />
-            <strong>先选择科目书本</strong>
-            <span>课程知识库仍可使用，个人资料会按科目分别保存。</span>
+            <strong>从一门课程开始</strong>
+            <span>点击“新建课程”，直接选择经典课程、自定义主题或上传课本。</span>
           </div>
         )}
       </div>

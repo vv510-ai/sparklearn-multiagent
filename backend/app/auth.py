@@ -167,6 +167,10 @@ def decode_access_token(token: str) -> dict:
         raise HTTPException(401, "登录已失效，请重新登录") from exc
     if payload.get("type") != "access" or not str(payload.get("sub") or "").strip():
         raise HTTPException(401, "登录凭证无效")
+    # A signed, unexpired token must not recreate an account after an admin reset.
+    with session() as db:
+        if db.get(AuthAccount, str(payload["sub"])) is None:
+            raise HTTPException(401, "登录账号已不存在，请重新注册或登录")
     return payload
 
 

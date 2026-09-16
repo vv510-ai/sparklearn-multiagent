@@ -223,7 +223,9 @@ def test_onboarding_answers_change_starting_path():
     assert beginner_path["nodes"] and experienced_path["nodes"]
 
 
-def test_extra_sources_ingest_and_citation():
+def test_extra_sources_ingest_and_citation(monkeypatch):
+    from app.rag import ingest
+    monkeypatch.setattr(ingest, "EXTRA_SOURCES_DIR", Path(__file__).parent / "fixtures")
     chunks = load_all_chunks()
     sample = next((c for c in chunks if c.get("source_id") == "video_binary_tree_intro"), None)
     assert sample is not None, "应读取 extra_sources 里的视频链接样例"

@@ -54,21 +54,13 @@ test("学生能注册、获得学伴回答并重新登录", async ({ page }) => 
     await expect(page.getByText(learnerName, { exact: true })).toBeVisible();
   });
 
-  await test.step("学习首页保留资料与学习目标入口", async () => {
-    await page.getByRole("button", { name: "学习首页", exact: true }).click();
-    await expect(page.locator("#learning-goal")).toBeVisible();
-    await expect(page.getByRole("button", { name: "进入工作台管理科目与资料", exact: true })).toBeVisible();
-    await expect(page.locator('a[href="/evidence"], a[href="/teacher"]')).toHaveCount(0);
-    await page.locator(".learning-gate-hero .animate-fade-rise-delay").evaluate(async (element) => {
-      await Promise.all(element.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
-    });
-    await page.screenshot({ path: "test-results/learning-home-desktop.png", fullPage: true });
+  await test.step("工作台保留课程入口并移除重复首页和显示切换", async () => {
+    await expect(page.getByRole("button", { name: "学习首页", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "减少透明效果", exact: true })).toHaveCount(0);
     await page.setViewportSize({ width: 390, height: 844 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: "test-results/learning-home-mobile.png", fullPage: true });
+    await page.screenshot({ path: "test-results/learning-workspace-mobile.png", fullPage: true });
     await page.setViewportSize({ width: 1280, height: 720 });
-    await page.getByRole("button", { name: "进入工作台管理科目与资料", exact: true }).click();
-    await expect(page.getByRole("button", { name: "打开起点测评", exact: true })).toBeVisible();
   });
 
   await test.step("退出后可以用同一账户重新登录", async () => {

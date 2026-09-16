@@ -198,6 +198,33 @@ def test_register_login_and_user_scope(monkeypatch):
         config.get_settings.cache_clear()
 
 
+def test_deleted_account_token_cannot_recreate_learning_data(monkeypatch):
+    _enable_real_auth(monkeypatch)
+    ids = []
+    email = f"reset-{uuid.uuid4().hex}@example.test"
+    try:
+        with TestClient(app) as client:
+            data = client.post("/api/auth/register", json={"email": email, "password": "reset-test-password", "name": "Reset test"}).json()
+            old_id = data["user"]["id"]
+            ids.append(old_id)
+            headers = {"Authorization": f"Bearer {data['access_token']}"}
+            _delete_accounts([old_id])
+            assert client.get("/api/onboarding", headers=headers).status_code == 401
+            assert client.post("/api/notebooks", headers=headers, json={"user_id": old_id, "title": "Should not be created"}).status_code == 401
+            with session() as db:
+                assert db.get(User, old_id) is None
+                assert db.get(Profile, old_id) is None
+            renewed = client.post("/api/auth/register", json={"email": email, "password": "reset-test-password", "name": "New learner"})
+            assert renewed.status_code == 201
+            ids.append(renewed.json()["user"]["id"])
+            assert ids[-1] != old_id
+            assert client.get("/api/auth/me", headers=headers).status_code == 401
+            assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {renewed.json()['access_token']}"}).status_code == 200
+    finally:
+        _delete_accounts(ids)
+        config.get_settings.cache_clear()
+
+
 def test_onboarding_is_persisted_and_replans_path(monkeypatch):
     _enable_real_auth(monkeypatch)
     marker = uuid.uuid4().hex
