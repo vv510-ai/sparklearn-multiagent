@@ -539,8 +539,25 @@ def test_topic_gate_rejects_notes_that_mix_current_and_stale_topics():
 def test_uploaded_course_fallback_extracts_requested_concepts_without_dsa_advice():
     markdown = doc_agent._rag_fallback_doc(
         "生态系统的能量流动与物质循环",
-        [{"text": "生产者通过光合作用获取能量。消费者通过摄食获取能量。能量流动是单向的。物质循环可在生物和非生物环境间发生。"}],
+        [{"text": "生产者通过光合作用获取能量。\n食物链与能量流动\n在草、兔、狐组成的食物链中，能量逐级递减，并以热的形式散失。\n物质循环\n碳等元素在生物和非生物环境间反复循环。"}],
         "doc",
     )
-    assert "能量流动是单向的" in markdown and "物质循环可在生物和非生物环境间发生" in markdown
+    assert "能量逐级递减，并以热的形式散失" in markdown and "碳等元素在生物和非生物环境间反复循环" in markdown
     assert "[^1]" in markdown and "时间复杂度" not in markdown
+    assert "完整讲解暂未生成成功" in markdown
+
+
+def test_empty_model_completion_is_a_visible_source_guide_not_a_finished_lesson(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+    async def empty_completion(*args, **kwargs):
+        return ""
+    monkeypatch.setattr(doc_agent, "llm_complete", empty_completion)
+    result = asyncio.run(doc_agent._gen_one("doc", "binary_tree", {}, source_ids=["binary-tree-notes"],
+        goal="讲解二叉树", trace_id="empty-notes", skip_multimodal=True))
+    payload = result["resource"]["payload"]
+    assert payload["generation_mode"] == "source_guide"
+    assert "完整讲解暂未生成成功" in payload["markdown"]
+    assert "二叉树每个节点最多有两个孩子" in payload["markdown"]
+    assert payload["source_evidence"][0]["source_id"] == "binary-tree-notes"
+    assert any(flag["type"] == "llm_fallback" for flag in result["flags"])

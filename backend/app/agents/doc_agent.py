@@ -324,11 +324,11 @@ def _remediation_on_topic(markdown: str, topic_name: str, kp: str) -> bool:
 
 
 def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
-    title = "图文教程" if kind == "doc" else "学习资料"
+    title = "原文导读" if kind == "doc" else "学习资料"
     lines = [
         f"# {name}·{title}",
         "",
-        "> 系统已基于当前检索到的资料片段生成可追溯版本。",
+        "> 完整讲解暂未生成成功，先阅读下面的来源原文，再尝试用自己的话复述。",
         "",
         "## 核心教材片段",
     ]
@@ -338,17 +338,27 @@ def _rag_fallback_doc(name: str, chunks: list[dict], kind: str) -> str:
         for i, chunk in enumerate(chunks[:5], 1):
             raw = str(chunk.get("text") or "")
             terms = topic_terms(name)
-            sentences = re.split(r"(?<=[。！？；])|\n+", raw)
-            relevant = [part for part in sentences if any(term in re.sub(r"\s+", "", part).casefold() for term in terms)]
-            excerpt = _clean_source_excerpt("".join(relevant) if relevant else raw)
+            paragraphs = [part.strip() for part in raw.splitlines() if part.strip()]
+            selected: set[int] = set()
+            for index, paragraph in enumerate(paragraphs):
+                if any(term in re.sub(r"\s+", "", paragraph).casefold() for term in terms):
+                    selected.add(index)
+                    # Short plain-text headings need their explanatory paragraph.
+                    if len(paragraph) < 40 and index + 1 < len(paragraphs):
+                        selected.add(index + 1)
+            excerpt = without_source_code("\n".join(paragraphs[j] for j in sorted(selected)) if selected else raw)
+            excerpt = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ufffd]", "", excerpt).strip()
+            if len(excerpt) > 1000:
+                excerpt = excerpt[:1000].rstrip() + "…"
             if excerpt:
-                lines.append(f"- {excerpt} [^{i}]")
+                lines.extend(f"> {line}" for line in excerpt.splitlines())
+                lines.append(f"> [^{i}]\n")
     lines += [
         "",
         "## 学习建议",
         f"- 先按上面的教材片段梳理「{name}」的定义、关键关系与适用条件。",
         "- 用自己的话复述，再完成一道新题，核对概念区别。",
-        "- 需要更完整的讲义时，可补充资料或在真实模型可用后重新生成。",
+        "- 阅读后标出仍不理解的一步；稍后可重新生成完整讲解。",
     ]
     return "\n".join(lines)
 
@@ -766,7 +776,11 @@ async def _gen_one(
                     role="reasoner",
                     system=prompt_call.system,
                     temperature=0.5,
-                    max_tokens=1800,
+                    # Reasoning and final text share the completion budget.
+                    # Notes already have a source-grounded teaching outline;
+                    # reserve this bounded call for the actual explanation.
+                    max_tokens=3200 if kind == "doc" else 1800,
+                    reasoning_mode="disabled" if kind == "doc" else "",
                     # The generic offline completion is a fixed binary-tree
                     # sample. It is unsafe for a diagnosed remediation target
                     # because it can silently change the concept while keeping
@@ -776,6 +790,8 @@ async def _gen_one(
                 ),
                 timeout=_DOC_TIMEOUT_S,
             )
+            if not str(md or "").strip():
+                raise ValueError("模型未返回讲解正文")
         except Exception as exc:  # noqa: BLE001
             fallback = True
             remediation_rag_fallback = prompt_template == "remediation"
@@ -824,8 +840,8 @@ async def _gen_one(
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "对话笔记直接整理已持久化对话与检索片段。"}
     elif fallback:
-        ground = {"grounded": False, "unsupported": [],
-                  "verdict": "LLM 生成超时,已使用检索片段降级输出,建议人工复核。"}
+        ground = {"grounded": bool(chunks), "unsupported": [],
+                  "verdict": "完整讲解未通过生成检查，当前展示来源原文导读。"}
     else:
         try:
             ground = await asyncio.wait_for(
@@ -852,6 +868,7 @@ async def _gen_one(
     rid = uuid.uuid4().hex[:12]
     payload = {
         "markdown": md,
+        "generation_mode": "unavailable" if source_scope_missing else "demo" if demo_fallback else "source_guide" if fallback else "model",
         "grounded": ground.get("grounded", True),
         "template": prompt_template,
         "reusable_note": prompt_template == "conversation_notes",
