@@ -150,7 +150,7 @@ async def main() -> None:
         print("OCR", json.dumps(_summary(ocr), ensure_ascii=False))
 
     tts = await gateway.tts(
-        "星火学伴多模态网关冒烟验证。",
+        "小知多模态网关冒烟验证。",
         trace_id="smoke-tts",
     )
     print("TTS", json.dumps(_summary(tts), ensure_ascii=False))

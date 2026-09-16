@@ -30,7 +30,7 @@ def test_conversation_note_is_a_reusable_source_grounded_artifact():
         topic="递归",
         goal="整理本次学习",
         persona="零基础",
-        conversation="学习者：我不理解终止条件。\n学伴：先看最小例子。",
+        conversation="学习者：我不理解终止条件。\n小知：先看最小例子。",
         context="[^1] 递归必须有终止条件。",
     )
 
@@ -53,7 +53,7 @@ def test_small_talk_skips_rag_even_when_a_source_is_selected(monkeypatch):
         "student_profile": {},
     }))
 
-    assert "星火学伴" in result["answer"]
+    assert "小知" in result["answer"]
     assert result["citations"] == []
     assert result["safety_flags"] == []
 

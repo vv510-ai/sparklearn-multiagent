@@ -163,7 +163,7 @@ def test_conversation_note_template_keeps_dialogue_and_beginner_structure():
         goal="整理本次学习",
         persona="循序渐进",
         context="[1] 课程资料",
-        conversation="用户：什么是根节点？\n学伴：先把它想成家谱的第一位成员。",
+        conversation="用户：什么是根节点？\n小知：先把它想成家谱的第一位成员。",
     )
     assert "什么是根节点" in prompt
     assert "我问过的问题与已经澄清的地方" in prompt
