@@ -86,7 +86,8 @@ test("真实资料经模型生成起点题，目标与来源继续进入学习�
   expect(followup.payload.learning_context.daily_minutes).toBe(15);
   expect(followup.payload.learning_context.goals).toContain("安排计划与复习");
   expect(followup.payload.learning_context.bound_sources[0].title).toBe("生态学入门验收资料.txt");
-  expect(followup.citations.some((c: { source_id: string }) => c.source_id === course.source_ids[0])).toBe(true);
+  expect(followup.payload.generation_scope.source_ids).toEqual(course.source_ids);
+  expect(followup.citations.some((c: { source: string; preview: string }) => c.source === "生态学入门验收资料.txt" && NOTES.includes(c.preview.replace(/…$/, "")))).toBe(true);
   expect(followup.payload.markdown).toMatch(/能量|物质/);
   await writeFile(testInfo.outputPath("verified-learning-chain.json"), JSON.stringify({ course, questions: shown, report: state.report, plan: state.plan, followup }, null, 2));
 });
