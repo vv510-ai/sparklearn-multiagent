@@ -5,6 +5,7 @@ import asyncio
 import copy
 import hashlib
 import json
+import logging
 import re
 
 from fastapi import HTTPException
@@ -16,6 +17,8 @@ from ..models.entities import LearningSpace, AssessmentSession
 from ..prompt_templates import invoke_learning_prompt
 from ..rag.ingest import chunks_for_source, validate_source_scope, COURSE_SCOPE_ID
 from .learning_scope import ensure_space
+
+log = logging.getLogger("sparklearn.course_learning")
 
 
 def catalogue() -> list[dict]:
@@ -94,7 +97,7 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
             if not keys or len(set(keys)) != len(keys) or any(k not in list("ABCDE"[:len(options)]) for k in keys):
                 raise ValueError("答案不在选项范围内")
             if q.get("type") == "multiple" and (not isinstance(answer, list) or len(answer) < 2):
-                raise ValueError("多选题需要至少两个正确选项")
+                raise ValueError(f"知识点 {index+1} 第 {qi+1} 题：多选题需要至少两个正确选项，请重新设计选项，不能把错误选项加入答案")
             if q.get("type") not in ("single", "multiple") or (q["type"] == "single" and not isinstance(answer, str)):
                 raise ValueError("题型和答案格式不一致")
             explanation = str(q.get("explain") or "").strip()
@@ -109,6 +112,26 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
     return {"title": title, "kind": "generated", "bank": bank, "lessons": lessons, "evidence": evidence,
         "graph": {"course_id": "generated", "course": title, "version": 1, "nodes": nodes, "edges": []},
         "boundary": "模型生成的起点检查，答案及难度尚未经教研标定；只描述已测内容。发现题目有问题可以跳过，不据此判定整门课的能力。"}
+
+
+async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
+    """Repair once after validation; transport policy stays gateway-owned."""
+    async def generate():
+        call = prompt
+        for attempt in range(2):
+            raw = await llm_complete(call.prompt, system=call.system, role="reasoner",
+                temperature=0.2, max_tokens=12000 if attempt else 9000, json_mode=True, json_object=True,
+                reasoning_mode="enabled" if attempt else "disabled", allow_mock_fallback=False)
+            try:
+                return validate_draft(parse_json(raw), title, chunks)
+            except (ValueError, TypeError, KeyError) as exc:
+                log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, type(exc).__name__)
+                if attempt:
+                    raise
+                call = invoke_learning_prompt("assessment.course_repair", base_request=prompt.prompt,
+                    draft=raw, validation_issue=str(exc)[:240])
+        raise ValueError("未取得可核对题目")
+    return await asyncio.wait_for(generate(), timeout=110)
 
 
 async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str, source_ids: list[str], survey: dict) -> dict:
@@ -137,9 +160,7 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
         prompt = invoke_learning_prompt("assessment.course_draft", title=title,
             survey=json.dumps(survey, ensure_ascii=False), context=json.dumps(chunks, ensure_ascii=False) if chunks else "未提供资料；仅根据明确主题生成初步检查")
         try:
-            raw = await asyncio.wait_for(llm_complete(prompt.prompt, system=prompt.system, role="reasoner",
-                temperature=0.2, max_tokens=9000, json_mode=True, json_object=True, reasoning_mode="disabled", allow_mock_fallback=False), timeout=110)
-            course = validate_draft(parse_json(raw), title, chunks)
+            course = await generate_valid_course(prompt, title, chunks)
         except Exception as exc:
             raise HTTPException(422, "暂未生成可核对的课程题目，原资料和选择已保留。请重试或选用内置入门课程。") from exc
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,

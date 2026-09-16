@@ -643,7 +643,13 @@ export default function Home() {
     try {
       const detail = await apiGet<LearningNotebook>(`/notebooks/${encodeURIComponent(notebook.id)}?user_id=${USER_ID}`);
       if (notebookSwitchRef.current !== switchToken || activeNotebookIdRef.current !== notebook.id) return false;
-      enterNotebook(detail, initialGoal);
+      // Loading the conversation must not undo a panel the learner just opened.
+      setActiveNotebook(detail);
+      setChatSessionId(detail.session_id);
+      setInitialChatMessages(detail.messages || []);
+      setConversationFocus(initialGoal.trim() || latestUserQuestion(detail.messages));
+      setSeed(initialGoal.trim() || undefined);
+      setChatInstance(value => value + 1);
       await loadSources(detail.id);
       await loadProfile();
       return true;
@@ -1084,8 +1090,8 @@ export default function Home() {
             <div className="absolute inset-0 z-40 grid place-items-center bg-white/82 px-6 text-center backdrop-blur-sm">
               <div className="rounded-2xl border border-emerald-200 bg-white px-6 py-5 shadow-xl">
                 <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
-                <strong className="mt-3 block text-sm text-slate-900">正在切换到干净的书本上下文</strong>
-                <span className="mt-1 block text-xs leading-5 text-slate-500">上一书本的对话、主题和生成状态已经停止回写。</span>
+                <strong className="mt-3 block text-sm text-slate-900">正在打开这门课程</strong>
+                <span className="mt-1 block text-xs leading-5 text-slate-500">正在恢复这门课程的对话、资料和学习进度。</span>
               </div>
             </div>
           )}

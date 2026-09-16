@@ -60,10 +60,10 @@ function pcm16Blob(chunks: Float32Array[], sourceRate: number, targetRate = 1600
   return new Blob([buffer], { type: "audio/pcm" });
 }
 const STARTERS = [
-  "我想从零开始学习二叉树",
-  "请带我由浅入深学习动态规划",
-  "为什么 Dijkstra 算法不能处理负权边?",
-  "为什么快排通常不稳定,而归并排序稳定?",
+  "请围绕当前课程，先解释一个最基础的概念",
+  "根据我现在的学习起点，给我一道可以独立尝试的新题",
+  "请用这门课程的一个例子，帮我区分容易混淆的概念",
+  "我今天时间有限，请带我完成计划中的第一小步",
 ];
 
 const BEGINNER_PRESET =
@@ -405,7 +405,7 @@ export default function Chat({
               </button>
             )}
             <div className="notebook-soft-control rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-medium text-[#596171]">
-              {sourceIds.length ? `${sourceIds.length} 份已选资料` : "课程知识库"}
+              {sourceIds.length ? `${sourceIds.length} 份已选资料` : "当前课程 · 尚未选择上传资料"}
             </div>
           </div>
         </div>
@@ -433,7 +433,7 @@ export default function Chat({
               </div>
             )}
             <div className="grid gap-2 sm:grid-cols-3">
-              <button type="button" onClick={() => void send(recommendedTask?.prompt || "请从推荐课本开始，先带我了解数据结构与算法的学习路线，再给我第一道小题。")} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><BookPlus size={15} className="shrink-0 text-[#176C6B]" /> 从推荐课本开始</button>
+              <button type="button" onClick={() => void send(recommendedTask?.prompt || `请根据“${topic || "当前课程"}”的学习目标与已选资料，带我了解学习路线，再给我第一道小题；没有教材时请说明。`)} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><BookPlus size={15} className="shrink-0 text-[#176C6B]" /> 从当前课程开始</button>
               {onOpenAssessment && <button type="button" onClick={onOpenAssessment} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><Gauge size={15} className="shrink-0 text-[#176C6B]" /> 先测一下我的水平</button>}
               <button type="button" onClick={onUploadClick} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><FileUp size={15} className="shrink-0 text-[#176C6B]" /> 上传自己的资料</button>
             </div>

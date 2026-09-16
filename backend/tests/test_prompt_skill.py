@@ -48,6 +48,9 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
     sample_values = {
         "title": "示例课程",
         "survey": "{}",
+        "base_request": "依据资料准备课程题目",
+        "draft": "{}",
+        "validation_issue": "多选题至少两个正确选项",
         "topic": "示例主题",
         "goal": "从零学习",
         "persona": "循序渐进",

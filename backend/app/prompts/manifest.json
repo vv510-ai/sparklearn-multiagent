@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.16.1",
+  "version": "2026.09.17.1",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -9,6 +9,10 @@
     "output_rules": "shared/output-check.md"
   },
   "capabilities": {
+    "assessment.course_repair": {
+      "description": "校对课程题型、答案和原文引用，修复已知不合格输出",
+      "file": "assessment/course-repair.md"
+    },
     "assessment.course_draft": {
       "description": "基于主题与资料准备可核对范围的课程起点题",
       "file": "assessment/course-draft.md"

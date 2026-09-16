@@ -57,8 +57,13 @@ test("注册直接多选引导，Python 计划与高数课程独立，并自动�
   await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
   await expect(page.getByRole("heading", { name: "你希望学伴先帮你完成什么？" })).toBeVisible();
   expect((await (await page.request.get(`/api/assessment?notebook_id=${maths.id}`)).json()).assessment).toBeNull();
+  await page.route(`**/api/notebooks/${pythonId}?*`, async route => {
+    await new Promise(resolve => setTimeout(resolve, 750));
+    await route.continue();
+  });
   await page.getByRole("combobox", { name: "切换科目书本" }).selectOption(pythonId);
   await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "切换科目书本" })).toBeEnabled();
   await expect(page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("05-separated-plan.png"), fullPage: true });
   expect(errors).toEqual([]);

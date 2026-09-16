@@ -227,3 +227,38 @@ def test_inflight_old_scope_cannot_write_changed_profile(learner):
         with session() as db, pytest.raises(HTTPException) as caught:
             profile_row(db, user)
         assert caught.value.status_code == 409
+
+
+def test_generated_draft_repairs_once_without_bypassing_validation(monkeypatch):
+    from app.services import course_learning_service as service
+    from types import SimpleNamespace
+    good = {"topics": [{"name": f"知识点{i}", "objective": "理解概念与条件", "lesson": "先比较概念再完成新情境任务。", "questions": [
+        {"stem": f"模块{i}题{j}：哪些条件成立？", "type": "multiple" if j == 2 else "single", "options": ["成立条件一", "成立条件二", "不成立的条件"],
+         "answer": ["A", "B"] if j == 2 else "A", "explain": "依据给定条件，可推出相应的结论。"} for j in range(3)]} for i in range(3)]}
+    bad = copy.deepcopy(good)
+    bad["topics"][0]["questions"][2]["answer"] = ["A"]
+    calls = []
+    async def repair(prompt, **kwargs):
+        calls.append(prompt)
+        return json.dumps(bad if len(calls) == 1 else good, ensure_ascii=False)
+    monkeypatch.setattr(service, "llm_complete", repair)
+    prompt = SimpleNamespace(prompt="按照生态学原理出题", system="教学服务")
+    result = asyncio.run(service.generate_valid_course(prompt, "生态学", []))
+    assert len(calls) == 2 and len(result["bank"]) == 9
+    assert "知识点 1 第 3 题" in calls[1]
+    async def still_bad(prompt, **kwargs):
+        calls.append(prompt)
+        return json.dumps(bad)
+    calls.clear()
+    monkeypatch.setattr(service, "llm_complete", still_bad)
+    with pytest.raises(ValueError):
+        asyncio.run(service.generate_valid_course(prompt, "生态学", []))
+    assert len(calls) == 2
+    async def transport_failure(prompt, **kwargs):
+        calls.append(prompt)
+        raise RuntimeError("transport failed")
+    calls.clear()
+    monkeypatch.setattr(service, "llm_complete", transport_failure)
+    with pytest.raises(RuntimeError):
+        asyncio.run(service.generate_valid_course(prompt, "生态学", []))
+    assert len(calls) == 1

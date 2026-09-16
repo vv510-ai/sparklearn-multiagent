@@ -43,6 +43,10 @@ const COURSES = [["ds_algo", "数据结构与算法"], ["python", "Python 入门
 type IntakeSource = { id: string; title: string; selectable?: boolean; status_detail?: string };
 type Option = readonly [string, string, string];
 
+function intakeError(error: unknown, fallback: string): string {
+  return (error instanceof Error ? error.message.replace(/^(?:POST|GET) \S+ → \d+(?::\s*)?/, "") : "") || fallback;
+}
+
 function ChoiceGroup({ legend, options, values, onChange, optional = false }: {
   legend: string; options: readonly Option[]; values: string[];
   onChange: (values: string[]) => void; optional?: boolean;
@@ -154,7 +158,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
       });
       setCourse(result);
       setSurvey(s => ({ ...s, notebook_id: id, course_title: result.title, course_revision: result.revision, target_kps: result.outline.map(n => n.id) }));
-    } catch (e) { setError(e instanceof Error ? e.message : "课程范围暂时没有准备好，请重试。"); }
+    } catch (e) { setError(intakeError(e, "课程范围暂时没有准备好，请重试。")); }
     finally { setLocalBusy(false); }
   };
   const goals = survey.goals || [];
@@ -179,7 +183,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
     if (!isReplan && !survey.target_kps?.length) { setError("请至少保留一个要检查的知识点。"); return; }
     setLocalBusy(true); setError("");
     try { await onSubmit(survey, mode); if (draftKey) try { localStorage.removeItem(draftKey); } catch { /* Optional browser storage. */ } }
-    catch (e) { setError(e instanceof Error ? e.message : "保存失败，请重试。你的选择还在这里。"); }
+    catch (e) { setError(intakeError(e, "保存失败，请重试。你的选择还在这里。")); }
     finally { setLocalBusy(false); }
   };
   if (!ready) return <p role="status">正在恢复你的选择…</p>;
