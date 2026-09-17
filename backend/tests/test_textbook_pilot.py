@@ -83,7 +83,7 @@ def test_named_course_generation_retrieves_textbook_without_uploaded_files(learn
     prompts = []
     async def model(prompt, **kwargs):
         prompts.append(prompt)
-        return "# 函数与返回值\n\n没有 return 的函数返回 None；print 负责显示内容，return 把值返回给调用者。[^1]"
+        return "# 函数与返回值\n\n没有 return 的函数返回 None；print 负责显示内容，return 把值返回给调用者。[^1]\n\n```\nNone\n```"
     async def grounding(*args, **kwargs):
         return {"grounded": True, "unsupported": [], "verdict": "test"}
     monkeypatch.setattr(doc_agent, "llm_complete", model)

@@ -62,7 +62,8 @@ def without_source_code(value: object, *, keep_mermaid: bool = False) -> str:
     text = _HTML_CODE_RE.sub("", str(value or ""))
 
     def replace_fence(match: re.Match[str]) -> str:
-        language = match.group("info").strip().split(maxsplit=1)[0].lower()
+        info = match.group("info").strip().split(maxsplit=1)
+        language = info[0].lower() if info else ""
         if keep_mermaid and language == "mermaid":
             return match.group(0)
         return ""
