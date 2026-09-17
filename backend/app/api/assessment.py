@@ -37,6 +37,30 @@ class ExtendRequest(BaseModel):
     revision: int = Field(ge=0)
 
 
+class PracticeRequest(BaseModel):
+    kp: str = Field(min_length=1, max_length=64)
+
+
+class PracticeAnswerRequest(BaseModel):
+    question_id: str = Field(min_length=1, max_length=64)
+    choice: Literal["A", "B", "C", "D"] | None = None
+    assisted: bool = False
+
+
+@router.post("/{assessment_id}/practice")
+@scoped_endpoint
+def practice(assessment_id: str, req: PracticeRequest):
+    from ..services import assessment_practice
+    return assessment_practice.begin(require_current_user_id(), assessment_id, req.kp)
+
+
+@router.post("/{assessment_id}/practice/answers")
+@scoped_endpoint
+def practice_answer(assessment_id: str, req: PracticeAnswerRequest):
+    from ..services import assessment_practice
+    return assessment_practice.answer(require_current_user_id(), assessment_id, req.question_id, req.choice, req.assisted)
+
+
 @router.get("")
 @scoped_endpoint
 def latest(notebook_id: str = ""):

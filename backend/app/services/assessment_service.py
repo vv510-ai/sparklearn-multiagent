@@ -144,6 +144,13 @@ def study_plan(report: dict, survey: dict, *, today: dt.date | None = None) -> d
                 "goal": f"我的课程是{load_kg()['course']}，学习目标是{survey.get('goal', '掌握基础')}。请根据课程资料带我学习{kp_name(kp)}，先给学习目标、必要概念和一个带步骤例题，再给一题不同情境的无提示练习。每步不超过{minutes}分钟。",
                 "criterion": "用自己的话解释关键步骤，并独立完成一道新题；未通过则回到先修知识。"}
         task["steps"] = ["先回忆概念与适用条件", approach, "合上资料，完成一道不同情境的题", "记录仍需帮助的一步"]
+        space = current_space()
+        textbook = (space or {}).get("course", {}).get("textbook")
+        if textbook:
+            task["readings"] = [{"title": section["title"], "url": section["url"], "version": textbook["version"]}
+                                for section in textbook["sections"] if kp in section["kps"]]
+            task["steps"] = ["阅读下面对应的教材章节，核对一个分步例子", approach,
+                             "合上资料，在本页独立完成三道新题", "查看反馈；按页面提示的时间换题复测"]
         last[kp] = task["id"]
         if kind == "diagnose":
             task["goal"] = f"请用3道不同的无提示小题补测{kp_name(kp)}，逐题等待我回答，先不要展示答案；根据结果再确定学习深度。"
@@ -189,11 +196,13 @@ def _public(row: AssessmentSession) -> dict:
     data = row.data
     q = _next(data) if data["status"] == "active" else None
     from .course_learning_service import public_course
+    from .assessment_practice import public_progress
     return {"id": row.id, "revision": row.revision, "status": data["status"], "mode": data["mode"],
             "notebook_id": data.get("notebook_id", ""), "course": public_course(data["course_snapshot"]) if data.get("course_snapshot") else None,
             "answered": len(data["answers"]), "maximum": data["limit"], "survey": data["survey"],
             "question": {"id": q["id"], "stem": q["stem"], "options": q["options"], "topic": kp_name(q["kp"]), "type": "multiple" if q["type"] == "multiple" else "single"} if q else None,
-            "report": data.get("report"), "plan": data.get("plan"), "materials": data.get("materials", []), "bank_version": data["bank_version"]}
+            "report": data.get("report"), "plan": data.get("plan"), "materials": data.get("materials", []), "bank_version": data["bank_version"],
+            "learning_progress": public_progress(data)}
 
 
 def _sessions(user_id: str):
@@ -410,7 +419,8 @@ def _course_materials(db, row, data, report):
             continue
         evidence = course.get("evidence", {}).get(kp, [])
         source_text = "\n\n".join(
-            f"### {item['source']} · {item.get('location_kind', '片段')} {item.get('page', '')}\n\n{item['text']}"
+            (f"### [{item['source']} · {item.get('chapter', '')}]({item['url']})\n\n版本 {item.get('version', '')} · 对应章节原文\n\n{item['text']}"
+             if item.get("url") else f"### {item['source']} · {item.get('location_kind', '片段')} {item.get('page', '')}\n\n{item['text']}")
             for item in evidence)
         wrong = [q for q in report["explanations"] if q["kp"] == kp and not q["correct"] and q["status"] != "skipped"]
         recap = "\n\n".join(f"### {q['stem']}\n\n{q['explain']}" for q in wrong)
@@ -422,7 +432,8 @@ def _course_materials(db, row, data, report):
             f"{lesson_guidance(data['survey'], skill)}\n\n## 本课目标\n\n解释核心概念，并在新情境中独立应用。\n\n"
             f"## 概念与分步示例\n\n{body}\n\n## 起点错题回顾\n\n{recap or '没有已记录的错题，仍需新题复核。'}\n\n"
             "## 轮到你尝试\n\n1. 合上讲义，用自己的话解释一个核心概念。\n2. 改变例题中的条件，自己完成推理。\n"
-            "3. 点击向小知提问，索取一道未见过的新题；先独立作答，卡住再展开提示。\n\n"
+            + ("3. 点击本页的无提示新题按钮，独立作答后查看反馈与计划调整。\n\n" if course.get("practice_bank") else
+               "3. 点击向小知提问，索取一道未见过的新题；先独立作答，卡住再展开提示。\n\n") +
             f"## 内容依据\n\n{source_text or source_note}\n\n{course['boundary']}\n\n"
             "看例题和重做原题属于学习过程，不计为新的独立掌握证据。")
         rid = f"baseline-{row.id}-{kp}"

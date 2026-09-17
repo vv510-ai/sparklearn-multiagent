@@ -28,10 +28,11 @@ def catalogue() -> list[dict]:
 
 
 def public_course(course: dict) -> dict:
-    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note")} | {
+    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook")} | {
         "outline": [{"id": n["id"], "name": n["name"], "objective": n.get("desc", "")}
                     for n in course.get("graph", {}).get("nodes", [])],
         "question_count": len(course.get("bank", [])),
+        "practice_available": bool(course.get("practice_bank")),
     }
 
 
@@ -164,7 +165,7 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
         except Exception as exc:
             raise HTTPException(422, "暂未生成可核对的课程题目，原资料和选择已保留。请重试或选用内置入门课程。") from exc
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,
-        coverage_note="基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else "只覆盖下面列出的知识点。")
+        coverage_note="基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))
     course["revision"] = hashlib.sha256(json.dumps(course, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
     with session() as db:
         row = db.query(LearningSpace).filter_by(notebook_id=notebook_id, user_id=user_id).with_for_update().one()
@@ -212,4 +213,5 @@ def context_summary() -> dict | None:
         "target_date": survey.get("target_date"), "adaptations": context_reasons(survey),
         "support": survey.get("support", ""), "mastery": profile.get("knowledge_mastery", {}),
         "evidence": profile.get("baseline_assessment", {}).get("skills", []),
-        "bound_sources": [{"title": s["title"], "version": s["sha256"][:12]} for s in course.get("sources", [])]}
+        "bound_sources": [{"title": s["title"], "version": s["sha256"][:12]} for s in course.get("sources", [])],
+        "textbook": course.get("textbook")}

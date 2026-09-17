@@ -82,7 +82,8 @@ export default function SourcePanel({
   course?: CourseScope | null;
 }) {
   const usingCourse = selectedIds.includes(COURSE_SOURCE_ID);
-  const selectedCount = activeNotebookId ? selectedIds.filter(id => id !== COURSE_SOURCE_ID || includeBuiltin).length : 0;
+  const usingTextbook = !!course?.textbook && !selectedIds.some(id => id !== COURSE_SOURCE_ID);
+  const selectedCount = activeNotebookId ? selectedIds.filter(id => id !== COURSE_SOURCE_ID || includeBuiltin).length + Number(usingTextbook) : 0;
 
   return (
     <div className="notebook-column flex h-full min-h-0 flex-col" aria-label="学习来源">
@@ -91,7 +92,7 @@ export default function SourcePanel({
           <div className="notebook-column-kicker">LEARNING SOURCES</div>
           <h2>学习来源</h2>
         </div>
-        <span className="source-count">{selectedCount}</span>
+        <span className="source-count" aria-label="当前参与回答的来源数量">{selectedCount}</span>
       </div>
 
       <div className="border-b border-[#E1E4EC] p-3">
@@ -144,6 +145,7 @@ export default function SourcePanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+        {course?.textbook && <div className="course-source-summary"><BookOpen size={18} /><div><strong>{course.textbook.title}</strong><p>{course.textbook.scope_note}</p><a href={course.textbook.url} target="_blank" rel="noopener noreferrer">查看原教材 · {course.textbook.version} ↗</a><small>未选择上传资料时，讲解从这些章节查找依据。</small></div></div>}
         {includeBuiltin && <button onClick={onToggleCourse} className={`source-row ${usingCourse ? "is-selected" : ""}`}>
           <span className="source-icon is-course"><BookOpen size={17} /></span>
           <span className="min-w-0 flex-1 text-left">

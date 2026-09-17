@@ -1,4 +1,5 @@
 "use client";
+import TextbookScope from "@/components/assessment/TextbookScope";
 
 import { ArrowLeft, ArrowRight, Check, Compass, Lightbulb, Play, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -240,6 +241,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
           {survey.course_key === "ds_algo" && <details className="intake-example-details"><summary><Play size={15} /> 先体验一次小知怎样讲解（可选）</summary><IntroExample onPracticed={() => set("intro_practiced", true)} /></details>}
           {course ? <section className="intake-outline" aria-label="本次学习范围"><h3>{course.title} · 核对学习范围</h3><p>{course.coverage_note}</p>
             {course.outline.map(node => <label key={node.id}><input type="checkbox" checked={survey.target_kps?.includes(node.id) || false} onChange={e => setSurvey(s => ({ ...s, target_kps: e.target.checked ? [...(s.target_kps || []), node.id] : s.target_kps?.filter(id => id !== node.id) }))} /><span><strong>{node.name}</strong><small>{node.objective}</small></span></label>)}
+            {course.textbook && <TextbookScope book={course.textbook} />}
             {!!course.sources?.length && <details><summary>这次使用了哪些资料？</summary>{course.sources.map(source => <p key={source.id}>{source.title}：读取 {source.sampled_chunks}/{source.total_chunks} 个解析片段；{source.location_kind} {source.locations.join("、")}。</p>)}</details>}
             <small>{course.boundary}</small></section> : <p className="intake-response">下一步先准备“{survey.course_title}”的知识点范围，供你选择和核对；确认之后才开始作答。</p>}
           <fieldset className="intake-mode"><legend>这次想了解多少？</legend>{[

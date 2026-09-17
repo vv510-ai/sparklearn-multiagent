@@ -99,6 +99,16 @@ def retrieve(
     if space and space["course"].get("kind") != "ds_algo":
         include_course = False
     hits: list[dict] = []
+    # A verified built-in textbook is scoped to its prepared course. Selecting
+    # uploaded files alone excludes it; an empty selection uses the course book.
+    if (space and space["course"].get("kind") == "python" and space["course"].get("textbook")
+            and (not selected_sources or COURSE_SCOPE_ID in selected_sources)):
+        from ..services.textbook_service import course_textbook_chunks
+        candidates = [dict(c) for c in course_textbook_chunks(space["course"]) if hit_matches_kp(c, kp)]
+        if candidates:
+            vectors = embed_texts([c["text"] for c in candidates])
+            scores = vectors @ embed_texts([query], domain="query")[0]
+            hits.extend({**c, "score": float(score)} for c, score in zip(candidates, scores))
     if uploaded_sources:
         hits.extend(_hits_from_sources(
             query,
@@ -145,7 +155,7 @@ def _format_citation(hit: dict) -> str:
     source_type = hit.get("source_type") or "lecture"
 
     if url:
-        return f"{source} ({source_type}) {url}"
+        return f"{source} · {chapter} {url}" if chapter else f"{source} ({source_type}) {url}"
     if chapter:
         return f"{source} · {chapter} p.{page}"
     return f"{source} p.{page}"

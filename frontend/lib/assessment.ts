@@ -34,6 +34,7 @@ export type StudyTask = {
   criterion: string;
   deferred_reason?: string;
   steps?: string[];
+  readings?: { title: string; url: string; version: string }[];
 };
 export type Assessment = {
   notebook_id?: string;
@@ -97,6 +98,22 @@ export type Assessment = {
     practice_update?: string;
   };
   materials: { id: string; kp: string; title: string; markdown: string }[];
+  learning_progress?: Record<string, PracticeProgress>;
+};
+
+export type PracticeResult = {
+  question_id: string; choice: string | null; assisted: boolean; correct: boolean;
+  independent: boolean; answer: string; explain: string; message: string;
+  citations: { source: string; chapter: string; url: string; version: string }[];
+};
+export type PracticeProgress = {
+  answered?: number; independent?: number; correct?: number; next_due_at?: string | null;
+  exhausted?: boolean; last_result?: PracticeResult;
+};
+export type Textbook = {
+  id: string; title: string; version: string; url: string; license: string; license_url: string;
+  scope_note: string; sha256: string;
+  sections: { id: string; title: string; url: string; kps: string[]; sha256: string }[];
 };
 
 export type CourseScope = {
@@ -109,6 +126,8 @@ export type CourseScope = {
   question_count: number;
   boundary: string;
   coverage_note: string;
+  textbook?: Textbook | null;
+  practice_available?: boolean;
 };
 
 export function downloadMarkdown(title: string, markdown: string) {

@@ -2077,6 +2077,30 @@ body::after {
   font-weight: 700;
 }
 
+.textbook-scope, .textbook-practice, .textbook-readings {
+  margin: 18px 0;
+  padding: 20px;
+  border: 1px solid #cedfd5;
+  border-radius: 16px;
+  background: #f4f9f6;
+  color: #223f34;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.textbook-scope p, .textbook-practice p { margin: 10px 0; }
+.textbook-scope ul, .textbook-readings ul, .practice-feedback ul { padding-left: 22px; list-style: disc; }
+.textbook-scope a, .textbook-readings a, .practice-feedback a { color: #096b58; text-decoration: underline; text-underline-offset: 3px; }
+.textbook-practice h3 { font-size: 20px; font-weight: 700; }
+.textbook-practice h4 { font-weight: 700; margin: 18px 0 10px; }
+.textbook-practice pre { padding: 16px; background: #182a25; color: #f2f8f4; border-radius: 10px; overflow-x: auto; white-space: pre; }
+.practice-assisted { display: flex; gap: 10px; align-items: center; margin: 16px 0; }
+.practice-assisted input { width: 20px; height: 20px; }
+.practice-feedback { border-top: 1px solid #cedfd5; margin-top: 18px; padding-top: 18px; }
+.textbook-practice :focus-visible, .textbook-scope :focus-visible { outline: 3px solid #177f68; outline-offset: 4px; }
+@media (max-width: 640px) {
+  .textbook-scope, .textbook-practice, .textbook-readings { padding: 14px; }
+}
+
 @keyframes markmap-link-flow {
   to {
     stroke-dashoffset: -96;

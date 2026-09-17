@@ -22,6 +22,8 @@ import {
 } from "@/lib/assessment";
 
 import LearningIntake, { DEFAULT_SURVEY } from "@/components/onboarding/LearningIntake";
+import TextbookScope from "./TextbookScope";
+import TextbookPractice from "./TextbookPractice";
 
 const SurveyForm = LearningIntake;
 
@@ -52,6 +54,7 @@ export default function AssessmentPanel({
   const [choice, setChoice] = useState("");
   const [choices, setChoices] = useState<string[]>([]);
   const [studyTask, setStudyTask] = useState<StudyTask | null>(null);
+  const [practiceActive, setPracticeActive] = useState(false);
   const studyHeading = useRef<HTMLHeadingElement>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const started = useRef(Date.now());
@@ -88,6 +91,7 @@ export default function AssessmentPanel({
     panel.current?.scrollTo({ top: 0 });
   }, [data?.question?.id, data?.status, setup]);
   useEffect(() => {
+    setPracticeActive(false);
     const container = panel.current, heading = studyHeading.current;
     if (studyTask && container && heading) {
       heading.focus({ preventScroll: true });
@@ -211,6 +215,7 @@ export default function AssessmentPanel({
         </div>
       )}
       {data?.course && <details className="entry-course-context"><summary>这份计划依据哪些目标与资料？</summary><p>优先：{data.survey.goal}；每个学习日 {data.survey.daily_minutes} 分钟，每周 {data.survey.study_days.length} 天。</p><p>{data.course.coverage_note}</p>{data.course.sources?.map(source => <p key={source.id}>{source.title} · {source.location_kind} {source.locations.join("、")} · 已取样 {source.sampled_chunks}/{source.total_chunks} 个片段</p>)}{!data.course.sources?.length && <p>使用本课程入门内容；尚未绑定上传文件。</p>}<p>{data.course.boundary}</p></details>}
+      {data?.course?.textbook && <TextbookScope book={data.course.textbook} />}
       {loading ? (
         <p className="entry-loading" role="status">
           正在读取你的学习起点…
@@ -350,16 +355,23 @@ export default function AssessmentPanel({
             <h2 ref={studyHeading} tabIndex={-1}>{studyTask.title}</h2><p className="entry-note">{studyTask.reason}</p>
             <ol>{(studyTask.steps || [studyTask.criterion]).map((s, i) => <li key={i}>{s}</li>)}</ol>
             <p className="entry-note">完成标准：{studyTask.criterion}</p>
-            {studyMaterial ? <><p className="entry-eyebrow">对应学习资料 · 按作答与当前目标整理</p><Markdown text={studyMaterial.markdown} allowCodeBlocks /></> : <p className="intake-response">这一步先补充作答证据。小知会逐题等待你回答，再决定需要哪些讲解。</p>}
+            {!!studyTask.readings?.length && !practiceActive && <div className="textbook-readings"><strong>这一步阅读哪里</strong><ul>{studyTask.readings.map(r => <li key={r.url}><a href={r.url} target="_blank" rel="noopener noreferrer">{r.title} ↗</a> · {r.version}</li>)}</ul></div>}
+            {data.course?.practice_available && <TextbookPractice key={`${data.id}-${studyTask.kp}`} assessment={data} kp={studyTask.kp} onActive={setPracticeActive} onUpdated={value => { setData(value); onUpdated(); }} />}
+            {!practiceActive && (studyMaterial ? <><p className="entry-eyebrow">对应学习资料 · 按作答与当前目标整理</p><Markdown text={studyMaterial.markdown} allowCodeBlocks /></> : <p className="intake-response">这一步先补充作答证据。小知会逐题等待你回答，再决定需要哪些讲解。</p>)}
             <button className="intake-primary" onClick={() => onLearn(studyTask.goal)}><Play size={16} />请小知带我练习</button>
           </section>}
+          {!!data.learning_progress && Object.keys(data.learning_progress).length > 0 && <section className="textbook-scope" aria-label="新题与复测记录"><strong>学习之后，有什么变化？</strong>{Object.entries(data.learning_progress).map(([kp, progress]) => {
+            const task = allTasks.find(t => t.kp === kp);
+            const name = data.course?.outline.find(n => n.id === kp)?.name || kp;
+            return <div key={kp}><p>{name}：独立答对 {progress.correct || 0}/{progress.independent || 0} 道新题。{progress.exhausted ? "本主题的新题已全部完成。" : progress.next_due_at ? `下次复测：${new Date(progress.next_due_at).toLocaleString("zh-CN")}。` : "本轮可以继续。"}</p>{task && <button className="secondary-action" onClick={() => setStudyTask(task)}>继续{name}练习 / 复测</button>}</div>;
+          })}<small>起点报告保留原始作答。计划会随新的独立证据调整；看过答案后的正确作答不会提高独立掌握记录。</small></section>}
           {!!plan.adaptations?.length && <details className="entry-adaptations" open><summary>为什么这样安排 · 根据你的选择</summary><ul>{plan.adaptations.map((s, i) => <li key={i}>{s}</li>)}</ul></details>}
           {data.mode !== "comprehensive" && report.coverage < report.total_skills && <div className="entry-result-actions"><button className="intake-secondary" disabled={busy} onClick={() => void continueAssessment()}>继续补全课程摸底 <ArrowRight size={16} /></button><p className="entry-note">已做题目保留，继续检查尚未覆盖的知识点，可随时暂停。</p></div>}
           <section>
             <div className="entry-section-heading">
               <h2>
                 <Target size={18} />
-                知识点表现
+                起点测评记录
               </h2>
               <button
                 onClick={() => {

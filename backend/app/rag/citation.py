@@ -15,6 +15,10 @@ def build_context(chunks: list[dict]) -> tuple[str, list[dict]]:
             "source": c.get("source", ""),
             "chapter": c.get("chapter", ""),
             "page": c.get("page", 0),
+            "url": c.get("url", ""),
+            "section_id": c.get("section_id", ""),
+            "version": c.get("version", ""),
+            "location_kind": c.get("location_kind", "片段"),
             "score": round(float(c.get("score", 0)), 4),
             "preview": c["text"][:80] + ("…" if len(c["text"]) > 80 else ""),
         })

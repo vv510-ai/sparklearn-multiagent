@@ -1,0 +1,116 @@
+{
+  "id": "python-tutorial-3.14",
+  "title": "Python 官方教程",
+  "version": "3.14.7",
+  "url": "https://docs.python.org/zh-cn/3.14/tutorial/",
+  "license": "PSF-2.0; code examples additionally 0BSD",
+  "license_url": "https://docs.python.org/zh-cn/3.14/license.html",
+  "copyright": "Copyright (c) 2001 Python Software Foundation. All Rights Reserved.",
+  "retrieved_at": "2026-09-17T15:59:33.968917+00:00",
+  "adaptation": "Selected complete sections converted from HTML to plain text/Markdown; navigation and header links removed. Teaching notes and questions are independently authored.",
+  "scope_note": "完整保留所列 10 节原文；本轮只测变量、分支、循环、函数四个入门主题，不覆盖整本教程。",
+  "sections": [
+    {
+      "id": "numbers",
+      "title": "3.1.1. 数字",
+      "text": "3.1.1. 数字\n\n解释器被作为一台简单的计算器：你可以键入一个表达式让它给出结果值。表达式语法很直观：运算符 +, -, * 和 / 可被用来执行算术运算；圆括号 (()) 可被用来进行分组。例如: \n\n```python\n>>> 2 + 2\n4\n>>> 50 - 5*6\n20\n>>> (50 - 5*6) / 4\n5.0\n>>> 8 / 5  # 除法运算总是返回一个浮点数\n1.6\n\n```\n\n整数 (如 2、4、20) 的类型是 int，带小数部分 (如 5.0、1.6) 的类型是 float。 本教程后半部分将介绍更多数字类型。 \n\n除法运算 (/) 总是返回浮点数。如果要做 floor division 得到一个整数结果你可以使用 // 运算符；要计算余数你可以使用 %: \n\n```python\n>>> 17 / 3  # 经典除法运算返回一个浮点数\n5.666666666666667\n>>>\n>>> 17 // 3  # 向下取整除法运算会丢弃小数部分\n5\n>>> 17 % 3  # % 运算返回相除的余数\n2\n>>> 5 * 3 + 2  # 向下取整的商 * 除数 + 余数\n17\n\n```\n\nPython 用 ** 运算符计算乘方 [1]： \n\n```python\n>>> 5 ** 2  # 5 的平方\n25\n>>> 2 ** 7  # 2 的 7 次方\n128\n\n```\n\n等号 (=) 用于给变量赋值。 赋值后，下一个交互提示符的位置不显示任何结果： \n\n```python\n>>> width = 20\n>>> height = 5 * 9\n>>> width * height\n900\n\n```\n\n如果变量未定义（即，未赋值），使用该变量会提示错误： \n\n```python\n>>> n  # 试图访问一个未定义的变量\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nNameError: name 'n' is not defined\n\n```\n\nPython 全面支持浮点数；混合类型运算数的运算会把整数转换为浮点数： \n\n```python\n>>> 4 * 3.75 - 1\n14.0\n\n```\n\n交互模式下，上次输出的表达式会赋给变量 _。把 Python 当作计算器时，用该变量实现下一步计算更简单，例如： \n\n```python\n>>> tax = 12.5 / 100\n>>> price = 100.50\n>>> price * tax\n12.5625\n>>> price + _\n113.0625\n>>> round(_, 2)\n113.06\n\n```\n\n最好把该变量当作只读类型。不要为它显式赋值，否则会创建一个同名独立局部变量，该变量会用它的魔法行为屏蔽内置变量。 \n\n除了 int 和 float，Python 还支持其他数字类型，例如 Decimal 或 Fraction。 Python 还内置支持 复数，后缀 j 或 J 用于表示虚数 (例如 3+5j)。",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#numbers",
+      "kps": [
+        "py_values"
+      ],
+      "sha256": "e775c1980f98980d8f0b8abcf461990340e16154b69f68b51840b478d4174db3"
+    },
+    {
+      "id": "text",
+      "title": "3.1.2. 文本",
+      "text": "3.1.2. 文本\n\n除了数字 Python 还可以操作文本（由 str 类型表示，称为\"字符串\"）。这包括字符 \"!\", 单词 \"rabbit\", 名称 \"Paris\", 句子 \"Got your back.\" 等等 \"Yay! :)\"。 它们可以用成对的单引号 ('...') 或双引号 (\"...\") 来标示，结果完全相同 [2]。 \n\n```python\n>>> 'spam eggs'  # 单引号\n'spam eggs'\n>>> \"Paris rabbit got your back :)! Yay!\"  # 双引号\n'Paris rabbit got your back :)! Yay!'\n>>> '1975'  # 引号中的数字也是字符串\n'1975'\n\n```\n\n要标示引号本身，我们需要对它进行“转义”，即在前面加一个 \\。或者，我们也可以使用不同类型的引号: \n\n```python\n>>> 'doesn\\'t'  # 使用 \\' 来转义单引号...\n\"doesn't\"\n>>> \"doesn't\"  # ...或者改用双引号\n\"doesn't\"\n>>> '\"Yes,\" they said.'\n'\"Yes,\" they said.'\n>>> \"\\\"Yes,\\\" they said.\"\n'\"Yes,\" they said.'\n>>> '\"Isn\\'t,\" they said.'\n'\"Isn\\'t,\" they said.'\n\n```\n\n在 Python shell 中，字符串定义和输出字符串看起来可能不同。 print() 函数会略去标示用的引号，并打印经过转义的特殊字符，产生更为易读的输出: \n\n```python\n>>> s = 'First line.\\nSecond line.'  # \\n 表示换行符\n>>> s  # 不用 print()，特殊字符将包括在字符串中\n'First line.\\nSecond line.'\n>>> print(s)  # 用 print()，特殊字符会被转写，因此 \\n 将产生一个新行\nFirst line.\nSecond line.\n\n```\n\n如果不希望前置 \\ 的字符转义成特殊字符，可以使用 原始字符串，在引号前添加 r 即可： \n\n```python\n>>> print('C:\\this\\name')  # 这里 \\t 表示制表符，\\n 表示换行符\nC:      his\name\n>>> print(r'C:\\this\\name')  # 请注意引号前的 r\nC:\\this\\name\n\n```\n\n原始字符串还有一个微妙的限制：一个原始字符串不能以奇数个 \\ 字符结束；请参阅 此 FAQ 条目 了解更多信息及绕过的办法。 \n\n字符串字面值可以跨越多行。 一种做法是使用三重引号: \"\"\"...\"\"\" 或 '''...'''。 行结束符会自动包括在字符串中，但可以通过在行尾添加 \\ 来避免此行为。在下面的例子中，开头的换行符将不会被包括: \n\n```python\n>>> print(\"\"\"\\\n... Usage: thingy [OPTIONS]\n...      -h                        Display this usage message\n...      -H hostname               Hostname to connect to\n... \"\"\")\nUsage: thingy [OPTIONS]\n     -h                        Display this usage message\n     -H hostname               Hostname to connect to\n\n>>>\n\n```\n\n字符串可以用 + 合并（粘到一起），也可以用 * 重复： \n\n```python\n>>> # 3 乘以 'un'，再加 'ium'\n>>> 3 * 'un' + 'ium'\n'unununium'\n\n```\n\n相邻的两个或多个 字符串字面值 （引号标注的字符）会自动合并： \n\n```python\n>>> 'Py' 'thon'\n'Python'\n\n```\n\n拼接分隔开的长字符串时，这个功能特别实用： \n\n```python\n>>> text = ('Put several strings within parentheses '\n...         'to have them joined together.')\n>>> text\n'Put several strings within parentheses to have them joined together.'\n\n```\n\n这项功能只能用于两个字面值，不能用于变量或表达式： \n\n```python\n>>> prefix = 'Py'\n>>> prefix 'thon'  # 不能拼接变量和字符串字面值\n  File \"<stdin>\", line 1\n    prefix 'thon'\n           ^^^^^^\nSyntaxError: invalid syntax\n>>> ('un' * 3) 'ium'\n  File \"<stdin>\", line 1\n    ('un' * 3) 'ium'\n               ^^^^^\nSyntaxError: invalid syntax\n\n```\n\n合并多个变量，或合并变量与字面值，要用 +： \n\n```python\n>>> prefix + 'thon'\n'Python'\n\n```\n\n字符串支持 索引 （下标访问），第一个字符的索引是 0。单字符没有专用的类型，就是长度为一的字符串： \n\n```python\n>>> word = 'Python'\n>>> word[0]  # 0 号位的字符\n'P'\n>>> word[5]  # 5 号位的字符\n'n'\n\n```\n\n索引还支持负数，用负数索引时，从右边开始计数： \n\n```python\n>>> word[-1]  # 最后一个字符\n'n'\n>>> word[-2]  # 倒数第二个字符\n'o'\n>>> word[-6]\n'P'\n\n```\n\n注意，-0 和 0 一样，因此，负数索引从 -1 开始。 \n\n除了索引操作，还支持 切片。索引用来获取单个字符，而 切片 允许你获取子字符串: \n\n```python\n>>> word[0:2]  # 从 0 号位 (含) 到 2 号位 (不含) 的字符\n'Py'\n>>> word[2:5]  # 从 2 号位 (含) 到 5 号位 (不含) 的字符\n'tho'\n\n```\n\n切片索引的默认值很有用；省略开始索引时，默认值为 0，省略结束索引时，默认为到字符串的结尾： \n\n```python\n>>> word[:2]   # 从开头到 2 号位 (不含) 的字符\n'Py'\n>>> word[4:]   # 从 4 号位 (含) 到末尾\n'on'\n>>> word[-2:]  # 从倒数第二个 (含) 到末尾\n'on'\n\n```\n\n注意，输出结果包含切片开始，但不包含切片结束。因此，s[:i] + s[i:] 总是等于 s： \n\n```python\n>>> word[:2] + word[2:]\n'Python'\n>>> word[:4] + word[4:]\n'Python'\n\n```\n\n还可以这样理解切片，索引指向的是字符 之间 ，第一个字符的左侧标为 0，最后一个字符的右侧标为 n ，n 是字符串长度。例如： \n\n```python\n +---+---+---+---+---+---+\n | P | y | t | h | o | n |\n +---+---+---+---+---+---+\n 0   1   2   3   4   5   6\n-6  -5  -4  -3  -2  -1\n\n```\n\n第一行数字是字符串中索引 0...6 的位置，第二行数字是对应的负数索引位置。i 到 j 的切片由 i 和 j 之间所有对应的字符组成。 \n\n对于使用非负索引的切片，如果两个索引都不越界，切片长度就是起止索引之差。例如， word[1:3] 的长度是 2。 \n\n索引越界会报错： \n\n```python\n>>> word[42]  # word 只有 6 个字符\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nIndexError: string index out of range\n\n```\n\n但是，切片会自动处理越界索引： \n\n```python\n>>> word[4:42]\n'on'\n>>> word[42:]\n''\n\n```\n\nPython 字符串不能修改，是 immutable 的。因此，为字符串中某个索引位置赋值会报错： \n\n```python\n>>> word[0] = 'J'\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nTypeError: 'str' object does not support item assignment\n>>> word[2:] = 'py'\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nTypeError: 'str' object does not support item assignment\n\n```\n\n要生成不同的字符串，应新建一个字符串： \n\n```python\n>>> 'J' + word[1:]\n'Jython'\n>>> word[:2] + 'py'\n'Pypy'\n\n```\n\n内置函数 len() 返回字符串的长度： \n\n```python\n>>> s = 'supercalifragilisticexpialidocious'\n>>> len(s)\n34\n\n```\n\n参见  \n\nText Sequence Type --- str\n\n字符串是 序列类型 ，支持序列类型的各种操作。  \n\nString Methods\n\n字符串支持很多变形与查找方法。  \n\nf-字符串\n\n内嵌表达式的字符串字面值。  \n\nFormat string syntax\n\n使用 str.format() 格式化字符串。  \n\nprintf-style String Formatting\n\n这里详述了用 % 运算符格式化字符串的操作。",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#text",
+      "kps": [
+        "py_values"
+      ],
+      "sha256": "50d6cbdc6c917f2824807694dd3e12425fae7d0797b5afb4e7f29ea05b5db6e2"
+    },
+    {
+      "id": "lists",
+      "title": "3.1.3. 列表",
+      "text": "3.1.3. 列表\n\nPython 支持多种 复合 数据类型，可将不同值组合在一起。最常用的 列表 ，是用方括号标注，逗号分隔的一组值。列表 可以包含不同类型的元素，但一般情况下，各个元素的类型相同： \n\n```python\n>>> squares = [1, 4, 9, 16, 25]\n>>> squares\n[1, 4, 9, 16, 25]\n\n```\n\n和字符串（及其他内置 sequence 类型）一样，列表也支持索引和切片： \n\n```python\n>>> squares[0]  # 索引操作将返回条目\n1\n>>> squares[-1]\n25\n>>> squares[-3:]  # 切片操作将返回一个新列表\n[9, 16, 25]\n\n```\n\n列表还支持合并操作： \n\n```python\n>>> squares + [36, 49, 64, 81, 100]\n[1, 4, 9, 16, 25, 36, 49, 64, 81, 100]\n\n```\n\n与 immutable 字符串不同, 列表是 mutable 类型，其内容可以改变： \n\n```python\n>>> cubes = [1, 8, 27, 65, 125]  # 这里有点问题\n>>> 4 ** 3  # 4 的立方是 64，不是 65！\n64\n>>> cubes[3] = 64  # 替换错误的值\n>>> cubes\n[1, 8, 27, 64, 125]\n\n```\n\n你也可以通过使用 list.append() 方法，在列表末尾添加新条目（我们将在后文看到有关方法的更多介绍）: \n\n```python\n>>> cubes.append(216)  # 添加 6 的立方\n>>> cubes.append(7 ** 3)  # 和 7 的立方\n>>> cubes\n[1, 8, 27, 64, 125, 216, 343]\n\n```\n\nPython 中的简单赋值绝不会复制数据。 当你将一个列表赋值给一个变量时，该变量将引用 现有的列表。你通过一个变量对列表所做的任何更改都会被引用它的所有其他变量看到。: \n\n```python\n>>> rgb = [\"Red\", \"Green\", \"Blue\"]\n>>> rgba = rgb\n>>> id(rgb) == id(rgba)  # 它们指向同一个对象\nTrue\n>>> rgba.append(\"Alph\")\n>>> rgb\n[\"Red\", \"Green\", \"Blue\", \"Alph\"]\n\n```\n\n切片操作返回包含请求元素的新列表。以下切片操作会返回列表的 浅拷贝： \n\n```python\n>>> correct_rgba = rgba[:]\n>>> correct_rgba[-1] = \"Alpha\"\n>>> correct_rgba\n[\"Red\", \"Green\", \"Blue\", \"Alpha\"]\n>>> rgba\n[\"Red\", \"Green\", \"Blue\", \"Alph\"]\n\n```\n\n为切片赋值可以改变列表大小，甚至清空整个列表： \n\n```python\n>>> letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g']\n>>> letters\n['a', 'b', 'c', 'd', 'e', 'f', 'g']\n>>> # 替换一些值\n>>> letters[2:5] = ['C', 'D', 'E']\n>>> letters\n['a', 'b', 'C', 'D', 'E', 'f', 'g']\n>>> # 现在移除它们\n>>> letters[2:5] = []\n>>> letters\n['a', 'b', 'f', 'g']\n>>> # 通过用一个空列表替代所有元素来清空列表\n>>> letters[:] = []\n>>> letters\n[]\n\n```\n\n内置函数 len() 也支持列表： \n\n```python\n>>> letters = ['a', 'b', 'c', 'd']\n>>> len(letters)\n4\n\n```\n\n还可以嵌套列表（创建包含其他列表的列表），例如： \n\n```python\n>>> a = ['a', 'b', 'c']\n>>> n = [1, 2, 3]\n>>> x = [a, n]\n>>> x\n[['a', 'b', 'c'], [1, 2, 3]]\n>>> x[0]\n['a', 'b', 'c']\n>>> x[0][1]\n'b'\n\n```",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#lists",
+      "kps": [
+        "py_loops"
+      ],
+      "sha256": "a0d17b02479efc9ba567d110710ef09acacebfea4d1f4023d95d8944a89c16db"
+    },
+    {
+      "id": "first-steps-towards-programming",
+      "title": "3.2. 走向编程的第一步",
+      "text": "3.2. 走向编程的第一步\n\n当然，我们还能用 Python 完成比二加二更复杂的任务。 例如，我们可以像下面这样写出 斐波那契数列 初始部分的子序列: \n\n```python\n>>> # 斐波那契数列：\n>>> # 前两项之和即下一项的值\n>>> a, b = 0, 1\n>>> while a < 10:\n...     print(a)\n...     a, b = b, a+b\n...\n0\n1\n1\n2\n3\n5\n8\n\n```\n\n本例引入了几个新功能。  \n\n第一行中的 多重赋值 ：变量 a 和 b 同时获得新值 0 和 1 。最后一行又用了一次多重赋值，体现了，等号右边的所有表达式的值，都是在这一语句对任何变量赋新值之前求出来的——求值顺序为从左到右。 \n\nwhile 循环只要条件 (这里是 a < 10) 为真就会一直执行。 Python 和 C 一样，任何非零整数都为真，零为假。 这个条件也可以是字符串或列表类型的值，事实上，任何序列都可以：长度非零就为真，空序列则为假。 示例中的判断只是最简单的比较。比较运算符的写法和 C 语言一样: < (小于)、 > (大于)、 == (等于)、 <= (小于等于)、 >= (大于等于) 及 != (不等于)。 \n\n循环体 是 缩进的 ：缩进是 Python 组织语句的方式。在交互式命令行里，得为每个缩进的行输入空格（或制表符）。使用文本编辑器可以实现更复杂的输入方式；所有像样的文本编辑器都支持自动缩进。交互式输入复合语句时，要在最后输入空白行表示完成（因为解析器不知道哪一行代码是代码块的最后一行）。注意，同一块语句的每一行的缩进相同。 \n\nprint() 函数输出给定参数的值。 除了可以以单一的表达式作为参数（比如，前面的计算器的例子），它还能处理多个参数，包括浮点数与字符串。 它输出的字符串不带引号，且各参数项之间会插入一个空格，这样可以实现更好的格式化操作，就像这样: \n\n```python\n>>> i = 256*256\n>>> print('The value of i is', i)\nThe value of i is 65536\n\n```\n\n关键字参数 end 可以取消输出后面的换行, 或用另一个字符串结尾： \n\n```python\n>>> a, b = 0, 1\n>>> while a < 1000:\n...     print(a, end=',')\n...     a, b = b, a+b\n...\n0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,\n\n```\n\n备注   [1] \n\n** 比 - 的优先级更高, 所以 -3**2 会被解释成 -(3**2) ，因此，结果是 -9。要避免这个问题，并且得到 9, 可以用 (-3)**2。   [2] \n\n与其他语言不同，特殊字符如 \\n 在单引号 ('...') 和双引号 (\"...\") 里的意义一样。 这两种引号唯一的区别是，不需要在单引号里转义双引号 \" (但此时必须把单引号转义成 \\')，反之亦然。",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#first-steps-towards-programming",
+      "kps": [
+        "py_values",
+        "py_branches",
+        "py_loops"
+      ],
+      "sha256": "4080ce741aee7bf92298711bc84f52f8378a87cfe1f74f9ebfa5dab33714af07"
+    },
+    {
+      "id": "if-statements",
+      "title": "4.1. if 语句",
+      "text": "4.1. if 语句\n\n最让人耳熟能详的语句应当是 if 语句： \n\n```python\n>>> x = int(input(\"Please enter an integer: \"))\nPlease enter an integer: 42\n>>> if x < 0:\n...     x = 0\n...     print('Negative changed to zero')\n... elif x == 0:\n...     print('Zero')\n... elif x == 1:\n...     print('Single')\n... else:\n...     print('More')\n...\nMore\n\n```\n\n可有零个或多个 elif 部分，else 部分也是可选的。关键字 'elif' 是 'else if' 的缩写，用于避免过多的缩进。if ... elif ... elif ... 序列可以当作其它语言中 switch 或 case 语句的替代品。 \n\n如果是把一个值与多个常量进行比较，或者检查特定类型或属性，match 语句更有用。详见 match 语句。",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#if-statements",
+      "kps": [
+        "py_branches"
+      ],
+      "sha256": "629da5e985a735659433b90277ac9cc61c38f323960306ef08d6e6da83dff0cc"
+    },
+    {
+      "id": "for-statements",
+      "title": "4.2. for 语句",
+      "text": "4.2. for 语句\n\nPython 的 for 语句与 C 或 Pascal 中的不同。Python 的 for 语句不迭代算术递增数值（如 Pascal），或是给予用户定义迭代步骤和结束条件的能力（如 C），而是在列表或字符串等任意序列的元素上迭代，按它们在序列中出现的顺序。 例如（这不是有意要暗指什么）： \n\n```python\n>>> # 度量一些字符串：\n>>> words = ['cat', 'window', 'defenestrate']\n>>> for w in words:\n...     print(w, len(w))\n...\ncat 3\nwindow 6\ndefenestrate 12\n\n```\n\n很难正确地在迭代多项集的同时修改多项集的内容。更简单的方法是迭代多项集的副本或者创建新的多项集： \n\n```python\n# 创建示例多项集\nusers = {'Hans': 'active', 'Éléonore': 'inactive', '景太郎': 'active'}\n\n# 策略：迭代一个副本\nfor user, status in users.copy().items():\n    if status == 'inactive':\n        del users[user]\n\n# 策略：创建一个新多项集\nactive_users = {}\nfor user, status in users.items():\n    if status == 'active':\n        active_users[user] = status\n\n```",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#for-statements",
+      "kps": [
+        "py_loops"
+      ],
+      "sha256": "0e12e9183ec40f994b7b280b51123e4df64aab762280754a3980a7916944880b"
+    },
+    {
+      "id": "the-range-function",
+      "title": "4.3. range() 函数",
+      "text": "4.3. range() 函数\n\n内置函数 range() 用于生成等差数列： \n\n```python\n>>> for i in range(5):\n...     print(i)\n...\n0\n1\n2\n3\n4\n\n```\n\n生成的序列绝不会包括给定的终止值；range(10) 生成 10 个值——长度为 10 的序列的所有合法索引。range 可以不从 0 开始，且可以按给定的步长递增（即使是负数步长）： \n\n```python\n>>> list(range(5, 10))\n[5, 6, 7, 8, 9]\n\n>>> list(range(0, 10, 3))\n[0, 3, 6, 9]\n\n>>> list(range(-10, -100, -30))\n[-10, -40, -70]\n\n```\n\n要按索引迭代序列，可以组合使用 range() 和 len()： \n\n```python\n>>> a = ['Mary', 'had', 'a', 'little', 'lamb']\n>>> for i in range(len(a)):\n...     print(i, a[i])\n...\n0 Mary\n1 had\n2 a\n3 little\n4 lamb\n\n```\n\n不过大多数情况下 enumerate() 函数很方便，详见 循环的技巧。 \n\n如果直接打印一个 range 会发生意想不到的事情： \n\n```python\n>>> range(10)\nrange(0, 10)\n\n```\n\nrange() 返回的对象在很多方面和列表的行为一样，但其实它和列表不一样。该对象只有在被迭代时才一个一个地返回所期望的列表项，并没有真正生成过一个含有全部项的列表，从而节省了空间。 \n\nWe say such an object is iterable, that is, suitable as a target for functions and constructs that expect something from which they can obtain successive items until the supply is exhausted. We have seen that the for statement is such a construct, while an example of a function that takes an iterable is sum(): \n\n```python\n>>> sum(range(4))  # 0 + 1 + 2 + 3\n6\n\n```\n\n后续我们会看到更多返回可迭代对象并以可迭代对象作为参数的函数。 在 数据结构 一章中，我们将讨论 list() 的更多细节。",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#the-range-function",
+      "kps": [
+        "py_loops"
+      ],
+      "sha256": "051d6f90ae708c24b97a17a0833b17d25a2fa35af39d5b3088f6b7cf7bb2e2f5"
+    },
+    {
+      "id": "defining-functions",
+      "title": "4.8. 定义函数",
+      "text": "4.8. 定义函数\n\n下列代码创建一个可以输出限定数值内的斐波那契数列函数： \n\n```python\n>>> def fib(n):    # 打印小于 n 的斐波那契数列\n...     \"\"\"Print a Fibonacci series less than n.\"\"\"\n...     a, b = 0, 1\n...     while a < n:\n...         print(a, end=' ')\n...         a, b = b, a+b\n...     print()\n...\n>>> # 现在调用我们刚定义的函数：\n>>> fib(2000)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 987 1597\n\n```\n\n定义 函数使用关键字 def，后跟函数名与括号内的形参列表。函数语句从下一行开始，并且必须缩进。 \n\n函数内的第一条语句是字符串时，该字符串就是文档字符串，也称为 docstring，详见 文档字符串。利用文档字符串可以自动生成在线文档或打印版文档，还可以让开发者在浏览代码时直接查阅文档；Python 开发者最好养成在代码中加入文档字符串的好习惯。 \n\n函数在 执行 时使用函数局部变量符号表，所有函数变量赋值都存在局部符号表中；引用变量时，首先，在局部符号表里查找变量，然后，是外层函数局部符号表，再是全局符号表，最后是内置名称符号表。因此，尽管可以引用全局变量和外层函数的变量，但最好不要在函数内直接赋值（除非是 global 语句定义的全局变量，或 nonlocal 语句定义的外层函数变量）。 \n\n在调用函数时会将实际参数（实参）引入到被调用函数的局部符号表中；因此，实参是使用 按值调用 来传递的（其中的 值 始终是对象的 引用 而不是对象的值）。 [1] 当一个函数调用另外一个函数时，会为该调用创建一个新的局部符号表。 \n\n函数定义在当前符号表中把函数名与函数对象关联在一起。解释器把函数名指向的对象作为用户自定义函数。还可以使用其他名称指向同一个函数对象，并访问该函数： \n\n```python\n>>> fib\n<function fib at 10042ed0>\n>>> f = fib\n>>> f(100)\n0 1 1 2 3 5 8 13 21 34 55 89\n\n```\n\n如果你用过其他语言，你可能会认为 fib 不是函数而是一个过程，因为它没有返回值。 事实上，即使没有 return 语句的函数也有返回值，尽管这个值可能相当无聊。 这个值被称为 None (是一个内置名称)。 通常解释器会屏蔽单独的返回值 None。 如果你确有需要可以使用 print() 查看它: \n\n```python\n>>> fib(0)\n>>> print(fib(0))\nNone\n\n```\n\n编写不直接输出斐波那契数列运算结果，而是返回运算结果列表的函数也非常简单： \n\n```python\n>>> def fib2(n):  # 返回斐波那契数组直到 n\n...     \"\"\"Return a list containing the Fibonacci series up to n.\"\"\"\n...     result = []\n...     a, b = 0, 1\n...     while a < n:\n...         result.append(a)    # 见下\n...         a, b = b, a+b\n...     return result\n...\n>>> f100 = fib2(100)    # 调用它\n>>> f100                # 输出结果\n[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]\n\n```\n\n本例也新引入了一些 Python 功能：  \n\nreturn 语句返回函数的值。return 语句不带表达式参数时，返回 None。函数执行完毕退出也返回 None。 \n\n语句 result.append(a) 调用了列表对象 result 的 方法。 方法是‘从属于’对象的函数，其名称为 obj.methodname，其中 obj 是某个对象（可以是一个表达式），methodname 是由对象的类型定义的方法名称。 不同的类型定义了不同的方法。 不同的类型的方法可以使用相同的名称而不会产生歧义。 （使用 类 可以定义自己的对象类型和方法，参见 类。） 在示例中显示的方法 append() 是由列表对象定义的；它会在列表的末尾添加一个新元素。 在本例中它等同于 result = result + [a]，但效率更高。",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#defining-functions",
+      "kps": [
+        "py_functions"
+      ],
+      "sha256": "bbd1826e9379d96c789667bae544c169d7e70008cf7a72c2a2e740353b758454"
+    },
+    {
+      "id": "default-argument-values",
+      "title": "4.9.1. 默认值参数",
+      "text": "4.9.1. 默认值参数\n\n为参数指定默认值是非常有用的方式。调用函数时，可以使用比定义时更少的参数，例如： \n\n```python\ndef ask_ok(prompt, retries=4, reminder='Please try again!'):\n    while True:\n        reply = input(prompt)\n        if reply in {'y', 'ye', 'yes'}:\n            return True\n        if reply in {'n', 'no', 'nop', 'nope'}:\n            return False\n        retries = retries - 1\n        if retries < 0:\n            raise ValueError('invalid user response')\n        print(reminder)\n\n```\n\n该函数可以用以下方式调用：  \n\n只给出必选实参：ask_ok('Do you really want to quit?') \n\n给出一个可选实参：ask_ok('OK to overwrite the file?', 2) \n\n给出所有实参：ask_ok('OK to overwrite the file?', 2, 'Come on, only yes or no!')  \n\n本例还使用了关键字 in ，用于确认序列中是否包含某个值。 \n\n默认值在 定义 作用域里的函数定义中求值，所以： \n\n```python\ni = 5\n\ndef f(arg=i):\n    print(arg)\n\ni = 6\nf()\n\n```\n\n上例输出的是 5。 \n\n重要警告： 默认值只计算一次。默认值为列表、字典或类实例等可变对象时，会产生与该规则不同的结果。例如，下面的函数会累积后续调用时传递的参数： \n\n```python\ndef f(a, L=[]):\n    L.append(a)\n    return L\n\nprint(f(1))\nprint(f(2))\nprint(f(3))\n\n```\n\n输出结果如下： \n\n```python\n[1]\n[1, 2]\n[1, 2, 3]\n\n```\n\n不想在后续调用之间共享默认值时，应以如下方式编写函数： \n\n```python\ndef f(a, L=None):\n    if L is None:\n        L = []\n    L.append(a)\n    return L\n\n```",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#default-argument-values",
+      "kps": [
+        "py_functions"
+      ],
+      "sha256": "f33081d35f09b2406b2e065516b11698f4dae5cffc3442a41aa7079aa11fc8f3"
+    },
+    {
+      "id": "more-on-conditions",
+      "title": "5.7. 深入条件控制",
+      "text": "5.7. 深入条件控制\n\nwhile 和 if 条件句不只可以进行比较，还可以使用任意运算符。 \n\n比较运算符 in 和 not in 用于执行确定一个值是否存在（或不存在）于某个容器中的成员检测。 运算符 is 和 is not 用于比较两个对象是否是同一个对象。 所有比较运算符的优先级都一样，且低于任何数值运算符。 \n\n比较操作支持链式操作。例如，a < b == c 校验 a 是否小于 b，且 b 是否等于 c。 \n\n比较操作可以用布尔运算符 and 和 or 组合，并且，比较操作（或其他布尔运算）的结果都可以用 not 取反。这些操作符的优先级低于比较操作符；not 的优先级最高， or 的优先级最低，因此，A and not B or C 等价于 (A and (not B)) or C。与其他运算符操作一样，此处也可以用圆括号表示想要的组合。 \n\n布尔运算符 and 和 or 是所谓的 短路 运算符：其参数从左至右求值，一旦可以确定结果，求值就会停止。例如，如果 A 和 C 为真，B 为假，那么 A and B and C 不会对 C 求值。用作普通值而不是布尔值时，短路运算符的返回值通常是最后一个求了值的参数。 \n\n还可以把比较运算或其它布尔表达式的结果赋值给变量，例如： \n\n```python\n>>> string1, string2, string3 = '', 'Trondheim', 'Hammer Dance'\n>>> non_null = string1 or string2 or string3\n>>> non_null\n'Trondheim'\n\n```\n\n注意，Python 与 C 不同，在表达式内部赋值必须显式使用 海象运算符 :=。 这避免了 C 程序中常见的问题：要在表达式中写 == 时，却写成了 =。",
+      "url": "https://docs.python.org/zh-cn/3.14/tutorial/datastructures.html#more-on-conditions",
+      "kps": [
+        "py_branches"
+      ],
+      "sha256": "127b3a389be0a4276a4b3b92adab65f03ef4cc825398a3ea740bf6381c7b7bf3"
+    }
+  ]
+}

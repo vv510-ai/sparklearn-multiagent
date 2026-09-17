@@ -64,7 +64,11 @@ def build_pack(key: str) -> dict:
             bank.append({"id": f"{kp}-{i+1}", "kp": kp, "stem": stem, "options": options,
                 "answer": answer, "explain": explanation, "difficulty": 1 if i == 0 else 2,
                 "type": "multiple" if isinstance(answer, list) else "single"})
-    return {"kind": key, "title": pack["title"], "bank": bank, "lessons": lessons,
+    course = {"kind": key, "title": pack["title"], "bank": bank, "lessons": lessons,
             "graph": {"course_id": key, "course": pack["title"], "version": 1,
                 "nodes": nodes, "edges": [{"from": nodes[i-1]["id"], "to": nodes[i]["id"]} for i in range(1, len(nodes))]},
             "boundary": "内置自编入门题，未经过难度标定；只覆盖列出的入门知识点，不代表整门课程水平。"}
+    if key == "python":
+        from ..services.textbook_service import attach_python_book
+        attach_python_book(course)
+    return course
