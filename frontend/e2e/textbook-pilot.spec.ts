@@ -88,6 +88,7 @@ test("Python 教材、个性化计划、新题与延迟复测在同一学习流�
     const resources = await (await page.request.get(`/api/resources?user_id=session_user&notebook_id=${weak.book.id}`)).json();
     const resource = resources.items.find((r: { payload: { learning_context?: unknown } }) => r.payload.learning_context);
     expect(resource).toBeTruthy();
+    await writeFile(testInfo.outputPath("textbook-real-generation.json"), JSON.stringify({ health, resource }, null, 2));
     expect(resource.payload.generation_mode).toBe("model");
     expect(resource.payload.learning_context.goal).toBe("从零系统学习");
     expect(resource.payload.learning_context.daily_minutes).toBe(20);
@@ -107,6 +108,5 @@ test("Python 教材、个性化计划、新题与延迟复测在同一学习流�
     expect(resource.payload.markdown).toContain("print");
     expect(resource.payload.markdown).toContain("return");
     expect(resource.payload.markdown).not.toMatch(/演示数据|离线示例|资料不足/);
-    await writeFile(testInfo.outputPath("textbook-real-generation.json"), JSON.stringify({ health, resource }, null, 2));
   }
 });

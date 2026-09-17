@@ -116,7 +116,13 @@ def selected_sources(source_ids: list[str]) -> list[str]:
     space = current_space()
     if not space or space["course"].get("kind") == "ds_algo":
         return source_ids
-    return [s for s in source_ids if s != COURSE_SCOPE_ID]
+    uploads = [s for s in source_ids if s != COURSE_SCOPE_ID]
+    if space["course"].get("textbook") and not uploads:
+        # Carry the selected course source through every generation/tutor
+        # entrypoint. Otherwise named courses look like ungrounded custom
+        # topics and the agents skip retrieval before the retriever runs.
+        return [COURSE_SCOPE_ID]
+    return uploads
 
 
 def scoped_endpoint(fn):

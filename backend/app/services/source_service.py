@@ -36,9 +36,11 @@ def selected_source_summaries(
     items: list[dict] = []
     for source_id in selected:
         if source_id == COURSE_SCOPE_ID:
+            from .learning_scope import current_space
+            book = (current_space() or {}).get("course", {}).get("textbook") or {}
             items.append({
                 "id": source_id,
-                "title": "课程知识库",
+                "title": book.get("title", "课程知识库"),
                 "filename": "",
                 "chunk_count": None,
                 "status": "indexed",

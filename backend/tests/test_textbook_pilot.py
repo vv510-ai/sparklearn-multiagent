@@ -1,5 +1,6 @@
 """Real imported textbook, executable answer oracles and learner-state contracts."""
 import copy
+import asyncio
 import datetime as dt
 import hashlib
 import subprocess
@@ -69,6 +70,39 @@ def test_existing_course_uses_pinned_text_when_platform_book_changes(monkeypatch
     changed["sections"][0]["text"] = "Later platform edition"
     monkeypatch.setattr(textbook_service, "python_book", lambda: changed)
     assert course_textbook_chunks(course) == original
+
+
+def test_named_course_generation_retrieves_textbook_without_uploaded_files(learner, monkeypatch):
+    from app.agents import doc_agent
+    from app.services.knowledge_graph import resolve_conversation_topic
+    from app.services.learning_scope import selected_sources
+    from app.services.source_service import selected_source_summaries
+    client, user = learner
+    book, survey, _ = prepare(client, user)
+    finish(client, survey, False)
+    prompts = []
+    async def model(prompt, **kwargs):
+        prompts.append(prompt)
+        return "# 函数与返回值\n\n没有 return 的函数返回 None；print 负责显示内容，return 把值返回给调用者。[^1]"
+    async def grounding(*args, **kwargs):
+        return {"grounded": True, "unsupported": [], "verdict": "test"}
+    monkeypatch.setattr(doc_agent, "llm_complete", model)
+    monkeypatch.setattr(doc_agent, "grounding_check", grounding)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+    goal = "根据 Python 官方教程，分步骤解释函数没有 return 时返回什么，并区分 print 和 return。"
+    with course_scope(user, book["id"]):
+        selected = selected_sources([])
+        assert selected == ["__course__"]
+        assert selected_sources(["uploaded-file", "__course__"]) == ["uploaded-file"]
+        assert selected_source_summaries(user, selected)[0]["title"] == "Python 官方教程"
+        kp, topic, custom = resolve_conversation_topic(goal, knowledge_points=["py_functions"], topic_label="函数与返回值")
+        resource = asyncio.run(doc_agent._gen_one("doc", kp, {}, topic_name=topic,
+            custom_topic=custom, source_ids=selected, goal=goal, prompt_template="complete_notes",
+            user_id=user, trace_id="textbook-followup", skip_multimodal=True))["resource"]
+    assert prompts and "None" in prompts[0] and "20" in prompts[0]
+    assert resource["payload"]["generation_mode"] == "model"
+    assert resource["citations"] and all("docs.python.org" in c for c in resource["citations"])
+    assert resource["payload"]["source_evidence"]
 
 
 def _answer_new(client, state, kp, *, correct=True, assisted=False):
