@@ -26,6 +26,8 @@ import TextbookScope from "./TextbookScope";
 import TextbookPractice from "./TextbookPractice";
 import ListeningAudio from "./ListeningAudio";
 import Cet6Output from "./Cet6Output";
+import AnswerGuide from "./AnswerGuide";
+import AssessmentReview from "./AssessmentReview";
 
 const SurveyForm = LearningIntake;
 
@@ -224,6 +226,11 @@ export default function AssessmentPanel({
         <p>正式笔试 {data.course.exam_reference.total_minutes} 分钟：{data.course.exam_reference.parts.map(p => `${p.name} ${p.weight}%（${p.minutes} 分钟）`).join("；")}。</p>
         <p>{data.course.boundary}</p><a href={data.course.exam_reference.url} target="_blank" rel="noopener noreferrer">查看教育部教育考试院的考试结构 ↗</a>
       </details>}
+      {data && <details className="entry-course-context assessment-basis"><summary>这些题怎样判断学习起点？</summary>
+        <p>题目按当前课程的知识点编写，用来决定先讲什么、先练什么。{data.course?.kind === "cet6" ? "六级课程参照官方考试模块组织原创小题，题目不是官方真题，也没有经过标准化测验校准，不能预测六级分数。" : "这些是教学用的小题，没有经过标准化测验校准，不用于预测考试分数。"}</p>
+        <p>每个模块先收集 3 次作答：少于 3 次保持待测；答对 0–1 题先补基础，2 题继续巩固，3 题再用新题确认。这是教学安排的初步规则，不代表已经全面掌握。</p>
+        <p>“还不会”记录当前困难；“暂时跳过”不计错。自述水平、作答速度和信心不加分。学过之后，再用未见过的题和间隔复测调整计划；写作、翻译还需要检查实际输出。</p>
+      </details>}
       {loading ? (
         <p className="entry-loading" role="status">
           正在读取你的学习起点…
@@ -239,6 +246,8 @@ export default function AssessmentPanel({
         />
       ) : data.status === "active" && data.question ? (
         <div className="entry-quiz">
+          <div className="assessment-welcome"><strong>一次只回答一道，先找到合适的起点。</strong><p>在下面的选项里作答，不用去聊天框填写。不会可以直说；没准备好可以跳过或暂停。</p></div>
+          <AnswerGuide />
           <div className="entry-progress-label">
             <span>
               已提交 {data.answered} 题 / 最多 {data.maximum} 题
@@ -254,8 +263,9 @@ export default function AssessmentPanel({
             <p className="entry-eyebrow">
               {data.question.topic} · 第 {data.answered + 1} 题 · {data.question.type === "multiple" ? "多选题" : "单选题"}
             </p>
-            <h2 tabIndex={-1} ref={questionHeading}>
-              {data.question.stem}
+            <p className="question-instruction">{data.question.instruction || (data.question.type === "multiple" ? "点击所有你认为正确的选项，可以选择多个。" : "读题后，在下方点击一个你认为正确的选项。")}</p>
+            <h2 className="assessment-stem" tabIndex={-1} ref={questionHeading}>
+              {data.question.stem.replace(/\s+(?=\[[A-D]\])/g, "\n\n")}
             </h2>
             {data.question.audio_url && <ListeningAudio key={data.question.id} src={data.question.audio_url} onListened={() => setListened(true)} />}
             <fieldset className="entry-options" disabled={busy}>
@@ -281,7 +291,7 @@ export default function AssessmentPanel({
                 );
               })}
             </fieldset>
-            <fieldset className="entry-confidence" disabled={busy}>
+            <details className="assessment-confidence"><summary>记录答题把握（选填）</summary><fieldset className="entry-confidence" disabled={busy}>
               <legend>
                 你对这个答案有多大把握？
                 <small>选填，用来对照信心与实际表现</small>
@@ -303,7 +313,8 @@ export default function AssessmentPanel({
                   </button>
                 ))}
               </div>
-            </fieldset>
+            </fieldset></details>
+            <p className="entry-answer-status" role="status">{data.question.type === "multiple" ? choices.length ? `已选择 ${choices.join("、")}，确认后提交。` : "尚未选择。点击上方选项可多选，也可以选择“这题还不会”。" : choice ? `已选择 ${choice}，确认后提交。` : "尚未选择。点击上方选项整行即可。"}</p>
             <div className="entry-actions">
               <button
                 className="secondary-action"
@@ -570,36 +581,7 @@ export default function AssessmentPanel({
               </p>
             )}
           </section>
-          <section>
-            <h2 className="entry-section-title">逐题解析与复盘</h2>
-            {report.explanations.map((item, i) => (
-              <details className="entry-explanation" key={item.id}>
-                <summary>
-                  <span
-                    className={
-                      item.status === "skipped"
-                        ? ""
-                        : item.correct
-                          ? "is-correct"
-                          : "is-wrong"
-                    }
-                  >
-                    {item.status === "skipped"
-                      ? "跳过"
-                      : item.correct
-                        ? "答对"
-                        : "待巩固"}
-                  </span>
-                  {i + 1}. {item.stem}
-                </summary>
-                <p>
-                  <strong>参考答案：</strong>
-                  {item.answer}
-                </p>
-                <p>{item.explain}</p>
-              </details>
-            ))}
-          </section>
+          <AssessmentReview key={data.id} report={report} onLearn={onLearn} />
         </div>
       ) : null}
     </div>

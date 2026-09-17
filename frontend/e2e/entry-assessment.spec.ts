@@ -29,6 +29,9 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
   const answer = async (index: number) => {
     const radios = page.locator(".entry-options input");
     await radios.first().check();
+    // The optional confidence controls stay out of the primary answer flow.
+    if (!(await page.locator(".assessment-confidence").evaluate(el => (el as HTMLDetailsElement).open)))
+      await page.locator(".assessment-confidence summary").click();
     await page.getByRole("button", { name: "很确定", exact: true }).click();
     await page.getByRole("button", { name: "提交，继续下一题" }).click();
     if (index < 18)
@@ -60,11 +63,6 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
   ).toBeVisible();
   await expect(page.locator(".entry-skill")).toHaveCount(6);
   await expect(page.locator(".entry-material").first()).toBeVisible();
-  await page.getByRole("button", { name: "减少透明效果" }).click();
-  await expect(page.locator("main.notebook-app")).toHaveAttribute(
-    "data-transparency",
-    "reduced",
-  );
   await page.setViewportSize({ width: 1512, height: 982 });
   await page.screenshot({
     path: testInfo.outputPath("assessment-results.png"),
@@ -113,10 +111,6 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
     page.getByRole("link", { name: "B 站全站搜索" }),
   ).toHaveAttribute("href", /keyword=/);
   await page.reload();
-  await expect(page.locator("main.notebook-app")).toHaveAttribute(
-    "data-transparency",
-    "reduced",
-  );
   await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" }),

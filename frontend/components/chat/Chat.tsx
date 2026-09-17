@@ -372,15 +372,15 @@ export default function Chat({
 
   return (
     <div className="notebook-chat-shell flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="notebook-chat-header border-b border-[#E1E4EC] px-5 py-3.5">
+      <div className="notebook-chat-header shrink-0 border-b border-[#E1E4EC] px-5 py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-[10px] font-bold tracking-[0.18em] text-[#737B8B]">LEARNING CONVERSATION</div>
+            <div className="notebook-kicker text-[10px] font-bold tracking-[0.18em] text-[#737B8B]">LEARNING CONVERSATION</div>
             <h2 className="mt-0.5 text-lg font-bold leading-tight tracking-tight text-[#182119]">
               学习对话
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="notebook-chat-actions flex flex-wrap items-center gap-2">
             {onNewConversation && (
               <button
                 type="button"
@@ -411,7 +411,7 @@ export default function Chat({
         </div>
       </div>
 
-      <div className="notebook-chat-scroll flex-1 space-y-4 overflow-y-auto p-5">
+      <div className="notebook-chat-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {msgs.length === 0 && (
           <div className="mx-auto max-w-3xl space-y-5 pt-8">
             <div className="text-center">
@@ -544,7 +544,8 @@ export default function Chat({
         <div ref={bottomRef} />
       </div>
 
-      <div className="notebook-chat-footer border-t border-[#E1E4EC] p-4">
+      <div className="notebook-chat-footer shrink-0 border-t border-[#E1E4EC] p-4">
+        <label htmlFor="learning-chat-input" className="notebook-composer-label">和小知对话 · 在这里提问或回答</label>
         <div className="notebook-composer relative flex items-end gap-2">
           {composerMenuOpen && (
             <div className="notebook-composer-menu absolute bottom-14 left-0 z-20 w-60 overflow-hidden rounded-2xl border border-[#DDE2DA] p-2 shadow-[0_18px_55px_rgba(20,35,27,0.18)]">
@@ -589,18 +590,19 @@ export default function Chat({
             {transcribing ? <LoaderCircle size={19} className="animate-spin" /> : <Mic size={19} />}
           </button>
           <textarea
+            id="learning-chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 send(input);
               }
             }}
             rows={1}
             aria-label="学习目标输入"
-            placeholder="你今天想学什么知识？"
-            className="max-h-28 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-sm text-[#182119] outline-none placeholder:text-[#9AA0AD]"
+            placeholder="输入问题、你的答案，或者告诉小知哪里没懂…"
+            className="min-w-0 max-h-28 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-sm text-[#182119] outline-none placeholder:text-[#65766D]"
           />
           {busy ? (
             <button

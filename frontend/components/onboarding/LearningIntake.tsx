@@ -1,5 +1,6 @@
 "use client";
 import TextbookScope from "@/components/assessment/TextbookScope";
+import AnswerGuide from "@/components/assessment/AnswerGuide";
 
 import { ArrowLeft, ArrowRight, Check, Compass, Lightbulb, Play, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -252,10 +253,12 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
             {!!course.sources?.length && <details><summary>这次使用了哪些资料？</summary>{course.sources.map(source => <p key={source.id}>{source.title}：读取 {source.sampled_chunks}/{source.total_chunks} 个解析片段；{source.location_kind} {source.locations.join("、")}。</p>)}</details>}
             <small>{course.boundary}</small></section> : <p className="intake-response">下一步先准备“{survey.course_title}”的知识点范围，供你选择和核对；确认之后才开始作答。</p>}
           <fieldset className="intake-mode"><legend>这次想了解多少？</legend>{[
-            ["screening", "先找学习起点", "最多 12 题 · 先检查至多 4 个知识点，可暂停"],
+            ["screening", "先找学习起点", survey.course_key === "cet6" && !survey.source_ids?.length ? "最多 6 题 · 先看 2 个模块，其余之后再了解；不限时，可暂停" : "最多 12 题 · 先检查至多 4 个知识点，可暂停"],
             ...(survey.course_key === "ds_algo" && !survey.source_ids?.length ? [["foundation", "检查入门基础", "通常 18 题，跳过时最多 22 题 · 可暂停续答"]] : []),
             ["comprehensive", "完成所选范围摸底", course ? `${Math.min(48, (survey.target_kps?.length || course.outline.length) * 3)} 题左右 · 分模块检查，可暂停续答` : "按核对后的知识点范围出题，可分次完成"],
           ].map(([v, title, note]) => <label key={v} className={mode === v ? "is-selected" : ""}><input type="radio" name="intake-mode" checked={mode === v} onChange={() => setMode(v as Assessment["mode"])} /><span><strong>{title}{v === "screening" && <em>推荐</em>}</strong><small>{note}</small></span></label>)}</fieldset>
+          <p className="intake-response">这是了解学习起点的小题，不是入学门槛。还没学过也可以使用小知；不会的题不用猜，可以跳过，之后再补。</p>
+          <AnswerGuide />
           <p className="intake-hint">独立作答，没有单题倒计时。可以选择“还不会”或暂停；完成后会解释依据，并准备第一项任务。</p>
         </>}
       </>}

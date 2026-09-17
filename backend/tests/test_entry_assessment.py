@@ -67,7 +67,7 @@ def test_bank_covers_every_course_objective_without_duplicate_ids():
 
 def test_resume_idempotency_and_keys_remain_private(user):
     state = service.start(user, survey(), "foundation")
-    assert set(state["question"]) == {"id", "stem", "options", "topic", "type"}
+    assert set(state["question"]) == {"id", "stem", "options", "topic", "type", "instruction"}
     assert state["report"] is None and state["materials"] == []
     first = copy.deepcopy(state)
     state = respond(user, state)

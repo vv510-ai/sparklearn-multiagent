@@ -54,6 +54,7 @@ export type Assessment = {
     topic: string;
     type: "single" | "multiple";
     audio_url?: string;
+    instruction?: string;
   } | null;
   report: null | {
     coverage: number;
@@ -81,6 +82,11 @@ export type Assessment = {
       status: string;
       answer: string;
       explain: string;
+      options?: string[];
+      learner_answer?: string;
+      topic?: string;
+      instruction?: string;
+      audio_url?: string;
     }[];
   };
   plan: null | {

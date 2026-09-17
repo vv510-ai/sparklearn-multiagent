@@ -75,6 +75,43 @@ def _next(data: dict) -> dict | None:
     return min(choices, key=lambda pair: pair[0])[1] if choices else None
 
 
+def question_instruction(q: dict) -> str:
+    instructions = {
+        "cet6_vocab": "先读英文原句，再按题目要求比较词义或表达，选择意思合适的选项。",
+        "cet6_reading": "先读英文短文，再选择原文能够支持的回答。",
+        "cet6_matching": "[A]、[B]、[C] 是段落编号。先读这几段，再选择符合题目要求的一段。",
+        "cet6_listening": "先看选项，完整播放下方音频，再根据听到的内容回答；可以重复播放。",
+        "cet6_writing": "这题先检查英文表达的辨析。按题目要求比较选项；后续还需要实际写作练习。",
+        "cet6_translation": "按题目要求比较英文表达，留意原句的意思；后续还需要实际翻译练习。",
+    }
+    return instructions.get(q["kp"], "先读题，再点击下方你认为正确的选项。") + (
+        " 本题可多选，选好后点击“提交，继续下一题”。" if q["type"] == "multiple"
+        else " 本题选一个答案，选好后点击“提交，继续下一题”。")
+
+
+def _review_items(data: dict, question_ids: set[str] | None = None) -> list[dict]:
+    # Reconstruct from the saved question snapshot, including older reports.
+    # This enriches display only; it never changes the baseline or learner answers.
+    bank = {q["id"]: q for q in data["bank"]}
+    items = []
+    for answer in data["answers"]:
+        if question_ids is not None and answer["question_id"] not in question_ids:
+            continue
+        q = bank[answer["question_id"]]
+        keys = q["answer"] if isinstance(q["answer"], list) else [q["answer"]]
+        selected = answer.get("choices") or ([answer["choice"]] if answer.get("choice") else [])
+        def describe(values):
+            return "；".join(f"{key}. {q['options'][ord(key) - 65]}" for key in values)
+        learner_answer = {"skipped": "暂时跳过（不计错）", "dont_know": "这题还不会"}.get(
+            answer["status"], describe(selected) or "未记录选择")
+        items.append({"id": q["id"], "kp": q["kp"], "topic": kp_name(q["kp"]), "stem": q["stem"],
+                      "instruction": question_instruction(q), "options": q["options"], "learner_answer": learner_answer,
+                      "correct": answer["correct"], "status": answer["status"], "answer": describe(keys),
+                      "explain": q["explain"] + ("\n\n听力文字稿：" + q["transcript"] if q.get("transcript") else ""),
+                      **({"audio_url": q["audio_url"]} if q.get("audio_url") else {})})
+    return items
+
+
 def evidence_report(data: dict) -> dict:
     rows = []
     scope = topological_order() if data["mode"] == "screening" else data["targets"]
@@ -91,18 +128,10 @@ def evidence_report(data: dict) -> dict:
                      "high_confidence_errors": sum(r["status"] == "answered" and not r["correct"] and (r.get("confidence") or 0) >= 0.8 for r in answers),
                      "question_ids": [r["question_id"] for r in answers]})
     calibrated = [r for r in data["answers"] if r["status"] == "answered" and r.get("confidence") is not None]
-    explanations = []
-    bank = {q["id"]: q for q in data["bank"]}
-    for answer in data["answers"]:
-        q = bank[answer["question_id"]]
-        keys = q["answer"] if isinstance(q["answer"], list) else [q["answer"]]
-        explanations.append({"id": q["id"], "kp": q["kp"], "stem": q["stem"], "correct": answer["correct"],
-                             "status": answer["status"], "answer": "；".join(q["options"][ord(k) - 65] for k in keys),
-                             "explain": q["explain"] + ("\n\n听力文字稿：" + q["transcript"] if q.get("transcript") else "")})
     return {"skills": rows, "coverage": sum(r["attempts"] >= 3 for r in rows), "total_skills": len(rows),
             "calibration_samples": len(calibrated),
             "calibration_error": sum((r["confidence"] - int(r["correct"])) ** 2 for r in calibrated) / len(calibrated) if calibrated else None,
-            "explanations": explanations,
+            "explanations": _review_items(data),
             "boundary": "结果只描述本次课程题目中的作答；需要换题和延迟复测确认。未测知识点保持待测，自述与答题速度不计入正确率。重复摸底可能遇到同题，不作为新的独立掌握证据。" + (data.get("course_snapshot") or {}).get("boundary", "")}
 
 
@@ -208,9 +237,10 @@ def _public(row: AssessmentSession) -> dict:
     return {"id": row.id, "revision": row.revision, "status": data["status"], "mode": data["mode"],
             "notebook_id": data.get("notebook_id", ""), "course": public_course(data["course_snapshot"]) if data.get("course_snapshot") else None,
             "answered": len(data["answers"]), "maximum": data["limit"], "survey": data["survey"],
-            "question": {"id": q["id"], "stem": q["stem"], "options": q["options"], "topic": kp_name(q["kp"]), "type": "multiple" if q["type"] == "multiple" else "single",
+            "question": {"id": q["id"], "stem": q["stem"], "options": q["options"], "topic": kp_name(q["kp"]), "instruction": question_instruction(q), "type": "multiple" if q["type"] == "multiple" else "single",
                          **({"audio_url": q["audio_url"]} if q.get("audio_url") else {})} if q else None,
-            "report": data.get("report"), "plan": data.get("plan"), "materials": data.get("materials", []), "bank_version": data["bank_version"],
+            "report": {**data["report"], "explanations": _review_items(data, {item["id"] for item in data["report"]["explanations"]})} if data.get("report") else None,
+            "plan": data.get("plan"), "materials": data.get("materials", []), "bank_version": data["bank_version"],
             "learning_progress": public_progress(data)}
 
 
@@ -244,8 +274,9 @@ def start(user_id: str, survey: dict, mode: str, course_revision: str = "", targ
     survey["intro_practiced"] = bool(survey.get("intro_practiced") or profile_data.get("learning_intake", {}).get("intro_practiced"))
     bank = question_bank()
     targets = topological_order()
+    screening_count = 2 if space and space["course"].get("kind") == "cet6" else 4
     if space and space["course"].get("kind") != "ds_algo":
-        targets = targets[:4] if mode in ("screening", "foundation") else targets
+        targets = targets[:screening_count] if mode == "screening" else targets[:4] if mode == "foundation" else targets
     elif mode == "screening":
         targets = screening_targets(survey)
     if mode == "foundation" and (not space or space["course"].get("kind") == "ds_algo"):
@@ -257,7 +288,7 @@ def start(user_id: str, survey: dict, mode: str, course_revision: str = "", targ
             targets = [k for k in targets if k in target_kps]
         elif mode == "screening":
             ordered = list(dict.fromkeys([*targets, *topological_order()]))
-            targets = [k for k in ordered if k in target_kps][:4]
+            targets = [k for k in ordered if k in target_kps][:screening_count]
         else:
             targets = [k for k in topological_order() if k in target_kps]
         if not targets:
@@ -266,7 +297,7 @@ def start(user_id: str, survey: dict, mode: str, course_revision: str = "", targ
     available = sum(q["kp"] in targets for q in bank)
     row = AssessmentSession(id=uuid.uuid4().hex, user_id=user_id, revision=0, data={"status": "active", "mode": mode, "survey": survey,
         "bank": bank, "bank_version": hashlib.sha256(json.dumps(bank, ensure_ascii=False, sort_keys=True).encode()).hexdigest()[:16],
-        "targets": targets, "limit": min(12 if mode == "screening" else 48, count + 4, available), "answers": [],
+        "targets": targets, "limit": min(screening_count * 3 if mode == "screening" else 48, count + 4, available), "answers": [],
         "notebook_id": notebook_id(), "course_snapshot": copy.deepcopy(space["course"]) if space else None})
     with session() as db:
         profile = profile_row(db, user_id)

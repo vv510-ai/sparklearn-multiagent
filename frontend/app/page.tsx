@@ -835,7 +835,7 @@ export default function Home() {
   const profilePace = asRecord(profile?.pace);
 
   return (
-    <main className="notebook-app notebook-app-enter flex h-dvh flex-col overflow-hidden text-[#1D2028]">
+    <main className="notebook-app notebook-app-enter flex h-dvh flex-col overflow-clip text-[#1D2028]">
       <input
         ref={sourceInputRef}
         type="file"
@@ -850,25 +850,25 @@ export default function Home() {
       />
 
       <header className="notebook-topbar relative z-20 flex h-[68px] shrink-0 items-center gap-3 px-4 sm:px-5">
-        <button onClick={() => setActivePanel("chat")} className="flex items-center gap-2.5" title="返回学习对话">
+        <button onClick={() => setActivePanel("chat")} className="flex shrink-0 items-center gap-2.5" title="返回学习对话">
           <SparkMark running={running} />
-          <strong className="hidden text-lg tracking-tight sm:block">知行循证</strong>
+          <strong className="hidden text-lg tracking-tight md:block">知行循证</strong>
         </button>
-        <span className="hidden h-5 w-px bg-[#DDE0E8] sm:block" />
+        <span className="hidden h-5 w-px bg-[#DDE0E8] md:block" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-[#343944]">{activeNotebook ? `${activeNotebook.emoji} ${activeNotebook.title}` : "我的学习工作台"}</div>
-          <div className="hidden text-[11px] text-[#818795] sm:block">当前主题：{currentTopicTitle} · 已选 {selectedSourceIds.length} 项资料</div>
+          <div className="hidden truncate text-[11px] text-[#818795] md:block">当前主题：{currentTopicTitle} · 已选 {selectedSourceIds.length} 项资料</div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden sm:inline">测评与计划</span></button>
-          <button onClick={() => setMobilePane("sources")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
-          <button onClick={() => setMobilePane("studio")} className="notebook-icon-button hidden sm:grid xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
-          <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold sm:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
+        <div className="flex shrink-0 items-center gap-2">
+          <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden md:inline">测评与计划</span></button>
+          <button onClick={() => setMobilePane("sources")} className="notebook-icon-button hidden md:grid xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
+          <button onClick={() => setMobilePane("studio")} className="notebook-icon-button hidden md:grid xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
+          <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold md:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
           </span>
           <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button">
-            <ShieldCheck size={16} /><span className="hidden sm:inline">依据</span>
+            <ShieldCheck size={16} /><span className="hidden md:inline">依据</span>
           </button>
           <div className="hidden max-w-28 truncate text-xs font-semibold text-[#626978] lg:block" title={authUser.email}>{authUser.name}</div>
           <button onClick={() => void logout()} className="notebook-icon-button" aria-label="退出登录" title="退出登录">
@@ -880,7 +880,7 @@ export default function Home() {
       <div className="notebook-layout min-h-0 flex-1">
         <aside className="hidden min-h-0 xl:block">{sourcePanel}</aside>
 
-        <section className="notebook-column relative min-h-0 overflow-hidden">
+        <section className="notebook-column notebook-main-column relative flex min-h-0 flex-col overflow-hidden">
           {activePanel === "chat" && profile?.learning_intake && <div className="learning-context-strip"><div><strong>{profile.course_title || activeNotebook?.title}</strong><span>优先：{profile.learning_intake.goal} · 每次 {profile.learning_intake.daily_minutes} 分钟 · 已绑定 {activeCourse?.source_ids?.length || 0} 份资料</span></div><button onClick={() => openPanel("assessment")}>查看依据与计划 <ArrowRight size={14} /></button></div>}
           {openingNotebookId && (
             <div className="absolute inset-0 z-40 grid place-items-center bg-white/82 px-6 text-center backdrop-blur-sm">
@@ -893,7 +893,7 @@ export default function Home() {
           )}
           {panelError && <div className="m-3 rounded-[8px] border border-[#F1D6C9] bg-[#FFF6F1] px-4 py-3 text-sm text-[#9E4B2D]">{panelError}</div>}
 
-          <div className={`h-full min-h-0 ${activePanel === "chat" ? "block" : "hidden"}`} aria-hidden={activePanel !== "chat"}>
+          <div className={`min-h-0 flex-1 ${activePanel === "chat" ? "block" : "hidden"}`} aria-hidden={activePanel !== "chat"}>
             <Chat
               key={`${activeNotebook?.id || "course"}-${chatInstance}`}
               onEvent={(event) => onEvent(event, activeNotebook?.id || "")}
