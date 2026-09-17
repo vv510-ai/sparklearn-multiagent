@@ -43,6 +43,10 @@ def test_original_bank_and_audio_are_complete_and_match_pinned_scripts():
             assert sum(s*s for s in samples) / len(samples) > 10000  # Audible waveform, not silent placeholder.
     guide = (ROOT / "docs/courses/cet6-guide-v1.md").read_text(encoding="utf-8")
     assert all(lesson in guide for lesson in LESSONS.values())
+    import html
+    public = (ROOT / "frontend/public/courses/cet6-guide-v1.html").read_text(encoding="utf-8")
+    assert all(html.escape(lesson.split("\n\n")[0]) in public for lesson in LESSONS.values())
+    assert all(f'id="{s["id"]}"' in public for s in course["textbook"]["sections"])
     assert all(c["course"] == "cet6" for c in course_textbook_chunks(course))
 
 

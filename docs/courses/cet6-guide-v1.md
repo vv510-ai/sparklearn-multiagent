@@ -90,6 +90,6 @@
 
 ## 来源与许可
 
-本页为原创教学资料，引用时注明[小知六级起点学习指南](https://github.com/vv510-ai/sparklearn-multiagent/blob/main/docs/courses/cet6-guide-v1.md)及版本。许可：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。
+本页为原创教学资料，引用时注明[小知六级起点学习指南](http://47.121.24.54/courses/cet6-guide-v1.html)及版本。许可：[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)。
 
 官方页面只作为考试结构事实的出处；本站的练习和答案不是教育部教育考试院发布的试题。合成音频由 Windows System.Speech 英语语音按原创脚本离线生成；音频文件及脚本哈希记录在 backend/app/data/cet6_audio_manifest.json。

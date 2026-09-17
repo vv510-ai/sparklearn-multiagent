@@ -21,6 +21,9 @@ test("六级选课、音频摸底、新题复测与实际输出沿用同一课�
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await registerLearner(page, "cet6-course");
+  const guide = await page.request.get("/courses/cet6-guide-v1.html");
+  expect(guide.status()).toBe(200);
+  expect(await guide.text()).toContain('id="listening"');
   await page.getByRole("button", { name: "先进入，稍后继续", exact: true }).click();
   await page.getByRole("button", { name: "新建课程", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "新建课程", exact: true });

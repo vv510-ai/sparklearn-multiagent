@@ -11,7 +11,7 @@ import json
 TITLE = "大学英语六级（CET-6）"
 VERSION = "2026-09-v1"
 OFFICIAL_URL = "https://cet.neea.edu.cn/html1/report/16123/201-1.htm"
-GUIDE_URL = "https://github.com/vv510-ai/sparklearn-multiagent/blob/main/docs/courses/cet6-guide-v1.md"
+GUIDE_URL = "http://47.121.24.54/courses/cet6-guide-v1.html"
 BOUNDARY = "本站原创六级起点训练，非历年真题或完整模拟卷，不预测六级分数。听力使用合成英语音频；写作与翻译选择题只检查基础辨析，完整输出能力仍需实际写作与翻译任务核对。"
 DESCRIPTION = "6 个训练模块，18 道起点题；含音频听力、阅读、写作与翻译训练"
 ALIASES = {
