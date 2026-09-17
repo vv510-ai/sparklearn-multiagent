@@ -146,3 +146,16 @@ def test_generated_explanation_receives_english_scope_and_real_guide(learner, mo
     assert "准备课程考试" in prompts[0] and "20" in prompts[0]
     assert resource["citations"] and all("cet6-guide-v1" in c for c in resource["citations"])
     assert resource["payload"]["source_evidence"]
+
+
+def test_submitted_draft_routes_to_feedback_instead_of_generating_quiz(monkeypatch):
+    from app.agents import orchestrator
+    async def unexpected_model(*args, **kwargs):
+        raise AssertionError("An explicit draft-feedback action should not need intent inference")
+    monkeypatch.setattr(orchestrator, "llm_complete", unexpected_model)
+    for subject, draft in [("写作原稿", "Universities should provide quiet study spaces."), ("翻译原稿", "In recent years, the city has improved its public transport.")]:
+        message = f"请作为我的大学英语六级学习助教，反馈下面的{subject}。请先指出做对的地方，再给出修改。\n\n题目：这是练习题，请写出自己的答案。\n\n我的原稿：\n{draft}"
+        assert orchestrator.requested_resource_kinds(message) == []
+        result = asyncio.run(orchestrator.run({"messages": [{"role": "user", "content": message}]}))
+        assert result["intent"] == "tutor" and not result.get("kinds")
+    assert orchestrator.requested_resource_kinds("请根据六级写作技巧出题，给我三道练习题") == ["quiz"]

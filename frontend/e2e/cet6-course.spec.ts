@@ -119,11 +119,22 @@ test("六级选课、音频摸底、新题复测与实际输出沿用同一课�
   const response = await chatResponse;
   expect(response.status()).toBe(200);
   expect(JSON.stringify(response.request().postDataJSON())).toContain(draft);
-  const chat = await response.text();
-  const events = chat.split("\n").filter(line => line.startsWith("data: ")).map(line => JSON.parse(line.slice(6)));
-  await writeFile(info.outputPath("cet6-chat.json"), JSON.stringify(events, null, 2));
-  expect(events.filter(e => e.type === "error")).toEqual([]);
-  expect(events.some(e => e.type === "done")).toBe(true);
+  // Long browser SSE bodies can be evicted by Chromium. Verify the user's
+  // persisted reply and visible content, rather than the network body's cache.
+  let feedback = "";
+  await expect.poll(async () => {
+    const book = await (await page.request.get(`/api/notebooks/${state.notebook_id}?user_id=session_user`)).json();
+    feedback = book.messages.filter((m: { role: string }) => m.role === "assistant").at(-1)?.content || "";
+    return feedback.length;
+  }, { timeout: 240_000, intervals: [1000, 2000, 5000] }).toBeGreaterThan(100);
+  const afterFeedback = (await (await page.request.get(`/api/resources?user_id=session_user&notebook_id=${state.notebook_id}`)).json()).items;
+  expect(afterFeedback.filter((r: { kind: string }) => r.kind === "quiz")).toHaveLength(0);
+  await expect(page.locator('[aria-label="小知回答"]').last()).not.toContainText("学习内容已经准备好了");
+  if (process.env.PLAYWRIGHT_REAL_MODE === "1") {
+    expect(feedback).toMatch(/Universities|booking|collaborative/);
+    expect(feedback).not.toMatch(/资料不足|离线示例|演示数据/);
+  }
+  await writeFile(info.outputPath("cet6-chat.json"), JSON.stringify({ feedback }, null, 2));
   await writeFile(info.outputPath("cet6-verification.json"), JSON.stringify({ course: state.course, report: state.report, plan: updated.plan, learning: updated.learning_progress, audioDurations }, null, 2));
 
   if (process.env.PLAYWRIGHT_REAL_MODE === "1") {
