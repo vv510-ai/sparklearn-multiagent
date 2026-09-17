@@ -98,8 +98,17 @@ def focus_chunks_on_topic(chunks: list[dict], kp: str | None, topic_name: str) -
     space = current_space()
     named_topic = kp == "custom_topic" or bool(space and space["course"].get("kind") != "ds_algo")
     focused_chunks: list[dict] = []
+    requested = set(infer_kp_ids(topic_name)) | ({kp} if kp != "custom_topic" else set())
     for chunk in chunks:
         copied = dict(chunk)
+        # Versioned course-book sections already carry curated topic metadata.
+        # Natural questions need not repeat an entire Chinese section title.
+        # Preserve all explicitly mentioned subjects in a compound question.
+        if (space and chunk.get("source_type") == "textbook"
+                and chunk.get("source_id") == space["course"].get("textbook", {}).get("id")
+                and _metadata_kps(chunk) & requested):
+            focused_chunks.append(copied)
+            continue
         copied["text"] = _focused_text(
             str(chunk.get("text") or ""),
             kp,

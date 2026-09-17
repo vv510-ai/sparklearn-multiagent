@@ -43,11 +43,16 @@ def _history(db, user_id, data, kp):
 
 
 def _public_question(question):
-    return {k: question[k] for k in ("id", "kp", "stem", "code", "options", "type")}
+    return {k: question[k] for k in ("id", "kp", "stem", "code", "options", "type", "audio_url") if k in question}
+
+
+def _question_key(question):
+    from .assessment_service import evidence_key
+    return evidence_key(question["kp"], question["stem"] + "\n" + question.get("code", "") + question.get("transcript", ""))
 
 
 def begin(user_id: str, assessment_id: str, kp: str) -> dict:
-    from .assessment_service import _owned, evidence_key
+    from .assessment_service import _owned
     with session() as db:
         row = _owned(db, user_id, assessment_id)
         data = copy.deepcopy(row.data)
@@ -65,7 +70,7 @@ def begin(user_id: str, assessment_id: str, kp: str) -> dict:
         record = records.setdefault(kp, {})
         history = _history(db, user_id, data, kp)
         seen = {h["key"] for h in history}
-        available = [q for q in pool if evidence_key(kp, q["stem"] + "\n" + q["code"]) not in seen]
+        available = [q for q in pool if _question_key(q) not in seen]
         record.update(answered=len(history), independent=sum(h["independent"] for h in history),
                       correct=sum(h["correct"] and h["independent"] for h in history),
                       next_due_at=history[-1].get("next_due_at") if history else None,
@@ -89,7 +94,7 @@ def begin(user_id: str, assessment_id: str, kp: str) -> dict:
 
 
 def answer(user_id: str, assessment_id: str, question_id: str, choice: str | None, assisted: bool) -> dict:
-    from .assessment_service import _owned, _public, _refresh_from_practice, evidence_key
+    from .assessment_service import _owned, _public, _refresh_from_practice
     from .bkt import bkt_update
     from .path_service import plan_path
     with session() as db:
@@ -113,7 +118,7 @@ def answer(user_id: str, assessment_id: str, question_id: str, choice: str | Non
             raise HTTPException(409, "请先打开当前新题；不要提交已经做过的题")
         if choice is not None and choice not in "ABCD" or choice == "":
             raise HTTPException(422, "请选择有效选项，或选择还不会")
-        key = evidence_key(kp, question["stem"] + "\n" + question["code"])
+        key = _question_key(question)
         history = _history(db, user_id, data, kp)
         if key in {h["key"] for h in history}:
             raise HTTPException(409, "这道题已经提交过，请重新读取练习")
@@ -124,6 +129,7 @@ def answer(user_id: str, assessment_id: str, question_id: str, choice: str | Non
             next_due = None
         result = {"question_id": question_id, "choice": choice, "assisted": assisted, "correct": correct,
                   "independent": independent, "answer": question["answer"], "explain": question["explain"],
+                  "transcript": question.get("transcript"),
                   "citations": [{k: v for k, v in e.items() if k != "text"} for e in course.get("evidence", {}).get(kp, [])],
                   "message": "已记录为借助资料完成；不会增加独立掌握证据。" if assisted else
                              "本次新题已计入学习证据；请结合后续新题与延迟复测判断。"}
@@ -150,7 +156,7 @@ def answer(user_id: str, assessment_id: str, question_id: str, choice: str | Non
         # Three independent correct new answers complete this learning step.
         # Retention remains pending until the scheduled later round.
         batch = [*history, {"independent": independent, "correct": correct}][-3:]
-        if count % 3 == 0 and all(h["independent"] and h["correct"] for h in batch):
+        if count % 3 == 0 and all(h["independent"] and h["correct"] for h in batch) and kp not in ("cet6_writing", "cet6_translation"):
             updated = copy.deepcopy(row.data)
             tasks = [t for day in updated["plan"]["days"] for t in day["tasks"]]
             for task in tasks:

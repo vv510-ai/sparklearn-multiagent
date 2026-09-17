@@ -101,7 +101,7 @@ def retrieve(
     hits: list[dict] = []
     # A verified built-in textbook is scoped to its prepared course. Selecting
     # uploaded files alone excludes it; an empty selection uses the course book.
-    if (space and space["course"].get("kind") == "python" and space["course"].get("textbook")
+    if (space and space["course"].get("textbook")
             and (not selected_sources or COURSE_SCOPE_ID in selected_sources)):
         from ..services.textbook_service import course_textbook_chunks
         candidates = [dict(c) for c in course_textbook_chunks(space["course"]) if hit_matches_kp(c, kp)]

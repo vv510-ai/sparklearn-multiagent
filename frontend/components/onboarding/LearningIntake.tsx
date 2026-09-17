@@ -24,6 +24,10 @@ const GOALS = [
   ["探索学习起点", "还不确定，帮我找起点", "先用小题了解，再一起决定"],
 ] as const;
 const BARRIERS = [
+  ["vocabulary", "单词认识，放进句子就不懂", "用搭配、上下文和同义改写练词汇"],
+  ["listening", "看文字能懂，听音频跟不上", "先听后答，对照文字稿定位卡点"],
+  ["expression", "有想法，英文写不出来", "先自己写，再逐句反馈与修订"],
+  ["reading_speed", "阅读太慢，定位不到依据", "先找证据，再逐步限时"],
   ["concepts", "概念和符号看不懂", "先解释含义，再连接例子"],
   ["application", "看懂答案，自己不会做", "例题 → 补步骤 → 独立练习"],
   ["coding", "思路懂，代码写不出", "逐行追踪，练习伪代码和边界"],
@@ -40,7 +44,10 @@ const SUPPORTS = [
 const STAGES = ["大学课程", "高中提前学习", "考研复习", "工作后自学", "不方便回答"];
 const EXPERIENCE = ["不确定", "第一次系统学习", "学过概念但做题困难", "能做基础题", "做过综合题或项目", "不方便回答"];
 const TITLES = ["你希望小知先帮你完成什么？", "这次，我们一起学什么？", "哪些地方需要小知多帮一步？", "给学习留一段真实的时间", "核对范围，再找到学习起点"];
-const COURSES = [["ds_algo", "数据结构与算法"], ["python", "Python 入门"], ["calculus", "高等数学入门"], ["custom", "其他课程或主题"]] as const;
+const COURSES = [["ds_algo", "数据结构与算法"], ["python", "Python 入门"], ["calculus", "高等数学入门"], ["cet6", "大学英语六级（CET-6）"], ["custom", "其他课程或主题"]] as const;
+const barrierOptions = (course: StudySurvey["course_key"]) => BARRIERS.filter(o => course === "cet6"
+  ? o[0] !== "coding" && o[0] !== "concepts"
+  : !["vocabulary", "listening", "expression", "reading_speed"].includes(o[0]));
 type IntakeSource = { id: string; title: string; selectable?: boolean; status_detail?: string };
 type Option = readonly [string, string, string];
 
@@ -208,7 +215,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
       {step === 1 && <>
         <p className="intake-hint">你希望优先“{survey.goal}”。下面选定这次的课程和资料，之后的测评、计划与讲解会围绕它们展开。</p>
         {!isReplan ? <>
-          <fieldset className="intake-radio-group"><legend>选择课程起点</legend>{COURSES.map(([key, title]) => <label key={key}><input type="radio" name="intake-course" checked={survey.course_key === key} onChange={() => { setSurvey(s => ({ ...s, course_key: key, course_title: key === "custom" ? "" : title, course_revision: "" })); setCourse(null); }} />{title}</label>)}</fieldset>
+          <fieldset className="intake-radio-group"><legend>选择课程起点</legend>{COURSES.map(([key, title]) => <label key={key}><input type="radio" name="intake-course" checked={survey.course_key === key} onChange={() => { setSurvey(s => ({ ...s, course_key: key, course_title: key === "custom" ? "" : title, course_revision: "", barriers: s.barriers?.filter(b => barrierOptions(key).some(o => o[0] === b)) })); setCourse(null); }} />{title}</label>)}</fieldset>
           <label className="intake-field">课程或学习主题<input maxLength={120} value={survey.course_title || ""} readOnly={survey.course_key !== "custom"} onChange={e => set("course_title", e.target.value)} placeholder="例如：细胞生物学、英语阅读、市场营销" /></label>
           <div className="intake-materials"><label className="intake-upload">上传本次学习资料<input type="file" multiple accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg" disabled={locked || !survey.course_title?.trim()} onChange={e => { const files = Array.from(e.target.files || []); e.target.value = ""; void upload(files); }} /></label><small>支持 PDF、Word、文字与图片。可选最多 6 份已解析资料；也可以先使用内置课程。</small>
             {uploadNote && <p role="status">{uploadNote}</p>}
@@ -222,7 +229,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
       </>}
       {step === 2 && <>
         <p className="intake-hint">选最贴近最近经历的几项，也可以不选。帮助方式之后随时能改。</p>
-        <ChoiceGroup legend="常见的困难" options={BARRIERS} values={survey.barriers || []} onChange={v => set("barriers", v)} optional />
+        <ChoiceGroup legend="常见的困难" options={barrierOptions(survey.course_key)} values={survey.barriers || []} onChange={v => set("barriers", v)} optional />
         <ChoiceGroup legend="你希望怎样得到帮助" options={SUPPORTS} values={survey.supports || []} onChange={v => set("supports", v)} optional />
         {!!survey.barriers?.length && <div className="intake-response" role="status">{BARRIERS.filter(o => survey.barriers?.includes(o[0])).map(o => <p key={o[0]}>{o[2]}。</p>)}</div>}
         <label className="intake-field">还有想告诉小知的吗？<input maxLength={120} value={survey.support} onChange={e => set("support", e.target.value)} placeholder="选填，例如：请解释英文术语" /></label>

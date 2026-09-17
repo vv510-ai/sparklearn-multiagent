@@ -1,6 +1,6 @@
 export type StudySurvey = {
   notebook_id?: string;
-  course_key?: "ds_algo" | "python" | "calculus" | "custom";
+  course_key?: "ds_algo" | "python" | "calculus" | "cet6" | "custom";
   course_title?: string;
   source_ids?: string[];
   course_revision?: string;
@@ -53,6 +53,7 @@ export type Assessment = {
     options: string[];
     topic: string;
     type: "single" | "multiple";
+    audio_url?: string;
   } | null;
   report: null | {
     coverage: number;
@@ -102,6 +103,7 @@ export type Assessment = {
 };
 
 export type PracticeResult = {
+  transcript?: string | null;
   question_id: string; choice: string | null; assisted: boolean; correct: boolean;
   independent: boolean; answer: string; explain: string; message: string;
   citations: { source: string; chapter: string; url: string; version: string }[];
@@ -111,12 +113,14 @@ export type PracticeProgress = {
   exhausted?: boolean; last_result?: PracticeResult;
 };
 export type Textbook = {
+  source_note?: string;
   id: string; title: string; version: string; url: string; license: string; license_url: string;
   scope_note: string; sha256: string;
   sections: { id: string; title: string; url: string; kps: string[]; sha256: string }[];
 };
 
 export type CourseScope = {
+  exam_reference?: { url: string; checked_on: string; total_minutes: number; parts: { name: string; weight: number; minutes: number }[] } | null;
   title: string;
   kind: string;
   revision: string;

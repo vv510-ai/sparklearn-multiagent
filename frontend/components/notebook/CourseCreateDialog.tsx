@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Check, Code2, FileUp, GraduationCap, PencilLine, UploadCloud, X } from "lucide-react";
+import { BookOpen, Check, Code2, FileUp, GraduationCap, Languages, PencilLine, UploadCloud, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost, apiUpload, USER_ID } from "@/lib/api";
 import type { CourseScope, StudySurvey } from "@/lib/assessment";
@@ -74,7 +74,7 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
       setNote(pending.current ? "课程与已上传资料已保存，重试会继续处理这门课程。" : "");
     } finally { submitting.current = false; setBusy(false); }
   };
-  const icons = { ds_algo: BookOpen, python: Code2, calculus: GraduationCap, custom: PencilLine, upload: FileUp };
+  const icons = { ds_algo: BookOpen, python: Code2, calculus: GraduationCap, cet6: Languages, custom: PencilLine, upload: FileUp };
   const options = [...catalogue.filter(c => c.id !== "custom"),
     { id: "custom" as const, title: "自定义学习主题", description: "英语、线性代数、专业课…输入你想学的内容" },
     { id: "upload" as const, title: "上传课本生成课程", description: "围绕你的教材、讲义或笔记整理知识点与题目" }];
@@ -83,7 +83,7 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
       <header className="course-create-header"><div><p>从你想学的内容开始</p><h2 id="course-create-title">新建课程</h2></div><button type="button" aria-label="关闭新建课程" onClick={onClose} disabled={busy}><X size={20} /></button></header>
       <p className="course-create-intro">选一门经典课程，或带上自己的主题与课本。每门课都有独立的资料、测评和学习计划。</p>
       <fieldset disabled={busy || created} className="course-create-options"><legend>选择课程起点</legend>
-        {options.map(option => { const Icon = icons[option.id]; return <label key={option.id} className={selection === option.id ? "is-selected" : ""}>
+        {options.map(option => { const Icon = icons[option.id] || BookOpen; return <label key={option.id} className={selection === option.id ? "is-selected" : ""}>
           <input type="radio" name="new-course" aria-label={option.title} checked={selection === option.id} onChange={() => choose(option.id, option.title)} />
           <Icon size={22} aria-hidden="true" /><span><strong>{option.title}</strong><small>{option.description}</small></span><Check size={17} className="course-choice-check" aria-hidden="true" />
         </label>; })}

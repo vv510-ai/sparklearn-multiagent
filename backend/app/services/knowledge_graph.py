@@ -295,6 +295,7 @@ def infer_kp_ids(text: str, kp_ids: list[str] | None = None) -> list[str]:
         labels = {
             kp.replace("_", " "),
             str(node.get("name") or ""),
+            *node.get("aliases", []),
             *_KP_ALIASES.get(kp, ()),
         }
         for label in labels:

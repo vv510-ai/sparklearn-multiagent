@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 PACKS = {
+    "cet6": {"title": "大学英语六级（CET-6）", "description": "6 个训练模块，18 道起点题；含音频听力、阅读、写作与翻译训练"},
     "python": {
         "title": "Python 入门", "topics": [
             ("py_values", "变量与表达式", "变量保存对象的引用。赋值按右侧表达式先求值；数字与字符串要区分。\n\n例：a = 4; b = a + 3，则 b 为 7。字符串 '4' 与整数 4 的类型不同。", [
@@ -54,6 +55,9 @@ PACKS = {
 
 
 def build_pack(key: str) -> dict:
+    if key == "cet6":
+        from .cet6_course import build_course
+        return build_course()
     pack = PACKS[key]
     nodes, bank, lessons = [], [], {}
     for kp, name, body, questions in pack["topics"]:

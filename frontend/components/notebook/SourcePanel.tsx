@@ -127,7 +127,7 @@ export default function SourcePanel({
         ) : (
           <button type="button" onClick={onCreateNotebook} className="flex w-full items-center gap-3 rounded-[10px] border border-dashed border-[#BFC9D6] bg-[#F8F9FC] px-3 py-3 text-left transition hover:border-[#83B7A5] hover:bg-[#F1F7F4]">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[9px] bg-[#E7F3ED] text-[#0F6B50]"><Plus size={17} /></span>
-            <span><strong className="block text-sm text-[#343944]">选择或创建第一门课</strong><small className="mt-0.5 block text-[11px] text-[#858C9A]">数据结构 · Python · 高数 · 自定义</small></span>
+            <span><strong className="block text-sm text-[#343944]">选择或创建第一门课</strong><small className="mt-0.5 block text-[11px] text-[#858C9A]">数据结构 · Python · 高数 · 英语六级 · 自定义</small></span>
           </button>
         )}
         <p className="mt-2 px-1 text-[11px] leading-5 text-[#858C9A]">切换科目后，下方只显示这本书的资料与学习记录。</p>

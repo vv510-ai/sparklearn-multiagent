@@ -97,12 +97,13 @@ def evidence_report(data: dict) -> dict:
         q = bank[answer["question_id"]]
         keys = q["answer"] if isinstance(q["answer"], list) else [q["answer"]]
         explanations.append({"id": q["id"], "kp": q["kp"], "stem": q["stem"], "correct": answer["correct"],
-                             "status": answer["status"], "answer": "；".join(q["options"][ord(k) - 65] for k in keys), "explain": q["explain"]})
+                             "status": answer["status"], "answer": "；".join(q["options"][ord(k) - 65] for k in keys),
+                             "explain": q["explain"] + ("\n\n听力文字稿：" + q["transcript"] if q.get("transcript") else "")})
     return {"skills": rows, "coverage": sum(r["attempts"] >= 3 for r in rows), "total_skills": len(rows),
             "calibration_samples": len(calibrated),
             "calibration_error": sum((r["confidence"] - int(r["correct"])) ** 2 for r in calibrated) / len(calibrated) if calibrated else None,
             "explanations": explanations,
-            "boundary": "结果只描述本次课程题目中的作答；需要换题和延迟复测确认。未测知识点保持待测，自述与答题速度不计入正确率。重复摸底可能遇到同题，不作为新的独立掌握证据。"}
+            "boundary": "结果只描述本次课程题目中的作答；需要换题和延迟复测确认。未测知识点保持待测，自述与答题速度不计入正确率。重复摸底可能遇到同题，不作为新的独立掌握证据。" + (data.get("course_snapshot") or {}).get("boundary", "")}
 
 
 def study_plan(report: dict, survey: dict, *, today: dt.date | None = None) -> dict:
@@ -151,6 +152,13 @@ def study_plan(report: dict, survey: dict, *, today: dt.date | None = None) -> d
                                 for section in textbook["sections"] if kp in section["kps"]]
             task["steps"] = ["阅读下面对应的教材章节，核对一个分步例子", approach,
                              "合上资料，在本页独立完成三道新题", "查看反馈；按页面提示的时间换题复测"]
+        if (space or {}).get("course", {}).get("kind") == "cet6":
+            if kp == "cet6_listening":
+                task["steps"] = ["先读选项，预测需要听的信息", "完整听一遍音频后，独立完成三道新题", "提交后核对文字稿，区分辨音、词汇与推理困难", "闭稿复听，并按提示安排换题复测"]
+                task["criterion"] = "凭音频独立提取信息；合成短音频的表现不代表完整六级听力水平。"
+            elif kp in ("cet6_writing", "cet6_translation"):
+                task["steps"] = ["阅读对应讲义的分步例子", "用三道新题检查句法与逻辑辨析", "在本页完成一段自己的英文，再请小知反馈", "自行修订，并用另一主题检查能否独立表达"]
+                task["criterion"] = "基础辨析与实际输出分别练习；选择题完成不等于作文或翻译达标。"
         last[kp] = task["id"]
         if kind == "diagnose":
             task["goal"] = f"请用3道不同的无提示小题补测{kp_name(kp)}，逐题等待我回答，先不要展示答案；根据结果再确定学习深度。"
@@ -200,7 +208,8 @@ def _public(row: AssessmentSession) -> dict:
     return {"id": row.id, "revision": row.revision, "status": data["status"], "mode": data["mode"],
             "notebook_id": data.get("notebook_id", ""), "course": public_course(data["course_snapshot"]) if data.get("course_snapshot") else None,
             "answered": len(data["answers"]), "maximum": data["limit"], "survey": data["survey"],
-            "question": {"id": q["id"], "stem": q["stem"], "options": q["options"], "topic": kp_name(q["kp"]), "type": "multiple" if q["type"] == "multiple" else "single"} if q else None,
+            "question": {"id": q["id"], "stem": q["stem"], "options": q["options"], "topic": kp_name(q["kp"]), "type": "multiple" if q["type"] == "multiple" else "single",
+                         **({"audio_url": q["audio_url"]} if q.get("audio_url") else {})} if q else None,
             "report": data.get("report"), "plan": data.get("plan"), "materials": data.get("materials", []), "bank_version": data["bank_version"],
             "learning_progress": public_progress(data)}
 

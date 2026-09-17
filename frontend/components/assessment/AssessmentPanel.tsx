@@ -24,6 +24,8 @@ import {
 import LearningIntake, { DEFAULT_SURVEY } from "@/components/onboarding/LearningIntake";
 import TextbookScope from "./TextbookScope";
 import TextbookPractice from "./TextbookPractice";
+import ListeningAudio from "./ListeningAudio";
+import Cet6Output from "./Cet6Output";
 
 const SurveyForm = LearningIntake;
 
@@ -52,6 +54,7 @@ export default function AssessmentPanel({
   const [setup, setSetup] = useState(false);
   const [replan, setReplan] = useState(false);
   const [choice, setChoice] = useState("");
+  const [listened, setListened] = useState(false);
   const [choices, setChoices] = useState<string[]>([]);
   const [studyTask, setStudyTask] = useState<StudyTask | null>(null);
   const [practiceActive, setPracticeActive] = useState(false);
@@ -83,6 +86,7 @@ export default function AssessmentPanel({
   }, [notebookId]);
   useEffect(() => {
     setChoice("");
+    setListened(false);
     setChoices([]);
     setStudyTask(null);
     setConfidence(null);
@@ -216,6 +220,10 @@ export default function AssessmentPanel({
       )}
       {data?.course && <details className="entry-course-context"><summary>这份计划依据哪些目标与资料？</summary><p>优先：{data.survey.goal}；每个学习日 {data.survey.daily_minutes} 分钟，每周 {data.survey.study_days.length} 天。</p><p>{data.course.coverage_note}</p>{data.course.sources?.map(source => <p key={source.id}>{source.title} · {source.location_kind} {source.locations.join("、")} · 已取样 {source.sampled_chunks}/{source.total_chunks} 个片段</p>)}{!data.course.sources?.length && <p>使用本课程入门内容；尚未绑定上传文件。</p>}<p>{data.course.boundary}</p></details>}
       {data?.course?.textbook && <TextbookScope book={data.course.textbook} />}
+      {data?.course?.exam_reference && <details className="entry-course-context"><summary>六级正式考试与本课练习的区别</summary>
+        <p>正式笔试 {data.course.exam_reference.total_minutes} 分钟：{data.course.exam_reference.parts.map(p => `${p.name} ${p.weight}%（${p.minutes} 分钟）`).join("；")}。</p>
+        <p>{data.course.boundary}</p><a href={data.course.exam_reference.url} target="_blank" rel="noopener noreferrer">查看教育部教育考试院的考试结构 ↗</a>
+      </details>}
       {loading ? (
         <p className="entry-loading" role="status">
           正在读取你的学习起点…
@@ -249,6 +257,7 @@ export default function AssessmentPanel({
             <h2 tabIndex={-1} ref={questionHeading}>
               {data.question.stem}
             </h2>
+            {data.question.audio_url && <ListeningAudio key={data.question.id} src={data.question.audio_url} onListened={() => setListened(true)} />}
             <fieldset className="entry-options" disabled={busy}>
               <legend>{data.question.type === "multiple" ? "选择所有正确选项（多选）" : "选择一个答案"}</legend>
               {data.question.options.map((option, index) => {
@@ -298,14 +307,14 @@ export default function AssessmentPanel({
             <div className="entry-actions">
               <button
                 className="secondary-action"
-                disabled={busy}
+                disabled={busy || (!!data.question.audio_url && !listened)}
                 onClick={() => void submit("dont_know")}
               >
                 这题还不会
               </button>
               <button
                 className="primary-action"
-                disabled={busy || (data.question.type === "multiple" ? !choices.length : !choice)}
+                disabled={busy || (data.question.type === "multiple" ? !choices.length : !choice) || (!!data.question.audio_url && !listened)}
                 onClick={() => void submit("answered")}
               >
                 {busy ? "正在保存…" : "提交，继续下一题"}
@@ -357,6 +366,7 @@ export default function AssessmentPanel({
             <p className="entry-note">完成标准：{studyTask.criterion}</p>
             {!!studyTask.readings?.length && !practiceActive && <div className="textbook-readings"><strong>这一步阅读哪里</strong><ul>{studyTask.readings.map(r => <li key={r.url}><a href={r.url} target="_blank" rel="noopener noreferrer">{r.title} ↗</a> · {r.version}</li>)}</ul></div>}
             {data.course?.practice_available && <TextbookPractice key={`${data.id}-${studyTask.kp}`} assessment={data} kp={studyTask.kp} onActive={setPracticeActive} onUpdated={value => { setData(value); onUpdated(); }} />}
+            {!practiceActive && data.course?.kind === "cet6" && ["cet6_writing", "cet6_translation"].includes(studyTask.kp) && <Cet6Output key={studyTask.kp} assessmentId={data.id} kp={studyTask.kp} onLearn={onLearn} />}
             {!practiceActive && (studyMaterial ? <><p className="entry-eyebrow">对应学习资料 · 按作答与当前目标整理</p><Markdown text={studyMaterial.markdown} allowCodeBlocks /></> : <p className="intake-response">这一步先补充作答证据。小知会逐题等待你回答，再决定需要哪些讲解。</p>)}
             <button className="intake-primary" onClick={() => onLearn(studyTask.goal)}><Play size={16} />请小知带我练习</button>
           </section>}

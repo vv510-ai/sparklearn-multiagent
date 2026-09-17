@@ -334,7 +334,7 @@ body::after {
 .course-create-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
 .course-create-options legend { margin-bottom: 10px; font-size: 13px; font-weight: 700; }
 .course-create-options label { position: relative; display: flex; align-items: flex-start; gap: 10px; padding: 15px 12px; border: 1px solid #dce5df; border-radius: 14px; background: #fbfdfc; cursor: pointer; }
-.course-create-options label:last-child { grid-column: 1 / -1; }
+.course-create-options label:last-of-type:nth-of-type(odd) { grid-column: 1 / -1; }
 .course-create-options label > svg { flex-shrink: 0; color: #17705a; margin-top: 2px; }
 .course-create-options input { position: absolute; opacity: 0; }
 .course-create-options strong { display: block; font-size: 14px; }
@@ -2116,3 +2116,11 @@ body::after {
     transition-duration: 0.01ms !important;
   }
 }
+/* Course-specific English reading, listening and independent writing. */
+.cet6-listening, .cet6-output { margin: 1rem 0; padding: 1rem; border: 1px solid #c8d9d2; border-radius: 16px; background: #f4f8f5; color: #21473c; }
+.cet6-listening audio { display: block; width: 100%; max-width: 520px; margin-top: .75rem; }
+.cet6-output label { display: block; margin: 1rem 0 .5rem; font-weight: 700; }
+.cet6-output h3 { margin-bottom: .75rem; font-size: 1.15rem; font-weight: 700; }
+.cet6-output textarea { width: 100%; min-height: 160px; resize: vertical; padding: .8rem; border: 1px solid #849d94; border-radius: 10px; background: white; color: #18372e; line-height: 1.65; }
+.cet6-output textarea:focus-visible { outline: 3px solid #287c69; outline-offset: 3px; }
+.entry-question-card h2, .textbook-practice h4 { white-space: pre-line; overflow-wrap: anywhere; }

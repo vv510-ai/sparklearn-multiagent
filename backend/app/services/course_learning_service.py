@@ -23,12 +23,12 @@ log = logging.getLogger("sparklearn.course_learning")
 
 def catalogue() -> list[dict]:
     return [{"id": "ds_algo", "title": "数据结构与算法", "description": "16 个知识点，可分次全面摸底"},
-        *[{"id": k, "title": v["title"], "description": "4 个入门知识点，12 道自编起点题"} for k, v in PACKS.items()],
+        *[{"id": k, "title": v["title"], "description": v.get("description", "4 个入门知识点，12 道自编起点题")} for k, v in PACKS.items()],
         {"id": "custom", "title": "其他课程或主题", "description": "输入主题，或围绕你的资料检查学习起点"}]
 
 
 def public_course(course: dict) -> dict:
-    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook")} | {
+    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference")} | {
         "outline": [{"id": n["id"], "name": n["name"], "objective": n.get("desc", "")}
                     for n in course.get("graph", {}).get("nodes", [])],
         "question_count": len(course.get("bank", [])),
@@ -214,4 +214,5 @@ def context_summary() -> dict | None:
         "support": survey.get("support", ""), "mastery": profile.get("knowledge_mastery", {}),
         "evidence": profile.get("baseline_assessment", {}).get("skills", []),
         "bound_sources": [{"title": s["title"], "version": s["sha256"][:12]} for s in course.get("sources", [])],
-        "textbook": course.get("textbook")}
+        "textbook": course.get("textbook"), "assessment_boundary": course.get("boundary"),
+        "exam_reference": course.get("exam_reference")}

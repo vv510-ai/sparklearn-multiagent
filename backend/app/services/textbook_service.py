@@ -75,7 +75,7 @@ def _chunk_sections(book: dict) -> tuple[dict, ...]:
             ranges.append((start, end))
         for number, (start, end) in enumerate(ranges, 1):
             result.append({"text": section["text"][start:end], "source": book["title"],
-                "source_id": book["id"], "source_type": "textbook", "user_id": "", "course": "python",
+                "source_id": book["id"], "source_type": "textbook", "user_id": "", "course": book.get("course", "python"),
                 "chapter": section["title"], "section_id": section["id"], "kp": ",".join(section["kps"]),
                 "page": number, "location_kind": "章节", "start_char": start, "end_char": end,
                 "version": book["version"], "url": section["url"], "tags": [section["title"], *section["kps"]]})

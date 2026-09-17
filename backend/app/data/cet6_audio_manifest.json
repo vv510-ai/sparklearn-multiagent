@@ -1,0 +1,98 @@
+[
+    {
+        "id":  "cet6_listening-baseline-1",
+        "rate":  0,
+        "audio_sha256":  "738ee052152bc77bbbfd4ee2ad0af24ed1b7969d3c5c756f45b42748e8eb2a9c",
+        "transcript_sha256":  "1817316cf765a82e9a176be42910d2237bfae19e2f04674a7826b1f6e1bbc53e",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-baseline-2",
+        "rate":  0,
+        "audio_sha256":  "9820ff78dc1d6a5c45e6116c410460444877e3e4549b61ae34b40ef435609cc8",
+        "transcript_sha256":  "dbde39c9f8ce99c86dc498a73450767baf367f2bb2bc83082a57bb17b73370a7",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-baseline-3",
+        "rate":  0,
+        "audio_sha256":  "0c12f2fb8ce16febf83f967be189334d5245646a1a26a589c34665766e6c16af",
+        "transcript_sha256":  "256dfc8d6a58e1bbb282a9a22b71c79ec9c50c620af14068336b18a7a539c069",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-1",
+        "rate":  0,
+        "audio_sha256":  "48b385f8147a8046a88c3b1c3eb5cb93f8586cea6e33d9e6c451c15cb7e356f2",
+        "transcript_sha256":  "a9207e05649bf049fcd93050f7e0dde00f5af37cde8b7ab771b7b17aac397bdf",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-2",
+        "rate":  0,
+        "audio_sha256":  "fdbb449cbae98d21bb35eafb5de2feac93b8f5757ad0b8c64c3e0d4ecb20c037",
+        "transcript_sha256":  "7392dfff830c30fd03f5c8c7edff1dd0e5263673bc9866a32761c843af148b3d",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-3",
+        "rate":  0,
+        "audio_sha256":  "1f883ac119195abce562dc8e03fe09c59e940314fde42baf05a33d8f285f36e5",
+        "transcript_sha256":  "798e96becfe8796e3cfa6902971ba5ff80e7a236a40239a541661021e506c665",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-4",
+        "rate":  0,
+        "audio_sha256":  "1e4ac53f0eec322302dc411f165e1916251fe02d8f4d566a0c012ed1269d65d9",
+        "transcript_sha256":  "ce1dd2c5cee318db02e192cc43ed0f22cb891052d8bade8ae86dc397787c57ef",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-5",
+        "rate":  0,
+        "audio_sha256":  "c9941476440ce0e3c9f4e696bd5acdc44b5469456a9d4799d127e0824a52f50d",
+        "transcript_sha256":  "a30e38db3bf2160395e5c722c0ebe71077257d41ca0116672186faed1784626e",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-6",
+        "rate":  0,
+        "audio_sha256":  "486bd169d1565e0f39f4d28f5ce5c941ab64e9a81ec22f2e5cfb25b1c04df9c5",
+        "transcript_sha256":  "2a1666bc873933768dd57531e92469dab03001ee9f4a7363dec37a1ab6f671fd",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-7",
+        "rate":  0,
+        "audio_sha256":  "0f7804ceec5406f27b08344a45700ed80957486baf773c24cd63b0f2c1db538e",
+        "transcript_sha256":  "b6397c74df80fa6147f10aaa5c216995cf583fea6a444962611d0d672dc6c6d8",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-8",
+        "rate":  0,
+        "audio_sha256":  "5cc43b55b7c1a8da4325627ee18821021b4e40b03b0fff8e62fea1a4c62c08a7",
+        "transcript_sha256":  "a65cc87b816ce5fcd0295c7466e973d2cdc74093181cccce97d564e58403e400",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    },
+    {
+        "id":  "cet6_listening-fresh-9",
+        "rate":  0,
+        "audio_sha256":  "92444403c9e44900a33b282b047f0e91b00bf4e946186d2d1bb8120f5de033d1",
+        "transcript_sha256":  "b5fbd549a0306461ff09f22833e7d00ee45a44f4b0ca4797f6862fe9fbb4bc1a",
+        "sample_rate":  16000,
+        "voice":  "Microsoft Zira Desktop"
+    }
+]
