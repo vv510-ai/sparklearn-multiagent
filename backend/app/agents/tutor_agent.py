@@ -19,6 +19,7 @@ from ..services.knowledge_graph import infer_kp_ids, kp_retrieval_text, resolve_
 from ..services.note_service import recent_note_chunks
 from ..services.topic_scope import focus_chunks_on_topic
 from .emitter import agent_end, agent_start, agent_token, emit
+from .orchestrator import is_draft_feedback
 
 
 _SMALL_TALK_RE = re.compile(
@@ -653,6 +654,12 @@ async def run(state: dict) -> dict:
         general_knowledge=custom_topic and not source_ids,
     )
     prompt = prompt_call.prompt
+    draft_feedback = is_draft_feedback(question)
+    if draft_feedback:
+        prompt += (
+            "\n\n本次原稿反馈请简明完整：先指出优点，再选最重要的两到三个原句给出理由与可选修改。"
+            "最后必须留下一个由学习者自行修订的具体小任务，并等待回答。不要代写整篇。"
+        )
     learning_strategy = guided and _is_learning_strategy_question(question)
     await emit({
         "type": "progress",
@@ -718,7 +725,10 @@ async def run(state: dict) -> dict:
                 role="reasoner",
                 system=prompt_call.system,
                 temperature=0.25 if guided else 0.45,
-                max_tokens=700 if guided else 520,
+                # Draft reviews need space for quoted English, explanations,
+                # and the learner's revision task; a short chat budget cuts
+                # off that final step mid-sentence.
+                max_tokens=2200 if draft_feedback else 700 if guided else 520,
                 allow_model_fallback=True,
                 allow_mock_fallback=False,
                 reasoning_mode="disabled",

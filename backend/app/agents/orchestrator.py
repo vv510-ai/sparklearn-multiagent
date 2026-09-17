@@ -47,7 +47,7 @@ def _is_lightweight_chat(message: str) -> bool:
 
 def requested_resource_kinds(message: str) -> list[str]:
     """只把用户明确点名的产物交给生成链路，避免模型擅自扩展成全套资源。"""
-    if _is_draft_feedback(message):
+    if is_draft_feedback(message):
         return []
     compact = re.sub(r"\s+", "", str(message or "")).lower()
 
@@ -69,7 +69,7 @@ def requested_resource_kinds(message: str) -> list[str]:
     ]
 
 
-def _is_draft_feedback(message: str) -> bool:
+def is_draft_feedback(message: str) -> bool:
     """An attached writing task is context for feedback, not a request for a quiz."""
     text = str(message or "")
     instruction = re.split(r"\n\s*(?:题目|我的原稿|我的译文|我的作文|原稿|译文)\s*[:：]", text, maxsplit=1)[0][:240]
@@ -88,7 +88,7 @@ async def run(state: dict) -> dict:
     if intent not in _VALID:
         if _is_lightweight_chat(msg):
             intent, reason = "chat", "命中轻量对话规则"
-        elif _is_draft_feedback(msg):
+        elif is_draft_feedback(msg):
             intent, reason = "tutor", "学习者提交原稿请求反馈，题目与原稿作为答疑上下文"
         elif any(k in msg for k in _SUMMARY_HINTS):
             intent, reason = "summary", "命中学习对话总结关键词"

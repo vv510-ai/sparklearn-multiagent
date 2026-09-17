@@ -136,13 +136,19 @@ def test_generated_explanation_receives_english_scope_and_real_guide(learner, mo
     monkeypatch.setattr(doc_agent, "llm_complete", model)
     monkeypatch.setattr(doc_agent, "grounding_check", grounding)
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
-    goal = "请依据六级指南，解释阅读中为什么不能把相关当因果。"
     with course_scope(user, book["id"]):
-        kp, topic, custom = resolve_conversation_topic(goal, knowledge_points=["cet6_reading"], topic_label="仔细阅读与推断")
-        resource = asyncio.run(doc_agent._gen_one("doc", kp, {}, topic_name=topic, custom_topic=custom,
-            source_ids=selected_sources([]), goal=goal, prompt_template="complete_notes", user_id=user,
-            trace_id="cet6-test", skip_multimodal=True))["resource"]
-    assert prompts and "Students who joined the reading club" in prompts[0]
+        for goal in [
+            "请依据六级指南，解释阅读中为什么不能把相关当因果。",
+            "请根据小知六级指南解释阅读中为什么不能把相关当因果，给一个英文短例子和中文分步说明。",
+        ]:
+            kp, topic, custom = resolve_conversation_topic(goal, knowledge_points=["cet6_reading"], topic_label="仔细阅读与推断")
+            assert "相关当因果" in topic
+            assert not doc_agent._content_on_topic("# 六级听力\n先听音频再作答。", topic, kp)
+            resource = asyncio.run(doc_agent._gen_one("doc", kp, {}, topic_name=topic, custom_topic=custom,
+                source_ids=selected_sources([]), goal=goal, prompt_template="complete_notes", user_id=user,
+                trace_id="cet6-test", skip_multimodal=True))["resource"]
+            assert resource["payload"]["generation_mode"] == "model"
+    assert len(prompts) == 2 and all("Students who joined the reading club" in p for p in prompts)
     assert "准备课程考试" in prompts[0] and "20" in prompts[0]
     assert resource["citations"] and all("cet6-guide-v1" in c for c in resource["citations"])
     assert resource["payload"]["source_evidence"]
@@ -159,3 +165,24 @@ def test_submitted_draft_routes_to_feedback_instead_of_generating_quiz(monkeypat
         result = asyncio.run(orchestrator.run({"messages": [{"role": "user", "content": message}]}))
         assert result["intent"] == "tutor" and not result.get("kinds")
     assert orchestrator.requested_resource_kinds("请根据六级写作技巧出题，给我三道练习题") == ["quiz"]
+
+
+def test_draft_feedback_has_room_for_source_feedback_and_revision_task(learner, monkeypatch):
+    from app.agents import tutor_agent
+    client, user = learner
+    book, survey, _ = prepare(client, user, "cet6", "大学英语六级")
+    finish(client, survey, False)
+    calls = []
+    async def stream(prompt, **kwargs):
+        calls.append((prompt, kwargs))
+        yield "你的作文观点明确。原句 Universities should offer quiet rooms 能表达立场。请你自己补写一个支持理由，再发给我。[^1]"
+    monkeypatch.setattr(tutor_agent, "llm_stream", stream)
+    monkeypatch.setattr(tutor_agent, "is_demo", lambda: False)
+    question = "请反馈下面的写作原稿。\n\n题目：讨论大学学习空间。\n\n我的原稿：\nUniversities should offer quiet rooms."
+    with course_scope(user, book["id"]):
+        result = asyncio.run(tutor_agent.run({"user_id": user, "messages": [{"role": "user", "content": question}],
+            "source_ids": selected_sources([])}))
+    assert calls and calls[0][1]["max_tokens"] >= 1800
+    assert "Universities should offer quiet rooms" in calls[0][0]
+    assert "自行修订" in calls[0][0]
+    assert "请你自己补写" in result["answer"] and result["citations"]

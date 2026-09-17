@@ -230,6 +230,11 @@ def explicit_topic_label(question: str | None) -> str | None:
         if not match:
             continue
         label = clean_topic_label(match.group("topic"))
+        # A why/how clause can contain the actual concept. For example,
+        # “解释阅读中为什么不能把相关当因果” must retain “相关当因果”
+        # instead of turning the instruction prefix into a source filter.
+        if set(infer_kp_ids(probe)) - set(infer_kp_ids(label)):
+            label = clean_topic_label(probe)
         if label not in {"当前主题", "这个主题", "这个", "那个", "为什么", "怎么", "如何"}:
             return label
     return clean_topic_label(probe) if len(probe) >= 2 else None

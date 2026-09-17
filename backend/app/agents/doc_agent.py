@@ -252,6 +252,11 @@ def _content_on_topic(value: object, topic_name: str, kp: str) -> bool:
     observed = set(infer_kp_ids(raw))
     if kp != "custom_topic" and observed - allowed:
         return False
+    # A natural question is not a phrase the answer must repeat verbatim.
+    # Match its course concepts and their aliases while rejecting a switch
+    # to an unrelated concept (for example reading -> listening).
+    if allowed & observed and not observed - allowed:
+        return True
     return any(len(term) >= 2 and term in output for term in terms)
 
 

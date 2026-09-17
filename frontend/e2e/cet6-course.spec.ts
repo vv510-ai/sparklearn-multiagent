@@ -133,6 +133,8 @@ test("六级选课、音频摸底、新题复测与实际输出沿用同一课�
   if (process.env.PLAYWRIGHT_REAL_MODE === "1") {
     expect(feedback).toMatch(/Universities|booking|collaborative/);
     expect(feedback).not.toMatch(/资料不足|离线示例|演示数据/);
+    expect(feedback.slice(-500)).toMatch(/(?:请你|试着|试试|你来|现在请|轮到你|你能|小任务|任务|改写|修改|补写|扩写|重写)/);
+    expect(feedback.trim()).toMatch(/[。！？”）.!?"')\]](?:\*\*)?$/);
   }
   await writeFile(info.outputPath("cet6-chat.json"), JSON.stringify({ feedback }, null, 2));
   await writeFile(info.outputPath("cet6-verification.json"), JSON.stringify({ course: state.course, report: state.report, plan: updated.plan, learning: updated.learning_progress, audioDurations }, null, 2));
