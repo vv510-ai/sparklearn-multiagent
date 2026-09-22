@@ -55,6 +55,10 @@ export default defineConfig({
         AUTH_SECRET: "playwright-local-only-0123456789-abcdefghijklmnopqrstuvwxyz",
         SPARK_API_PASSWORD: "",
         DEEPSEEK_API_KEY: "",
+        OPENAI_API_KEY: "",
+        KIMI_API_KEY: "",
+        LLM_PROVIDER: "spark",
+        KIMI_SMART_ROUTING: "false",
       },
     },
     {

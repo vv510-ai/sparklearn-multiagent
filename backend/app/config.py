@@ -32,7 +32,7 @@ try:  # pydantic-settings 可用时走标准路径
         spark_reasoning_mode: str = "auto"  # enabled | disabled | auto
 
         # 统一文本大模型路由。deepseek 为当前主脑，spark 保留为可控降级。
-        llm_provider: str = "auto"  # auto | openai | deepseek | spark
+        llm_provider: str = "auto"  # auto | openai | deepseek | kimi | spark
         openai_api_key: str = ""
         openai_base_url: str = "https://api.openai.com/v1"
         openai_text_model: str = "gpt-6-astra"
@@ -60,6 +60,12 @@ try:  # pydantic-settings 可用时走标准路径
         elevenlabs_model: str = "eleven_v3"
         deepseek_api_key: str = ""
         kimi_api_key: str = ""
+        kimi_base_url: str = "https://api.moonshot.cn/v1"
+        kimi_model: str = "kimi-k2.6"
+        kimi_thinking: str = "disabled"  # 日常快速回答；reasoner 角色按需开启
+        kimi_reasoning_effort: str = "high"  # K3: low | high | max
+        kimi_timeout_s: float = 150
+        kimi_smart_routing: bool = False
         model_key_encryption_secret: str = ""
         deepseek_base_url: str = "https://api.deepseek.com"
         deepseek_model: str = "deepseek-v4-pro"
@@ -175,6 +181,12 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_reasoning_mode = g("SPARK_REASONING_MODE", "auto")
             self.llm_provider = g("LLM_PROVIDER", "auto")
             self.kimi_api_key = g("KIMI_API_KEY", "")
+            self.kimi_base_url = g("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
+            self.kimi_model = g("KIMI_MODEL", "kimi-k2.6")
+            self.kimi_thinking = g("KIMI_THINKING", "disabled")
+            self.kimi_reasoning_effort = g("KIMI_REASONING_EFFORT", "high")
+            self.kimi_timeout_s = float(g("KIMI_TIMEOUT_S", "150"))
+            self.kimi_smart_routing = _env_bool("KIMI_SMART_ROUTING", False)
             self.model_key_encryption_secret = g("MODEL_KEY_ENCRYPTION_SECRET", "")
             self.openai_api_key = g("OPENAI_API_KEY", "")
             self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
@@ -347,7 +359,8 @@ def is_demo() -> bool:
     if flag in {"0", "false", "no", "off"}:
         return False
     requested = str(s.llm_provider or "auto").lower()
-    keys = {"openai": s.openai_api_key, "deepseek": s.deepseek_api_key, "spark": s.spark_api_password}
+    keys = {"openai": s.openai_api_key, "deepseek": s.deepseek_api_key,
+            "kimi": s.kimi_api_key, "spark": s.spark_api_password}
     return not bool(keys.get(requested)) if requested in keys else not any(keys.values())
 
 

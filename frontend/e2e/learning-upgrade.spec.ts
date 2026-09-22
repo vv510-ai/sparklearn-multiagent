@@ -23,6 +23,7 @@ test("模型设置、双平台课程、英语点击作答与离线研究状态",
   await page.goto("/");
   await page.getByRole("button", {name:"模型设置",exact:true}).click();
   await expect(page.getByRole("heading",{name:"模型设置",exact:true})).toBeVisible();
+  await page.getByText("自定义模型与个人密钥", {exact:true}).click();
   await page.getByLabel("默认模型",{exact:true}).selectOption("deepseek-flash");
   await page.getByLabel("DeepSeek · 国产 API Key").fill("sk-local-test-never-sent-to-provider");
   const save = page.waitForResponse(r => r.url().endsWith("/api/settings/models") && r.request().method()==="POST");

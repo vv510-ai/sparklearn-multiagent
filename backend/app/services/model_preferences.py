@@ -13,7 +13,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 
 from ..auth import _jwt_secret
-from ..config import get_settings
+from ..config import get_settings, is_demo
 from ..models.db import init_db, session
 from ..models.entities import ModelPreference
 from ..tenant import current_user_id
@@ -26,12 +26,29 @@ PROVIDERS = {
 MODELS = {
     "deepseek-flash": {"provider": "deepseek", "label": "DeepSeek V4.1 Flash", "tier": "经济", "cost": "约 $0.15–0.30 输入 / $0.60–1.20 输出，每百万 token；未命中缓存", "use": "日常解释、词汇、练习和快速提问"},
     "deepseek-v4-pro": {"provider": "deepseek", "label": "DeepSeek V4 Pro", "tier": "均衡", "cost": "约 $0.66–1.32 输入 / $1.98–3.96 输出，每百万 token；未命中缓存", "use": "中文深入讲解、知识整合和推导"},
+    "kimi-k2.6": {"provider": "kimi", "label": "Kimi K2.6", "tier": "日常推荐", "cost": "每百万 token：输入 ¥6.50 / 输出 ¥27；缓存命中输入 ¥1.10，以官方实时价格为准", "use": "日常讲解、英语、笔记与结构化练习；可按任务开启思考"},
     "kimi-k3": {"provider": "kimi", "label": "Kimi K3", "tier": "进阶", "cost": "按 Kimi 官方价格计费；需充值解锁，始终启用思考", "use": "长材料整合、研究报告、复杂动画分镜"},
     "gpt-5.6-terra": {"provider": "openai", "label": "GPT-5.6 Terra", "tier": "均衡", "cost": "以 OpenAI 官方实时价格为准", "use": "英文解释、结构化笔记和日常教学"},
     "gpt-6-astra": {"provider": "openai", "label": "GPT-6 Astra", "tier": "高能力", "cost": "$10 输入 / $50 输出，每百万 token；未命中缓存", "use": "复杂跨学科推理、研究综合与严谨分镜设计"},
 }
 MODULES = {"tutor": "讲解与问题引导", "notes": "笔记与资料整合", "quiz": "出题与反馈", "english": "英语场景学习", "animation": "教学动画设计", "knowledge_map": "一图看懂内容设计", "research": "深度研究"}
 _OVERRIDE: ContextVar[dict | None] = ContextVar("model_test_override", default=None)
+
+
+def smart_routes() -> dict[str, str]:
+    daily = get_settings().deepseek_model
+    if daily not in MODELS or MODELS[daily]["provider"] != "deepseek":
+        daily = "deepseek-v4-pro"
+    return {"default": daily, "notes": "kimi-k3", "research": "kimi-k3",
+            "animation": "kimi-k3", "knowledge_map": "kimi-k3"}
+
+
+def server_routes() -> dict[str, str]:
+    settings = get_settings()
+    if (settings.kimi_smart_routing and settings.kimi_api_key
+            and settings.deepseek_api_key and not is_demo()):
+        return smart_routes()
+    return {}
 
 
 def _cipher() -> Fernet:
@@ -67,13 +84,25 @@ def _load(user: str) -> tuple[dict, dict, int]:
 def view(user: str) -> dict:
     routes, keys, revision = _load(user)
     settings = get_settings()
+    presets = [
+        {"id": "smart", "name": "智能搭配", "description": "DeepSeek 负责日常问答、英语和练习；K3 负责资料整合、深度研究和复杂教学设计。", "routes": smart_routes()},
+        {"id": "daily", "name": "日常学习", "description": "各项文本任务使用现有 DeepSeek，适合日常学习。", "routes": {"default": smart_routes()["default"]}},
+        {"id": "deep", "name": "全程 K3", "description": "各项文本任务都使用 K3；适合集中研究，费用和等待时间通常更高。", "routes": {"default": "kimi-k3"}},
+    ]
+    for preset in presets:
+        required = {MODELS[m]["provider"] for m in preset["routes"].values()}
+        missing = [PROVIDERS[p]["name"] for p in sorted(required)
+                   if not keys.get(p) and not getattr(settings, PROVIDERS[p]["key_env"], "")]
+        preset["available"] = not missing
+        preset["unavailable_reason"] = "请联系管理员连接 " + "、".join(missing) if missing else ""
     return {"routes": routes, "revision": revision, "modules": MODULES, "models": MODELS,
+            "presets": presets, "server_routes": server_routes(),
             "providers": {p: {k: v for k, v in info.items() if k != "key_env"} | {
                 "has_personal_key": bool(keys.get(p)),
                 "has_server_key": bool(getattr(settings, info["key_env"], "")),
             } for p, info in PROVIDERS.items()},
             "verified_at": "2026-09-22",
-            "note": "按任务选择文本模型。动画、图片的渲染服务另行配置；价格不是质量排名。个人密钥加密保存，仅对当前账户生效。"}
+            "note": "已连接的服务可直接使用，无需重复填写密钥。学习方案仅调整文本模型，图片、视频和语音沿用现有服务。"}
 
 
 def save(user: str, routes: dict[str, str], updates: dict[str, str], revision: int | None = None) -> dict:
@@ -137,10 +166,11 @@ def resolve(prompt: str) -> dict | None:
     if _OVERRIDE.get() is not None:
         return _OVERRIDE.get()
     user = current_user_id()
-    if not user:
-        return None
-    routes, keys, _ = _load(user)
-    model = routes.get(module_for(prompt)) or routes.get("default")
+    routes, keys, _ = _load(user) if user else ({}, {}, 0)
+    defaults = server_routes()
+    module = module_for(prompt)
+    model = (routes.get(module) or routes.get("default")
+             or defaults.get(module) or defaults.get("default"))
     if not model:
         return None
     provider = MODELS[model]["provider"]

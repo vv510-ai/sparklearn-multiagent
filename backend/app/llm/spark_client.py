@@ -43,6 +43,8 @@ def active_provider() -> str:
         return "openai"
     if requested == "deepseek":
         return "deepseek"
+    if requested == "kimi":
+        return "kimi"
     if requested == "spark":
         return "spark"
     if requested != "auto":
@@ -51,6 +53,8 @@ def active_provider() -> str:
         return "openai"
     if settings.deepseek_api_key:
         return "deepseek"
+    if settings.kimi_api_key:
+        return "kimi"
     return "spark"
 
 
@@ -62,6 +66,8 @@ def active_llm_label() -> str:
         return f"{settings.deepseek_model}（深度思考）"
     if active_provider() == "openai":
         return settings.openai_text_model
+    if active_provider() == "kimi":
+        return settings.kimi_model
     return "讯飞星火 X2（自动深度思考）"
 
 
@@ -118,6 +124,21 @@ def _deepseek_extra(*, thinking_override: str = "") -> dict:
     }
 
 
+def _kimi_route() -> dict:
+    settings = get_settings()
+    if not settings.kimi_api_key:
+        raise RuntimeError("KIMI_API_KEY is not configured")
+    return {"provider": "kimi", "model": settings.kimi_model,
+            "base_url": settings.kimi_base_url, "key": settings.kimi_api_key}
+
+
+def _kimi_reasoning(role: str, max_tokens: int | None, mode: str) -> str:
+    if mode:
+        return mode
+    # Small classifiers keep their short final-answer budget; deeper roles think.
+    return "enabled" if role == "reasoner" and (not max_tokens or max_tokens >= 1600) else ""
+
+
 def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: float = 0.7):
     """返回当前统一文本主脑的 LangChain ChatOpenAI 实例(扩展用)。"""
     from langchain_openai import ChatOpenAI
@@ -127,6 +148,12 @@ def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: floa
         return ChatOpenAI(model=s.openai_text_model, api_key=s.openai_api_key,
                           base_url=s.openai_base_url, streaming=streaming,
                           use_responses_api=True, reasoning={"effort": s.openai_reasoning_effort})
+    if active_provider() == "kimi":
+        from .selected_model import _request
+        params = _request(_kimi_route(), [], None, False, _kimi_reasoning(role, None, ""))
+        params.pop("messages")
+        return ChatOpenAI(api_key=s.kimi_api_key, base_url=s.kimi_base_url,
+                          streaming=streaming, timeout=s.kimi_timeout_s, max_retries=0, **params)
     if active_provider() == "deepseek":
         return ChatOpenAI(
             model=s.deepseek_model,
@@ -172,6 +199,10 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
 
     last_err: Exception | None = None
     provider = active_provider()
+    if provider == "kimi":
+        from .selected_model import complete
+        return await complete(_kimi_route(), messages, max_tokens=max_tokens, json_object=json_object,
+                              reasoning_mode=_kimi_reasoning(role, max_tokens, reasoning_mode))
     if provider == "openai":
         # Never pass mock lessons off as an answer from the selected model.
         try:
@@ -252,7 +283,15 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      allow_mock_fallback: bool = True) -> AsyncIterator[str]:
     """流式补全,逐 token 产出(SSE 直接转发)。"""
     from ..services.model_preferences import resolve
-    if resolve(prompt):
+    route = resolve(prompt)
+    if route and route["provider"] == "kimi":
+        from .selected_model import stream
+        messages = ([{"role": "system", "content": system}] if system else []) + \
+                   [{"role": "user", "content": prompt}]
+        async for delta in stream(route, messages, max_tokens=max_tokens, reasoning_mode=reasoning_mode):
+            yield delta
+        return
+    if route:
         # Buffer and validate explicit selections before displaying any content.
         text = await llm_complete(prompt, role=role, system=system, temperature=temperature,
                                   max_tokens=max_tokens, reasoning_mode=reasoning_mode,
@@ -276,6 +315,12 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
     loop = asyncio.get_running_loop()
 
     provider = active_provider()
+    if provider == "kimi":
+        from .selected_model import stream
+        async for delta in stream(_kimi_route(), messages, max_tokens=max_tokens,
+                                  reasoning_mode=_kimi_reasoning(role, max_tokens, reasoning_mode)):
+            yield delta
+        return
     if provider == "openai":
         client = openai_client.client()
         stream = None
