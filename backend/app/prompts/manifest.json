@@ -1,13 +1,15 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.22.1",
+  "version": "2026.09.22.2",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
     "beginner_rules": "shared/beginner-first.md",
     "integration_rules": "shared/multi-source-integration.md",
     "output_rules": "shared/output-check.md",
-    "explanation_rules": "shared/explanation-style.md"
+    "explanation_rules": "shared/explanation-style.md",
+    "course_notes_rules": "shared/course-notes.md",
+    "learning_coach_rules": "shared/learning-coach.md"
   },
   "capabilities": {
     "assessment.course_repair": {

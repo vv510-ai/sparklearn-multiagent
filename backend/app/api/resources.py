@@ -53,17 +53,20 @@ async def generate(req: GenerateRequest):
         "mindmap" in req.kinds
         and (req.artifact_scope == "conversation" or req.prompt_template == "framework")
     )
+    conversation_wide = conversation_map or (
+        "doc" in req.kinds and req.prompt_template == "conversation_notes"
+    )
     if notebook or req.session_id:
         full_history = (
             get_session_messages(req.user_id, session_id, limit=80)
-            if conversation_map else
+            if conversation_wide else
             get_session_messages(req.user_id, session_id)
         )
     else:
         full_history = []
     history = (
         full_history
-        if conversation_map
+        if conversation_wide
         else current_topic_messages(full_history, req.conversation_focus)
     )
     topic_kp, topic_name, custom_topic = resolve_conversation_topic(
@@ -90,7 +93,7 @@ async def generate(req: GenerateRequest):
         "kinds": req.kinds,
         "source_ids": source_ids,
         "prompt_template": req.prompt_template,
-        "artifact_scope": "conversation" if conversation_map else req.artifact_scope,
+        "artifact_scope": "conversation" if conversation_wide else req.artifact_scope,
         "conversation_topics": conversation_topics,
         "conversation_focus": req.conversation_focus,
         "intent": "generate",                  # 显式生成,Orchestrator 将尊重该意图

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, BookPlus, FileUp, Gauge, LoaderCircle, MessageSquarePlus, Mic, NotebookPen, Plus, Route, Square } from "lucide-react";
@@ -8,6 +8,8 @@ import InlineConceptAnimation from "./InlineConceptAnimation";
 import AnswerChoices from "./AnswerChoices";
 import Markdown from "./Markdown";
 import ResourceCard from "@/components/resource/ResourceCard";
+import StudySuggestion from "./StudySuggestion";
+import { dismissGuidance, emptyGuidance, readGuidance, recordLearningTurn, studyStage, type LearningGuidance, type StudyStage, type SuggestedTool } from "@/lib/learning-guidance";
 
 interface Msg {
   role: "user" | "assistant";
@@ -107,6 +109,9 @@ export default function Chat({
   recommendedTask,
   onOpenPath,
   onOpenAssessment,
+  learnerId = "",
+  onStudyStage,
+  onSuggestedTool,
 }: {
   onEvent?: (ev: SparkEvent) => void;
   /** 外部(首页快捷入口)注入的一次性发送内容 */
@@ -128,6 +133,9 @@ export default function Chat({
   recommendedTask?: { title: string; prompt: string; reason: string };
   onOpenPath?: () => void;
   onOpenAssessment?: () => void;
+  learnerId?: string;
+  onStudyStage?: (stage: StudyStage) => void;
+  onSuggestedTool?: (tool: SuggestedTool) => void;
 }) {
   const [nextSteps, setNextSteps] = useState<{suggestions: string[]; mode: string} | null>(null);
   const [loadingSteps, setLoadingSteps] = useState(false);
@@ -152,6 +160,26 @@ export default function Chat({
   const sessionRef = useRef(sessionId || `s-${Math.random().toString(36).slice(2, 8)}`);
   const consumedSeedRef = useRef("");
   const consumedRequestRef = useRef("");
+  const [guidance, setGuidance] = useState<LearningGuidance>(emptyGuidance);
+  const guidanceRef = useRef(guidance);
+  const mountedRef = useRef(true);
+  const guidanceKey = `learnloop-guidance-v1:${learnerId}:${notebookId}:${sessionRef.current}`;
+  const updateGuidance = useCallback((update: (current: LearningGuidance) => LearningGuidance) => {
+    if (!mountedRef.current) return;
+    const next = update(guidanceRef.current);
+    guidanceRef.current = next;
+    setGuidance(next);
+    try { sessionStorage.setItem(guidanceKey, JSON.stringify(next)); } catch { /* Discovery works without browser storage. */ }
+  }, [guidanceKey]);
+  useEffect(() => {
+    mountedRef.current = true;
+    let restored = emptyGuidance();
+    try { restored = readGuidance(sessionStorage.getItem(guidanceKey)); } catch { /* Optional storage. */ }
+    guidanceRef.current = restored;
+    setGuidance(restored);
+    return () => { mountedRef.current = false; };
+  }, [guidanceKey]);
+  useEffect(() => { onStudyStage?.(studyStage(guidance)); }, [guidance, onStudyStage]);
 
   useEffect(() => {
     onSessionReady?.(sessionRef.current);
@@ -252,6 +280,8 @@ export default function Chat({
         return Promise.resolve(false);
       }
       setQueuedHint("");
+      // Continuing the conversation is also a choice to defer the current card.
+      updateGuidance(current => current.pending ? dismissGuidance(current) : current);
       setInput("");
       setBusy(true);
       setMsgs((m) => [
@@ -269,10 +299,17 @@ export default function Chat({
 
       return new Promise<boolean>((resolve) => {
         let settled = false;
+        let teachingFocus = false;
+        let answer = "";
+        let generatedResource = false;
         const finish = (completed: boolean) => {
           if (settled) return;
           settled = true;
           abortRef.current = null;
+          if (completed && captureLearningTurn && !directRequest && teachingFocus && !generatedResource
+            && answer.trim().length >= 80 && !isProductOperation(q, answer)) {
+            updateGuidance(current => recordLearningTurn(current, q));
+          }
           resolve(completed);
         };
 
@@ -291,12 +328,15 @@ export default function Chat({
             display_message: displayText?.trim() || q,
           },
           (ev) => {
+            if (settled || !mountedRef.current) return;
             onEvent?.(ev);
             switch (ev.type) {
               case "token":
+                answer += ev.delta || "";
                 patchLast((a) => ({ ...a, text: a.text + (ev.delta || "") }));
                 break;
               case "resource":
+                generatedResource = true;
                 if (ev.resource) patchLast((a) => ({ ...a, resources: [...a.resources, ev.resource!] }));
                 break;
               case "citations":
@@ -305,14 +345,18 @@ export default function Chat({
                 }
                 break;
               case "summary":
+                answer ||= (ev.text as string) || "";
                 patchLast((a) => ({ ...a, text: a.text || (ev.text as string) || "" }));
                 break;
               case "progress":
                 if (captureLearningTurn && ev.stage === "learning_focus" && ev.text?.trim()) {
+                  teachingFocus = true;
                   onLearningTurn?.(ev.text.trim());
                 }
                 break;
               case "conversation_cleared":
+                teachingFocus = false;
+                updateGuidance(() => emptyGuidance());
                 setMsgs([{
                   role: "assistant",
                   text: ev.text || "当前科目里的聊天记录已经清空。",
@@ -334,6 +378,7 @@ export default function Chat({
             }
           },
           () => {
+            if (settled || !mountedRef.current) return;
             setBusy(false);
             patchLast((a) => ({ ...a, streaming: false }));
             finish(false);
@@ -341,7 +386,7 @@ export default function Chat({
         );
       });
     },
-    [busy, notebookId, onEvent, onLearningTurn, sourceIds, topic],
+    [busy, notebookId, onEvent, onLearningTurn, sourceIds, topic, updateGuidance],
   );
 
   useEffect(() => {
@@ -425,7 +470,7 @@ export default function Chat({
             <div className="text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#EEF0FA] text-2xl">📘</div>
               <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[#1D2028]">从一个问题开始</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">先判断你要学习路线还是具体讲解，只回答当前问题；导图、练习和笔记都按需生成。</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">先说一个想解决的小问题。小知会沿着你的回答往下讲；聊过一段，再提醒你是否需要整理或练习。</p>
             </div>
             {recommendedTask && (
               <div className="rounded-[16px] border border-[#B9D9C5] bg-[#EDF7F0] p-4 shadow-[0_1px_2px_rgba(18,30,22,0.04),0_10px_24px_rgba(18,30,22,0.06)]">
@@ -554,6 +599,9 @@ export default function Chat({
             </div>
           ),
         )}
+        {!busy && guidance.pending && onSuggestedTool && <StudySuggestion tool={guidance.pending}
+          onChoose={tool => { updateGuidance(current => dismissGuidance(current)); onSuggestedTool(tool); }}
+          onDismiss={mute => updateGuidance(current => dismissGuidance(current, mute))} />}
         <div ref={bottomRef} />
       </div>
 

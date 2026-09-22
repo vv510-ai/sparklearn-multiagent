@@ -19,7 +19,8 @@ import AuthGate, { type AuthUser } from "@/components/auth/AuthGate";
 import Chat from "@/components/chat/Chat";
 import CourseCreateDialog from "@/components/notebook/CourseCreateDialog";
 import SourcePanel, { COURSE_SOURCE_ID, isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
-import StudioPanel from "@/components/notebook/StudioPanel";
+import StudioPanel, { GENERATORS } from "@/components/notebook/StudioPanel";
+import type { StudyStage, SuggestedTool } from "@/lib/learning-guidance";
 import PathDag from "@/components/path/PathDag";
 import LearningEvidence from "@/components/profile/LearningEvidence";
 import MistakeBook from "@/components/profile/MistakeBook";
@@ -203,6 +204,7 @@ export default function Home() {
   const [conversationFocus, setConversationFocus] = useState("");
   const [chatSessionId, setChatSessionId] = useState("");
   const [chatInstance, setChatInstance] = useState(0);
+  const [studyStage, setStudyStage] = useState<StudyStage>("start");
   const [newBookOpen, setNewBookOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
   const [courseKp, setCourseKp] = useState("");
@@ -664,7 +666,7 @@ export default function Home() {
       setPanelError("正在切换书本，上一书本内容已清空，请稍候再生成。");
       return;
     }
-    const conversationWide = promptTemplate === "framework";
+    const conversationWide = ["framework", "conversation_notes"].includes(promptTemplate);
     const focus = conversationFocus.trim();
     if (!conversationWide && !focus) {
       setActivePanel("chat");
@@ -684,7 +686,7 @@ export default function Home() {
     setRequest({
       path: "/resources/generate",
       display: conversationWide
-        ? "把本次学习对话整理成框架导图"
+        ? `把本次学习对话整理成${label}`
         : focus ? `把刚才讨论的内容做成${label}` : `生成${label}`,
       body: {
         user_id: USER_ID,
@@ -700,6 +702,15 @@ export default function Home() {
         artifact_scope: conversationWide ? "conversation" : "current_topic",
       },
     });
+  };
+
+  const startSuggestedTool = (template: SuggestedTool) => {
+    if (template === "conversation_notes") {
+      startGenerate("本次学习笔记", "整理本次学习对话，保留问过的问题、解释、例子和待解决的疑问。参考资料支撑知识事实，不把看过答案当成已经掌握。", ["doc"], template);
+      return;
+    }
+    const tool = GENERATORS.find(item => item.template === template);
+    if (tool) startGenerate(tool.title, tool.goal, [...tool.kinds], tool.template);
   };
 
   const openPanel = (panel: Exclude<PanelKey, "chat">) => {
@@ -835,7 +846,7 @@ export default function Home() {
       onToggle={togglePersonalSource}
     />
   );
-  const studioPanel = <StudioPanel onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
+  const studioPanel = <StudioPanel key={activeNotebook?.id || "welcome"} stage={studyStage} onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
   const profilePace = asRecord(profile?.pace);
 
   return (
@@ -915,6 +926,9 @@ export default function Home() {
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}
               onLearningTurn={setConversationFocus}
               onSessionReady={setChatSessionId}
+              learnerId={authUser.id}
+              onStudyStage={setStudyStage}
+              onSuggestedTool={activeNotebook ? startSuggestedTool : undefined}
               onQuizEvaluated={refreshAfterEvaluation}
               onOpenMistakes={() => openPanel("mistakes")}
               recommendedTask={pathPlan ? {

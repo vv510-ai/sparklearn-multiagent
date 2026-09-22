@@ -227,6 +227,37 @@ def test_framework_generation_receives_the_whole_conversation(monkeypatch):
     ]
 
 
+def test_conversation_notes_include_earlier_topics_while_current_topic_notes_stay_scoped(monkeypatch):
+    captured = []
+    history = [
+        {"role": "user", "content": "什么是二叉树"},
+        {"role": "assistant", "content": "每个节点最多两个孩子。"},
+        {"role": "user", "content": "什么是队列"},
+        {"role": "assistant", "content": "先进先出。"},
+    ]
+
+    async def empty_events():
+        if False:
+            yield {}
+
+    def fake_run(state):
+        captured.append(state)
+        return empty_events()
+
+    monkeypatch.setattr(resources_api, "ensure_user", lambda _uid: None)
+    monkeypatch.setattr(resources_api, "validate_source_scope", lambda _uid, sources: sources)
+    monkeypatch.setattr(resources_api, "get_session_messages", lambda _uid, _sid, **kwargs: history)
+    monkeypatch.setattr(resources_api, "run_with_events", fake_run)
+    for template in ("conversation_notes", "complete_notes"):
+        asyncio.run(resources_api.generate(GenerateRequest(
+            user_id="notes-scope-user", session_id="notes-session", kinds=["doc"],
+            goal="整理笔记", conversation_focus="什么是队列", prompt_template=template,
+        )))
+    assert captured[0]["conversation"] == history
+    assert captured[0]["artifact_scope"] == "conversation"
+    assert captured[1]["conversation"] == history[-2:]
+
+
 def test_framework_mindmap_integrates_topics_in_prerequisite_order(monkeypatch):
     async def fake_expand(node_id: str, **kwargs):
         name = kwargs.get("topic_name") or kp_name(node_id)

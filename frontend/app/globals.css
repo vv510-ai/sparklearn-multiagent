@@ -1436,6 +1436,45 @@ body::after {
   scrollbar-width: thin;
 }
 
+.studio-stage-note {
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: #edf5f0;
+  color: #234d3e;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.studio-stage-note p { margin-top: 4px; font-size: 12px; color: #456153; }
+.studio-disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: 1px solid #d4dfd8;
+  border-radius: 10px;
+  background: #fff;
+  color: #176c6b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.feature-guide { margin-top: 16px; color: #47594e; font-size: 12px; line-height: 1.75; }
+.feature-guide summary { cursor: pointer; min-height: 44px; padding-block: 10px; color: #176c6b; font-weight: 700; }
+.feature-guide ol { list-style: decimal; padding-inline-start: 20px; margin-block: 10px; }
+.feature-guide li + li { margin-top: 8px; }
+.study-suggestion { padding: 18px; border: 1px solid #bddbca; border-radius: 14px; background: #f0f8f3; color: #304c3d; }
+.study-suggestion .study-suggestion-kicker { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #296050; }
+.study-suggestion h3 { margin-top: 8px; font-size: 16px; font-weight: 700; }
+.study-suggestion p { font-size: 13px; line-height: 1.75; }
+.study-suggestion small { display: block; margin-top: 10px; color: #53675b; font-size: 11px; }
+.study-suggestion-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.study-suggestion-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 12px; border: 1px solid #bed7c8; border-radius: 10px; background: #fff; color: #246348; font-size: 12px; font-weight: 600; }
+.study-suggestion-actions button:first-child { background: #176c6b; color: #fff; border-color: #176c6b; }
+.feature-guide summary:focus-visible, .studio-disclosure:focus-visible, .study-suggestion-actions button:focus-visible { outline: 3px solid #1a7860; outline-offset: 3px; }
+
 .studio-tile {
   --studio-rgb: 74, 103, 186;
   --studio-ink: #27447c;

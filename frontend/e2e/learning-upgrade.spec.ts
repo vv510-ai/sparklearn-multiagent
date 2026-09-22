@@ -46,6 +46,7 @@ test("模型设置、双平台课程、英语点击作答与离线研究状态",
   await expect(page.locator(".course-card")).toHaveCount(1);
   await expect(page.getByRole("link",{name:/去 YouTube 观看/})).toHaveAttribute("href", /youtube\.com\/watch/);
 
+  await page.getByRole("button",{name:"展开全部工具",exact:true}).click();
   await page.getByRole("button",{name:/英语场景学习.*影视字幕/}).click();
   await page.getByRole("combobox",{name:"学习目标",exact:true}).selectOption("雅思");
   await page.getByRole("button",{name:"生成场景笔记"}).click();

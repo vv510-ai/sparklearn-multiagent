@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import FeatureGuide from "@/components/onboarding/FeatureGuide";
+import type { StudyStage } from "@/lib/learning-guidance";
 import {
   AlertTriangle,
   BookMarked,
@@ -23,7 +26,7 @@ import {
 
 type StudioPanelKey = "research" | "english" | "models" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
 
-const GENERATORS = [
+export const GENERATORS = [
   {
     title: "互动讲解",
     desc: "边听边问，回答后继续",
@@ -139,11 +142,15 @@ export default function StudioPanel({
   onGenerate,
   onOpen,
   disabled = false,
+  stage = "start",
 }: {
   onGenerate: (label: string, goal: string, kinds: string[], template: string) => void;
   onOpen: (panel: StudioPanelKey) => void;
   disabled?: boolean;
+  stage?: StudyStage;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const suggested = stage === "organize" ? ["one_page", "framework", "complete_notes", "quiz"] : ["interactive_audio", "quiz"];
   return (
     <div className="notebook-column studio-panel flex h-full min-h-0 flex-col" aria-label="学习工坊">
       <div className="notebook-column-header">
@@ -157,13 +164,18 @@ export default function StudioPanel({
       </div>
 
       <div className="studio-panel-body min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="studio-stage-note">
+          <strong>{stage === "start" ? "先完成一个小任务" : stage === "explore" ? "先把眼前的卡点讲明白" : "聊过一段，按需要整理或试一题"}</strong>
+          <p>{stage === "start" ? "直接在学习对话里提问，或用短测找到起点。其余工具随时可以展开。" : stage === "explore" ? "需要时换个例子、听一段讲解，或独立试一道题。" : "选一种适合你的方式就够了，也可以继续提问。"}</p>
+        </div>
         <div className="studio-learning-start">
           <button type="button" disabled={disabled} onClick={() => onOpen("assessment")}><span><Target size={20} /></span><span><strong>起点测评与计划</strong><small>找到起点，安排下一步</small></span><ChevronRight size={16} /></button>
           <button type="button" disabled={disabled} onClick={() => onOpen("courses")}><span><PlaySquare size={20} /></span><span><strong>推荐网课</strong><small>按知识点找课，先预览</small></span><ChevronRight size={16} /></button>
         </div>
-        <div className="studio-divider"><span>学习工具</span></div>
-        <div className="grid grid-cols-2 gap-2">
-          {GENERATORS.map((tool) => {
+        <div className="studio-divider"><span>{expanded ? "全部学习工具" : "现在可能用得上"}</span></div>
+        <button type="button" className="studio-disclosure" aria-expanded={expanded} aria-controls="studio-tool-list" onClick={() => setExpanded(value => !value)}>{expanded ? "收起全部工具" : "展开全部工具"}<ChevronRight size={16} aria-hidden className={expanded ? "rotate-90" : ""} /></button>
+        <div id="studio-tool-list" className="grid grid-cols-2 gap-2">
+          {GENERATORS.filter(tool => expanded || suggested.includes(tool.template)).map((tool) => {
             const Icon = tool.icon;
             return (
               <button type="button" key={tool.title} disabled={disabled} onClick={() => onGenerate(tool.title, tool.goal, [...tool.kinds], tool.template)} className={`studio-tile is-${tool.tone} disabled:cursor-wait disabled:opacity-50`}>
@@ -177,10 +189,10 @@ export default function StudioPanel({
           })}
         </div>
 
-        <div className="studio-divider"><span>持续学习</span></div>
+        <div className="studio-divider"><span>{expanded ? "持续学习" : "随时可用"}</span></div>
 
         <div className="space-y-2">
-          {VIEWS.map((item) => {
+          {VIEWS.filter(item => expanded || ["resources", "models"].includes(item.panel)).map((item) => {
             const Icon = item.icon;
             return (
               <button type="button" key={item.title} disabled={disabled} onClick={() => onOpen(item.panel)} className={`studio-view is-${item.tone} disabled:cursor-wait disabled:opacity-50`}>
@@ -194,6 +206,7 @@ export default function StudioPanel({
             );
           })}
         </div>
+        <FeatureGuide />
       </div>
     </div>
   );

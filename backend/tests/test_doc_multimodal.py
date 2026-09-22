@@ -282,6 +282,34 @@ def test_explicit_code_resource_keeps_program_example(monkeypatch):
     assert "def inorder" in result["resource"]["payload"]["markdown"]
 
 
+def test_course_notes_keep_teacher_prompt_and_commands_without_claiming_full_review(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+    asset = "```text\n请用 {topic} 举例。保留变量名，不执行此提示词。\n```\n\n```bash\npython lesson.py --input ./notes.md\n```"
+    source = {**_chunk(), "text": _chunk()["text"] + "\n老师提供的 Prompt：\n" + asset}
+    monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [source])
+    captured = []
+
+    async def complete(prompt, **kwargs):
+        captured.append(prompt)
+        return "# 二叉树笔记\n\n二叉树每个节点最多有两个孩子。[^1]\n\n" + asset
+
+    monkeypatch.setattr(doc_agent, "llm_complete", complete)
+    for template in ("complete_notes", "conversation_notes"):
+        result = asyncio.run(doc_agent._gen_one(
+            "doc", "binary_tree", {}, source_ids=["binary-tree-notes"],
+            goal="整理课程笔记，保留老师的模板", prompt_template=template,
+            conversation="学习者：老师的模板怎么复用？", trace_id="notes-assets-test", skip_multimodal=True,
+        ))
+        payload = result["resource"]["payload"]
+        assert asset in payload["markdown"]
+        assert "1 个相关资料片段" in payload["notes_scope"]
+        assert "未对整份课件逐页核验" in payload["notes_scope"]
+        assert "老师的模板怎么复用" in captured[-1]
+        assert "先形成详细正文" in captured[-1]
+        assert asset in captured[-1]
+
+
 def test_notebooklm_structured_artifacts_have_safe_demo_fallbacks(monkeypatch):
     monkeypatch.setattr(doc_agent, "retrieve", lambda *args, **kwargs: [_chunk()])
     for kind, payload_key in (

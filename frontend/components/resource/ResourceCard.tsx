@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { voiceLabel } from "@/lib/media";
@@ -266,16 +266,17 @@ export default function ResourceCard({
             <PptBlock payload={payload} />
           ) : payload.markdown ? (
             <>
+              {payload.notes_scope && <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">{payload.notes_scope}</p>}
               {payload.one_page_visual && <OnePageVisual visual={payload.one_page_visual} />}
               {payload.one_page_visual?.image_url ? (
                 <details className="rounded-xl border border-[#E5E9E3] bg-[#FBFCFA] px-4 py-3">
                   <summary className="cursor-pointer text-xs font-bold text-[#0F6B50]">查看文字版与出处</summary>
                   <div className="mt-3 border-t border-[#E5E9E3] pt-3">
-                    <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code"} />
+                    <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code" || (r.kind === "doc" && ["", "complete_notes", "conversation_notes"].includes(payload.template || ""))} />
                   </div>
                 </details>
               ) : (
-                <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code"} />
+                <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code" || (r.kind === "doc" && ["", "complete_notes", "conversation_notes"].includes(payload.template || ""))} />
               )}
             </>
           ) : (

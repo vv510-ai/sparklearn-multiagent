@@ -62,6 +62,7 @@ export interface ResourceItem {
   payload: {
     markdown?: string;
     template?: string;
+    notes_scope?: string;
     markmap?: string;
     questions?: QuizQuestion[];
     flashcards?: {

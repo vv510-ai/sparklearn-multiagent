@@ -54,7 +54,7 @@ def _conversation_text(state: dict, limit: int = 10000) -> str:
         if str(item.get("content") or "").strip()
     ]
     text = "\n".join(lines)
-    return text[-limit:] if len(text) > limit else text
+    return "（较早对话超出本次整理范围，以下是最近的可用对话；不得声称涵盖全部历史。）\n" + text[-limit:] if len(text) > limit else text
 
 
 def _compact(text: str, limit: int = 180) -> str:
@@ -825,7 +825,8 @@ async def _gen_one(
                 flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
                               "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
 
-    if kind != "code":
+    notes_template = kind == "doc" and prompt_template in {"", "complete_notes", "conversation_notes"}
+    if kind != "code" and not notes_template:
         md = without_source_code(md, keep_mermaid=True)
 
     if (kind == "doc" and not fallback and not source_scope_missing
@@ -897,6 +898,11 @@ async def _gen_one(
         "source_ids": source_ids,
         "source_evidence": cite_used,
     }
+    if notes_template:
+        payload["notes_scope"] = (
+            f"本次依据 {len(chunks)} 个相关资料片段和可用对话整理，未对整份课件逐页核验。"
+            if chunks else "本次没有可用的资料片段；内容依据可用对话或通用知识，不代表已核验课程原文。"
+        )
     one_page = kind == "doc" and prompt_template == "one_page"
     if one_page:
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)

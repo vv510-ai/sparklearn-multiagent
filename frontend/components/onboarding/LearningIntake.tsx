@@ -1,4 +1,5 @@
 "use client";
+import FeatureGuide from "./FeatureGuide";
 import TextbookScope from "@/components/assessment/TextbookScope";
 import AnswerGuide from "@/components/assessment/AnswerGuide";
 
@@ -212,6 +213,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
         }} />
         {goals.length > 1 && <label className="intake-field">当前优先解决<select value={survey.goal} onChange={e => set("goal", e.target.value)}>{goals.map(g => <option key={g}>{g}</option>)}</select></label>}
         {!!goals.length && <p className="intake-response" role="status"><Compass size={17} /> 将优先围绕“{survey.goal}”安排；具体难度等你做题后确定。</p>}
+        <FeatureGuide />
       </>}
       {step === 1 && <>
         <p className="intake-hint">你希望优先“{survey.goal}”。下面选定这次的课程和资料，之后的测评、计划与讲解会围绕它们展开。</p>
@@ -229,7 +231,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
         <p className="intake-response">{survey.source_ids?.length ? `已选 ${survey.source_ids.length} 份资料。我们将列出实际读取的范围，请你核对后再测。` : survey.course_key === "custom" ? "还没有资料：将围绕这个主题生成初步检查，并说明适用范围。" : "将使用所选课程的自编入门讲义和题目。"}</p>
       </>}
       {step === 2 && <>
-        <p className="intake-hint">选最贴近最近经历的几项，也可以不选。帮助方式之后随时能改。</p>
+        <p className="intake-hint">选最贴近最近经历的几项，也可以不选。这只是你此刻想要的帮助，不是性格或能力标签，之后随时能改。</p>
         <ChoiceGroup legend="常见的困难" options={barrierOptions(survey.course_key)} values={survey.barriers || []} onChange={v => set("barriers", v)} optional />
         <ChoiceGroup legend="你希望怎样得到帮助" options={SUPPORTS} values={survey.supports || []} onChange={v => set("supports", v)} optional />
         {!!survey.barriers?.length && <div className="intake-response" role="status">{BARRIERS.filter(o => survey.barriers?.includes(o[0])).map(o => <p key={o[0]}>{o[2]}。</p>)}</div>}
@@ -242,9 +244,11 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
         <label className="intake-field">{goals.some(g => /考试|408/.test(g)) ? "考试／目标日期（选填）" : "希望完成目标的日期（选填）"}<input type="date" value={survey.target_date || ""} onChange={e => set("target_date", e.target.value || null)} /></label>
         <label className="intake-field">什么时机会比较容易开始？<input maxLength={60} value={survey.study_cue || ""} onChange={e => set("study_cue", e.target.value)} placeholder="选填，例如：晚饭后坐到书桌前" /></label>
         <p className="intake-response">每周 {survey.study_days.length} 天 × {survey.daily_minutes || 0} 分钟。计划会按这个预算拆分任务。</p>
+        {survey.study_cue?.trim() && <p className="intake-hint">到“{survey.study_cue.trim()}”时，先打开第一项任务，做一个最小步骤；当天没完成，也可以调整计划再继续。</p>}
       </>}
       {step === 4 && <>
         <div className="intake-summary"><Sparkles size={20} /><div><strong>优先：{survey.goal}</strong><p>{goals.filter(g => g !== survey.goal).length ? `同时兼顾：${goals.filter(g => g !== survey.goal).join("、")}。` : ""}每周 {survey.study_days.length} 天，每个学习日 {survey.daily_minutes} 分钟。</p><small>你的目标、困难与帮助选择会进入计划和资料，下一步无需重复填写。</small></div></div>
+        <p className="intake-hint">接下来先找到起点、完成一项小任务。聊过几轮之后，小知会提示适合的整理或练习工具；可以接受，也可以继续聊。</p>
         {!isReplan && <>
           {survey.course_key === "ds_algo" && <details className="intake-example-details"><summary><Play size={15} /> 先体验一次小知怎样讲解（可选）</summary><IntroExample onPracticed={() => set("intro_practiced", true)} /></details>}
           {course ? <section className="intake-outline" aria-label="本次学习范围"><h3>{course.title} · 核对学习范围</h3><p>{course.coverage_note}</p>

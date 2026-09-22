@@ -115,7 +115,7 @@ export default function Markdown({
 }: {
   text: string;
   streaming?: boolean;
-  /** 只有明确的代码学习场景才开启。 */
+  /** 代码学习或需保留材料中教学 Prompt / 命令原文的笔记场景开启。 */
   allowCodeBlocks?: boolean;
   /** 兼容资源数据；普通学习界面不展示出处。 */
   citeBase?: string;
