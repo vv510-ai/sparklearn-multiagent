@@ -43,8 +43,8 @@ def _focused_text(text: str, kp: str, topic_name: str, metadata_kps: set[str], *
         return any(term in compact for term in terms)
 
     # Markdown headings are the strongest section boundary in the seed corpus
-    # and in most uploaded notes. Keep only sections that identify this kp and
-    # do not introduce another course topic.
+    # and in most uploaded notes. A comparison section can explicitly teach
+    # more than one concept: the requested concept need not be detected first.
     sections = [
         section.strip()
         for section in re.split(r"(?=^\s{0,3}#{1,6}\s+)", raw, flags=re.MULTILINE)
@@ -53,15 +53,15 @@ def _focused_text(text: str, kp: str, topic_name: str, metadata_kps: set[str], *
     focused = []
     for section in sections:
         detected = infer_kp_ids(section)
-        if kp != "custom_topic" and detected and detected[0] == kp:
+        if kp != "custom_topic" and kp in detected:
             focused.append(section)
         elif named_topic and matches_name(section):
             focused.append(section)
     if focused:
         return "\n\n".join(focused)
 
-    # Plain text may not have headings. Keep individual lines/sentences that
-    # mention only the current kp, rather than returning a whole mixed chapter.
+    # Plain text may not have headings. Keep lines/sentences that explicitly
+    # mention the current kp, rather than returning a whole mixed chapter.
     pieces = [
         piece.strip()
         for piece in re.split(r"(?<=[。！？；])|\n+", raw)
@@ -70,7 +70,7 @@ def _focused_text(text: str, kp: str, topic_name: str, metadata_kps: set[str], *
     focused = []
     for piece in pieces:
         detected = infer_kp_ids(piece)
-        if kp != "custom_topic" and detected and detected[0] == kp:
+        if kp != "custom_topic" and kp in detected:
             focused.append(piece)
         elif named_topic and matches_name(piece):
             focused.append(piece)

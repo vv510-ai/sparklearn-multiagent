@@ -76,6 +76,19 @@ def test_custom_conversation_focus_keeps_subject_and_removes_learning_request_wo
     assert topic == ("custom_topic", "量子纠缠", True)
 
 
+def test_comparison_source_keeps_secondary_concept_and_its_teacher_prompt():
+    asset = "```text\n请用 {主题} 带我复习栈和队列。\n```"
+    mixed = "# 栈与队列\n栈后进先出，队列先进先出。\n\n## 老师提供的模板\n" + asset + "\n\n## 快速排序\n划分后分别排序。"
+    original = [{"text": mixed, "kp": "", "source_id": "uploaded-comparison"}]
+    for target in ("stack", "queue"):
+        focused = focus_chunks_on_topic(original, target, "栈" if target == "stack" else "队列")
+        assert len(focused) == 1
+        assert "队列先进先出" in focused[0]["text"]
+        assert asset in focused[0]["text"]
+        assert "快速排序" not in focused[0]["text"]
+    assert original[0]["text"] == mixed
+
+
 def test_uploaded_topic_does_not_include_source_or_teaching_instructions():
     goal = "根据已选资料，分步骤讲解生态系统的能量流动与物质循环，并留下一个独立思考问题。"
     kp, name, custom = resolve_conversation_topic(goal, topic_label="生态学入门")
