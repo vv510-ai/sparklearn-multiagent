@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import FeatureGuide from "@/components/onboarding/FeatureGuide";
 import type { StudyStage } from "@/lib/learning-guidance";
 import {
@@ -150,6 +150,7 @@ export default function StudioPanel({
   stage?: StudyStage;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const toolsId = useId();
   const suggested = stage === "organize" ? ["one_page", "framework", "complete_notes", "quiz"] : ["interactive_audio", "quiz"];
   return (
     <div className="notebook-column studio-panel flex h-full min-h-0 flex-col" aria-label="学习工坊">
@@ -173,8 +174,8 @@ export default function StudioPanel({
           <button type="button" disabled={disabled} onClick={() => onOpen("courses")}><span><PlaySquare size={20} /></span><span><strong>推荐网课</strong><small>按知识点找课，先预览</small></span><ChevronRight size={16} /></button>
         </div>
         <div className="studio-divider"><span>{expanded ? "全部学习工具" : "现在可能用得上"}</span></div>
-        <button type="button" className="studio-disclosure" aria-expanded={expanded} aria-controls="studio-tool-list" onClick={() => setExpanded(value => !value)}>{expanded ? "收起全部工具" : "展开全部工具"}<ChevronRight size={16} aria-hidden className={expanded ? "rotate-90" : ""} /></button>
-        <div id="studio-tool-list" className="grid grid-cols-2 gap-2">
+        <button type="button" className="studio-disclosure" aria-expanded={expanded} aria-controls={toolsId} onClick={() => setExpanded(value => !value)}>{expanded ? "收起全部工具" : "展开全部工具"}<ChevronRight size={16} aria-hidden className={expanded ? "rotate-90" : ""} /></button>
+        <div id={toolsId} className="grid grid-cols-2 gap-2">
           {GENERATORS.filter(tool => expanded || suggested.includes(tool.template)).map((tool) => {
             const Icon = tool.icon;
             return (

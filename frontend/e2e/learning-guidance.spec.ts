@@ -95,6 +95,14 @@ test("逐步展示、成功问答触发建议、明确选择后才生成并保�
   await expect(suggestion).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("guidance-mobile.png"), fullPage: true });
+  await page.getByRole("button", { name: "学习工坊", exact: true }).click();
+  const mobileStudio = page.locator(".notebook-mobile-sheet");
+  const mobileExpand = mobileStudio.getByRole("button", { name: "展开全部工具", exact: true });
+  const controlledId = await mobileExpand.getAttribute("aria-controls");
+  expect(await page.evaluate(id => Array.from(document.querySelectorAll("[id]")).filter(el => el.id === id).length, controlledId)).toBe(1);
+  await mobileExpand.click();
+  await expect(mobileStudio.locator(".studio-tile")).toHaveCount(11);
+  await mobileStudio.getByRole("button", { name: "关闭", exact: true }).click();
   await suggestion.getByRole("button", { name: "生成框架导图", exact: true }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({ prompt_template: "framework", artifact_scope: "conversation", notebook_id: notebook.id, session_id: notebook.session_id, kinds: ["mindmap"] });
