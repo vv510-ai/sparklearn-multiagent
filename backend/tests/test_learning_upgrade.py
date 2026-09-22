@@ -41,6 +41,7 @@ def test_personal_keys_are_encrypted_and_never_returned(user):
 
 
 def test_model_routes_are_tenant_and_capability_specific(user):
+    assert preferences.module_for("CAPABILITY=assessment.course_draft\n") == "quiz"
     preferences.save(user, {"default":"deepseek-flash", "english":"kimi-k3"},
                      {"deepseek":"test-deepseek", "kimi":"test-kimi"})
     token = bind_request_user(user)

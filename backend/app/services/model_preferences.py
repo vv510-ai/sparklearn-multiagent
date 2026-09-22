@@ -126,7 +126,7 @@ def module_for(prompt: str) -> str:
         return "animation"
     if capability in {"doc.one_page", "image.one_page", "mindmap.leaf", "doc.infographic"}:
         return "knowledge_map"
-    if capability.startswith("quiz."):
+    if capability.startswith(("quiz.", "assessment.")):
         return "quiz"
     if capability.startswith("doc.") or "ppt" in capability:
         return "notes"
