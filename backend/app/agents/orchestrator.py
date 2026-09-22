@@ -62,9 +62,13 @@ def requested_resource_kinds(message: str) -> list[str]:
 
     if any(affirmed(hint) for hint in _ALL_RESOURCE_HINTS):
         return ["doc", "mindmap", "quiz", "video"]
+    # A requested explanation style is not a request to create a separate file.
+    note_style = bool(re.search(r"(?:用|以|按)[\u4e00-\u9fff、，,]{0,18}笔记(?:的)?(?:形式|风格)?(?:来)?(?:解释|讲解|说明)", compact))
+    explicit_document = bool(re.search(r"(?:生成|制作|写一份|整理成)[^。！？!?]{0,24}笔记", compact))
     return [
         kind
         for kind, hints in _RESOURCE_KIND_HINTS.items()
+        if kind != "doc" or not note_style or explicit_document
         if any(affirmed(hint) for hint in hints)
     ]
 

@@ -104,6 +104,12 @@ def test_knowledge_usage_questions_are_not_product_help():
     assert not _needs_retrieval("这个软件怎么用？")
 
 
+def test_note_style_explanations_do_not_become_generic_course_documents():
+    from app.agents.orchestrator import requested_resource_kinds
+    assert requested_resource_kinds("请用简单易懂、深入的学习笔记解释 hesitate 和 be reluctant to 的区别") == []
+    assert requested_resource_kinds("请制作一份 hesitate 和 be reluctant to 的学习笔记") == ["doc"]
+
+
 def test_followups_wait_for_pending_turn_instead_of_mixing_rounds(monkeypatch):
     from app.api import learning
     monkeypatch.setattr(learning, "_scope", lambda _: "test-user")
