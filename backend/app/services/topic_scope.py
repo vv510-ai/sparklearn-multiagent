@@ -17,6 +17,16 @@ def _metadata_kps(chunk: dict) -> set[str]:
 def topic_terms(topic_name: str) -> list[str]:
     """Extract subject phrases without using generic teaching words as evidence."""
     compact = re.sub(r"\s+", "", clean_topic_label(topic_name)).casefold()
+    # A custom course keeps the learner's natural question as its topic label.
+    # Extract the subject before treating that label as literal source evidence;
+    # instructions after a question mark are not subject names.
+    compact = re.split(r"[？?。；;！!]", compact, maxsplit=1)[0]
+    compact = re.sub(r"^(?:请问|什么是|如何理解|怎么理解)", "", compact)
+    subject = re.split(
+        r"是什么|是啥|有什么(?:区别|联系|关系|作用)|有哪些(?:区别|联系|关系|作用)|有何(?:区别|联系|关系)|怎么|如何",
+        compact, maxsplit=1,
+    )[0]
+    compact = subject or compact
     generic = {"当前主题", "学习", "资料", "内容", "问题", "例子", "概念", "定义", "原理",
                "特点", "过程", "区别", "比较", "基础", "入门", "应用", "角色区分"}
     terms: list[str] = []
@@ -27,7 +37,7 @@ def topic_terms(topic_name: str) -> list[str]:
         candidates.append(re.split(r"中的|的", part)[-1])
         for candidate in candidates:
             candidate = re.sub(r"(?:特点|的?概念|的?定义|的?区别|的?比较)$", "", candidate)
-            if len(candidate) >= 2 and candidate not in generic and candidate not in terms:
+            if (len(candidate) >= 2 or candidate in {"栈", "堆", "树", "图"}) and candidate not in generic and candidate not in terms:
                 terms.append(candidate)
     return terms
 

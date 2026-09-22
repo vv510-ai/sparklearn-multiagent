@@ -15,7 +15,7 @@ from app.services.knowledge_graph import (
     resolve_conversation_topic,
 )
 from app.services.conversation_service import current_topic_messages
-from app.services.topic_scope import focus_chunks_on_topic
+from app.services.topic_scope import focus_chunks_on_topic, topic_terms
 
 
 def test_conversation_focus_ignores_opening_help_title_and_recognizes_graph():
@@ -87,6 +87,19 @@ def test_comparison_source_keeps_secondary_concept_and_its_teacher_prompt():
         assert asset in focused[0]["text"]
         assert "快速排序" not in focused[0]["text"]
     assert original[0]["text"] == mixed
+
+
+def test_custom_course_question_extracts_concepts_instead_of_teaching_instructions():
+    question = "栈和队列有什么区别？请用资料中的两个例子说明先后顺序"
+    assert topic_terms(question) == ["栈", "队列"]
+    chunks = focus_chunks_on_topic([
+        {"text": "# 栈与队列\n栈后进先出，队列先进先出。\n\n## 老师的模板\n```text\n请用 {主题} 复习栈和队列。\n```", "kp": ""},
+        {"text": "# 学习方法\n用资料中的两个例子说明先后顺序。", "kp": ""},
+        {"text": "# 排序\n快速排序使用分治。", "kp": ""},
+    ], "custom_topic", question)
+    assert len(chunks) == 1
+    assert "{主题}" in chunks[0]["text"]
+    assert topic_terms("什么是栈？请举例") == ["栈"]
 
 
 def test_uploaded_topic_does_not_include_source_or_teaching_instructions():
