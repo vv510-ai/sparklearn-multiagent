@@ -1,6 +1,5 @@
 "use client";
 import TextbookScope from "@/components/assessment/TextbookScope";
-import AnswerGuide from "@/components/assessment/AnswerGuide";
 
 import { ArrowLeft, ArrowRight, Check, Compass, Lightbulb, Play, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -260,7 +259,6 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
             ["comprehensive", "完成所选范围摸底", course ? `${Math.min(48, (survey.target_kps?.length || course.outline.length) * 3)} 题左右 · 分模块检查，可暂停续答` : "按核对后的知识点范围出题，可分次完成"],
           ].map(([v, title, note]) => <label key={v} className={mode === v ? "is-selected" : ""}><input type="radio" name="intake-mode" checked={mode === v} onChange={() => setMode(v as Assessment["mode"])} /><span><strong>{title}{v === "screening" && <em>推荐</em>}</strong><small>{note}</small></span></label>)}</fieldset>
           <p className="intake-response">这是了解学习起点的小题，不是入学门槛。还没学过也可以使用小知；不会的题不用猜，可以跳过，之后再补。</p>
-          <AnswerGuide />
           <p className="intake-hint">独立作答，没有单题倒计时。可以选择“还不会”或暂停；完成后会解释依据，并准备第一项任务。</p>
         </>}
       </>}

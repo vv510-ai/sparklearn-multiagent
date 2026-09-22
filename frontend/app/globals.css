@@ -2172,14 +2172,7 @@ body::after {
 .assessment-welcome { margin: 14px 0; line-height: 1.7; }
 .assessment-welcome strong { color: #214b3d; font-size: 18px; }
 .assessment-welcome p { color: #52665c; margin-top: 5px; }
-.answer-guide { margin: 14px 0; padding: 14px 18px; border: 1px solid #b7cec1; border-radius: 14px; background: #f1f8f4; color: #284d3e; line-height: 1.7; }
-.answer-guide summary, .assessment-confidence summary { cursor: pointer; min-height: 28px; font-weight: 650; }
-.answer-guide fieldset { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
-.answer-guide legend { margin: 10px 0; }
-.answer-guide label { display: flex; align-items: center; gap: 10px; cursor: pointer; min-height: 44px; padding: 8px 14px; border: 1px solid #95b4a5; border-radius: 10px; background: white; }
-.answer-guide input { width: 18px; height: 18px; accent-color: #0b7057; }
-.answer-guide label:has(input:checked) { border-color: #0b7057; background: #ddf4e8; box-shadow: inset 0 0 0 1px #0b7057; }
-.answer-guide p[role="status"] { margin-top: 12px; }
+.assessment-confidence summary { cursor: pointer; min-height: 28px; font-weight: 650; }
 .question-instruction { margin: 12px 0; padding: 12px 14px; border-left: 3px solid #20886c; border-radius: 4px; background: #eef6f1; color: #28523e; line-height: 1.65; }
 .entry-question-card .assessment-stem { font-size: 19px; font-weight: 550; line-height: 1.8; white-space: pre-line; overflow-wrap: anywhere; margin: 18px 0; }
 .assessment-confidence { margin: 18px 0 8px; color: #52675b; }

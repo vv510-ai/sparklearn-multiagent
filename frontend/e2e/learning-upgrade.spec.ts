@@ -67,6 +67,8 @@ test("双平台课程、英语点击作答与离线研究状态", async ({page},
   await page.getByRole("button", {name:"发送",exact:true}).click();
   await page.getByRole("group",{name:"点击选择答案"}).getByRole("button",{name:"A. 弄明白",exact:true}).click();
   await expect(page.getByText("回答正确，figure out 表示通过思考弄明白。",{exact:true})).toBeVisible();
+  await expect(page.getByText("动态理解", {exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button", {name:"根据这次回答，生成下一步问题", exact:true})).toHaveCount(0);
   expect(chatRequests[1].message).toContain(question);
   expect(chatRequests[1].display_message).toBe("A. 弄明白");
   expect(errors).toEqual([]);

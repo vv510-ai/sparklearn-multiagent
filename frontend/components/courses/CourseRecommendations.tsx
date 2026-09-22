@@ -12,7 +12,8 @@ type Course = {
   topics: string[];
   reason: string;
   note: string;
-  verified_at: string;
+  verified_at?: string;
+  source?: "curated_catalog" | "bilibili_search";
   watch_url: string;
   preview_url: string;
   platform: "bilibili" | "youtube";
@@ -32,6 +33,8 @@ type CourseResponse = {
   search_text: string;
   reason: string;
   notice: string;
+  search_status?: "ok" | "unavailable" | "offline" | "not_requested";
+  search_cached?: boolean;
   topics: { id: string; name: string }[];
 };
 
@@ -62,14 +65,14 @@ export default function CourseRecommendations({
     setLoading(true);
     setError("");
     setPreview("");
-    apiGet<CourseResponse>(`/courses?${new URLSearchParams({ q: query, kp, notebook_id: notebookId, platform, topic: initialTopic })}`)
+    apiGet<CourseResponse>(`/courses?${new URLSearchParams({ q: query, kp: query ? "" : kp, notebook_id: notebookId, platform, topic: query ? "" : initialTopic.trim().slice(0, 120) })}`)
       .then((response) => {
         if (active) setData(response);
       })
       .catch(() => {
         if (active) {
           setData(null);
-          setError("课程资料库暂时无法读取。你仍可使用下面的 B 站全站搜索。");
+          setError("课程加载失败，请重试，或使用上方的全站搜索。");
         }
       })
       .finally(() => {
@@ -79,16 +82,16 @@ export default function CourseRecommendations({
       active = false;
     };
   }, [query, kp, platform, initialTopic, retry, notebookId]);
-  const searchUrl =
-    data?.search_url ||
-    `https://search.bilibili.com/all?${new URLSearchParams({ keyword: query || "数据结构与算法 入门" })}`;
+  const searchText = query || (!loading && data?.search_text) || initialTopic.trim().slice(0, 120) || "公开课";
+  const searchUrl = `https://search.bilibili.com/all?${new URLSearchParams({ keyword: searchText })}`;
+  const youtubeUrl = `https://www.youtube.com/results?${new URLSearchParams({ search_query: searchText })}`;
   return (
     <div className="notebook-content-scroll course-panel" aria-busy={loading}>
       <div className="notebook-content-heading">
         <div>
           <span>WATCH · UNDERSTAND · PRACTISE</span>
-          <h1>找到适合这一步的网课</h1>
-          <p>先试一道题，带着问题看，再合上视频做一道新题。</p>
+          <h1>找你想学的课程</h1>
+          <p>按主题、课程或老师搜索，不限当前书本。</p>
         </div>
         <button className="secondary-action" onClick={onBack}>
           <ArrowLeft size={15} />
@@ -101,25 +104,41 @@ export default function CourseRecommendations({
             onSubmit={(e) => {
               e.preventDefault();
               setQuery(draft.trim());
+              setKp("");
+              setRetry((r) => r + 1);
             }}
           >
             <label className="sr-only" htmlFor="course-query">
-              搜索课程资料库
+              搜索课程
             </label>
             <Search size={19} />
             <input
               id="course-query"
               value={draft}
               maxLength={120}
-              placeholder="搜索知识点、课程或老师"
+              placeholder="例如：摄影入门、线性代数、Python、英语六级"
               onChange={(e) => setDraft(e.target.value)}
             />
             <button className="primary-action" type="submit">
               搜索
             </button>
           </form>
-          <label>
-            知识点
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <label className="flex items-center gap-2 whitespace-nowrap">
+              视频来源
+              <select className="!w-auto" value={platform} onChange={e => setPlatform(e.target.value)}>
+                <option value="">全部来源</option>
+                <option value="bilibili">B 站</option>
+                <option value="youtube">YouTube · 已收录</option>
+              </select>
+            </label>
+            <a href={searchUrl} target="_blank" rel="noopener noreferrer" className="secondary-action">B 站全站搜索 <ArrowUpRight size={14} /></a>
+            <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" className="secondary-action">YouTube 搜索 <ArrowUpRight size={14} /></a>
+          </div>
+          {!query && !!data?.topics.length && <details className="text-sm">
+            <summary className="cursor-pointer text-emerald-800">按当前知识点筛选</summary>
+            <label className="mt-3 block">
+            当前知识点
             <select value={kp} onChange={(e) => setKp(e.target.value)}>
               <option value="">全部 · 按学习起点推荐</option>
               {data?.topics.map((t) => (
@@ -128,15 +147,16 @@ export default function CourseRecommendations({
                 </option>
               ))}
             </select>
-          </label>
+            </label>
+          </details>}
         </div>
-        <label className="mb-4 block text-sm font-semibold">视频来源<select value={platform} onChange={e=>setPlatform(e.target.value)} className="ml-3 rounded-xl border border-slate-200 bg-white p-2"><option value="">B站与 YouTube</option><option value="bilibili">B站 · 中文课程</option><option value="youtube">YouTube · 英文课程</option></select></label>
         <div className="course-reason">
           <span>{data?.reason || "从当前课程开始寻找讲解"}</span>
           <button onClick={onAssess}>
             完善起点测评 <ArrowUpRight size={14} />
           </button>
         </div>
+        {!loading && data && <p className="mb-5 text-sm leading-6 text-slate-600" role="status">{data.notice}</p>}
         {error && (
           <p role="alert" className="entry-error">
             {error}
@@ -145,7 +165,7 @@ export default function CourseRecommendations({
         )}
         {loading ? (
           <p role="status" className="entry-loading">
-            正在匹配课程资料库…
+            正在查找课程…
           </p>
         ) : data?.items.length ? (
           <div className="course-grid">
@@ -183,9 +203,9 @@ export default function CourseRecommendations({
                     <span className="course-poster-label relative z-10 rounded-md bg-white/90 px-2 py-1 text-slate-800">
                       {course.format} · {course.platform === "youtube" ? "YOUTUBE" : "BILIBILI"}
                     </span>
-                    <span className="course-poster-topic relative z-10 w-fit rounded-md bg-white/90 px-2 text-slate-800">
+                    {!!course.topics.length && <span className="course-poster-topic relative z-10 w-fit rounded-md bg-white/90 px-2 text-slate-800">
                       {course.topics.slice(0, 2).join(" / ")}
-                    </span>
+                    </span>}
                     <span className="course-play relative z-10">
                       <Play size={20} fill="currentColor" />
                       点击预览
@@ -196,13 +216,15 @@ export default function CourseRecommendations({
                   <p className="course-author">{course.author}</p>
                   <h2>{course.title}</h2>
                   <p className="course-match">{course.reason}</p>
-                  <p className="course-description">{course.note}</p>
-                  <dl className="my-3 space-y-2 text-xs leading-6 text-slate-600"><div><dt className="inline font-semibold">时长：</dt><dd className="inline">{course.duration_seconds ? `${Math.floor(course.duration_seconds / 3600)}小时${Math.floor(course.duration_seconds % 3600 / 60)}分 · 合集为总时长` : "原站未提供可核验值"}</dd></div><div><dt className="inline font-semibold">发布：</dt><dd className="inline">{course.published_at || "待核验"} · {course.language}</dd></div><div><dt className="inline font-semibold">字幕：</dt><dd className="inline">{course.subtitle_status}</dd></div></dl>
-                  {course.chapters?.length > 0 && <details className="mb-3 text-xs"><summary className="cursor-pointer font-semibold text-emerald-800">查看章节 / 分P（{course.chapters.length}）</summary><ol className="mt-2 max-h-60 space-y-2 overflow-auto">{course.chapters.map((c,i)=><li key={i}><a className="text-emerald-800 underline" href={c.url} target="_blank" rel="noopener noreferrer">{i+1}. {c.title}</a></li>)}</ol></details>}
-                  {!course.chapters?.length && <p className="mb-3 text-xs text-slate-500">章节：未取得目录，请打开原站查看。</p>}
-                  {course.metadata_notice && <p className="mb-3 text-xs text-amber-800">{course.metadata_notice}</p>}
+                  {course.note && <p className="course-description">{course.note}</p>}
+                  <p className="my-3 text-xs leading-6 text-slate-600">
+                    {course.duration_seconds ? `${Math.floor(course.duration_seconds / 3600)}小时${Math.floor(course.duration_seconds % 3600 / 60)}分` : "时长请见原站"}
+                    {course.published_at && ` · ${course.published_at}`}
+                    {course.language && ` · ${course.language}`}
+                  </p>
+                  {course.chapters?.length > 0 && <details className="mb-3 text-xs"><summary className="cursor-pointer font-semibold text-emerald-800">查看已收录章节（{course.chapters.length}）</summary><ol className="mt-2 max-h-60 space-y-2 overflow-auto">{course.chapters.map((c,i)=><li key={i}><a className="text-emerald-800 underline" href={c.url} target="_blank" rel="noopener noreferrer">{i+1}. {c.title}</a></li>)}</ol></details>}
                   <div className="course-card-footer">
-                    <small>公开页面核验于 {course.verified_at}</small>
+                    <small>{course.source === "bilibili_search" ? (data.search_cached ? "B 站搜索 · 近期结果" : "B 站搜索结果") : `已收录 · ${course.verified_at || "原站信息"}`}</small>
                     <a
                       href={course.watch_url}
                       target="_blank"
@@ -215,34 +237,15 @@ export default function CourseRecommendations({
               </article>
             ))}
           </div>
-        ) : (
+        ) : error ? null : (
           <div className="course-empty">
             <Search size={28} />
-            <h2>资料库中还没有对应课程</h2>
+            <h2>{data?.search_status === "unavailable" ? "暂时无法获取实时结果" : "暂未找到匹配课程"}</h2>
             <p>
-              试试缩短关键词，或到 B 站继续搜索“
-              {data?.search_text || query || "数据结构与算法"}”。
+              {data?.search_status === "unavailable" ? "可以使用上方的全站搜索，在原站继续查找" : "换个关键词，或使用上方的全站搜索继续查找"}“{searchText}”。
             </p>
           </div>
         )}
-        <div className="course-external-search">
-          <div>
-            <h2>继续在 B站和 YouTube 找课程</h2>
-            <p>打开实时搜索结果，自行比较讲解、目录与适用基础。</p>
-          </div>
-          <a
-            href={searchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="primary-action"
-          >
-            B 站全站搜索 <ArrowUpRight size={16} />
-          </a>
-          <a href={data?.youtube_search_url || `https://www.youtube.com/results?${new URLSearchParams({search_query:query || initialTopic || "algorithms course"})}`} target="_blank" rel="noopener noreferrer" className="secondary-action">YouTube 搜索 <ArrowUpRight size={16}/></a>
-        </div>
-        <p className="entry-note">
-          {data?.notice || "课程预览与观看服务由 B 站提供。"}
-        </p>
       </div>
     </div>
   );

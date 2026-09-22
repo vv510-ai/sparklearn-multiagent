@@ -26,7 +26,6 @@ import TextbookScope from "./TextbookScope";
 import TextbookPractice from "./TextbookPractice";
 import ListeningAudio from "./ListeningAudio";
 import Cet6Output from "./Cet6Output";
-import AnswerGuide from "./AnswerGuide";
 import AssessmentReview from "./AssessmentReview";
 
 const SurveyForm = LearningIntake;
@@ -247,7 +246,6 @@ export default function AssessmentPanel({
       ) : data.status === "active" && data.question ? (
         <div className="entry-quiz">
           <div className="assessment-welcome"><strong>一次只回答一道，先找到合适的起点。</strong><p>在下面的选项里作答，不用去聊天框填写。不会可以直说；没准备好可以跳过或暂停。</p></div>
-          <AnswerGuide />
           <div className="entry-progress-label">
             <span>
               已提交 {data.answered} 题 / 最多 {data.maximum} 题

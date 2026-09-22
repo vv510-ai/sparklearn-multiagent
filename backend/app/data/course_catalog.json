@@ -876,5 +876,398 @@
     "format": "完整课程",
     "note": "英文入门课程；可在原站打开字幕并按章节学习。",
     "verified_at": "2026-09-22"
+  },
+  {
+    "id": "cet6-vocabulary-xiaoyan",
+    "bvid": "BV1KRrKBNEZZ",
+    "course_kind": "cet6",
+    "aliases": [
+      "英语六级",
+      "大学英语六级",
+      "CET6",
+      "CET-6",
+      "六级词汇"
+    ],
+    "kps": [
+      "cet6_vocab"
+    ],
+    "title": "【四六级】【刘晓艳英语】六级单词精讲｜25天带你搞定六级词汇",
+    "author": "英语老师晓艳",
+    "platform": "bilibili",
+    "language": "中文",
+    "format": "课程讲解",
+    "note": "按原站目录选择章节，观看后试着独立应用。",
+    "verified_at": "2026-09-22",
+    "cover_url": "http://i2.hdslb.com/bfs/archive/7d612020e8d094afa52c71de17899b20f6dfeb05.jpg",
+    "duration_seconds": 74690,
+    "metadata_source": "B站公开视频信息",
+    "metadata_checked_at": "2026-09-22",
+    "published_at": "2026-01-10",
+    "chapters": [
+      {
+        "title": "使用说明",
+        "duration_seconds": 1218,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=1"
+      },
+      {
+        "title": "U1 Lesson 1",
+        "duration_seconds": 1703,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=2"
+      },
+      {
+        "title": "U1 Lesson 2",
+        "duration_seconds": 2093,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=3"
+      },
+      {
+        "title": "U1 Lesson 3",
+        "duration_seconds": 2591,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=4"
+      },
+      {
+        "title": "U1 Lesson 4",
+        "duration_seconds": 2601,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=5"
+      },
+      {
+        "title": "U2 Lesson 1-1",
+        "duration_seconds": 2541,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=6"
+      },
+      {
+        "title": "U2 Lesson 1-2",
+        "duration_seconds": 1903,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=7"
+      },
+      {
+        "title": "U2 Lesson 2",
+        "duration_seconds": 2111,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=8"
+      },
+      {
+        "title": "U2 Lesson 3",
+        "duration_seconds": 1948,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=9"
+      },
+      {
+        "title": "U2 Lesson 4",
+        "duration_seconds": 2129,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=10"
+      },
+      {
+        "title": "U3 Lesson 1",
+        "duration_seconds": 2948,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=11"
+      },
+      {
+        "title": "U3 Lesson 2",
+        "duration_seconds": 1950,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=12"
+      },
+      {
+        "title": "U3 Lesson 3",
+        "duration_seconds": 3031,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=13"
+      },
+      {
+        "title": "U3 Lesson 4",
+        "duration_seconds": 1738,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=14"
+      },
+      {
+        "title": "U4 Lesson 1",
+        "duration_seconds": 2543,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=15"
+      },
+      {
+        "title": "U4 Lesson 2",
+        "duration_seconds": 2308,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=16"
+      },
+      {
+        "title": "U4 Lesson 3",
+        "duration_seconds": 2901,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=17"
+      },
+      {
+        "title": "U4 Lesson 4-1",
+        "duration_seconds": 1609,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=18"
+      },
+      {
+        "title": "U4 Lesson 4-2",
+        "duration_seconds": 2418,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=19"
+      },
+      {
+        "title": "U5 Lesson 1",
+        "duration_seconds": 2765,
+        "url": "https://www.bilibili.com/video/BV1KRrKBNEZZ/?p=20"
+      }
+    ]
+  },
+  {
+    "id": "python-linlili",
+    "bvid": "BV1Jgf6YvE8e",
+    "course_kind": "python",
+    "aliases": [
+      "Python",
+      "Python 入门",
+      "Python 零基础",
+      "编程入门"
+    ],
+    "kps": [
+      "py_values",
+      "py_branches",
+      "py_loops",
+      "py_functions"
+    ],
+    "title": "3小时超快速入门Python | 动画教学【2026新版】【自学Python教程】【零基础Python】【计算机二级Python】【Python期末速成】",
+    "author": "林粒粒呀",
+    "platform": "bilibili",
+    "language": "中文",
+    "format": "课程讲解",
+    "note": "按原站目录选择章节，观看后试着独立应用。",
+    "verified_at": "2026-09-22",
+    "cover_url": "http://i0.hdslb.com/bfs/archive/f434c48d7cbea2b3efd71fd05f0f705132a22e57.jpg",
+    "duration_seconds": 11843,
+    "metadata_source": "B站公开视频信息",
+    "metadata_checked_at": "2026-09-22",
+    "published_at": "2025-02-01",
+    "chapters": [
+      {
+        "title": "先导篇 | 为什么做这个教程，UP主是闲得发慌吗",
+        "duration_seconds": 177,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=1"
+      },
+      {
+        "title": "在你开始编程之前 | 为什么安装Python和PyCharm",
+        "duration_seconds": 85,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=2"
+      },
+      {
+        "title": "Windows | 安装Python和PyCharm",
+        "duration_seconds": 234,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=3"
+      },
+      {
+        "title": "macOS | 安装Python和PyCharm",
+        "duration_seconds": 251,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=4"
+      },
+      {
+        "title": "PyCharm | 创建你的第一个项目",
+        "duration_seconds": 203,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=5"
+      },
+      {
+        "title": "print | 让程序给你打印“爸爸”",
+        "duration_seconds": 386,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=6"
+      },
+      {
+        "title": "更多 print | 让程序给你打印一首诗",
+        "duration_seconds": 403,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=7"
+      },
+      {
+        "title": "Python变量 | 怎么让程序记住你对象的手机号",
+        "duration_seconds": 349,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=8"
+      },
+      {
+        "title": "Python命名规则 | 哪些变量名算好名字",
+        "duration_seconds": 182,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=9"
+      },
+      {
+        "title": "Python数学运算 | 用代码秒杀计算器",
+        "duration_seconds": 483,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=10"
+      },
+      {
+        "title": "Python注释 | 悄悄在代码里骂用户？",
+        "duration_seconds": 149,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=11"
+      },
+      {
+        "title": "Python数据类型 | 程序世界的物种们",
+        "duration_seconds": 419,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=12"
+      },
+      {
+        "title": "Python交互模式 | 读一行执行一行",
+        "duration_seconds": 165,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=13"
+      },
+      {
+        "title": "Python input | 写个用户问答互动程序",
+        "duration_seconds": 282,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=14"
+      },
+      {
+        "title": "Python条件语句 | 对象今天会生气吗",
+        "duration_seconds": 340,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=15"
+      },
+      {
+        "title": "Python嵌套/多条件判断 | 对象今天会生气吗 II",
+        "duration_seconds": 346,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=16"
+      },
+      {
+        "title": "Python逻辑运算 | 今年过节能收礼吗",
+        "duration_seconds": 177,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=17"
+      },
+      {
+        "title": "Python列表 | 创一个购物清单",
+        "duration_seconds": 392,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=18"
+      },
+      {
+        "title": "Python字典 | 创个秒查流行语的词典",
+        "duration_seconds": 484,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=19"
+      },
+      {
+        "title": "Python for循环 | 找出不正常体温",
+        "duration_seconds": 241,
+        "url": "https://www.bilibili.com/video/BV1Jgf6YvE8e/?p=20"
+      }
+    ]
+  },
+  {
+    "id": "calculus-songhao",
+    "bvid": "BV1CAxaeHEeH",
+    "course_kind": "calculus",
+    "aliases": [
+      "高等数学",
+      "高数",
+      "高等数学入门",
+      "微积分",
+      "导数",
+      "积分"
+    ],
+    "kps": [
+      "calc_limits",
+      "calc_derivatives",
+      "calc_integrals",
+      "calc_applications"
+    ],
+    "title": "《高等数学》全程教学视频 2.0版【宋浩老师】",
+    "author": "宋浩老师官方",
+    "platform": "bilibili",
+    "language": "中文",
+    "format": "课程讲解",
+    "note": "按原站目录选择章节，观看后试着独立应用。",
+    "verified_at": "2026-09-22",
+    "cover_url": "http://i2.hdslb.com/bfs/archive/85b77783310ecad59cbb44006122059f9bea0126.jpg",
+    "duration_seconds": 389358,
+    "metadata_source": "B站公开视频信息",
+    "metadata_checked_at": "2026-09-22",
+    "published_at": "2024-10-01",
+    "chapters": [
+      {
+        "title": "1 映射",
+        "duration_seconds": 2076,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=1"
+      },
+      {
+        "title": "视频与图书介绍",
+        "duration_seconds": 307,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=2"
+      },
+      {
+        "title": "2 函数",
+        "duration_seconds": 3941,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=3"
+      },
+      {
+        "title": "3 初等函数（补充了cot x 和反三角函数）",
+        "duration_seconds": 1817,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=4"
+      },
+      {
+        "title": "4 数列的极限",
+        "duration_seconds": 3130,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=5"
+      },
+      {
+        "title": "5 收敛数列的性质",
+        "duration_seconds": 1583,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=6"
+      },
+      {
+        "title": "6 函数极限定义",
+        "duration_seconds": 3432,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=7"
+      },
+      {
+        "title": "7 函数极限的性质",
+        "duration_seconds": 1177,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=8"
+      },
+      {
+        "title": "8 无穷小与无穷大",
+        "duration_seconds": 1406,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=9"
+      },
+      {
+        "title": "9 极限运算法则",
+        "duration_seconds": 2652,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=10"
+      },
+      {
+        "title": "10 极限存在准则第一第二重要极限",
+        "duration_seconds": 2539,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=11"
+      },
+      {
+        "title": "11 无穷小的比较 等价无穷小替换",
+        "duration_seconds": 3007,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=12"
+      },
+      {
+        "title": "12 连续",
+        "duration_seconds": 1227,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=13"
+      },
+      {
+        "title": "13 间断点",
+        "duration_seconds": 1658,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=14"
+      },
+      {
+        "title": "14 连续函数运算 反函数复合函数的连续",
+        "duration_seconds": 1779,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=15"
+      },
+      {
+        "title": "15 闭区间连续函数的性质",
+        "duration_seconds": 1372,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=16"
+      },
+      {
+        "title": "16 导数的定义",
+        "duration_seconds": 2840,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=17"
+      },
+      {
+        "title": "17 导数几何含义",
+        "duration_seconds": 790,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=18"
+      },
+      {
+        "title": "18 可导与连续关系",
+        "duration_seconds": 739,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=19"
+      },
+      {
+        "title": "19 求导公式",
+        "duration_seconds": 1433,
+        "url": "https://www.bilibili.com/video/BV1CAxaeHEeH/?p=20"
+      }
+    ]
   }
 ]

@@ -19,6 +19,7 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
   await page.getByPlaceholder("至少 8 位").fill("Entry-E2E-2026!pass");
   await page.getByRole("button", { name: "创建账户", exact: true }).click();
   await completeIntake(page, "foundation");
+  await expect(page.getByText("第一次使用？先试一下怎么回答（不计分）", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "起点测评与学习计划" }),
   ).toBeVisible();
@@ -74,7 +75,7 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
   expect(downloaded.suggestedFilename()).toContain("学习计划.md");
   await page.getByRole("button", { name: "找对应网课" }).first().click();
   await expect(
-    page.getByRole("heading", { name: "找到适合这一步的网课" }),
+    page.getByRole("heading", { name: "找你想学的课程" }),
   ).toBeVisible();
   await expect(page.locator(".course-card").first()).toBeVisible();
   await expect(page.locator(".course-player iframe")).toHaveCount(0);
@@ -102,10 +103,10 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
     path: testInfo.outputPath("courses-desktop.png"),
     fullPage: true,
   });
-  await page.getByLabel("搜索课程资料库").fill("不存在的课程xyz");
+  await page.getByLabel("搜索课程", {exact: true}).fill("不存在的课程xyz");
   await page.getByRole("button", { name: "搜索", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "资料库中还没有对应课程" }),
+    page.getByRole("heading", { name: "暂未找到匹配课程" }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "B 站全站搜索" }),
