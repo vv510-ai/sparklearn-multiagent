@@ -9,5 +9,6 @@ router = APIRouter(prefix="/api/courses", tags=["courses"])
 
 @router.get("")
 @scoped_endpoint
-def courses(q: str = Query(default="", max_length=120), kp: str = Query(default="", max_length=64), notebook_id: str = ""):
-    return recommend(require_current_user_id(), q, kp)
+def courses(q: str = Query(default="", max_length=120), kp: str = Query(default="", max_length=64),
+            platform: str = Query(default="", pattern="^(|bilibili|youtube)$"), topic: str = Query(default="", max_length=120), notebook_id: str = ""):
+    return recommend(require_current_user_id(), q, kp, platform, topic)

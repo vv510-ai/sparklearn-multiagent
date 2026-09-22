@@ -35,3 +35,6 @@ TASK=doc
 
 参考资料：
 {{context}}
+
+
+{{explanation_rules}}

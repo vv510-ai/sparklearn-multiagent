@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew LearnLoop short-lived IP TLS certificate
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sparklearn/bin/renew-ip-certificate.sh
+TimeoutStartSec=300

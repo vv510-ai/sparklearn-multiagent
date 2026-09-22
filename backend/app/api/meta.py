@@ -23,8 +23,12 @@ router = APIRouter(prefix="/api", tags=["meta"])
 @router.get("/model-status")
 async def model_status():
     from ..llm.multimodal_gateway import capability_status
-    return {"demo_mode": is_demo(), "text": active_llm_label(),
-            "provider": active_provider(), "capabilities": capability_status()}
+    from ..services.model_preferences import resolve, view
+    route = resolve("CAPABILITY=tutor.followup\n")
+    preferences = view(require_current_user_id())
+    return {"demo_mode": is_demo() and route is None, "text": route["model"] if route else active_llm_label(),
+            "provider": route["provider"] if route else active_provider(), "capabilities": capability_status(),
+            "module_routes": preferences["routes"]}
 
 
 @router.get("/kg")

@@ -31,6 +31,12 @@ function jsonError(detail: string, status: number) {
   return NextResponse.json({ detail }, { status });
 }
 
+function isSecureRequest(req: NextRequest) {
+  return req.nextUrl.protocol === "https:" || (
+    process.env.TRUST_PROXY_HEADERS === "true" && req.headers.get("x-forwarded-proto") === "https"
+  );
+}
+
 async function authResponse(req: NextRequest, action: "login" | "register") {
   const upstream = await fetch(`${BACKEND}/api/auth/${action}`, {
     method: "POST",
@@ -49,7 +55,7 @@ async function authResponse(req: NextRequest, action: "login" | "register") {
   }
 
   const response = NextResponse.json({ user: payload.user }, { status: upstream.status });
-  const secure = req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
+  const secure = isSecureRequest(req);
   response.cookies.set(SESSION_COOKIE, payload.access_token, {
     httpOnly: true,
     secure,
@@ -105,6 +111,14 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
       if (raw) {
         try {
           const body = JSON.parse(raw) as unknown;
+          if (joinedPath === "settings/models" && body && typeof body === "object") {
+            const keys = (body as { keys?: Record<string, unknown> }).keys;
+            const secure = isSecureRequest(req)
+              || ["localhost", "127.0.0.1", "[::1]"].includes(req.nextUrl.hostname);
+            if (!secure && keys && Object.values(keys).some(value => typeof value === "string" && value.length > 0)) {
+              return jsonError("请通过 HTTPS 或本机 localhost 填写 API 密钥", 400);
+            }
+          }
           if (subject && path[0] !== "pilot" && body && typeof body === "object" && !Array.isArray(body)) {
             (body as Record<string, unknown>).user_id = subject;
           }

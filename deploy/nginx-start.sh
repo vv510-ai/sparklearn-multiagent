@@ -27,6 +27,12 @@ CERT_DIR="/etc/letsencrypt/live/${CERT_NAME}"
 if [ "${TLS_ENABLED}" = "true" ] && [ -s "${CERT_DIR}/fullchain.pem" ] && [ -s "${CERT_DIR}/privkey.pem" ]; then
   sed "s|__CERT_NAME__|${CERT_NAME}|g" \
     /etc/sparklearn/nginx.https.conf > /etc/nginx/conf.d/default.conf
+  if [ "${TLS_REDIRECT:-true}" = "false" ]; then
+    # Keep HTTP available until an external client verifies the new TLS listener.
+    sed -n '/^server {/,$p' /etc/sparklearn/nginx.http.conf > /etc/nginx/conf.d/http.conf
+  else
+    cp /etc/sparklearn/nginx.redirect.conf /etc/nginx/conf.d/http.conf
+  fi
   echo "SparkLearn nginx: HTTPS enabled for ${CERT_NAME}"
 elif [ "${TLS_ENABLED}" = "true" ]; then
   cp /etc/sparklearn/nginx.http.conf /etc/nginx/conf.d/default.conf

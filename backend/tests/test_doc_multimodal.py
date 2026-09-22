@@ -177,7 +177,7 @@ def test_doc_template_has_a_distinct_resource_label():
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
 
 
-def test_one_page_always_contains_a_visual_structure(monkeypatch):
+def test_one_page_failure_keeps_excerpts_without_invented_relationships(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
     result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
         "doc",
@@ -191,7 +191,8 @@ def test_one_page_always_contains_a_visual_structure(monkeypatch):
     visual = result["resource"]["payload"]["one_page_visual"]
     assert visual["title"] == "二叉树"
     assert visual["nodes"]
-    assert len(visual["steps"]) == 4
+    assert visual["steps"] == []
+    assert all(node["label"].startswith("资料摘录") for node in visual["nodes"])
     assert visual["image_status"] == "fallback"
 
 

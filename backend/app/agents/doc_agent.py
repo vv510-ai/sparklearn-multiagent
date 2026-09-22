@@ -4,6 +4,8 @@
 reading(拓展阅读)/ ppt(讯飞智能 PPT 异步任务)。"""
 from __future__ import annotations
 
+from ..services.model_preferences import resolve
+
 import asyncio
 import json
 import re
@@ -189,16 +191,29 @@ def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
             if not part.lstrip().startswith("#") and _plain_excerpt(part, 125)
         ]
         excerpts = paragraphs[:4]
-    labels = ["是什么", "怎么运作", "怎么使用", "哪里易错"]
     return {
         "title": name,
-        "center": f"用一张结构图建立「{name}」的整体认识",
+        "center": name,
         "nodes": [
-            {"label": labels[index], "text": excerpt}
+            {"label": f"资料摘录 {index + 1}", "text": excerpt}
             for index, excerpt in enumerate(excerpts[:4])
         ],
-        "steps": ["先看对象", "再抓规则", "走最小例子", "最后查边界"],
+        "steps": [],
     }
+
+
+def _one_page_parts(markdown: str) -> list[str]:
+    """Split dense maps at a section boundary, retaining every section."""
+    explicit = re.search(r"(?m)^#{1,3}\s+0?2[.、：\s].*(?:应用|复习)", markdown)
+    if explicit:
+        return [markdown[:explicit.start()].strip(), markdown[explicit.start():].strip()]
+    if len(markdown) <= 1800:
+        return [markdown]
+    boundaries = [m.start() for m in re.finditer(r"(?m)^#{1,3}\s+", markdown) if m.start() > 0]
+    if not boundaries:
+        return [markdown]
+    split = min(boundaries, key=lambda index: abs(index - len(markdown) / 2))
+    return [markdown[:split].strip(), markdown[split:].strip()]
 
 
 def _one_page_image_prompt(name: str, markdown: str) -> str:
@@ -585,7 +600,7 @@ async def _gen_structured_resource(
             "type": "source_scope_empty",
             "detail": "所选资料没有可检索内容，已阻止资料范围外生成",
         })
-    elif is_demo():
+    elif (is_demo() and resolve(prompt_call.prompt) is None):
         artifact = _fallback_structured(kind, name, chunks)
     else:
         try:
@@ -753,7 +768,7 @@ async def _gen_one(
     flags = []
     fallback = False
     remediation_rag_fallback = False
-    demo_fallback = is_demo()
+    demo_fallback = (is_demo() and resolve(prompt_call.prompt) is None)
     source_scope_missing = bool(source_ids and not chunks)
     if source_scope_missing:
         fallback = True
@@ -900,15 +915,27 @@ async def _gen_one(
             and prompt_template != "conversation_notes" and not skip_multimodal):
         if one_page:
             audio = None
-            try:
-                cover = await multimodal_gateway.text_to_image(
-                    _one_page_image_prompt(name, md),
+            parts = _one_page_parts(md)
+            covers = await asyncio.gather(*(
+                multimodal_gateway.text_to_image(
+                    _one_page_image_prompt(f"{name} · {index + 1}/{len(parts)}" if len(parts) > 1 else name, part),
                     width=1536,
                     height=864,
                     trace_id=trace_id,
-                )
-            except Exception as exc:  # noqa: BLE001
-                cover = exc
+                ) for index, part in enumerate(parts)
+            ), return_exceptions=True)
+            cover = covers[0]
+            if len(parts) > 1:
+                pages = []
+                for index, (part, item) in enumerate(zip(parts, covers)):
+                    page = _one_page_visual(f"{name} · {index + 1}/{len(parts)}", [], part)
+                    if isinstance(item, dict) and item.get("ok"):
+                        page.update({key: item["data"].get(key, "") for key in ("image_url", "provider", "model")}, image_status="ready")
+                    else:
+                        page.update(image_status="fallback", image_error="本页图像未生成，保留资料摘录和完整正文")
+                        flags.append({"agent": "doc", "kind": kind, "type": "image_degraded", "detail": f"知识图第 {index + 1} 页未生成"})
+                    pages.append(page)
+                payload["one_page_visual"]["pages"] = pages
         else:
             audio, cover = await asyncio.gather(
                 multimodal_gateway.tts(
@@ -979,7 +1006,7 @@ async def _gen_one(
                 "agent": "doc",
                 "kind": kind,
                 "type": "image_degraded",
-                "detail": f"一图看懂已切换内置清晰版：{error[:160]}",
+                "detail": f"知识图生成失败，已保留资料摘录：{error[:160]}",
             })
     elif interactive_audio:
         payload["audio"] = {

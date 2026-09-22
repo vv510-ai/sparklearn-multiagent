@@ -68,6 +68,8 @@ services:
       context: ./frontend
     environment:
       BACKEND_URL: http://backend:8000
+      # Only Nginx can reach this container; it overwrites forwarded headers.
+      TRUST_PROXY_HEADERS: "true"
       HOSTNAME: "0.0.0.0"
     depends_on:
       backend:
@@ -100,10 +102,12 @@ services:
     environment:
       TLS_CERT_NAME: ${TLS_CERT_NAME:-47.121.24.54}
       TLS_ENABLED: ${TLS_ENABLED:-false}
+      TLS_REDIRECT: ${TLS_REDIRECT:-true}
     command: ["/bin/sh", "/usr/local/bin/sparklearn-nginx-start.sh"]
     volumes:
       - ./deploy/nginx.conf:/etc/sparklearn/nginx.http.conf:ro
       - ./deploy/nginx.https.conf:/etc/sparklearn/nginx.https.conf:ro
+      - ./deploy/nginx.redirect.conf:/etc/sparklearn/nginx.redirect.conf:ro
       - ./deploy/nginx-start.sh:/usr/local/bin/sparklearn-nginx-start.sh:ro
       - ${LETSENCRYPT_DIR:-/etc/letsencrypt}:/etc/letsencrypt:ro
       - ${LETSENCRYPT_WEBROOT:-/opt/sparklearn/shared/letsencrypt-webroot}:/var/www/certbot:ro

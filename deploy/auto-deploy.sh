@@ -83,7 +83,13 @@ refresh_automation() {
   install -D -m 0644 "${release}/deploy/systemd/sparklearn-auto-deploy.service" /etc/systemd/system/sparklearn-auto-deploy.service
   install -D -m 0644 "${release}/deploy/systemd/sparklearn-auto-deploy.timer" /etc/systemd/system/sparklearn-auto-deploy.timer
   install -D -m 0755 "${release}/deploy/certbot-renew-hook.sh" /etc/letsencrypt/renewal-hooks/deploy/50-sparklearn-nginx
+  install -D -m 0755 "${release}/deploy/renew-ip-certificate.sh" "${APP_ROOT}/bin/renew-ip-certificate.sh"
+  install -D -m 0644 "${release}/deploy/systemd/sparklearn-cert-renew.service" /etc/systemd/system/sparklearn-cert-renew.service
+  install -D -m 0644 "${release}/deploy/systemd/sparklearn-cert-renew.timer" /etc/systemd/system/sparklearn-cert-renew.timer
   systemctl daemon-reload
+  if [[ -s /etc/letsencrypt/live/47.121.24.54/fullchain.pem ]]; then
+    systemctl enable --now sparklearn-cert-renew.timer
+  fi
 }
 
 if [[ "${TARGET_COMMIT}" == "${CURRENT_COMMIT}" && -L "${CURRENT_LINK}" ]]; then

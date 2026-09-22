@@ -125,6 +125,7 @@ export function DataTableBlock({ artifact }: { artifact: NonNullable<Payload["da
 }
 
 export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_page_visual"]> }) {
+  if (visual.pages && visual.pages.length > 1) return <div aria-label="分图知识地图"><p className="mb-3 text-xs text-slate-600">内容较多，分为 {visual.pages.length} 张阅读。完整内容保留在下方笔记。</p>{visual.pages.map((page, index) => <OnePageVisual key={index} visual={page} />)}</div>;
   const nodes = visual.nodes || [];
   const imageUrl = apiAssetUrl(visual.image_url);
   if (imageUrl) {
@@ -137,20 +138,20 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imageUrl} alt={`一图看懂${visual.title || "当前主题"}`} className="aspect-video h-auto w-full object-contain" />
         </a>
-        <figcaption className="px-4 py-2 text-center text-[10px] text-slate-400">点击图片可查看高清原图；内容依据当前资料生成。</figcaption>
+        <figcaption className="px-4 py-2 text-center text-[10px] text-slate-400">点击查看高清图；AI 生成的文字与公式请结合下方正文核对。</figcaption>
       </figure>
     );
   }
   return (
     <figure className="mb-4 overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-[#EFF8F3] via-white to-[#F7F2E8] p-4" aria-label={`${visual.title || "当前主题"}结构图`}>
-      <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-700">一图看懂 · 内置清晰版</div><h3 className="mt-1 text-lg font-black text-slate-950">{visual.title || "知识结构图"}</h3></div><span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Eye size={19} /></span></div>
+      <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-700">知识图暂不可用 · 资料摘录</div><h3 className="mt-1 text-lg font-black text-slate-950">{visual.title || "知识结构图"}</h3></div><span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Eye size={19} /></span></div>
       <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_170px_1fr] lg:items-center">
         <div className="space-y-3">{nodes.filter((_, index) => index % 2 === 0).map((node) => <VisualNode key={node.label} node={node} />)}</div>
         <div className="relative grid min-h-32 place-items-center rounded-full border-4 border-emerald-100 bg-[#163E32] p-5 text-center text-xs font-bold leading-5 text-white shadow-lg"><span>{visual.center || visual.title}</span></div>
         <div className="space-y-3">{nodes.filter((_, index) => index % 2 === 1).map((node) => <VisualNode key={node.label} node={node} />)}</div>
       </div>
       {(visual.steps || []).length > 0 && <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{(visual.steps || []).map((step, index) => <div key={step} className="flex items-center gap-2"><span className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-900">{index + 1}. {step}</span>{index < (visual.steps || []).length - 1 && <ArrowRight size={13} className="text-emerald-400" />}</div>)}</div>}
-      <figcaption className="mt-3 text-center text-[10px] text-slate-400">{imageUrl ? `AI 生成示意图${visual.model ? ` · ${visual.model}` : ""}，请结合正文核对细节。` : "当前使用内置结构示意；图像服务恢复后可重新生成。"}</figcaption>
+      <figcaption className="mt-3 text-center text-[10px] text-slate-400">当前只展示资料摘录，不代表完整的关系图。图像服务恢复后可重新生成。</figcaption>
     </figure>
   );
 }

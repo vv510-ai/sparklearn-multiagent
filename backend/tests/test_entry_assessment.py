@@ -235,9 +235,10 @@ def test_catalog_links_and_empty_search_are_honest(user):
     assert result["source"] == "curated_catalog" and len(result["items"]) >= 2
     for item in result["items"]:
         preview = urlparse(item["preview_url"])
-        assert preview.scheme == "https" and preview.hostname == "player.bilibili.com"
+        assert preview.scheme == "https"
+        assert preview.hostname == ("player.bilibili.com" if item["platform"] == "bilibili" else "www.youtube-nocookie.com")
         assert parse_qs(preview.query)["autoplay"] == ["0"]
-        assert urlparse(item["watch_url"]).hostname == "www.bilibili.com"
+        assert urlparse(item["watch_url"]).hostname == ("www.bilibili.com" if item["platform"] == "bilibili" else "www.youtube.com")
     empty = recommend(user, '海洋生物学 & "新课"')
     assert empty["items"] == []
     assert parse_qs(urlparse(empty["search_url"]).query)["keyword"] == ['海洋生物学 & "新课"']

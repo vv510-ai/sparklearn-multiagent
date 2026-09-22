@@ -29,11 +29,6 @@ _DOC_TEMPLATES = {
     "remediation",
 }
 DEFAULT_TEMPLATE = "complete_notes"
-_GENERAL_TOPIC_RULES = """自定义主题边界：
-
-1. 当前主题由学习者明确指定，可使用模型通用知识完成教学，不要求它属于内置课程知识图谱。
-2. 所有内容必须紧扣当前主题；禁止引用旧会话中的其他主题，尤其禁止回退到二叉树或数据结构示例。
-3. 不确定的事实要明确说明不确定性，不虚构资料编号、页码或引用。"""
 
 
 @dataclass(frozen=True)
@@ -151,7 +146,7 @@ def invoke_learning_prompt(capability: str, **values: Any) -> PromptCall:
             {"learning_context": json.dumps(learning_context, ensure_ascii=False)}, label="learning_context")
     return PromptCall(
         capability=key,
-        prompt=prompt,
+        prompt=f"CAPABILITY={key}\n{prompt}",
         system=system,
         version=str(manifest.get("version") or "unversioned"),
     )
@@ -204,7 +199,7 @@ def render_learning_prompt_call(
         persona=persona or "循序渐进",
         context=context or "（没有检索到可用资料）",
         conversation=conversation or "（当前没有可整理的学习对话）",
-        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 
@@ -255,7 +250,7 @@ def render_tutor_prompt(
         source_scope=source_scope,
         conversation=_dialog_text(conversation),
         context=context or "（没有检索到可用片段）",
-        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 
@@ -277,7 +272,7 @@ def render_quiz_prompt_call(
         target_questions=max(1, min(5, int(target_questions or 3))),
         misconception=misconception or "概念边界还不稳定",
         forbidden_stems=forbidden_stems or "（无可复用题干；仍需生成新题面）",
-        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 
@@ -290,7 +285,7 @@ def render_quiz_prompt(*, kp: str, kpid: str, difficulty: int, context: str, gui
 def render_mindmap_prompt_call(*, kp: str, context: str, general_knowledge: bool = False) -> PromptCall:
     return invoke_learning_prompt(
         "mindmap.leaf", kp=kp or "当前概念", context=context or "（无）",
-        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 
@@ -306,7 +301,7 @@ def render_video_prompt_call(
         kp=kp or "当前知识点",
         goal=goal or "理解并记住该知识点",
         context=context or "（无）",
-        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 
@@ -322,7 +317,7 @@ def render_manim_prompt_call(
         kp=kp or "当前知识点",
         class_name=class_name or "LearningScene",
         context=context or "（无）",
-        **({"source_rules": _GENERAL_TOPIC_RULES} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 

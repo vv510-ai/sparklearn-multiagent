@@ -3,6 +3,8 @@
 (启发式苏格拉底风格,先思路后答案)→ grounding 溯源 + 引用事件。"""
 from __future__ import annotations
 
+from ..services.model_preferences import resolve
+
 import base64
 import json
 import re
@@ -41,7 +43,11 @@ def _needs_retrieval(question: str, *, guided: bool = False, has_image: bool = F
         return False
     if _SMALL_TALK_RE.fullmatch(compact):
         return False
-    if len(compact) <= 24 and any(marker in compact for marker in _HELP_MARKERS):
+    help_question = compact.strip("!！?？。,.，")
+    if help_question in _HELP_MARKERS or re.fullmatch(
+        r"(?:请问)?(?:这个(?:软件|网站|系统)|学习机|星火学伴|learnloop|sparklearn)(?:怎么用|如何使用|使用说明)",
+        help_question,
+    ):
         return False
     return True
 
@@ -681,7 +687,7 @@ async def run(state: dict) -> dict:
         if interaction_resource
         else [str(c.get("text") or "") for c in chunks]
     )
-    if _is_binary_tree_first_lesson(question, topic_kp, guided=guided):
+    if (is_demo() and resolve(prompt) is None) and _is_binary_tree_first_lesson(question, topic_kp, guided=guided):
         # Keep the most common first lesson instant, source-grounded and
         # teacher-like instead of paying for a reasoning call to restate a
         # basic definition.
@@ -689,13 +695,13 @@ async def run(state: dict) -> dict:
             question, chunks, guided=True, topic_kp="binary_tree",
         )
         ground = {"grounded": True, "unsupported": [], "verdict": "二叉树入门本地讲解"}
-    elif learning_strategy:
+    elif learning_strategy and (is_demo() and resolve(prompt) is None):
         # A learning route is deterministic product guidance. Avoid spending a
         # reasoning-model round trip on content that is clearer and faster as
         # a concise teacher-written response.
         answer = _strategy_answer(topic_name)
         ground = {"grounded": True, "unsupported": [], "verdict": "本地教学路线"}
-    elif is_demo():
+    elif (is_demo() and resolve("CAPABILITY=tutor.followup") is None):
         await emit({
             "type": "progress",
             "agent": "tutor",
@@ -719,16 +725,15 @@ async def run(state: dict) -> dict:
         raw_parts: list[str] = []
         displayed_parts: list[str] = []
         model_answer = True
+        selected_model_failed = False
         try:
             async for delta in llm_stream(
                 prompt,
                 role="reasoner",
                 system=prompt_call.system,
                 temperature=0.25 if guided else 0.45,
-                # Draft reviews need space for quoted English, explanations,
-                # and the learner's revision task; a short chat budget cuts
-                # off that final step mid-sentence.
-                max_tokens=2200 if draft_feedback else 700 if guided else 520,
+                # Keep room for full explanations and the learner's revision task.
+                max_tokens=2400,
                 allow_model_fallback=True,
                 allow_mock_fallback=False,
                 reasoning_mode="disabled",
@@ -799,6 +804,7 @@ async def run(state: dict) -> dict:
                     )
                     model_answer = False
         except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
+            selected_model_failed = resolve(prompt) is not None
             await emit({
                 "type": "progress",
                 "agent": "tutor",
@@ -807,7 +813,7 @@ async def run(state: dict) -> dict:
                 "degraded": True,
                 "reason": "llm_unavailable",
                 "error": str(error)[:160],
-                "detail": f"模型暂不可用，已切换资料内讲解：{str(error)[:80]}",
+                "detail": "所选模型调用失败，请检查模型设置" if resolve(prompt) else "模型暂不可用，已切换资料内讲解",
             })
             if answer_streamed:
                 interruption = "\n\n连接刚才短暂中断了，前面的讲解已经保留。你回复“继续”，我会从这里接着讲。"
@@ -815,6 +821,9 @@ async def run(state: dict) -> dict:
                 displayed_parts.append(interruption)
                 answer = "".join(displayed_parts)
                 model_answer = True
+            elif resolve(prompt):
+                model_answer = False
+                answer = "所选模型调用失败，本次没有生成讲解。请打开模型设置检查连接和额度后重试。"
             else:
                 model_answer = False
                 answer = (
@@ -876,11 +885,14 @@ async def run(state: dict) -> dict:
                 "grounded": True,
                 "unsupported": [],
                 "verdict": (
+                    "所选模型调用失败，未生成讲解" if selected_model_failed else
                     "模型回答偏离当前问题,已替换为同主题最小讲解"
                     if answer_scope_fallback_reason else
                     "模型不可用,已直接整理检索片段"
                 ),
             }
+            if selected_model_failed:
+                ground["grounded"] = False
 
     # Deterministic and short guarded answers are emitted here. Longer model
     # answers start streaming after a small validated prefix above.

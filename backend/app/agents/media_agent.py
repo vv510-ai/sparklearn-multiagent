@@ -5,6 +5,8 @@
 4) 讯飞文生图生成课程封面(可选)。"""
 from __future__ import annotations
 
+from ..services.model_preferences import resolve
+
 import asyncio
 import ast
 import json
@@ -401,7 +403,7 @@ async def run(state: dict) -> dict:
         # example. Skip the model and broad chapter excerpts entirely so the
         # length-normalization step cannot pull adjacent sorting topics back in.
         script = _strict_sorting_example_script()
-    elif not is_demo():
+    elif not (is_demo() and resolve("CAPABILITY=media.video_script") is None):
         try:
             raw = await asyncio.wait_for(
                 llm_complete(
@@ -498,7 +500,7 @@ async def run(state: dict) -> dict:
 
     if mode == "manim":                                            # 显式 Manim 或视频降级链路
         cls = _scene_class_name(kp)
-        if explicit_kind == "video" or source_ids or custom_topic or is_demo():
+        if explicit_kind == "video" or source_ids or custom_topic or (is_demo() and resolve("CAPABILITY=media.video_script") is None):
             # A failed cloud clip must not trigger a second LLM round-trip.
             # The browser preview and deterministic code are already useful.
             payload["manim_code"] = _fallback_manim_code(

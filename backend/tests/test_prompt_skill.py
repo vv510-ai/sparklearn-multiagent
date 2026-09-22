@@ -52,6 +52,8 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "draft": "{}",
         "validation_issue": "多选题至少两个正确选项",
         "topic": "示例主题",
+        "level": "入门", "words": "example", "scene": "日常", "subtitles": "",
+        "plan": "{}", "evidence": "[]",
         "goal": "从零学习",
         "persona": "循序渐进",
         "context": "资料片段",
@@ -120,9 +122,9 @@ def test_all_learning_outputs_share_source_and_beginner_rules():
     assert "学生画像" not in note + tutor.prompt
     assert "零基础" in note and "最小例子" in note
     assert "不照抄附件" in note and "不同来源有冲突" in note
-    assert "生活里的它" in tutor.prompt and "记忆钩子" in tutor.prompt
+    assert "类比优先同领域" in tutor.prompt and "回忆链" in tutor.prompt
     assert "禁止输出 JSON" in followup.prompt
-    assert "短定义问题只用 2—4 句回答" in followup.prompt
+    assert "简单问题精炼回答" in followup.prompt and "不能用固定字数截断" in followup.prompt
     assert "资料不足" in tutor.system and "资料边界" in tutor.system
     assert "恰好生成 5 道" in quiz and "生活化提示" in quiz
 
@@ -201,8 +203,9 @@ def test_visual_capabilities_keep_the_same_learning_order():
     mindmap = render_mindmap_prompt(kp="递归", context="资料")
     video = render_video_prompt(kp="递归", goal="理解递归", context="资料")
     assert "由基础到应用" in mindmap
-    assert "一句话结论 → 一个连贯生活类比 → 最小例子" in video
-    assert "易错边界" in video and "记忆钩子" in video
+    assert "最小例子的初始状态 → 逐步推演且每步解释原因" in video
+    assert "易错边界" in video and "回忆链" in video
+    assert "不强行编故事" in video and "不可变步骤快照" in video
 
 
 def test_unknown_capability_is_rejected():

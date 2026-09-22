@@ -1,0 +1,35 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Play, RotateCcw } from "lucide-react";
+import { apiPost } from "@/lib/api";
+import Markdown from "@/components/chat/Markdown";
+
+type Scene = { title:string; provenance:string; notes:string; lines:{speaker:string;text:string;translation:string;timestamp:string}[]; vocabulary:{word:string;meaning:string;usage:string;memory:string;contrast:string}[]; question:{stem:string;options:string[];answer:string;explanation:string} };
+const input = "mt-2 w-full rounded-xl border border-[#D8E1D8] bg-white p-3 text-sm";
+const goals = ["影视理解与日常交流","高考","英语四级","英语六级","考研英语","雅思","托福","职场英语"];
+
+export default function EnglishScenes({notebookId,onBack}:{notebookId:string;onBack:()=>void}) {
+  const [goal,setGoal]=useState(goals[0]); const [level,setLevel]=useState("中等");
+  const [words,setWords]=useState("hesitate, awkward, figure out"); const [scene,setScene]=useState("朋友一起商量周末计划");
+  const [subtitles,setSubtitles]=useState(""); const [result,setResult]=useState<Scene|null>(null);
+  const [busy,setBusy]=useState(false);const [error,setError]=useState(""); const [showTranslation,setShowTranslation]=useState(false);
+  const [selected,setSelected]=useState("");const [checked,setChecked]=useState(false);
+  const [videoUrl,setVideoUrl]=useState("");const video=useRef<HTMLVideoElement>(null);
+  useEffect(()=>()=>{if(videoUrl)URL.revokeObjectURL(videoUrl);},[videoUrl]);
+  async function generate(){setBusy(true);setError("");setResult(null);setSelected("");setChecked(false);setShowTranslation(false);try{setResult(await apiPost<Scene>("/learning/english/scene",{words,scene,goal,level,subtitles,notebook_id:notebookId}));}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+  function replay(timestamp:string){const m=timestamp.match(/(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[,.](\d+))?/);if(video.current&&m){video.current.currentTime=Number(m[1]||0)*3600+Number(m[2])*60+Number(m[3])+Number(`0.${m[4]||0}`);void video.current.play();}}
+  return <div className="notebook-content-scroll"><div className="notebook-content-heading"><div><span>ENGLISH IN CONTEXT</span><h1>英语场景学习</h1><p>先看懂场景，再掌握词义、搭配与用法。</p></div><button className="secondary-action" onClick={onBack}><ArrowLeft size={15}/>返回</button></div><div className="mx-auto max-w-4xl space-y-5 p-5 pb-16">
+    <form onSubmit={e=>{e.preventDefault();void generate();}} className="space-y-4 rounded-2xl border border-[#DDE5D9] bg-white p-5"><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold">学习目标<select className={input} value={goal} onChange={e=>setGoal(e.target.value)}>{goals.map(g=><option key={g}>{g}</option>)}</select></label><label className="text-sm font-semibold">当前水平<select className={input} value={level} onChange={e=>setLevel(e.target.value)}>{["入门","中等","进阶"].map(g=><option key={g}>{g}</option>)}</select></label></div>
+      <label className="block text-sm font-semibold">想学的单词或短语<input className={input} required maxLength={400} value={words} onChange={e=>setWords(e.target.value)}/></label><label className="block text-sm font-semibold">生活场景或影视片段说明<input className={input} maxLength={300} value={scene} onChange={e=>setScene(e.target.value)}/></label>
+      <label className="block text-sm font-semibold">真实字幕或原句（可选）<textarea className={input} rows={4} maxLength={16000} value={subtitles} onChange={e=>setSubtitles(e.target.value)} placeholder="粘贴有权使用的字幕，保留时间戳；留空将生成明确标注的原创教学对话。"/></label>
+      <div className="flex flex-wrap gap-5 text-xs text-slate-600"><label>读取字幕文件<input className="mt-2 block max-w-full" type="file" accept=".srt,.vtt,.txt" onChange={async e=>{const f=e.target.files?.[0];if(f){if(f.size>100000){setError("字幕文件过大，请截取当前片段");return;}const text=await f.text();if(text.length>16000){setError("字幕超过16000字，请选取一个完整片段再上传");return;}setSubtitles(text);setError("");}}}/></label><label>选择本地视频<input className="mt-2 block max-w-full" type="file" accept="video/*" onChange={e=>{const f=e.target.files?.[0];if(f)setVideoUrl(URL.createObjectURL(f));}}/></label></div><p className="text-xs leading-6 text-slate-500">本地视频只在浏览器播放；点击生成时仅发送上面的字幕与学习目标。没有字幕不冒充真实剧集台词。词源、发音或真题没有依据时标为待核验。</p><button className="primary-action" disabled={busy}>{busy?"正在整理场景与词汇…":"生成场景笔记"}</button>
+    </form>
+    {videoUrl&&<video ref={video} src={videoUrl} controls className="max-h-80 w-full rounded-xl bg-black"/>}
+    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+    {result&&<><div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800" role="status">{result.provenance} · 已保存到资料归档</div><section className="space-y-3 rounded-2xl border bg-white p-5"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-bold">{result.title}</h2><button className="secondary-action" onClick={()=>setShowTranslation(v=>!v)}>{showTranslation?"隐藏中文":"显示中文"}</button></div>{result.lines.map((l,i)=><div key={i} className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">{l.speaker} {l.timestamp}</p><p className="mt-1 text-base leading-7">{l.text}</p>{showTranslation&&<p className="mt-1 text-sm text-slate-600">{l.translation}</p>}{videoUrl&&l.timestamp&&<button className="mt-2 flex items-center gap-1 text-xs text-emerald-700" onClick={()=>replay(l.timestamp)}><Play size={12}/>回到原片段</button>}</div>)}</section>
+      <section className="grid gap-3 sm:grid-cols-2">{result.vocabulary.map((w,i)=><article key={i} className="rounded-xl border bg-white p-4"><h3 className="text-lg font-bold">{w.word}</h3><p className="mt-2 text-sm font-semibold">{w.meaning}</p><p className="mt-2 text-sm leading-6 text-slate-600">{w.usage}</p>{w.contrast&&<p className="mt-2 text-sm leading-6 text-slate-600">辨析：{w.contrast}</p>}{w.memory&&<p className="mt-2 text-xs leading-6 text-amber-800">助记：{w.memory}</p>}</article>)}</section>
+      <article className="rounded-2xl border bg-white p-5"><Markdown text={result.notes}/></article><section className="rounded-2xl border bg-white p-5"><h2 className="font-bold">在场景中回忆</h2><p className="my-3 text-sm">{result.question.stem}</p><div role="group" aria-label="英语练习选项" className="grid gap-2 sm:grid-cols-2">{result.question.options.map((o,i)=>{const letter=String.fromCharCode(65+i);return <button key={letter} disabled={checked} aria-pressed={selected===letter} onClick={()=>setSelected(letter)} className={`rounded-xl border p-3 text-left text-sm ${selected===letter?"border-emerald-600 bg-emerald-50":"border-slate-200"}`}>{letter}. {o}</button>;})}</div>{!checked?<button className="primary-action mt-4" disabled={!selected} onClick={()=>setChecked(true)}>确认答案</button>:<div role="status" className="mt-4 space-y-3 text-sm"><p className="font-semibold">{selected===result.question.answer?"回答正确":"再看一下本句语境"} · 答案 {result.question.answer}</p><p className="leading-7">{result.question.explanation}</p><button className="secondary-action" onClick={()=>{setSelected("");setChecked(false);}}><RotateCcw size={14}/>重新回忆</button></div>}</section>
+    </>}
+  </div></div>;
+}

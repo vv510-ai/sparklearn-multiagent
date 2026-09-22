@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Annotated
 
 from ..config import GEN_DIR, get_settings, is_demo
+from .model_preferences import resolve
 from ..llm.spark_client import active_llm_label, active_provider, llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
 
@@ -66,7 +67,7 @@ def render(outline: Outline, target: Path, references: list[str] | None = None) 
 
 
 async def create(query: str, *, citations: list[dict] | None = None) -> dict:
-    if is_demo():
+    if (is_demo() and resolve("CAPABILITY=media.ppt_outline") is None):
         raise RuntimeError("Editable AI slides require a configured text model")
     call = invoke_learning_prompt("media.ppt_outline", content=query)
     raw = await llm_complete(call.prompt, system=call.system, role="reasoner",

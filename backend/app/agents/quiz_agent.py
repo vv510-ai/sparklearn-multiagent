@@ -2,6 +2,8 @@
 每题挂 kp 与 error_tags(易错点标签),供 Eval Agent 做 BKT 更新与错因画像回写。"""
 from __future__ import annotations
 
+from ..services.model_preferences import resolve
+
 import json
 import re
 import uuid
@@ -279,7 +281,7 @@ async def run(state: dict) -> dict:
         misconception=str(state.get("misconception") or ""),
         forbidden_stems="\n".join(f"- {stem}" for stem in forbidden_stems),
     )
-    if is_demo():
+    if (is_demo() and resolve("CAPABILITY=quiz.standard") is None):
         items = []
     else:
         try:

@@ -81,13 +81,22 @@ sudo bash deploy/install-auto-deploy.sh
 
 ## 无域名 HTTPS
 
-Let’s Encrypt IP 证书有效期约 6 天，因此必须依赖 Certbot 自动续期。服务器需安装 Certbot 5.4 或更高版本，并确保安全组同时放行 TCP 80 与 TCP 443。首次签发使用 webroot：
+2026-09-22 起可使用官方 `certbot/certbot:v5.4.0` 容器申请 IP 证书，无需在宿主机安装 Certbot。证书私有数据仍只保存在服务器 `/etc/letsencrypt`。仓库的 `sparklearn-cert-renew.timer` 每日两次检查续期，由 `renew-ip-certificate.sh` 在宿主机重载 Nginx。发布器发现证书后自动安装并启用定时器。
+
+首次启用时先设置 `TLS_ENABLED=true`、`TLS_REDIRECT=false`，从公网验证 HTTPS 证书和登录链路后，再将 `TLS_REDIRECT=true` 开启 HTTP 跳转。Next 容器不开放公网端口；只有覆盖代理头的 Nginx 可访问它，Compose 显式启用 `TRUST_PROXY_HEADERS`。
+
+个人 API Key 以加密形式存在 `model_preferences`，生产应配置独立的 `MODEL_KEY_ENCRYPTION_SECRET`（至少32个随机字符）；未配置时本地兼容模式使用 `AUTH_SECRET` 派生。备份数据库时须保留对应加密密钥；换掉加密密钥后个人 API Key 须重新填写。独立配置可避免轮换登录密钥影响模型设置。接口不返回密钥或密文，日志不能记录设置请求体。
+
+Let’s Encrypt IP 证书有效期约 6 天，因此必须自动续期，并确保安全组同时放行 TCP 80 与 TCP 443。首次通过容器签发：
 
 ```bash
-certbot certonly \
+docker run --rm \
+  -v /etc/letsencrypt:/etc/letsencrypt \
+  -v /opt/sparklearn/shared/letsencrypt-webroot:/var/www/certbot \
+  certbot/certbot:v5.4.0 certonly --no-directory-hooks \
   --preferred-profile shortlived \
   --webroot \
-  --webroot-path /opt/sparklearn/shared/letsencrypt-webroot \
+  --webroot-path /var/www/certbot \
   --ip-address 47.121.24.54
 ```
 
@@ -95,7 +104,7 @@ certbot certonly \
 
 ```bash
 cd /opt/sparklearn/current
-docker compose --env-file /opt/sparklearn/shared/.env -f docker-compose.prod.yml up -d --force-recreate nginx
+IMAGE_TAG="$(cat /opt/sparklearn/shared/deployed_commit)" docker compose --env-file /opt/sparklearn/shared/.env -f docker-compose.prod.yml up -d --no-deps --force-recreate nginx
 ```
 
-仓库中的 `deploy/certbot-renew-hook.sh` 会被自动部署到 Certbot 的 deploy hook 目录，在新证书生成后重启该容器加载证书。`TLS_ENABLED` 保护开关可以防止证书签发后、443 尚未放行时误把 HTTP 流量重定向到不可达的 HTTPS。
+当前容器续期禁用目录 hook，由宿主机 `renew-ip-certificate.sh` 检查配置后重载 Nginx。保留的 `certbot-renew-hook.sh` 仅兼容旧宿主机安装。`TLS_ENABLED` 与 `TLS_REDIRECT` 两阶段开关避免 443 尚未验证时跳转到不可达入口。

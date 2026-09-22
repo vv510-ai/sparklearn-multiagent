@@ -59,6 +59,8 @@ try:  # pydantic-settings 可用时走标准路径
         elevenlabs_voice_id: str = ""
         elevenlabs_model: str = "eleven_v3"
         deepseek_api_key: str = ""
+        kimi_api_key: str = ""
+        model_key_encryption_secret: str = ""
         deepseek_base_url: str = "https://api.deepseek.com"
         deepseek_model: str = "deepseek-v4-pro"
         deepseek_thinking: str = "enabled"  # enabled | disabled
@@ -172,6 +174,8 @@ except Exception:  # pragma: no cover - 极端环境兜底(未安装 pydantic-se
             self.spark_x2_base_url = g("SPARK_X2_BASE_URL", "https://spark-api-open.xf-yun.com/x2/")
             self.spark_reasoning_mode = g("SPARK_REASONING_MODE", "auto")
             self.llm_provider = g("LLM_PROVIDER", "auto")
+            self.kimi_api_key = g("KIMI_API_KEY", "")
+            self.model_key_encryption_secret = g("MODEL_KEY_ENCRYPTION_SECRET", "")
             self.openai_api_key = g("OPENAI_API_KEY", "")
             self.openai_base_url = g("OPENAI_BASE_URL", "https://api.openai.com/v1")
             self.openai_text_model = g("OPENAI_TEXT_MODEL", "gpt-6-astra")

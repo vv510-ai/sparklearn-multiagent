@@ -2,6 +2,8 @@
 前端 markmap-view 渲染交互式脑图;同时附 Mermaid mindmap 备选语法。"""
 from __future__ import annotations
 
+from ..services.model_preferences import resolve
+
 import re
 import uuid
 
@@ -224,7 +226,7 @@ async def _expand_node(
     )
 
     points: list[str] = _guided_goal_points(goal, chunks) if guided else []
-    if (chunks or custom_topic) and not points and not is_demo():
+    if (chunks or custom_topic) and not points and not (is_demo() and resolve("CAPABILITY=mindmap.leaf") is None):
         try:
             raw = await llm_complete(
                 prompt_call.prompt,

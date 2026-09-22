@@ -36,7 +36,7 @@ def test_beginner_prompt_is_complete_and_contains_conversation():
         conversation=[{"role": "user", "content": "我总分不清左右子树"}],
         guided=True,
     )
-    for required in ("学习方法/路线", "只给完成当前目标所需的最少内容", "不要套固定标题", "不要把前面的路线再重复一遍", "不要输出程序代码"):
+    for required in ("学习路线", "简单易懂、全面而有深度", "不机械凑齐标题", "不每轮重复入门路线", "Mermaid", "根据学习者刚才的答案、选择与卡点"):
         assert required in prompt
     assert "下方会出现基础练习卡" not in prompt
     call = render_tutor_prompt(
@@ -47,10 +47,10 @@ def test_beginner_prompt_is_complete_and_contains_conversation():
         guided=True,
     )
     assert "朋友兼耐心的老师" in call.system
-    assert "朋友兼老师" in call.prompt
-    assert "250—450 个中文字符" in call.prompt
-    assert "不主动建议做题" in call.prompt
-    assert call.prompt.index("本次回答格式优先") > call.prompt.index("输出自检")
+    assert "固定字数截断" in call.prompt
+    assert "未要求练习时不强制出题" in call.prompt
+    assert "若用户刚选择A/B/C/D" in call.prompt
+    assert "```mermaid" in call.prompt
     assert "我总分不清左右子树" in prompt
     assert "二叉树不等于" in prompt or "不要把当前主题偷换" in prompt
     assert "TASK=tutor" in prompt

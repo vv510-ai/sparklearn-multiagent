@@ -153,6 +153,13 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
                        allow_model_fallback: bool = True,
                        allow_mock_fallback: bool = True) -> str:
     """非流式补全。json_mode=True 时尽力让模型只回 JSON 并做容错解析前清洗。"""
+    from ..services.model_preferences import resolve
+    route = resolve(prompt)
+    if route:
+        from .selected_model import complete
+        selected_messages = ([{"role": "system", "content": system}] if system else [])
+        selected_messages.append({"role": "user", "content": prompt + ("\n只输出有效 JSON。" if json_mode or json_object else "")})
+        return await complete(route, selected_messages, max_tokens=max_tokens, json_object=json_object, reasoning_mode=reasoning_mode)
     if is_demo():
         return MockEngine.complete(prompt, role=role, json_mode=json_mode)
     messages = []
@@ -244,6 +251,15 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      allow_model_fallback: bool = True,
                      allow_mock_fallback: bool = True) -> AsyncIterator[str]:
     """流式补全,逐 token 产出(SSE 直接转发)。"""
+    from ..services.model_preferences import resolve
+    if resolve(prompt):
+        # Buffer and validate explicit selections before displaying any content.
+        text = await llm_complete(prompt, role=role, system=system, temperature=temperature,
+                                  max_tokens=max_tokens, reasoning_mode=reasoning_mode,
+                                  allow_mock_fallback=False, allow_model_fallback=False)
+        for start in range(0, len(text), 64):
+            yield text[start:start + 64]
+        return
     if is_demo():
         async for d in MockEngine.stream(prompt, role=role):
             yield d

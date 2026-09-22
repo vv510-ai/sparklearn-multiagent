@@ -36,6 +36,7 @@ _init_lock = Lock()
 
 TENANT_TABLES = (
     "learning_spaces",
+    "model_preferences",
     "assessment_sessions",
     "profiles",
     "notebooks",

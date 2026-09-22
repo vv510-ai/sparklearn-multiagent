@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, BookPlus, FileUp, Gauge, LoaderCircle, MessageSquarePlus, Mic, NotebookPen, Plus, Route, Square } from "lucide-react";
-import { USER_ID, apiUpload, postSSE } from "@/lib/api";
+import { USER_ID, apiPost, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent } from "@/lib/types";
 import InlineConceptAnimation from "./InlineConceptAnimation";
+import AnswerChoices from "./AnswerChoices";
 import Markdown from "./Markdown";
 import ResourceCard from "@/components/resource/ResourceCard";
 
@@ -128,6 +129,10 @@ export default function Chat({
   onOpenPath?: () => void;
   onOpenAssessment?: () => void;
 }) {
+  const [nextSteps, setNextSteps] = useState<{suggestions: string[]; mode: string} | null>(null);
+  const [loadingSteps, setLoadingSteps] = useState(false);
+  const stepsRevision = useRef(0);
+  useEffect(() => () => { stepsRevision.current += 1; }, []);
   const [msgs, setMsgs] = useState<Msg[]>(() => initialMessages.map((message) => ({
     role: message.role,
     text: message.content,
@@ -271,6 +276,9 @@ export default function Chat({
           resolve(completed);
         };
 
+        stepsRevision.current += 1;
+        setLoadingSteps(false);
+        setNextSteps(null);
         abortRef.current = postSSE(
           directRequest?.path || "/chat",
           directRequest?.body || {
@@ -508,6 +516,11 @@ export default function Chat({
                     text={m.text}
                   />
                 )}
+                {!m.streaming && i === msgs.length - 1 && m.text && <>
+                  <AnswerChoices text={m.text} disabled={busy} onChoose={(prompt,display)=>void send(prompt, undefined, display)}/>
+                  <button type="button" className="text-xs font-semibold text-emerald-800 underline disabled:opacity-50" disabled={busy || loadingSteps || !sessionRef.current} onClick={async()=>{const revision=++stepsRevision.current;setLoadingSteps(true);try{const result=await apiPost<{suggestions:string[];mode:string}>("/learning/followups",{session_id:sessionRef.current,notebook_id:notebookId});if(revision===stepsRevision.current)setNextSteps(result);}catch{if(revision===stepsRevision.current)setNextSteps({suggestions:[],mode:"unavailable"});}finally{if(revision===stepsRevision.current)setLoadingSteps(false);}}}>{loadingSteps ? "正在根据本轮回答生成引导…" : "根据这次回答，生成下一步问题"}</button>
+                  {nextSteps && <div className="space-y-2"><p className="text-[11px] text-slate-500">{nextSteps.mode === "live" ? "根据本轮对话实时生成" : nextSteps.mode === "offline" ? "离线示例问题" : "暂未生成建议，可直接输入追问"}</p>{nextSteps.suggestions.map(step=><button key={step} type="button" disabled={busy} onClick={()=>void send(step)} className="mr-2 rounded-full border border-emerald-200 bg-white px-3 py-2 text-left text-xs text-emerald-800">{step}</button>)}</div>}
+                </>}
                 {m.resources.map((r) => (
                   <ResourceCard
                     key={r.id}

@@ -1,15 +1,880 @@
 [
   {
-    "id": "wangdao-data-structures", "title": "王道计算机考研 数据结构", "author": "王道计算机教育", "bvid": "BV1b7411N798",
-    "kps": ["complexity", "array", "linked_list", "stack", "queue", "recursion", "sorting_basic", "sorting_adv", "binary_tree", "bst", "heap", "hash", "graph_basic", "graph_traverse", "shortest_path"],
-    "format": "课程合集", "note": "从课程目录选择对应章节。发布者说明：免费公开部分为旧版考点讲解；请对照当前课程要求。", "verified_at": "2026-09-15"
+    "id": "wangdao-data-structures",
+    "title": "王道计算机考研 数据结构",
+    "author": "王道计算机教育",
+    "bvid": "BV1b7411N798",
+    "kps": [
+      "complexity",
+      "array",
+      "linked_list",
+      "stack",
+      "queue",
+      "recursion",
+      "sorting_basic",
+      "sorting_adv",
+      "binary_tree",
+      "bst",
+      "heap",
+      "hash",
+      "graph_basic",
+      "graph_traverse",
+      "shortest_path"
+    ],
+    "format": "课程合集",
+    "note": "从课程目录选择对应章节。发布者说明：免费公开部分为旧版考点讲解；请对照当前课程要求。",
+    "verified_at": "2026-09-15",
+    "platform": "bilibili",
+    "language": "中文",
+    "cover_url": "https://i0.hdslb.com/bfs/archive/c5e46f7c2aeac9860bb99a0ed4d9607a0039bea9.jpg",
+    "duration_seconds": 110382,
+    "published_at": "2020-02-27",
+    "chapters": [
+      {
+        "title": "0.0 课程白嫖指南",
+        "duration_seconds": 277,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=1"
+      },
+      {
+        "title": "1.0_开篇_数据结构在学什么",
+        "duration_seconds": 479,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=2"
+      },
+      {
+        "title": "1.1_数据结构的基本概念",
+        "duration_seconds": 1349,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=3"
+      },
+      {
+        "title": "1.1_2_数据结构的三要素（旧版）",
+        "duration_seconds": 1542,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=4"
+      },
+      {
+        "title": "1.2_1_算法的基本概念",
+        "duration_seconds": 1040,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=5"
+      },
+      {
+        "title": "1.2_2_算法的时间复杂度",
+        "duration_seconds": 1868,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=6"
+      },
+      {
+        "title": "1.2_3_算法的空间复杂度",
+        "duration_seconds": 903,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=7"
+      },
+      {
+        "title": "2.1_线性表的定义和基本操作",
+        "duration_seconds": 1062,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=8"
+      },
+      {
+        "title": "2.2.1_顺序表的定义",
+        "duration_seconds": 1403,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=9"
+      },
+      {
+        "title": "2.2.2_1_顺序表的插入删除",
+        "duration_seconds": 1251,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=10"
+      },
+      {
+        "title": "2.2.2_2_顺序表的查找",
+        "duration_seconds": 752,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=11"
+      },
+      {
+        "title": "2.3.1_单链表的定义",
+        "duration_seconds": 719,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=12"
+      },
+      {
+        "title": "2.3.2_1_单链表的插入删除",
+        "duration_seconds": 1388,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=13"
+      },
+      {
+        "title": "2.3.2_2_单链表的查找",
+        "duration_seconds": 627,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=14"
+      },
+      {
+        "title": "2.3.2_3_单链表的建立",
+        "duration_seconds": 811,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=15"
+      },
+      {
+        "title": "2.3.3_双链表",
+        "duration_seconds": 558,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=16"
+      },
+      {
+        "title": "2.3.4_循环链表",
+        "duration_seconds": 577,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=17"
+      },
+      {
+        "title": "2.3.5_静态链表",
+        "duration_seconds": 799,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=18"
+      },
+      {
+        "title": "2.3.6_顺序表和链表的比较",
+        "duration_seconds": 875,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=19"
+      },
+      {
+        "title": "3.1.1_栈的基本概念",
+        "duration_seconds": 582,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=20"
+      },
+      {
+        "title": "3.1.2_栈的顺序存储实现",
+        "duration_seconds": 759,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=21"
+      },
+      {
+        "title": "3.1.3_栈的链式存储实现",
+        "duration_seconds": 232,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=22"
+      },
+      {
+        "title": "3.2.1_队列的基本概念",
+        "duration_seconds": 249,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=23"
+      },
+      {
+        "title": "3.2.2_队列的顺序实现",
+        "duration_seconds": 1006,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=24"
+      },
+      {
+        "title": "3.2.3_队列的链式实现",
+        "duration_seconds": 565,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=25"
+      },
+      {
+        "title": "3.2.4_双端队列",
+        "duration_seconds": 894,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=26"
+      },
+      {
+        "title": "3.3.1_栈在括号匹配中的应用",
+        "duration_seconds": 708,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=27"
+      },
+      {
+        "title": "3.3.2_1_栈在表达式求值中的应用(上)",
+        "duration_seconds": 1901,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=28"
+      },
+      {
+        "title": "3.3.2_2_栈在表达式求值中的应用(下)",
+        "duration_seconds": 1233,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=29"
+      },
+      {
+        "title": "3.3.3_栈在递归中的应用",
+        "duration_seconds": 781,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=30"
+      },
+      {
+        "title": "3.3.4+3.3.5_队列的应用",
+        "duration_seconds": 504,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=31"
+      },
+      {
+        "title": "3.4.1-3.4.4_特殊矩阵的压缩存储",
+        "duration_seconds": 1661,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=32"
+      },
+      {
+        "title": "4.1_1_串的定义和基本操作",
+        "duration_seconds": 1413,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=33"
+      },
+      {
+        "title": "4.1_2_串的存储结构",
+        "duration_seconds": 1003,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=34"
+      },
+      {
+        "title": "4.2_1_朴素模式匹配算法",
+        "duration_seconds": 993,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=35"
+      },
+      {
+        "title": "4.2_2_KMP算法(旧版上)",
+        "duration_seconds": 992,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=36"
+      },
+      {
+        "title": "4.2_3_KMP算法(旧版下)",
+        "duration_seconds": 1052,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=37"
+      },
+      {
+        "title": "4.2.2_1_KMP算法（新版）",
+        "duration_seconds": 1496,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=38"
+      },
+      {
+        "title": "4.2.2_2_求next数组",
+        "duration_seconds": 1032,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=39"
+      },
+      {
+        "title": "4.2.3_KMP算法的进一步优化",
+        "duration_seconds": 1242,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=40"
+      },
+      {
+        "title": "5.1.1+5.1.2_树的定义和基本术语",
+        "duration_seconds": 917,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=41"
+      },
+      {
+        "title": "5.1.3 树的性质",
+        "duration_seconds": 351,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=42"
+      },
+      {
+        "title": "5.2.1_1_二叉树的定义和基本术语",
+        "duration_seconds": 766,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=43"
+      },
+      {
+        "title": "5.2.1_2_二叉树的性质",
+        "duration_seconds": 450,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=44"
+      },
+      {
+        "title": "5.2.2_二叉树的存储结构",
+        "duration_seconds": 645,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=45"
+      },
+      {
+        "title": "5.3.1_1_二叉树的先中后序遍历",
+        "duration_seconds": 1388,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=46"
+      },
+      {
+        "title": "5.3.1_2_二叉树的层次遍历",
+        "duration_seconds": 271,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=47"
+      },
+      {
+        "title": "5.3_3_由遍历序列构造二叉树",
+        "duration_seconds": 713,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=48"
+      },
+      {
+        "title": "5.3.2_1_线索二叉树的概念",
+        "duration_seconds": 1036,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=49"
+      },
+      {
+        "title": "5.3.2_2_二叉树的线索化",
+        "duration_seconds": 1165,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=50"
+      },
+      {
+        "title": "5.3.2_3_在线索二叉树中找前驱后继",
+        "duration_seconds": 1099,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=51"
+      },
+      {
+        "title": "5.4.1 树的存储结构",
+        "duration_seconds": 1169,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=52"
+      },
+      {
+        "title": "5.4.2 树、森林与二叉树的转换",
+        "duration_seconds": 891,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=53"
+      },
+      {
+        "title": "5.4.3 树和森林的遍历",
+        "duration_seconds": 669,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=54"
+      },
+      {
+        "title": "5.5.1_哈夫曼树",
+        "duration_seconds": 1058,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=55"
+      },
+      {
+        "title": "5.5.2_1_并查集",
+        "duration_seconds": 1933,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=56"
+      },
+      {
+        "title": "5.5.2_2_并查集的进一步优化",
+        "duration_seconds": 617,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=57"
+      },
+      {
+        "title": "6.1.1_图的基本概念",
+        "duration_seconds": 1839,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=58"
+      },
+      {
+        "title": "6.2.1_邻接矩阵法",
+        "duration_seconds": 938,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=59"
+      },
+      {
+        "title": "6.2.2_邻接表法",
+        "duration_seconds": 413,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=60"
+      },
+      {
+        "title": "6.2.3+6.2.4_十字链表、邻接多重表",
+        "duration_seconds": 760,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=61"
+      },
+      {
+        "title": "6.2.5_图的基本操作",
+        "duration_seconds": 826,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=62"
+      },
+      {
+        "title": "6.3.1_图的广度优先遍历",
+        "duration_seconds": 1511,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=63"
+      },
+      {
+        "title": "6.3.2_图的深度优先遍历",
+        "duration_seconds": 1162,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=64"
+      },
+      {
+        "title": "6.4.1_最小生成树",
+        "duration_seconds": 1243,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=65"
+      },
+      {
+        "title": "6.4.2_1最短路径问题_BFS算法",
+        "duration_seconds": 600,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=66"
+      },
+      {
+        "title": "6.4.2_2最短路径问题_Dijkstra算法",
+        "duration_seconds": 1127,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=67"
+      },
+      {
+        "title": "6.4.2_3_最短路径问题_Floyd算法",
+        "duration_seconds": 1368,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=68"
+      },
+      {
+        "title": "6.4.3_有向无环图描述表达式",
+        "duration_seconds": 808,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=69"
+      },
+      {
+        "title": "6.4.4_拓扑排序",
+        "duration_seconds": 1228,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=70"
+      },
+      {
+        "title": "6.4.5_关键路径",
+        "duration_seconds": 1479,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=71"
+      },
+      {
+        "title": "7.1_查找的基本概念",
+        "duration_seconds": 417,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=72"
+      },
+      {
+        "title": "7.2.1_顺序查找",
+        "duration_seconds": 890,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=73"
+      },
+      {
+        "title": "7.2.2_折半查找",
+        "duration_seconds": 1426,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=74"
+      },
+      {
+        "title": "7.2.3_分块查找",
+        "duration_seconds": 1417,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=75"
+      },
+      {
+        "title": "7.3.1 二叉排序树",
+        "duration_seconds": 1123,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=76"
+      },
+      {
+        "title": "7.3.2_1 平衡二叉树",
+        "duration_seconds": 1948,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=77"
+      },
+      {
+        "title": "7.3.2_2_平衡二叉树的删除",
+        "duration_seconds": 1836,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=78"
+      },
+      {
+        "title": "7.3.3_1_红黑树的定义和性质",
+        "duration_seconds": 1542,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=79"
+      },
+      {
+        "title": "7.3.3_2_红黑树的插入",
+        "duration_seconds": 2181,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=80"
+      },
+      {
+        "title": "7.3.3_3_红黑树的删除",
+        "duration_seconds": 286,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=81"
+      },
+      {
+        "title": "7.4.1_1_B树",
+        "duration_seconds": 1729,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=82"
+      },
+      {
+        "title": "7.4.1_2_B树的插入删除",
+        "duration_seconds": 1207,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=83"
+      },
+      {
+        "title": "7.4.2_B+树",
+        "duration_seconds": 1285,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=84"
+      },
+      {
+        "title": "7.5.1 散列表的基本概念",
+        "duration_seconds": 579,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=85"
+      },
+      {
+        "title": "7.5.2 散列函数的构造",
+        "duration_seconds": 913,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=86"
+      },
+      {
+        "title": "7.5.3_1 处理冲突的方法_拉链法",
+        "duration_seconds": 596,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=87"
+      },
+      {
+        "title": "7.5.3_2 处理冲突的方法_开放定址法",
+        "duration_seconds": 1569,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=88"
+      },
+      {
+        "title": "7.5.4 散列查找的性能分析",
+        "duration_seconds": 1850,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=89"
+      },
+      {
+        "title": "8.1_排序的基本概念",
+        "duration_seconds": 632,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=90"
+      },
+      {
+        "title": "8.2.1+8.2.2_插入排序",
+        "duration_seconds": 1216,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=91"
+      },
+      {
+        "title": "8.2.3_希尔排序",
+        "duration_seconds": 1296,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=92"
+      },
+      {
+        "title": "8.3.1_冒泡排序",
+        "duration_seconds": 781,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=93"
+      },
+      {
+        "title": "8.3.2_快速排序",
+        "duration_seconds": 2229,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=94"
+      },
+      {
+        "title": "8.4.1_简单选择排序",
+        "duration_seconds": 299,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=95"
+      },
+      {
+        "title": "8.4.2_1_堆排序",
+        "duration_seconds": 1969,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=96"
+      },
+      {
+        "title": "8.4.2_2_堆的插入删除",
+        "duration_seconds": 425,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=97"
+      },
+      {
+        "title": "8.5.1_归并排序",
+        "duration_seconds": 1346,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=98"
+      },
+      {
+        "title": "8.5.2_基数排序",
+        "duration_seconds": 1536,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=99"
+      },
+      {
+        "title": "8.5.3 计数排序",
+        "duration_seconds": 2168,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=100"
+      },
+      {
+        "title": "8.7.1+8.7.2_外部排序",
+        "duration_seconds": 1822,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=101"
+      },
+      {
+        "title": "8.7.3_败者树",
+        "duration_seconds": 1060,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=102"
+      },
+      {
+        "title": "8.7.4_置换-选择排序",
+        "duration_seconds": 633,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=103"
+      },
+      {
+        "title": "8.7.5_最佳归并树",
+        "duration_seconds": 1158,
+        "url": "https://www.bilibili.com/video/BV1b7411N798/?p=104"
+      }
+    ],
+    "subtitle_status": "未确认，请在播放器查看",
+    "metadata_source": "B站公开视频信息",
+    "metadata_checked_at": "2026-09-22"
   },
   {
-    "id": "canoe-complexity", "title": "【考研408】算法时间复杂度 · 王道例题配套讲解", "author": "Canoe_Version2", "bvid": "BV1Lm4y1s7Uk",
-    "kps": ["complexity"], "format": "专题例题", "note": "适合在理解概念后跟进复杂度例题。先尝试独立计算，再观看讲解核对。", "verified_at": "2026-09-15"
+    "id": "canoe-complexity",
+    "title": "【考研408 】数据结构 | 算法时间复杂度 | 一次性讲清 | 王道例题配套讲解",
+    "author": "Canoe_Version2",
+    "bvid": "BV1Lm4y1s7Uk",
+    "kps": [
+      "complexity"
+    ],
+    "format": "专题例题",
+    "note": "适合在理解概念后跟进复杂度例题。先尝试独立计算，再观看讲解核对。",
+    "verified_at": "2026-09-15",
+    "platform": "bilibili",
+    "language": "中文",
+    "cover_url": "https://i0.hdslb.com/bfs/archive/fdced2521edf50c892ce05dc50c4abadb7c982b4.png",
+    "duration_seconds": 4334,
+    "published_at": "2023-08-08",
+    "chapters": [
+      {
+        "title": "正篇",
+        "duration_seconds": 4244,
+        "url": "https://www.bilibili.com/video/BV1Lm4y1s7Uk/?p=1"
+      },
+      {
+        "title": "第九题求和部分勘误（原视频位置0:41:06~0:44:42）",
+        "duration_seconds": 90,
+        "url": "https://www.bilibili.com/video/BV1Lm4y1s7Uk/?p=2"
+      }
+    ],
+    "subtitle_status": "未确认，请在播放器查看",
+    "metadata_source": "B站公开视频信息",
+    "metadata_checked_at": "2026-09-22"
   },
   {
-    "id": "xianyu-data-structures", "title": "2024、25王道408数据结构自制版（重点讲解＋课后习题）", "author": "仅仅是一条咸鱼", "bvid": "BV13T411d7Sf",
-    "kps": ["complexity"], "format": "个人讲解", "note": "已核验目录含时间与空间复杂度。个人讲解可作补充，先试听并核对教材。", "verified_at": "2026-09-15"
+    "id": "xianyu-data-structures",
+    "title": "2024、25王道408数据结构自制版（重点讲解+课后习题超详细讲解）",
+    "author": "仅仅是一条咸鱼",
+    "bvid": "BV13T411d7Sf",
+    "kps": [
+      "complexity"
+    ],
+    "format": "个人讲解",
+    "note": "已核验目录含时间与空间复杂度。个人讲解可作补充，先试听并核对教材。",
+    "verified_at": "2026-09-15",
+    "platform": "bilibili",
+    "language": "中文",
+    "cover_url": "https://i1.hdslb.com/bfs/archive/a0215f91effd20222eeb44825293a0c2c141b86d.png",
+    "duration_seconds": 91381,
+    "published_at": "2023-02-04",
+    "chapters": [
+      {
+        "title": "petal_20240408_225018",
+        "duration_seconds": 176,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=1"
+      },
+      {
+        "title": "时间复杂度和空间复杂度",
+        "duration_seconds": 1900,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=2"
+      },
+      {
+        "title": "第一章第二节选择题",
+        "duration_seconds": 2748,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=3"
+      },
+      {
+        "title": "第一章第二节大题",
+        "duration_seconds": 1137,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=4"
+      },
+      {
+        "title": "数组+链表基础",
+        "duration_seconds": 1253,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=5"
+      },
+      {
+        "title": "第二章第二节选择题",
+        "duration_seconds": 1129,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=6"
+      },
+      {
+        "title": "第二章第二节大题(第1~5题)",
+        "duration_seconds": 2355,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=7"
+      },
+      {
+        "title": "第二章第二节大题（第6、7、9题）",
+        "duration_seconds": 2985,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=8"
+      },
+      {
+        "title": "第二章第二节大题（第8、10题）",
+        "duration_seconds": 2017,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=9"
+      },
+      {
+        "title": "第二章第二节大题（第11题）",
+        "duration_seconds": 3493,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=10"
+      },
+      {
+        "title": "第二章第二节大题（第12题）",
+        "duration_seconds": 1543,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=11"
+      },
+      {
+        "title": "第二章第二节大题（第13题）",
+        "duration_seconds": 686,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=12"
+      },
+      {
+        "title": "第二章第二节大题（第14题）",
+        "duration_seconds": 1874,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=13"
+      },
+      {
+        "title": "第二章第三节选择题",
+        "duration_seconds": 3817,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=14"
+      },
+      {
+        "title": "第二章第三节大题（第1、2题）",
+        "duration_seconds": 1192,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=15"
+      },
+      {
+        "title": "第二章第三节大题（第3题）",
+        "duration_seconds": 462,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=16"
+      },
+      {
+        "title": "第二章第三节大题（第4、7题）",
+        "duration_seconds": 726,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=17"
+      },
+      {
+        "title": "第二章第三节大题（第6题）",
+        "duration_seconds": 895,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=18"
+      },
+      {
+        "title": "第二章第三节大题（第8题）",
+        "duration_seconds": 1413,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=19"
+      },
+      {
+        "title": "第二章第三节大题（第21题）",
+        "duration_seconds": 1552,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=20"
+      },
+      {
+        "title": "第二章第三节大题（第22题）",
+        "duration_seconds": 815,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=21"
+      },
+      {
+        "title": "第三章第一节选择题（第1-10题）",
+        "duration_seconds": 1167,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=22"
+      },
+      {
+        "title": "第三章第一节选择题（第11-20题）",
+        "duration_seconds": 1822,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=23"
+      },
+      {
+        "title": "第三章第一节选择题（第21-29题）",
+        "duration_seconds": 1747,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=24"
+      },
+      {
+        "title": "受限的双端队列的序列问题",
+        "duration_seconds": 1654,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=25"
+      },
+      {
+        "title": "第三章第二节选择题（第1-15题）",
+        "duration_seconds": 1515,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=26"
+      },
+      {
+        "title": "第三章第二节选择题（第16-21题）",
+        "duration_seconds": 1376,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=27"
+      },
+      {
+        "title": "栈在表达式中的应用",
+        "duration_seconds": 280,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=28"
+      },
+      {
+        "title": "第三章第三节选择题",
+        "duration_seconds": 2342,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=29"
+      },
+      {
+        "title": "第三章第三节大题（第4题）",
+        "duration_seconds": 1380,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=30"
+      },
+      {
+        "title": "第三章第四节选择题",
+        "duration_seconds": 2340,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=31"
+      },
+      {
+        "title": "停更通知（7月回来）+跟大家聊聊人生",
+        "duration_seconds": 2498,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=32"
+      },
+      {
+        "title": "第四章第二节选择题",
+        "duration_seconds": 1344,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=33"
+      },
+      {
+        "title": "树的性质",
+        "duration_seconds": 772,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=34"
+      },
+      {
+        "title": "第五章第一节选择题",
+        "duration_seconds": 636,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=35"
+      },
+      {
+        "title": "二叉树的性质",
+        "duration_seconds": 1080,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=36"
+      },
+      {
+        "title": "第五章第二节选择题（第1-11题）",
+        "duration_seconds": 1559,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=37"
+      },
+      {
+        "title": "第五章第二节选择题（第12-22题）",
+        "duration_seconds": 2077,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=38"
+      },
+      {
+        "title": "树的遍历+第五章第三节选择题（第1-2题）",
+        "duration_seconds": 895,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=39"
+      },
+      {
+        "title": "分析法 + 第五章第三节选择题（第2-10题）",
+        "duration_seconds": 2375,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=40"
+      },
+      {
+        "title": "第五章第三节选择题（第11-36题）",
+        "duration_seconds": 5061,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=41"
+      },
+      {
+        "title": "第五章第四节选择题",
+        "duration_seconds": 4189,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=42"
+      },
+      {
+        "title": "第五章第五节选择题",
+        "duration_seconds": 2793,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=43"
+      },
+      {
+        "title": "第六、七、八章",
+        "duration_seconds": 2139,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=44"
+      },
+      {
+        "title": "怎么写递归",
+        "duration_seconds": 2711,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=45"
+      },
+      {
+        "title": "第六章第一节选择题+大题",
+        "duration_seconds": 3276,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=46"
+      },
+      {
+        "title": "第六章第二节选择题",
+        "duration_seconds": 2656,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=47"
+      },
+      {
+        "title": "第六章第三节选择题",
+        "duration_seconds": 4072,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=48"
+      },
+      {
+        "title": "最小生成树",
+        "duration_seconds": 1457,
+        "url": "https://www.bilibili.com/video/BV13T411d7Sf/?p=49"
+      }
+    ],
+    "subtitle_status": "未确认，请在播放器查看",
+    "metadata_source": "B站公开视频信息",
+    "metadata_checked_at": "2026-09-22"
+  },
+  {
+    "id": "fcc-algorithms",
+    "platform": "youtube",
+    "language": "英文",
+    "video_id": "8hly31xKli0",
+    "cover_url": "https://i.ytimg.com/vi/8hly31xKli0/hqdefault.jpg",
+    "metadata_source": "YouTube oEmbed（标题与封面）",
+    "metadata_checked_at": "2026-09-22",
+    "metadata_notice": "当前未取得时长、日期、字幕与章节，打开原视频查看",
+    "title": "Algorithms and Data Structures Tutorial - Full Course for Beginners",
+    "author": "freeCodeCamp.org",
+    "kps": [
+      "complexity",
+      "array",
+      "linked_list",
+      "recursion",
+      "sorting_basic",
+      "sorting_adv"
+    ],
+    "format": "完整课程",
+    "note": "英文入门课程；可在原站打开字幕并按章节学习。",
+    "verified_at": "2026-09-22"
   }
 ]

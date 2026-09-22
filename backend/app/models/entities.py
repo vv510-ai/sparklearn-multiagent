@@ -52,6 +52,14 @@ class LearningSpace(Base):
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now, onupdate=now)
 
 
+class ModelPreference(Base):
+    __tablename__ = "model_preferences"
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    routes: Mapped[dict] = mapped_column(JSON, default=dict)
+    credentials: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
 class Notebook(Base):
     """A durable, tenant-owned subject workspace with its own sources and chat."""
     __tablename__ = "notebooks"

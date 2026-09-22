@@ -8,10 +8,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.staticfiles import StaticFiles
 
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .api import pilot
+from .api import settings as model_settings
+from .api import learning
 from .auth import bind_request_user, decode_access_token, reset_request_user
 from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
@@ -36,6 +40,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="知行循证 LearnLoop · 可验证个性化学习平台",
               version="1.0.0", lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def redact_settings_validation(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("/api/settings/models"):
+        return JSONResponse({"detail": "设置格式不正确，请检查模型选项和 API Key 字段"}, status_code=422)
+    return await request_validation_exception_handler(request, exc)
 
 _PUBLIC_PATHS = {
     "/",
@@ -81,7 +92,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 for r in (assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
-          tutor.router, evaluate.router, demo.router, meta.router, pilot.router):
+          tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router):
     app.include_router(r)
 
 

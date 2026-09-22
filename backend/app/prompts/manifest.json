@@ -1,12 +1,13 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.17.2",
+  "version": "2026.09.22.1",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
     "beginner_rules": "shared/beginner-first.md",
     "integration_rules": "shared/multi-source-integration.md",
-    "output_rules": "shared/output-check.md"
+    "output_rules": "shared/output-check.md",
+    "explanation_rules": "shared/explanation-style.md"
   },
   "capabilities": {
     "assessment.course_repair": {
@@ -124,6 +125,22 @@
     "safety.grounding": {
       "description": "回答与资料一致性核查",
       "file": "safety/grounding.md"
+    },
+    "english.scene": {
+      "file": "english/scene.md",
+      "description": "按目标与字幕生成英语场景词汇笔记"
+    },
+    "tutor.next_step": {
+      "file": "tutor/next-step.md",
+      "description": "依据本轮答案实时生成下一步问题"
+    },
+    "research.plan": {
+      "file": "research/plan.md",
+      "description": "深度研究的多角度检索计划"
+    },
+    "research.report": {
+      "file": "research/report.md",
+      "description": "有编号证据的研究学习笔记"
     }
   }
 }

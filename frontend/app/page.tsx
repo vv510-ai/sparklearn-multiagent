@@ -9,6 +9,7 @@ import {
   PanelRightOpen,
   Route,
   ShieldCheck,
+  Settings,
   Target,
   X,
 } from "lucide-react";
@@ -26,6 +27,9 @@ import ProfileRadar from "@/components/profile/ProfileRadar";
 import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
 import AssessmentPanel from "@/components/assessment/AssessmentPanel";
+import ModelSettings from "@/components/settings/ModelSettings";
+import ResearchPanel from "@/components/learning/ResearchPanel";
+import EnglishScenes from "@/components/learning/EnglishScenes";
 import CourseRecommendations from "@/components/courses/CourseRecommendations";
 import OnboardingGate from "@/components/onboarding/OnboardingGate";
 import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
@@ -34,7 +38,7 @@ import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/a
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
-type PanelKey = "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
+type PanelKey = "models" | "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
@@ -867,6 +871,7 @@ export default function Home() {
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold md:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
           </span>
+          <button onClick={() => openPanel("models")} className="notebook-icon-button" aria-label="模型设置" title="模型设置"><Settings size={17}/></button>
           <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button">
             <ShieldCheck size={16} /><span className="hidden md:inline">依据</span>
           </button>
@@ -923,7 +928,10 @@ export default function Home() {
           </div>
 
           {activePanel === "assessment" && <AssessmentPanel key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} initialSurvey={{ course_title: activeCourse?.title || activeNotebook?.title || "", course_key: "custom", source_ids: selectedSourceIds.filter(id => id !== COURSE_SOURCE_ID), ...profile?.learning_intake }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
-          {activePanel === "courses" && <CourseRecommendations key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
+          {activePanel === "models" && <ModelSettings onBack={() => setActivePanel("chat")} />}
+          {activePanel === "research" && <ResearchPanel key={activeNotebook?.id || "research"} notebookId={activeNotebook?.id || ""} initialTopic={conversationFocus || notebookTopic} onBack={() => setActivePanel("chat")} />}
+          {activePanel === "english" && <EnglishScenes key={activeNotebook?.id || "english"} notebookId={activeNotebook?.id || ""} onBack={() => setActivePanel("chat")} />}
+          {activePanel === "courses" && <CourseRecommendations key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} initialTopic={conversationFocus || notebookTopic} initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
           {activePanel === "profile" && (
             <div className="notebook-content-scroll">
               <div className="notebook-content-heading">

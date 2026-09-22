@@ -58,7 +58,9 @@ export default defineConfig({
       },
     },
     {
-      command: "npm run dev:e2e",
+      command: process.env.PLAYWRIGHT_PRODUCTION === "true"
+        ? "node node_modules/next/dist/bin/next start -p 13000"
+        : "npm run dev:e2e",
       cwd: __dirname,
       url: `http://localhost:${frontendPort}`,
       reuseExistingServer: false,

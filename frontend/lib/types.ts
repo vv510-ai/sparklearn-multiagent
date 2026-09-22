@@ -86,6 +86,7 @@ export interface ResourceItem {
       rows?: string[][];
     };
     one_page_visual?: {
+      pages?: { title: string; image_url?: string; provider?: string; model?: string; image_status?: string; image_error?: string; center?: string; nodes?: { label: string; text: string }[]; steps?: string[] }[];
       model?: string;
       title?: string;
       center?: string;
