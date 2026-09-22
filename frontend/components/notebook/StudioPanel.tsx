@@ -131,7 +131,7 @@ export const GENERATORS = [
 const VIEWS = [
   { title: "英语场景学习", desc: "影视字幕、词义与主动回忆", icon: Headphones, tone: "emerald", panel: "english" },
   { title: "深度研究", desc: "检索真实来源并对照证据", icon: Sparkles, tone: "indigo", panel: "research" },
-  { title: "模型设置", desc: "选择模型并填写 API", icon: Target, tone: "slate", panel: "models" },
+  { title: "模型设置", desc: "一键选择日常或深度学习", icon: Target, tone: "slate", panel: "models" },
   { title: "学习画像", desc: "掌握度与错因", icon: ChartNoAxesColumn, tone: "indigo", panel: "profile" },
   { title: "知识关系", desc: "先修、解锁与顺序", icon: Route, tone: "emerald", panel: "path" },
   { title: "资料归档", desc: "继续上次的内容", icon: FolderOpen, tone: "slate", panel: "resources" },
