@@ -28,7 +28,8 @@ async def model_status():
     preferences = view(require_current_user_id())
     return {"demo_mode": is_demo() and route is None, "text": route["model"] if route else active_llm_label(),
             "provider": route["provider"] if route else active_provider(), "capabilities": capability_status(),
-            "module_routes": preferences["routes"]}
+            "routing_mode": "automatic" if preferences["server_routes"] else "configured",
+            "module_routes": preferences["server_routes"] or preferences["routes"]}
 
 
 @router.get("/kg")

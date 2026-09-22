@@ -72,13 +72,6 @@ const STARTERS = [
 const BEGINNER_PRESET =
   "请用完全零基础、由浅入深的方式教我【在这里填写知识点】。先判断我现在需要学习路线还是概念讲解，只回答当下最需要的内容；练习、导图或笔记等我需要时会单独提出。";
 
-const FLOW = [
-  ["01", "先判断需求", "路线还是概念"],
-  ["02", "只答眼前问题", "不强塞全套"],
-  ["03", "需要再展开", "由你决定深度"],
-  ["04", "产物按需生成", "导图练习可选"],
-];
-
 function isProductOperation(question: string, answer: string): boolean {
   const q = question.replace(/\s+/g, "");
   return (
@@ -263,7 +256,7 @@ export default function Chat({
   }, [busy, recording, stopRecording, transcribing]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (msgs.length) bottomRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "end" });
   }, [msgs]);
 
   const send = useCallback(
@@ -466,13 +459,13 @@ export default function Chat({
 
       <div className="notebook-chat-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {msgs.length === 0 && (
-          <div className="mx-auto max-w-3xl space-y-5 pt-8">
+          <div className="learning-welcome mx-auto max-w-3xl space-y-5 pt-8">
             <div className="text-center">
-              <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#EEF0FA] text-2xl">📘</div>
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#e4f2eb] text-[#176c6b]"><BookPlus size={24} /></div>
               <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[#1D2028]">从一个问题开始</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">先说一个想解决的小问题。小知会沿着你的回答往下讲；聊过一段，再提醒你是否需要整理或练习。</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">想弄懂一个概念，还是卡在一道题？告诉小知，我们从这里开始。</p>
             </div>
-            {recommendedTask && (
+            {recommendedTask && notebookId && (
               <div className="rounded-[16px] border border-[#B9D9C5] bg-[#EDF7F0] p-4 shadow-[0_1px_2px_rgba(18,30,22,0.04),0_10px_24px_rgba(18,30,22,0.06)]">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -492,36 +485,20 @@ export default function Chat({
             </div>
             <button
               type="button"
-              onClick={() => setInput(BEGINNER_PRESET)}
-              className="notebook-beginner-preset w-full rounded-[14px] border border-emerald-200 p-4 text-left transition hover:border-emerald-300 hover:bg-[#EDF6F1]"
+              onClick={() => { setInput(BEGINNER_PRESET); document.getElementById("learning-chat-input")?.focus(); }}
+              className="notebook-beginner-preset w-full rounded-[14px] border border-emerald-200 px-4 py-3 text-left text-sm text-[#176c6b] transition hover:border-emerald-300 hover:bg-[#EDF6F1]"
             >
-              <span className="font-mono text-[10px] font-bold tracking-[0.18em] text-emerald-700">零基础学习预设 · 点击填入</span>
-              <span className="mt-2 block text-sm leading-6 text-[#425248]">{BEGINNER_PRESET}</span>
+              我是零基础，帮我一步步学 <ArrowRight size={15} className="inline-block" />
             </button>
-            <div className="notebook-flow-card rounded-[12px] border border-[#E1E4EC] p-3">
-              <div className="mb-2 text-xs font-bold text-emerald-800">
-                一次完整学习会这样推进
-              </div>
-              <div className="grid gap-2 sm:grid-cols-4">
-                {FLOW.map(([code, title, desc]) => (
-                  <div key={code} className="notebook-flow-step rounded-[10px] border border-[#E5E9E3] px-3 py-2">
-                    <div className="font-mono text-[10px] font-bold tracking-[0.18em] text-emerald-700">{code}</div>
-                    <div className="mt-1 text-xs font-bold text-[#182119]">{title}</div>
-                    <div className="mt-0.5 text-[11px] leading-4 text-[#8B958D]">{desc}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
             <div>
-              <div className="mb-2 text-xs font-bold text-[#8B958D]">可以从一个示例目标开始</div>
+              <div className="mb-2 text-xs font-bold text-[#62746a]">也可以这样问</div>
               <div className="grid gap-3 sm:grid-cols-2">
-                {STARTERS.map((s) => (
+                {STARTERS.slice(0, 2).map((s) => (
                   <button
                     key={s}
-                    onClick={() => send(s)}
+                    onClick={() => { setInput(s); document.getElementById("learning-chat-input")?.focus(); }}
                     className="notebook-starter-card rounded-[14px] border border-[#E5E9E3] p-4 text-left text-sm text-[#57635A] shadow-sm transition hover:-translate-y-0.5 hover:border-[#D2DAD2] hover:shadow-[0_1px_2px_rgba(18,30,22,0.05),0_6px_20px_rgba(18,30,22,0.08)]"
                   >
-                    <span className="mb-2 block font-mono text-[10px] tracking-[0.2em] text-emerald-700">学习目标</span>
                     {s}
                   </button>
                 ))}

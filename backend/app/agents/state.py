@@ -37,6 +37,7 @@ class LearningState(TypedDict, total=False):
     interaction_resource: dict                       # 当前互动讲解原文与租户安全资源元数据
     # 编排
     intent: str                                        # learn|summary|generate|tutor|eval|chat
+    model_depth: str                                   # standard|deep; orchestrator is the only writer
     # 画像与计划
     student_profile: dict
     plan: dict                                         # Planner 输出

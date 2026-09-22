@@ -162,23 +162,32 @@ def module_for(prompt: str) -> str:
     return "tutor"
 
 
-def resolve(prompt: str) -> dict | None:
+def resolve(prompt: str, *, task_context: dict | None = None) -> dict | None:
     if _OVERRIDE.get() is not None:
         return _OVERRIDE.get()
     user = current_user_id()
     routes, keys, _ = _load(user) if user else ({}, {}, 0)
     defaults = server_routes()
     module = module_for(prompt)
-    model = (routes.get(module) or routes.get("default")
-             or defaults.get(module) or defaults.get("default"))
+    reason = "已保存的服务配置"
+    if defaults:
+        # The managed learning experience is automatic, including accounts that
+        # saved an old one-click preset. Keep those settings intact for rollback.
+        from .task_routing import deep_task_reason
+        deep_reason = deep_task_reason(task_context) if module == "tutor" else ""
+        model = "kimi-k3" if deep_reason else defaults.get(module, defaults["default"])
+        reason = deep_reason or ("资料与教学内容设计" if model == "kimi-k3" else "日常学习与即时回答")
+    else:
+        model = routes.get(module) or routes.get("default")
     if not model:
         return None
     provider = MODELS[model]["provider"]
-    key = (_open(user, provider, keys[provider]) if keys.get(provider)
+    key = (_open(user, provider, keys[provider]) if not defaults and keys.get(provider)
            else getattr(get_settings(), PROVIDERS[provider]["key_env"], ""))
     if not key:
-        raise HTTPException(422, "所选模型缺少 API Key，请打开模型设置")
-    return {"model": model, "provider": provider, "key": key, "base_url": PROVIDERS[provider]["base_url"]}
+        raise HTTPException(503, "学习服务暂时不可用，请稍后重试或联系管理员")
+    return {"model": model, "provider": provider, "key": key, "base_url": PROVIDERS[provider]["base_url"],
+            "automatic": bool(defaults), "reason": reason}
 
 
 def test_route(user: str, model: str) -> dict:

@@ -1,5 +1,4 @@
 "use client";
-import FeatureGuide from "./FeatureGuide";
 import TextbookScope from "@/components/assessment/TextbookScope";
 import AnswerGuide from "@/components/assessment/AnswerGuide";
 
@@ -213,7 +212,6 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
         }} />
         {goals.length > 1 && <label className="intake-field">当前优先解决<select value={survey.goal} onChange={e => set("goal", e.target.value)}>{goals.map(g => <option key={g}>{g}</option>)}</select></label>}
         {!!goals.length && <p className="intake-response" role="status"><Compass size={17} /> 将优先围绕“{survey.goal}”安排；具体难度等你做题后确定。</p>}
-        <FeatureGuide />
       </>}
       {step === 1 && <>
         <p className="intake-hint">你希望优先“{survey.goal}”。下面选定这次的课程和资料，之后的测评、计划与讲解会围绕它们展开。</p>

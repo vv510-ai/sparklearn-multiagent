@@ -164,7 +164,7 @@ def test_explicit_demo_makes_no_external_request(kimi_transport, monkeypatch):
     assert calls == []
 
 
-def test_smart_server_routing_and_account_override(monkeypatch):
+def test_automatic_routing_replaces_legacy_presets_without_deleting_them(monkeypatch):
     for key, value in {"DEMO_MODE": "false", "LLM_PROVIDER": "deepseek",
                        "DEEPSEEK_API_KEY": "test-existing-deepseek", "KIMI_API_KEY": "test-kimi",
                        "KIMI_SMART_ROUTING": "true"}.items():
@@ -183,9 +183,17 @@ def test_smart_server_routing_and_account_override(monkeypatch):
         assert model_preferences.resolve("CAPABILITY=doc.complete_notes\n")["model"] == "kimi-k3"
         assert model_preferences.resolve("CAPABILITY=media.storyboard\n")["model"] == "kimi-k3"
         model_preferences.save(user, {"default": "deepseek-v4-pro"}, {}, before["revision"])
-        assert model_preferences.resolve("CAPABILITY=research.report\n")["provider"] == "deepseek"
-        model_preferences.save(user, {"default": "kimi-k3"}, {})
+        assert model_preferences.resolve("CAPABILITY=research.report\n")["provider"] == "kimi"
+        model_preferences.save(user, {"default": "kimi-k3"}, {"kimi": "test-legacy-personal-key"})
+        assert model_preferences.resolve("CAPABILITY=tutor.guided\n")["provider"] == "deepseek"
+        assert model_preferences.view(user)["routes"] == {"default": "kimi-k3"}
+        deep = model_preferences.resolve("CAPABILITY=tutor.guided\n", task_context={"question": "请严格证明二分查找的时间复杂度"})
+        assert deep["model"] == "kimi-k3" and deep["automatic"]
+        assert deep["key"] == "test-kimi"
+        monkeypatch.setenv("KIMI_SMART_ROUTING", "false")
+        config.get_settings.cache_clear()
         assert model_preferences.resolve("CAPABILITY=tutor.guided\n")["model"] == "kimi-k3"
+        assert model_preferences.resolve("CAPABILITY=tutor.guided\n")["key"] == "test-legacy-personal-key"
     finally:
         reset_request_user(token)
 

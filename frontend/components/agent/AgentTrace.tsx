@@ -13,6 +13,7 @@ export interface TraceNode {
   detail: string;
   summary: string;
   ts?: string;
+  modelRoute?: SparkEvent["model_route"];
 }
 export type TraceState = Record<string, TraceNode>;
 
@@ -54,7 +55,7 @@ export function applyTraceEvent(prev: TraceState, ev: SparkEvent): TraceState {
     case "agent_start":
       return { ...prev, [a]: { ...node, status: "running", detail: ev.detail || "", ts: ev.ts } };
     case "progress":
-      return { ...prev, [a]: { ...node, detail: ev.detail || node.detail } };
+      return { ...prev, [a]: { ...node, detail: ev.detail || node.detail, modelRoute: ev.model_route || node.modelRoute } };
     case "agent_end":
       return { ...prev, [a]: { ...node, status: "done", summary: ev.summary || "", ts: ev.ts } };
     case "safety":
@@ -123,6 +124,7 @@ function Node({ id, n, duration }: { id: string; n: TraceNode; duration?: number
           <div className="h-1 w-1/3 animate-slide rounded-full bg-[#7ED9A6]" />
         </div>
       )}
+      {n.modelRoute && <p className="mt-1 pl-7 text-xs text-[#A9B8AC]">{n.modelRoute.automatic ? "自动选择" : "服务配置"}：{n.modelRoute.model} · {n.modelRoute.reason}</p>}
     </div>
   );
 }

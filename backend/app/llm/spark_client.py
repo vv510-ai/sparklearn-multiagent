@@ -279,11 +279,12 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      temperature: float = 0.7,
                      max_tokens: int | None = None,
                      reasoning_mode: str = "",
+                     task_context: dict | None = None,
                      allow_model_fallback: bool = True,
                      allow_mock_fallback: bool = True) -> AsyncIterator[str]:
     """流式补全,逐 token 产出(SSE 直接转发)。"""
     from ..services.model_preferences import resolve
-    route = resolve(prompt)
+    route = resolve(prompt, task_context=task_context) if task_context is not None else resolve(prompt)
     if route and route["provider"] == "kimi":
         from .selected_model import stream
         messages = ([{"role": "system", "content": system}] if system else []) + \

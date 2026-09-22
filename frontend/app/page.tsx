@@ -9,7 +9,6 @@ import {
   PanelRightOpen,
   Route,
   ShieldCheck,
-  Settings,
   Target,
   X,
 } from "lucide-react";
@@ -28,7 +27,8 @@ import ProfileRadar from "@/components/profile/ProfileRadar";
 import ReviewQueue from "@/components/profile/ReviewQueue";
 import ResourceCard from "@/components/resource/ResourceCard";
 import AssessmentPanel from "@/components/assessment/AssessmentPanel";
-import ModelSettings from "@/components/settings/ModelSettings";
+import LearningGuide from "@/components/onboarding/LearningGuide";
+import type { CoachAction } from "@/components/onboarding/StudyCoach";
 import ResearchPanel from "@/components/learning/ResearchPanel";
 import EnglishScenes from "@/components/learning/EnglishScenes";
 import CourseRecommendations from "@/components/courses/CourseRecommendations";
@@ -39,7 +39,7 @@ import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/a
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
-type PanelKey = "models" | "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
+type PanelKey = "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
@@ -846,7 +846,14 @@ export default function Home() {
       onToggle={togglePersonalSource}
     />
   );
-  const studioPanel = <StudioPanel key={activeNotebook?.id || "welcome"} stage={studyStage} onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
+  const coachAction = (action: CoachAction) => {
+    if (action === "sources") { activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true); return; }
+    if (action === "assessment") { openPanel("assessment"); return; }
+    if (action === "quiz" || action === "notes") { startSuggestedTool(action === "quiz" ? "quiz" : "conversation_notes"); return; }
+    setActivePanel("chat"); setMobilePane(null);
+    requestAnimationFrame(() => document.getElementById("learning-chat-input")?.focus());
+  };
+  const studioPanel = <StudioPanel key={activeNotebook?.id || "welcome"} stage={studyStage} sourceCount={selectedSourceIds.length} hasNotebook={!!activeNotebook} coachKey={`learnloop:coach:v1:${authUser.id}:${activeNotebook?.id || "welcome"}`} onCoachAction={coachAction} onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
   const profilePace = asRecord(profile?.pace);
 
   return (
@@ -882,7 +889,7 @@ export default function Home() {
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold md:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
           </span>
-          <button onClick={() => openPanel("models")} className="notebook-icon-button" aria-label="模型设置" title="模型设置"><Settings size={17}/></button>
+          <LearningGuide userId={authUser.id} enabled={activePanel === "chat" && !newBookOpen && !openingNotebookId && !mobilePane} onPrepare={() => { setActivePanel("chat"); setMobilePane(null); }} />
           <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button">
             <ShieldCheck size={16} /><span className="hidden md:inline">依据</span>
           </button>
@@ -894,7 +901,7 @@ export default function Home() {
       </header>
 
       <div className="notebook-layout min-h-0 flex-1">
-        <aside className="hidden min-h-0 xl:block">{sourcePanel}</aside>
+        <aside data-guide="sources" className="hidden min-h-0 xl:block">{sourcePanel}</aside>
 
         <section className="notebook-column notebook-main-column relative flex min-h-0 flex-col overflow-hidden">
           {activePanel === "chat" && profile?.learning_intake && <div className="learning-context-strip"><div><strong>{profile.course_title || activeNotebook?.title}</strong><span>优先：{profile.learning_intake.goal} · 每次 {profile.learning_intake.daily_minutes} 分钟 · 已绑定 {activeCourse?.source_ids?.length || 0} 份资料</span></div><button onClick={() => openPanel("assessment")}>查看依据与计划 <ArrowRight size={14} /></button></div>}
@@ -942,7 +949,6 @@ export default function Home() {
           </div>
 
           {activePanel === "assessment" && <AssessmentPanel key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} initialSurvey={{ course_title: activeCourse?.title || activeNotebook?.title || "", course_key: "custom", source_ids: selectedSourceIds.filter(id => id !== COURSE_SOURCE_ID), ...profile?.learning_intake }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
-          {activePanel === "models" && <ModelSettings onBack={() => setActivePanel("chat")} />}
           {activePanel === "research" && <ResearchPanel key={activeNotebook?.id || "research"} notebookId={activeNotebook?.id || ""} initialTopic={conversationFocus || notebookTopic} onBack={() => setActivePanel("chat")} />}
           {activePanel === "english" && <EnglishScenes key={activeNotebook?.id || "english"} notebookId={activeNotebook?.id || ""} onBack={() => setActivePanel("chat")} />}
           {activePanel === "courses" && <CourseRecommendations key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} initialTopic={conversationFocus || notebookTopic} initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
@@ -1036,13 +1042,13 @@ export default function Home() {
 
         </section>
 
-        <aside className="hidden min-h-0 xl:block">{studioPanel}</aside>
+        <aside data-guide="studio" className="hidden min-h-0 xl:block">{studioPanel}</aside>
       </div>
 
       <nav className="notebook-mobile-nav xl:hidden" aria-label="移动端学习工作台导航">
-        <button type="button" onClick={() => setMobilePane("sources")}><PanelLeftOpen size={17} /><span>学习来源</span></button>
+        <button type="button" data-guide="sources-nav" onClick={() => setMobilePane("sources")}><PanelLeftOpen size={17} /><span>学习来源</span></button>
         <button type="button" className="is-active" onClick={() => { setActivePanel("chat"); setMobilePane(null); }}><BookOpen size={17} /><span>学习对话</span></button>
-        <button type="button" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
+        <button type="button" data-guide="studio-nav" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
       </nav>
 
       {mobilePane && (

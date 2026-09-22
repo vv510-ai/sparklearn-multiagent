@@ -22,6 +22,7 @@ export interface SparkEvent {
   text?: string;
   percent?: number;
   stage?: string;
+  model_route?: { model: string; provider: string; automatic: boolean; reason: string };
   level?: string;
   output?: Record<string, unknown>;
   session_id?: string;

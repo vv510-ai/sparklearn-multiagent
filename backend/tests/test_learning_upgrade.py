@@ -143,7 +143,7 @@ def test_knowledge_map_splitting_preserves_sections():
 
 def test_selected_tutor_failure_cannot_be_presented_as_a_mock_lesson(user, monkeypatch):
     from app.agents import tutor_agent
-    monkeypatch.setattr(tutor_agent, "resolve", lambda _: {"model": "deepseek-flash"})
+    monkeypatch.setattr(tutor_agent, "resolve", lambda _, **kw: {"model": "deepseek-flash", "provider": "deepseek"})
     monkeypatch.setattr(tutor_agent, "retrieve", lambda *a, **k: [])
     async def fail(*args, **kwargs):
         raise RuntimeError("HTTP 429")

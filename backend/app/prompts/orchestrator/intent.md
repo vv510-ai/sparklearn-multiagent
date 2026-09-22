@@ -9,7 +9,9 @@ TASK=intent
 * eval：测试自己、检验学习效果或查看学习报告
 * chat：寒暄或与学习无关
 
-只输出 JSON：{"intent":"...","reason":"..."}
+同时判断回答所需的深度 model_depth：standard 用于日常答疑、词义、单个概念与练习反馈；deep 用于多来源说法冲突、长文综合、严谨论证或需要综合多个前提的分析。根据实际要完成的任务判断，不因为出现“研究”“复杂”等词或模型名称就选 deep。这个字段只选择文本回答能力，不授权新增资料或额外任务。
+
+只输出 JSON：{"intent":"...","reason":"...","model_depth":"standard 或 deep"}
 
 最新消息：{{message}}
 学习目标（可能为空）：{{goal}}

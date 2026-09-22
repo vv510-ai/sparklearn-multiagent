@@ -660,6 +660,9 @@ async def run(state: dict) -> dict:
         general_knowledge=custom_topic and not source_ids,
     )
     prompt = prompt_call.prompt
+    task_context = {"question": question, "source_count": len(source_ids), "material_chars": len(ctx),
+                    "semantic_depth": state.get("model_depth", "standard")}
+    selected_route = resolve(prompt, task_context=task_context)
     draft_feedback = is_draft_feedback(question)
     if draft_feedback:
         prompt += (
@@ -727,16 +730,21 @@ async def run(state: dict) -> dict:
         model_answer = True
         selected_model_failed = False
         try:
+            if selected_route:
+                await emit({"type": "progress", "agent": "tutor", "stage": "model_route",
+                            "detail": "正在结合问题与资料组织回答",
+                            "model_route": {key: selected_route.get(key) for key in ("model", "provider", "automatic", "reason")}})
             async for delta in llm_stream(
                 prompt,
                 role="reasoner",
                 system=prompt_call.system,
                 temperature=0.25 if guided else 0.45,
                 # Keep room for full explanations and the learner's revision task.
-                max_tokens=2400,
+                max_tokens=6000 if selected_route and selected_route["provider"] == "kimi" else 2400,
                 allow_model_fallback=True,
                 allow_mock_fallback=False,
-                reasoning_mode="disabled",
+                reasoning_mode="" if selected_route and selected_route["provider"] == "kimi" else "disabled",
+                task_context=task_context,
             ):
                 raw_parts.append(delta)
                 if answer_streamed:
@@ -804,7 +812,7 @@ async def run(state: dict) -> dict:
                     )
                     model_answer = False
         except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
-            selected_model_failed = resolve(prompt) is not None
+            selected_model_failed = selected_route is not None
             await emit({
                 "type": "progress",
                 "agent": "tutor",

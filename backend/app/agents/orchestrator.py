@@ -89,6 +89,7 @@ async def run(state: dict) -> dict:
     caller_fixed_intent = intent in _VALID
     requested_kinds = requested_resource_kinds(msg)
     reason = "调用方显式指定"
+    model_depth = "standard"
     if intent not in _VALID:
         if _is_lightweight_chat(msg):
             intent, reason = "chat", "命中轻量对话规则"
@@ -123,6 +124,7 @@ async def run(state: dict) -> dict:
                 data = parse_json(raw)
                 intent = str(data.get("intent", "chat"))
                 reason = str(data.get("reason", ""))
+                model_depth = "deep" if data.get("model_depth") == "deep" else "standard"
             except Exception as e:  # noqa: BLE001
                 log.warning("意图识别失败,回退 chat:%s", e)
                 intent, reason = "chat", f"识别异常回退:{e}"
@@ -139,7 +141,7 @@ async def run(state: dict) -> dict:
                  "chat": "轻量对话"}[intent]
     await agent_end("orchestrator", f"意图={intent}({reason})→ {plan_hint}",
                     {"intent": intent, "kinds": selected_kinds})
-    output = {"intent": intent, "artifact_policy": "on_demand"}
+    output = {"intent": intent, "artifact_policy": "on_demand", "model_depth": model_depth}
     if selected_kinds:
         output["kinds"] = selected_kinds
     return output

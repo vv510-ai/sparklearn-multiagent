@@ -29,6 +29,7 @@ async function enter(page: Page, marker: string) {
   expect((await page.request.post("/api/onboarding", { data: { skipped: true } })).ok()).toBeTruthy();
   const notebook = await (await page.request.post("/api/notebooks", { data: { title: "数据结构学习" } })).json();
   await page.goto("/");
+  await page.getByRole("button", { name: "跳过引导", exact: true }).click();
   await page.getByLabel("切换科目书本").selectOption(notebook.id);
   await expect(page.getByLabel("切换科目书本")).toBeEnabled();
   await expect(page.getByLabel("学习目标输入")).toBeVisible();
@@ -48,21 +49,13 @@ async function send(page: Page, question: string) {
   await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
 }
 
-test("逐步展示、成功问答触发建议、明确选择后才生成并保留笔记原文", async ({ page }, info) => {
+test("功能直接展示、成功问答触发建议、明确选择后才生成并保留笔记原文", async ({ page }, info) => {
   const notebook = await enter(page, "tools");
   const errors: string[] = [];
   page.on("pageerror", e => errors.push(e.message));
   const studio = page.getByLabel("学习工坊", { exact: true });
-  await expect(studio.locator(".studio-tile")).toHaveCount(2);
-  const expand = studio.getByRole("button", { name: "展开全部工具", exact: true });
-  await expand.focus();
-  await page.keyboard.press("Enter");
-  await expect(studio.getByRole("button", { name: "收起全部工具" })).toHaveAttribute("aria-expanded", "true");
   await expect(studio.locator(".studio-tile")).toHaveCount(11);
-  await studio.getByRole("button", { name: "收起全部工具" }).click();
-  await studio.locator("summary").click();
-  await expect(studio.getByText("先从中间的学习对话提一个问题，暂时不用记住所有按钮。", { exact: true })).toBeVisible();
-  await studio.locator("summary").click();
+  await expect(studio.getByRole("button", { name: /全部工具/ })).toHaveCount(0);
 
   await page.route("**/api/chat", async route => {
     const question = route.request().postDataJSON().message;
@@ -87,7 +80,8 @@ test("逐步展示、成功问答触发建议、明确选择后才生成并保�
   await send(page, "栈和队列有什么区别");
   const suggestion = page.getByRole("region", { name: "学习工具建议" });
   await expect(suggestion.getByRole("heading", { name: "框架导图", exact: true })).toBeVisible();
-  await expect(studio.locator(".studio-tile")).toHaveCount(4);
+  await expect(studio.locator(".studio-tile")).toHaveCount(11);
+  await expect(studio.getByRole("heading", {name:"换道题，看看能不能自己做"})).toBeVisible();
   expect(requests).toHaveLength(0);
   await page.screenshot({ path: info.outputPath("guidance-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -97,10 +91,6 @@ test("逐步展示、成功问答触发建议、明确选择后才生成并保�
   await page.screenshot({ path: info.outputPath("guidance-mobile.png"), fullPage: true });
   await page.getByRole("button", { name: "学习工坊", exact: true }).click();
   const mobileStudio = page.locator(".notebook-mobile-sheet");
-  const mobileExpand = mobileStudio.getByRole("button", { name: "展开全部工具", exact: true });
-  const controlledId = await mobileExpand.getAttribute("aria-controls");
-  expect(await page.evaluate(id => Array.from(document.querySelectorAll("[id]")).filter(el => el.id === id).length, controlledId)).toBe(1);
-  await mobileExpand.click();
   await expect(mobileStudio.locator(".studio-tile")).toHaveCount(11);
   await mobileStudio.getByRole("button", { name: "关闭", exact: true }).click();
   await suggestion.getByRole("button", { name: "生成框架导图", exact: true }).click();

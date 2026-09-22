@@ -10,7 +10,7 @@ test("选项解析保留题目顺序并排除已揭晓答案和代码", () => {
   expect(parseAnswerChoices("功能列表\nA. 笔记\nB. 视频")).toEqual([]);
 });
 
-test("模型设置、双平台课程、英语点击作答与离线研究状态", async ({page}, info) => {
+test("双平台课程、英语点击作答与离线研究状态", async ({page}, info) => {
   test.setTimeout(180_000);
   const marker = Date.now();
   const errors: string[] = [];
@@ -21,24 +21,8 @@ test("模型设置、双平台课程、英语点击作答与离线研究状态",
   expect(registration.status()).toBe(201);
   expect((await page.request.post("/api/onboarding", {data:{skipped:true}})).ok()).toBeTruthy();
   await page.goto("/");
-  await page.getByRole("button", {name:"模型设置",exact:true}).click();
-  await expect(page.getByRole("heading",{name:"模型设置",exact:true})).toBeVisible();
-  await page.getByText("自定义模型与个人密钥", {exact:true}).click();
-  await page.getByLabel("默认模型",{exact:true}).selectOption("deepseek-flash");
-  await page.getByLabel("DeepSeek · 国产 API Key").fill("sk-local-test-never-sent-to-provider");
-  const save = page.waitForResponse(r => r.url().endsWith("/api/settings/models") && r.request().method()==="POST");
-  await page.getByRole("button",{name:"保存模型设置"}).click();
-  const saved = await save;
-  expect(saved.ok()).toBeTruthy();
-  expect(await saved.text()).not.toContain("sk-local-test");
-  await expect(page.getByLabel("DeepSeek · 国产 API Key")).toHaveValue("");
-  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("sk-local-test");
-  await page.screenshot({path:info.outputPath("models-desktop.png"),fullPage:true});
-  // Remove the inert fixture key; no live provider requests are made in this test.
-  await page.getByLabel("默认模型",{exact:true}).selectOption("");
-  await page.getByRole("button",{name:"移除个人密钥",exact:true}).click();
-  await page.getByRole("button",{name:"保存模型设置"}).click();
-  await expect(page.getByText("已保存个人密钥",{exact:false})).toHaveCount(0);
+  await page.getByRole("button", {name:"跳过引导",exact:true}).click();
+  await expect(page.getByRole("button", {name:"模型设置",exact:true})).toHaveCount(0);
 
   await page.getByRole("button",{name:/推荐网课.*按知识点/}).click();
   await expect(page.locator(".course-card").first()).toBeVisible();
@@ -47,7 +31,6 @@ test("模型设置、双平台课程、英语点击作答与离线研究状态",
   await expect(page.locator(".course-card")).toHaveCount(1);
   await expect(page.getByRole("link",{name:/去 YouTube 观看/})).toHaveAttribute("href", /youtube\.com\/watch/);
 
-  await page.getByRole("button",{name:"展开全部工具",exact:true}).click();
   await page.getByRole("button",{name:/英语场景学习.*影视字幕/}).click();
   await page.getByRole("combobox",{name:"学习目标",exact:true}).selectOption("雅思");
   await page.getByRole("button",{name:"生成场景笔记"}).click();
