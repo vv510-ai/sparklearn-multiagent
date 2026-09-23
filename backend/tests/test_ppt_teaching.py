@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pptx import Presentation
 from app.agents.doc_agent import _ppt_query
-from app.services.native_ppt import Outline, Slide, render, validate_teaching
+from app.services.native_ppt import Outline, Slide, render, validate_teaching, _wrap
 
 
 def lesson():
@@ -103,3 +103,13 @@ def test_answer_continuation_keeps_a_long_title_within_two_lines(tmp_path):
     titles = [slide.shapes[1] for slide in Presentation(target).slides]
     assert any("自测解析" in shape.text and "续" in shape.text for shape in titles)
     assert all(len(shape.text.split("\v")) <= 2 for shape in titles)
+
+
+def test_wrapping_keeps_short_math_tokens_and_closing_punctuation_together():
+    text = "先检查函数值" * 4 + " f(x)=1，然后比较左右极限 lim(x→a⁻) 与 lim(x→a⁺)。"
+    lines = _wrap(text, 5, 22)
+    assert "".join(lines) == text
+    assert any("f(x)=1" in line for line in lines)
+    assert any("lim(x→a⁻)" in line for line in lines)
+    assert any("lim(x→a⁺)" in line for line in lines)
+    assert not any(line.startswith(("，", "。")) for line in lines)

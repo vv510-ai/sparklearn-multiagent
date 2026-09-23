@@ -76,13 +76,21 @@ def _wrap(text: str, width: float, size: float) -> list[str]:
     lines = []
     for paragraph in text.splitlines() or [""]:
         line, used = "", 0
-        for char in paragraph:
-            units = 2 if unicodedata.east_asian_width(char) in {"W", "F", "A"} else 1
-            if line and used + units > capacity:
-                lines.append(line)
-                line, used = "", 0
-            line += char
-            used += units
+        # Keep short formula/Latin tokens intact (f(x), x→a⁻, fractions).
+        tokens = re.findall(r"[A-Za-z0-9\u0370-\u03ff²³⁰¹⁴⁵⁶⁷⁸⁹⁺⁻→∞≠≤≥−+*/=^_().%]+|.", paragraph)
+        def units(value):
+            return sum(2 if unicodedata.east_asian_width(char) in {"W", "F", "A"} else 1 for char in value)
+        for token in tokens:
+            pieces = list(token) if units(token) > capacity else [token]
+            for piece in pieces:
+                count = units(piece)
+                # One closing mark fits the conservative spare width; avoid orphan commas.
+                closing = len(piece) == 1 and piece in "，。！？；：、）】》’”!?;:,)]}"
+                if line and used + count > capacity and not closing:
+                    lines.append(line)
+                    line, used = "", 0
+                line += piece
+                used += count
         lines.append(line)
     return lines
 
