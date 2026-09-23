@@ -125,26 +125,26 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
               {mode === "register" && (
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-[#5D6470]">称呼</span>
-                  <span className="flex items-center gap-2.5 rounded-xl border border-[#DDE1E7] px-3.5 focus-within:border-[#0F6B50] focus-within:ring-2 focus-within:ring-[#0F6B50]/10">
+                  <span className="auth-input-shell flex items-center gap-2.5 rounded-xl border border-[#DDE1E7] px-3.5">
                     <UserRound size={17} className="text-[#959BA5]" />
-                    <input required maxLength={80} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="怎么称呼你" className="min-w-0 flex-1 bg-transparent py-3.5 text-sm outline-none placeholder:text-[#A8ADB5]" />
+                    <input required maxLength={80} autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="怎么称呼你" className="min-w-0 flex-1 bg-transparent py-3.5 text-sm placeholder:text-[#A8ADB5]" />
                   </span>
                 </label>
               )}
 
               <label className="block">
                 <span className="mb-1.5 block text-xs font-semibold text-[#5D6470]">邮箱</span>
-                <span className="flex items-center gap-2.5 rounded-xl border border-[#DDE1E7] px-3.5 focus-within:border-[#0F6B50] focus-within:ring-2 focus-within:ring-[#0F6B50]/10">
+                <span className="auth-input-shell flex items-center gap-2.5 rounded-xl border border-[#DDE1E7] px-3.5">
                   <Mail size={17} className="text-[#959BA5]" />
-                  <input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" className="min-w-0 flex-1 bg-transparent py-3.5 text-sm outline-none placeholder:text-[#A8ADB5]" />
+                  <input required type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" className="min-w-0 flex-1 bg-transparent py-3.5 text-sm placeholder:text-[#A8ADB5]" />
                 </span>
               </label>
 
               <label className="block">
                 <span className="mb-1.5 block text-xs font-semibold text-[#5D6470]">密码</span>
-                <span className="flex items-center gap-2.5 rounded-xl border border-[#DDE1E7] px-3.5 focus-within:border-[#0F6B50] focus-within:ring-2 focus-within:ring-[#0F6B50]/10">
+                <span className="auth-input-shell flex items-center gap-2.5 rounded-xl border border-[#DDE1E7] px-3.5">
                   <LockKeyhole size={17} className="text-[#959BA5]" />
-                  <input required minLength={8} maxLength={128} type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 8 位" className="min-w-0 flex-1 bg-transparent py-3.5 text-sm outline-none placeholder:text-[#A8ADB5]" />
+                  <input required minLength={8} maxLength={128} type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 8 位" className="min-w-0 flex-1 bg-transparent py-3.5 text-sm placeholder:text-[#A8ADB5]" />
                   <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="text-[#8B929C]" aria-label={showPassword ? "隐藏密码" : "显示密码"}>
                     {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>

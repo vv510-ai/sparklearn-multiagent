@@ -2077,6 +2077,20 @@ body::after {
   border-radius: 6px;
 }
 
+/* Auth inputs share a visual boundary with their icon. Put the focus indicator
+   on that whole boundary; keep independent buttons' global keyboard outline. */
+.auth-input-shell:focus-within {
+  border-color: var(--c-action);
+  outline: 2px solid var(--c-action);
+  outline-offset: 0;
+}
+.auth-input-shell > input {
+  outline: none;
+}
+@media (forced-colors: active) {
+  .auth-input-shell:focus-within { outline-color: Highlight; }
+}
+
 /* Markmap 浅色主题:节点文字深色,连线保持配色,适配白底学习台 */
 .markmap-light .markmap-foreign {
   color: #1f2937 !important;
