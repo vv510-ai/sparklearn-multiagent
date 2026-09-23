@@ -100,6 +100,29 @@ function MermaidBlock({ code }: { code: string }) {
   return <div ref={ref} className="my-2 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white p-2" />;
 }
 
+type MarkdownNode = { type?: string; identifier?: string; value?: string; children?: MarkdownNode[] };
+
+/** GFM resolves [^n] before our renderers when the model emits definitions.
+ * Route numeric citations through the saved evidence contract in both forms.
+ * Named footnotes and ordinary Markdown without citeBase keep GFM behavior.
+ */
+function remarkEvidenceFootnotes() {
+  return (tree: MarkdownNode) => {
+    const visit = (node: MarkdownNode) => {
+      if (!node.children) return;
+      node.children = node.children.flatMap(child => {
+        if (/^\d+$/.test(child.identifier || "")) {
+          if (child.type === "footnoteDefinition") return [];
+          if (child.type === "footnoteReference") return [{ type: "text", value: `[^${child.identifier}]` }];
+        }
+        visit(child);
+        return [child];
+      });
+    };
+    visit(tree);
+  };
+}
+
 /** Match original indices, never the position in a filtered citations array. */
 function withCites(children: React.ReactNode, citeBase?: string, evidence: SourceEvidence[] = []): React.ReactNode {
   return React.Children.map(children, child => {
@@ -143,7 +166,7 @@ export default function Markdown({
   return (
     <div className={`prose-spark math-content text-[13.5px] ${streaming ? "caret" : ""}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, ...mathRemarkPlugins]}
+        remarkPlugins={[remarkGfm, ...(citeBase ? [remarkEvidenceFootnotes] : []), ...mathRemarkPlugins]}
         rehypePlugins={mathRehypePlugins}
         components={{
           code(props) {
