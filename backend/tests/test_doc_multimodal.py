@@ -585,3 +585,62 @@ def test_empty_model_completion_is_a_visible_source_guide_not_a_finished_lesson(
     assert "二叉树每个节点最多有两个孩子" in payload["markdown"]
     assert payload["source_evidence"][0]["source_id"] == "binary-tree-notes"
     assert any(flag["type"] == "llm_fallback" for flag in result["flags"])
+
+
+def test_interactive_audio_never_waits_for_decorative_cover(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=True, image_ok=True)
+    image_calls = []
+
+    async def slow_cover(*args, **kwargs):
+        image_calls.append(True)
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(doc_agent.multimodal_gateway, "text_to_image", slow_cover)
+
+    async def generate():
+        return await asyncio.wait_for(doc_agent._gen_one(
+            "doc", "binary_tree", {}, source_ids=[], goal="讲解二叉树",
+            prompt_template="interactive_audio", trace_id="audio-no-cover",
+        ), timeout=0.5)
+
+    result = asyncio.run(generate())
+    assert image_calls == []
+    assert result["resource"]["payload"]["audio"]["status"] == "ready"
+    assert "cover_url" not in result["resource"]["payload"]
+
+
+def test_interactive_audio_reports_real_stages_before_work(monkeypatch):
+    _install_doc_stubs(monkeypatch, audio_ok=True)
+    monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
+    timeline = []
+
+    async def capture(event):
+        if event["type"] == "progress":
+            timeline.append(event["stage"])
+            assert event["text"].strip()
+        elif event["type"] == "resource":
+            timeline.append("delivered")
+
+    async def complete(*args, **kwargs):
+        timeline.append("model_called")
+        return "# 二叉树\n二叉树每个节点最多有两个孩子。[^1]"
+
+    async def check(*args, **kwargs):
+        timeline.append("check_called")
+        return {"grounded": True}
+
+    async def speak(*args, **kwargs):
+        timeline.append("tts_called")
+        return {"ok": True, "data": {"audio_url": "/static/gen/real-contract.wav", "provider": "spark_super_tts"}}
+
+    monkeypatch.setattr(doc_agent, "emit", capture)
+    monkeypatch.setattr(doc_agent, "llm_complete", complete)
+    monkeypatch.setattr(doc_agent, "grounding_check", check)
+    monkeypatch.setattr(doc_agent.multimodal_gateway, "tts", speak)
+    result = asyncio.run(doc_agent._gen_one(
+        "doc", "binary_tree", {}, source_ids=[], goal="讲解二叉树",
+        prompt_template="interactive_audio", trace_id="audio-stages",
+    ))
+    assert timeline == ["resource_content", "model_called", "resource_check", "check_called",
+                        "resource_audio", "tts_called", "delivered"]
+    assert result["resource"]["payload"]["audio"]["provider"] == "spark_super_tts"

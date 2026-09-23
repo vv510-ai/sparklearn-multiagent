@@ -731,6 +731,10 @@ async def _gen_one(
     label, capability = _STYLE.get(kind, _STYLE["doc"])
     if kind == "doc":
         label = _doc_label(label, prompt_template)
+    interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
+    if interactive_audio:
+        await emit({"type": "progress", "agent": "doc", "stage": "resource_content",
+                    "text": "正在整理刚才的学习内容，生成短讲解…"})
     supplement = source_policy == "supplement" and kind == "doc" and prompt_template not in {"remediation", "conversation_notes", "question_review"}
     chunks = [] if custom_topic and not source_ids else retrieve(
         f"{goal}\n当前主题：{name}" if goal else name,
@@ -877,6 +881,9 @@ async def _gen_one(
             "detail": f"正文未命中当前问题「{name}」,已改用同主题安全版本",
         })
 
+    if interactive_audio:
+        await emit({"type": "progress", "agent": "doc", "stage": "resource_check",
+                    "text": "正在检查讲解内容与资料范围…"})
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
     if source_scope_missing:
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
@@ -979,7 +986,6 @@ async def _gen_one(
         except Exception as exc:  # Keep source text accessible if local rendering fails.
             payload["one_page_visual"].update(image_status="fallback", image_error=str(exc)[:240])
             flags.append({"agent": "doc", "kind": kind, "type": "image_degraded", "detail": "知识图排版失败，已保留正文"})
-    interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
     if interactive_audio:
         md = re.sub(
             r"口播脚本\s*[（(][^）)\n]*[）)]",
@@ -992,19 +998,22 @@ async def _gen_one(
         payload["audio_narration"] = narration
     if (kind == "doc" and not unavailable
             and prompt_template not in {"conversation_notes", "one_page"} and not skip_multimodal):
-        audio, cover = await asyncio.gather(
-            multimodal_gateway.tts(
-                narration,
-                trace_id=trace_id,
-            ),
-            multimodal_gateway.text_to_image(
+        if interactive_audio:
+            await emit({"type": "progress", "agent": "doc", "stage": "resource_audio",
+                        "text": "正在生成语音，完成后即可边听边问…"})
+        media_jobs = [multimodal_gateway.tts(narration, trace_id=trace_id)]
+        # A decorative image can take minutes; it is not part of a spoken lesson.
+        # Keep cover generation for the other document formats that use it.
+        if not interactive_audio:
+            media_jobs.append(multimodal_gateway.text_to_image(
                 _cover_prompt(name, source_bound=bool(source_ids), custom_topic=custom_topic),
                 width=768,
                 height=768,
                 trace_id=trace_id,
-            ),
-            return_exceptions=True,
-        )
+            ))
+        media_results = await asyncio.gather(*media_jobs, return_exceptions=True)
+        audio = media_results[0]
+        cover = media_results[1] if len(media_results) > 1 else None
         if isinstance(audio, dict) and audio.get("ok"):
             payload["audio_url"] = audio["data"]["audio_url"]
             if interactive_audio:

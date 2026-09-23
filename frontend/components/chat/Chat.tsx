@@ -16,6 +16,7 @@ interface Msg {
   resources: ResourceItem[];
   citations: string[];
   streaming?: boolean;
+  progress?: string;
 }
 
 interface VoiceRecorder {
@@ -279,7 +280,8 @@ export default function Chat({
       setMsgs((m) => [
         ...m,
         { role: "user", text: displayText?.trim() || q, resources: [], citations: [] },
-        { role: "assistant", text: "", resources: [], citations: [], streaming: true },
+        { role: "assistant", text: "", resources: [], citations: [], streaming: true,
+          progress: directRequest ? "正在准备本次学习内容…" : "正在理解你的问题…" },
       ]);
 
       const patchLast = (fn: (a: Msg) => Msg) =>
@@ -339,6 +341,9 @@ export default function Chat({
                 patchLast((a) => ({ ...a, text: a.text || (ev.text as string) || "" }));
                 break;
               case "progress":
+                if (["resource_content", "resource_check", "resource_audio"].includes(ev.stage || "") && ev.text?.trim()) {
+                  patchLast((a) => ({ ...a, progress: ev.text!.trim() }));
+                }
                 if (captureLearningTurn && ev.stage === "learning_focus" && ev.text?.trim()) {
                   teachingFocus = true;
                   onLearningTurn?.(ev.text.trim());
@@ -529,13 +534,20 @@ export default function Chat({
                 小知
               </div>
               <div className="min-w-0 flex-1 space-y-3">
-                {(m.text || m.streaming) && (
+                {(m.text || (m.streaming && !m.resources.length)) && (
                   <div
                     className="notebook-assistant-message rounded-[14px] rounded-tl-md border border-[#E5E9E3] px-4 py-3 shadow-sm"
                     aria-label="小知回答"
                     aria-live={m.streaming ? "polite" : "off"}
                   >
-                    <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
+                    {m.text ? (
+                      <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
+                    ) : (
+                      <p role="status" aria-label="生成进度" className="flex items-center gap-2 text-sm text-[#57635A]">
+                        <LoaderCircle size={15} className="shrink-0 motion-safe:animate-spin" aria-hidden />
+                        {m.progress || "正在准备回答…"}
+                      </p>
+                    )}
                   </div>
                 )}
                 {!m.streaming && i === msgs.length - 1 && m.text && (

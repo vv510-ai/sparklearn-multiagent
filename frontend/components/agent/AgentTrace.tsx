@@ -55,7 +55,7 @@ export function applyTraceEvent(prev: TraceState, ev: SparkEvent): TraceState {
     case "agent_start":
       return { ...prev, [a]: { ...node, status: "running", detail: ev.detail || "", ts: ev.ts } };
     case "progress":
-      return { ...prev, [a]: { ...node, detail: ev.detail || node.detail, modelRoute: ev.model_route || node.modelRoute } };
+      return { ...prev, [a]: { ...node, detail: ev.text || ev.detail || node.detail, modelRoute: ev.model_route || node.modelRoute } };
     case "agent_end":
       return { ...prev, [a]: { ...node, status: "done", summary: ev.summary || "", ts: ev.ts } };
     case "safety":
