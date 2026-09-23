@@ -327,3 +327,17 @@ def test_course_failures_keep_sources_and_classify_safely(learner, monkeypatch, 
     assert result.headers["x-learning-failure"] == code
     assert word in result.json()["detail"] and "private draft" not in result.text
     assert client.get(f"/api/notebooks/{book['id']}/learning").json()["course"]["kind"] == "unconfigured"
+
+
+def test_known_validation_issue_is_actionable_without_exposing_draft(learner, monkeypatch):
+    from app.services import course_learning_service as service
+    client, user = learner
+    book = client.post("/api/notebooks", json={"user_id": user, "title": "资料课程"}).json()
+    async def fail(*args, **kwargs):
+        raise service.DraftValidationError("citation_mismatch", "资料引用未能与原文对应")
+    monkeypatch.setattr(service, "generate_valid_course", fail)
+    result = client.post(f"/api/notebooks/{book['id']}/learning/prepare", json={"title": "资料课程", "course_key": "custom"})
+    assert result.status_code == 422
+    assert result.headers["x-learning-validation"] == "citation_mismatch"
+    assert "资料引用未能与原文对应" in result.json()["detail"]
+    assert client.get(f"/api/notebooks/{book['id']}/learning").json()["course"]["kind"] == "unconfigured"

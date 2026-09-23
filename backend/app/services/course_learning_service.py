@@ -63,55 +63,62 @@ def material_snapshot(user_id: str, notebook_id: str, source_ids: list[str]) -> 
     return sources, sample
 
 
+class DraftValidationError(ValueError):
+    """Only application-authored messages may reach the learner."""
+    def __init__(self, code: str, message: str):
+        self.code = code
+        super().__init__(message)
+
+
 def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
     topics = raw.get("topics") if isinstance(raw, dict) else None
     if not isinstance(topics, list) or not 1 <= len(topics) <= 3:
-        raise ValueError("需要 1–3 个有依据且互不重复的起点知识点")
+        raise DraftValidationError("topic_count", "需要 1–3 个有依据且互不重复的起点知识点")
     by_id = {c["evidence_id"]: c for c in chunks}
     nodes, bank, lessons, evidence, stems = [], [], {}, {}, set()
     names: set[str] = set()
     for index, topic in enumerate(topics):
         if not isinstance(topic, dict):
-            raise ValueError("知识点格式无效")
+            raise DraftValidationError("topic_format", "知识点格式无效")
         kp = f"topic_{index+1}"
         name, objective = str(topic.get("name") or "").strip(), str(topic.get("objective") or "").strip()
         if not name or len(name) > 80 or not objective or not str(topic.get("lesson") or "").strip():
-            raise ValueError("知识点名称、目标和讲义不能为空")
+            raise DraftValidationError("topic_fields", "知识点名称、目标和讲义不能为空")
         if name in names:
-            raise ValueError("知识点名称重复，请合并而不是凑数量")
+            raise DraftValidationError("duplicate_topic", "知识点名称重复，请合并而不是凑数量")
         names.add(name)
         cited = topic.get("chunk_ids") or []
         if not isinstance(cited, list) or any(not isinstance(k, str) for k in cited):
-            raise ValueError("资料片段编号应为字符串数组")
+            raise DraftValidationError("citation_format", "资料片段编号应为字符串数组")
         quote = str(topic.get("quote") or "").strip()
         if chunks and (not cited or any(k not in by_id for k in cited) or len(quote) < 8
                        or not any(quote in by_id[k]["text"] for k in cited)):
-            raise ValueError("资料引用未能与原文对应")
+            raise DraftValidationError("citation_mismatch", "资料引用未能与原文对应")
         evidence[kp] = [{"source": by_id[k]["source"], "source_id": by_id[k]["source_id"],
             "page": by_id[k].get("page"), "text": by_id[k]["text"],
             "location_kind": "页" if str(by_id[k].get("source_type", "")).endswith("pdf") else "片段"} for k in cited if k in by_id]
         questions = topic.get("questions") or []
         if not isinstance(questions, list) or len(questions) != 3 or any(not isinstance(q, dict) for q in questions):
-            raise ValueError("每个知识点需要三道不同题")
+            raise DraftValidationError("question_count", "每个知识点需要三道不同题")
         if not any(q.get("type") == "multiple" for q in questions):
-            raise ValueError("每个知识点需要至少一道多选辨析题")
+            raise DraftValidationError("missing_multiple", "每个知识点需要至少一道多选辨析题")
         for qi, q in enumerate(questions):
             options, answer = q.get("options"), q.get("answer")
             stem = str(q.get("stem") or "").strip()
             if not stem or stem in stems or len(stem) > 1500 or not isinstance(options, list) or not 2 <= len(options) <= 5:
-                raise ValueError("题目重复或选项格式不完整")
+                raise DraftValidationError("stem_or_options", "题目重复或选项格式不完整")
             if any(not isinstance(o, str) or not o.strip() for o in options) or len(set(options)) != len(options):
-                raise ValueError("题目选项必须互不重复且非空")
+                raise DraftValidationError("duplicate_options", "题目选项必须互不重复且非空")
             keys = answer if isinstance(answer, list) else [answer]
             if not keys or len(set(keys)) != len(keys) or any(k not in list("ABCDE"[:len(options)]) for k in keys):
-                raise ValueError("答案不在选项范围内")
+                raise DraftValidationError("answer_labels", "答案不在选项范围内")
             if q.get("type") == "multiple" and (not isinstance(answer, list) or not 2 <= len(answer) < len(options)):
-                raise ValueError(f"知识点 {index+1} 第 {qi+1} 题：多选题需要至少两个正确选项和一个错误选项，请重新设计选项，不能把错误选项加入答案")
+                raise DraftValidationError("multiple_answer_count", f"知识点 {index+1} 第 {qi+1} 题：多选题需要至少两个正确选项和一个错误选项，请重新设计选项，不能把错误选项加入答案")
             if q.get("type") not in ("single", "multiple") or (q["type"] == "single" and not isinstance(answer, str)):
-                raise ValueError("题型和答案格式不一致")
+                raise DraftValidationError("question_type", "题型和答案格式不一致")
             explanation = str(q.get("explain") or "").strip()
             if len(explanation) < 8:
-                raise ValueError("题目缺少可核对的解释")
+                raise DraftValidationError("explanation", "题目缺少可核对的解释")
             stems.add(stem)
             bank.append({"id": f"{kp}-{qi+1}", "kp": kp, "stem": stem, "type": q["type"],
                 "options": options, "answer": answer, "explain": explanation, "difficulty": min(3, max(1, int(q.get("difficulty", 1)))),
@@ -134,7 +141,7 @@ async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
             try:
                 return validate_draft(parse_json(raw), title, chunks)
             except (ValueError, TypeError, KeyError) as exc:
-                log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, type(exc).__name__)
+                log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, exc.code if isinstance(exc, DraftValidationError) else "json_or_format")
                 if attempt:
                     raise
                 call = invoke_learning_prompt("assessment.course_repair", base_request=prompt.prompt,
@@ -176,7 +183,11 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
             log.warning("Course preparation failed code=%s elapsed_ms=%d", code, (time.monotonic() - started) * 1000)
             detail = "题目、题型或原文引用未通过检查，未保存这份题库。" if code == "invalid_draft" else MESSAGES[code]
             raise HTTPException(422 if code == "invalid_draft" else 503,
-                detail + "原资料和选择已保留，可缩小学习主题后重试。", headers={"X-Learning-Failure": code}) from None
+                detail + (f"原因：{exc}。" if isinstance(exc, DraftValidationError) else "")
+                + "原资料和选择已保留，可缩小学习主题后重试。", headers={
+                    "X-Learning-Failure": code,
+                    "X-Learning-Validation": exc.code if isinstance(exc, DraftValidationError) else "",
+                }) from None
         log.info("Course preparation completed elapsed_ms=%d topics=%d", (time.monotonic() - started) * 1000, len(course["graph"]["nodes"]))
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,
         coverage_note="基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))

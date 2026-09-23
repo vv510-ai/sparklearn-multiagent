@@ -141,7 +141,7 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
   const upstream = await fetch(target, init);
   const responseHeaders = new Headers();
   // fetch() may transparently decompress the upstream body, so never forward Content-Length.
-  for (const name of ["content-type", "content-range", "accept-ranges", "etag", "last-modified"]) {
+  for (const name of ["content-type", "content-range", "accept-ranges", "etag", "last-modified", "x-learning-failure", "x-learning-validation"]) {
     const value = upstream.headers.get(name);
     if (value) responseHeaders.set(name, value);
   }
