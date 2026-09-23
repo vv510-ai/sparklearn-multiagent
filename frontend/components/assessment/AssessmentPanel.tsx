@@ -11,7 +11,7 @@ import {
   RotateCcw,
   Target,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Markdown from "@/components/chat/Markdown";
 import { apiGet, apiPost } from "@/lib/api";
 import {
@@ -63,6 +63,7 @@ export default function AssessmentPanel({
   const [confidence, setConfidence] = useState<number | null>(null);
   const started = useRef(Date.now());
   const questionHeading = useRef<HTMLHeadingElement>(null);
+  const resultHeading = useRef<HTMLHeadingElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const load = async () => {
     setLoading(true);
@@ -92,9 +93,24 @@ export default function AssessmentPanel({
     setStudyTask(null);
     setConfidence(null);
     started.current = Date.now();
-    questionHeading.current?.focus({ preventScroll: true });
-    panel.current?.scrollTo({ top: 0 });
   }, [data?.question?.id, data?.status, setup]);
+  useLayoutEffect(() => {
+    const container = panel.current;
+    if (!container || loading) return;
+    const heading = questionHeading.current || resultHeading.current;
+    if (heading) {
+      // Keep the current task in view, rather than returning to course context.
+      // Move only this scroll container; focus must not scroll its ancestors.
+      const card = heading.closest(".entry-question-card, .entry-result-hero") || heading;
+      heading.focus({ preventScroll: true });
+      container.scrollTo({
+        top: container.scrollTop + card.getBoundingClientRect().top - container.getBoundingClientRect().top - 16,
+        behavior: "instant",
+      });
+    } else {
+      container.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [data?.question?.id, data?.status, setup, loading]);
   useEffect(() => {
     setPracticeActive(false);
     const container = panel.current, heading = studyHeading.current;
@@ -351,7 +367,7 @@ export default function AssessmentPanel({
             </span>
             <div>
               <p className="entry-eyebrow">从这里开始</p>
-              <h2>你的学习起点，已经清楚了一些</h2>
+              <h2 ref={resultHeading} tabIndex={-1}>你的学习起点，已经清楚了一些</h2>
               <p>
                 本次完成 {report.coverage}/{report.total_skills}{" "}
                 个知识点的初步测评。
