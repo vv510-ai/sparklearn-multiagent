@@ -34,7 +34,7 @@ def generate(monkeypatch, *, approved=True, has_source=True, extra_duration=Fals
     }])
 
     async def complete(*a, **k):
-        return "# 选词\n\n## 例子\n" + (SOURCE if approved else "promising = proven，表示已经证明有效。") + "[^1]" + (
+        return "# 选词\n\n## 例子\n" + (SOURCE if approved else "promising = proven，表示已经证明有效。") + ("[^1]" if has_source else "") + (
             "\n\n## 每天 20 分钟的记忆点练法\n每天从资料中挑词。" if extra_duration else "")
 
     async def grounding(*a, **k):
@@ -101,6 +101,7 @@ def test_general_knowledge_does_not_claim_source_verification(monkeypatch):
     payload = generate(monkeypatch, has_source=False)["resource"]["payload"]
     assert not payload["grounded"]
     assert not payload["source_evidence"]
+    assert payload["verification"] == "unverified"
     assert payload["one_page_visual"]["content_status"] == "general_knowledge"
 
 

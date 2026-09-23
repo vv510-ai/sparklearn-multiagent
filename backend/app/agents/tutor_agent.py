@@ -11,6 +11,7 @@ import re
 
 from ..config import is_demo
 from ..llm import multimodal_gateway
+from ..llm.failures import failure_code, MESSAGES
 from ..llm.spark_client import llm_stream
 from ..prompt_templates import render_tutor_prompt
 from ..rag.citation import build_context, used_indices
@@ -649,8 +650,9 @@ async def run(state: dict) -> dict:
             or ""
         ).strip()
         if lecture:
+            lecture = re.sub(r"\[\^\d+\]", "", lecture)
             ctx = (
-                "[刚才的互动讲解原文]\n"
+                "[刚才的互动讲解，仅作对话背景，不是编号资料，不得据此编造引用]\n"
                 f"{lecture}\n\n"
                 "[所选资料检索片段]\n"
                 f"{ctx or '（本轮未命中额外片段，请只使用上面的互动讲解原文。）'}"
@@ -688,14 +690,8 @@ async def run(state: dict) -> dict:
     grounding_fallback_reason = ""
     answer_scope_fallback_reason = ""
     answer_streamed = False
-    ground_contexts = (
-        [
-            str(interaction_resource.get("markdown") or ""),
-            *[str(c.get("text") or "") for c in chunks],
-        ]
-        if interaction_resource
-        else [str(c.get("text") or "") for c in chunks]
-    )
+    # Only numbered retrieved chunks define valid citation indices.
+    ground_contexts = [str(c.get("text") or "") for c in chunks]
     if (is_demo() and resolve(prompt) is None) and _is_binary_tree_first_lesson(question, topic_kp, guided=guided):
         # Keep the most common first lesson instant, source-grounded and
         # teacher-like instead of paying for a reasoning call to restate a
@@ -753,43 +749,8 @@ async def run(state: dict) -> dict:
                 task_context=task_context,
             ):
                 raw_parts.append(delta)
-                # A later token can introduce a fabricated source number.
-                # Supplemented answers are released only after the full citation check.
-                if supplement:
-                    continue
-                if answer_streamed:
-                    filtered_delta = safety_filter(delta)
-                    safe_delta = str(filtered_delta.get("text") or delta)
-                    displayed_parts.append(safe_delta)
-                    await agent_token("tutor", safe_delta)
-                    await emit({"type": "token", "delta": safe_delta})
-                    continue
-
-                buffered = "".join(raw_parts)
-                if len(buffered) < 32:
-                    continue
-                candidate = _normalize_tutor_answer(
-                    buffered, question, has_context=bool(chunks),
-                )
-                preliminary_ground = grounding_check_local(
-                    candidate,
-                    ground_contexts,
-                    question=question,
-                    allow_supplement=supplement,
-                )
-                preliminary_safety = safety_filter(candidate)
-                if (
-                    candidate
-                    and (preliminary_ground.get("grounded", False) or preliminary_ground.get("accepted", False))
-                    and preliminary_safety.get("passed", preliminary_safety.get("safe", True))
-                    and (
-                        interaction_resource
-                        or _answer_matches_current_question(candidate, question, topic_kp)
-                    )
-                ):
-                    displayed_parts.append(candidate)
-                    await _emit_answer(candidate)
-                    answer_streamed = True
+                # Validate the entire answer before releasing it: a later token
+                # may invent a citation even if the prefix looked plausible.
 
             raw_answer = "".join(raw_parts)
             answer = (
@@ -830,9 +791,9 @@ async def run(state: dict) -> dict:
                 "stage": "fallback",
                 "percent": 100,
                 "degraded": True,
-                "reason": "llm_unavailable",
-                "error": str(error)[:160],
-                "detail": "所选模型调用失败，请检查模型设置" if resolve(prompt) else "模型暂不可用，已切换资料内讲解",
+                "reason": failure_code(error),
+                "error": MESSAGES[failure_code(error)],
+                "detail": MESSAGES[failure_code(error)],
             })
             if answer_streamed:
                 interruption = "\n\n连接刚才短暂中断了，前面的讲解已经保留。你回复“继续”，我会从这里接着讲。"
@@ -914,14 +875,15 @@ async def run(state: dict) -> dict:
             if selected_model_failed:
                 ground["grounded"] = False
 
-    # Deterministic and short guarded answers are emitted here. Longer model
-    # answers start streaming after a small validated prefix above.
+    # Release only the complete, checked answer. Local checks are not fact verification.
     if supplement and ground.get("accepted"):
         notice = "\n\n> " + ("以上依据相关资料并允许通用补充；补充部分未经资料逐项核验。" if chunks
                                   else "本次未找到相关资料，以上为通用知识讲解，未经课程资料核验。")
         answer += notice
         if answer_streamed:
             await _emit_answer(notice)
+    if not supplement and ground.get("accepted"):
+        answer += "\n\n> 本次仅检查了引用编号或资料关联，未逐项核验结论；可展开引用原文核对。"
     safety = safety_filter(answer)
     if not safety.get("passed", safety.get("safe", True)):
         answer = str(safety.get("text") or answer)
@@ -932,14 +894,14 @@ async def run(state: dict) -> dict:
         "grounded": bool(ground.get("grounded", False)),
         "unsupported_count": len(ground.get("unsupported") or []),
         "verdict": ground.get("verdict", ""),
-        "verification": ground.get("verification", "source_check"),
+        "verification": ground.get("verification", "source_excerpt" if ground.get("grounded") else "unverified"),
     }
     await emit({
         "type": "progress",
         "agent": "tutor",
         "stage": "grounding",
         "percent": 100,
-        "detail": "含通用补充，未声称全部经过资料核验" if ground.get("accepted") else "资料溯源通过" if grounding["grounded"] else "资料溯源需要复核",
+        "detail": str(ground.get("verdict") or "资料溯源需要复核"),
         "grounding": grounding,
     })
     flags = (
@@ -961,7 +923,8 @@ async def run(state: dict) -> dict:
 
     cited_indices = used_indices(answer, len(citations))
     cites = [citations[index - 1]["citation"] for index in cited_indices]
-    await emit({"type": "citations", "agent": "tutor", "items": cites})
+    await emit({"type": "citations", "agent": "tutor", "items": cites,
+                "evidence": [citations[index - 1] for index in cited_indices]})
     await agent_end(
         "tutor",
         f"已作答(约 {len(answer)} 字),引用教材 {len(cites)} 处,"

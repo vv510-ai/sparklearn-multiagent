@@ -49,6 +49,7 @@ type QualityEvidence = {
   retrievalCount: number | null;
   knowledgePoint: string;
   grounded: boolean | null;
+  verification: string;
   verdict: string;
   citationCount: number | null;
   degradedReason: string;
@@ -59,6 +60,7 @@ const emptyQualityEvidence = (): QualityEvidence => ({
   retrievalCount: null,
   knowledgePoint: "",
   grounded: null,
+  verification: "",
   verdict: "",
   citationCount: null,
   degradedReason: "",
@@ -144,7 +146,7 @@ function EvidenceSummary({
   const qualityRows = [
     { label: "资料范围", value: sourceLabel },
     { label: "检索片段", value: quality.retrievalCount == null ? "等待检索" : `${quality.retrievalCount} 个可核对片段` },
-    { label: "回答溯源", value: quality.grounded == null ? "等待检查" : quality.grounded ? "已通过" : "需要复核" },
+    { label: "回答溯源", value: quality.grounded == null ? "等待检查" : quality.verification === "citation_only" ? "仅编号有效，待核对" : quality.verification === "lexical_overlap" ? "仅关键词关联，待核对" : quality.grounded ? "已完成来源检查" : "需要复核" },
     { label: "引用来源", value: quality.citationCount == null ? "等待生成" : `${quality.citationCount} 处` },
   ];
   return (
@@ -746,6 +748,7 @@ export default function Home() {
         retrievalCount: retrieval ? Number(retrieval.count ?? 0) : current.retrievalCount,
         knowledgePoint: retrieval?.knowledge_point ? String(retrieval.knowledge_point) : current.knowledgePoint,
         grounded: grounding && typeof grounding.grounded === "boolean" ? grounding.grounded : current.grounded,
+        verification: grounding?.verification ? String(grounding.verification) : current.verification,
         verdict: grounding?.verdict ? String(grounding.verdict) : current.verdict,
         citationCount: event.type === "citations" ? (event.items || []).length : current.citationCount,
         degradedReason: event.degraded ? String(event.detail || event.reason || "备用链路") : current.degradedReason,

@@ -10,6 +10,7 @@ import remarkGfm from "remark-gfm";
 import { mathRemarkPlugins, mathRehypePlugins } from "@/lib/math";
 import { getMermaid } from "@/lib/cdn";
 import { withoutCodeBlocks } from "@/lib/learningContent";
+import type { SourceEvidence } from "@/lib/types";
 
 let seq = 0;
 
@@ -99,14 +100,25 @@ function MermaidBlock({ code }: { code: string }) {
   return <div ref={ref} className="my-2 max-h-80 overflow-auto rounded-lg border border-slate-200 bg-white p-2" />;
 }
 
-const CITE_RE = /\[\^(\d{1,2})\]/g;
-
-/** 出处保留在后台核验数据中，学习正文只渲染知识内容。 */
-function withoutCites(children: React.ReactNode): React.ReactNode {
-  return React.Children.map(children, (child) => {
+/** Match original indices, never the position in a filtered citations array. */
+function withCites(children: React.ReactNode, citeBase?: string, evidence: SourceEvidence[] = []): React.ReactNode {
+  return React.Children.map(children, child => {
     if (typeof child !== "string") return child;
-    CITE_RE.lastIndex = 0;
-    return child.replace(CITE_RE, "");
+    const parts: React.ReactNode[] = [];
+    let cursor = 0;
+    for (const match of child.matchAll(/\[\^(\d+)\]/g)) {
+      const index = Number(match[1]);
+      parts.push(child.slice(cursor, match.index));
+      const item = evidence.find(item => item.index === index);
+      const target = `${citeBase}-source-${index}`;
+      parts.push(item && citeBase
+        ? <a key={match.index} href={`#${target}`} className="mx-0.5 text-xs font-semibold text-emerald-700" aria-label={`查看引用 ${index} 原文`}
+            onClick={() => { const source = document.getElementById(target); if (source instanceof HTMLDetailsElement) source.open = true; }}>[{index}]</a>
+        : <sup key={match.index} title="这条引用未保存匹配的原文，无法核对">[{index}：原文未保存]</sup>);
+      cursor = match.index! + match[0].length;
+    }
+    parts.push(child.slice(cursor));
+    return parts;
   });
 }
 
@@ -114,16 +126,19 @@ export default function Markdown({
   text,
   streaming = false,
   allowCodeBlocks = false,
+  citeBase,
+  evidence = [],
 }: {
   text: string;
   streaming?: boolean;
   /** 代码学习或需保留材料中教学 Prompt / 命令原文的笔记场景开启。 */
   allowCodeBlocks?: boolean;
-  /** 兼容资源数据；普通学习界面不展示出处。 */
+  /** 引用按原始编号匹配，不从旧字符串列表推断编号。 */
   citeBase?: string;
   citations?: string[];
+  evidence?: SourceEvidence[];
 }) {
-  const cite = (children: React.ReactNode) => withoutCites(children);
+  const cite = (children: React.ReactNode) => withCites(children, citeBase, evidence);
   const learnerText = allowCodeBlocks ? text : withoutCodeBlocks(text, true);
   return (
     <div className={`prose-spark math-content text-[13.5px] ${streaming ? "caret" : ""}`}>

@@ -32,7 +32,7 @@ def grounding_check_local(
         return {"grounded": False, "unsupported": ["空回答"], "verdict": "回答为空"}
     usable_contexts = [str(item or "").strip() for item in contexts if str(item or "").strip()]
     citations = [int(value) for value in re.findall(r"\[\^(\d+)\]", text)]
-    invalid = [value for value in citations if value < 1 or value > len(usable_contexts)]
+    invalid = [value for value in citations if value < 1 or value > len(contexts) or (1 <= value <= len(contexts) and not str(contexts[value - 1] or "").strip())]
     if invalid:
         return {
             "grounded": False,
@@ -43,7 +43,7 @@ def grounding_check_local(
         return {"grounded": False, "accepted": True, "verification": "citation_only",
                 "unsupported": [], "verdict": "仅完成引用编号检查；通用补充未逐项核实"}
     if not usable_contexts:
-        return {"grounded": True, "unsupported": [], "verdict": "通用知识回答，无资料引用声明"}
+        return {"grounded": False, "accepted": True, "verification": "unverified", "unsupported": [], "verdict": "通用知识回答，未核验事实"}
 
     compact_question = re.sub(r"\s+", "", str(question or ""))
     subject_match = re.search(
@@ -60,7 +60,7 @@ def grounding_check_local(
         }
 
     if citations:
-        return {"grounded": True, "unsupported": [], "verdict": "本地引用边界校验通过"}
+        return {"grounded": False, "accepted": True, "verification": "citation_only", "unsupported": [], "verdict": "引用编号有效，未逐项核验结论与原文是否一致"}
 
     # Short explanations sometimes omit a citation marker. Require a modest
     # lexical overlap with the selected material instead of inventing a
@@ -71,7 +71,7 @@ def grounding_check_local(
 
     overlap = han_bigrams(text).intersection(han_bigrams(" ".join(usable_contexts)))
     if len(overlap) >= 2:
-        return {"grounded": True, "unsupported": [], "verdict": "本地资料关键词校验通过"}
+        return {"grounded": False, "accepted": True, "verification": "lexical_overlap", "unsupported": [], "verdict": "仅发现资料关键词重合，未逐项核验事实"}
     return {
         "grounded": False,
         "unsupported": ["未找到资料关键词或有效引用"],

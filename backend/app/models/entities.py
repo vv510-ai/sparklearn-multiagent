@@ -99,6 +99,7 @@ class ConversationMessage(Base):
     session_id: Mapped[str] = mapped_column(String(64), index=True)
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
+    source_evidence: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
 
 

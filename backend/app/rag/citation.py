@@ -20,6 +20,7 @@ def build_context(chunks: list[dict]) -> tuple[str, list[dict]]:
             "version": c.get("version", ""),
             "location_kind": c.get("location_kind", "片段"),
             "score": round(float(c.get("score", 0)), 4),
+            "excerpt": c["text"],
             "preview": c["text"][:80] + ("…" if len(c["text"]) > 80 else ""),
         })
     return "\n---\n".join(lines), cites

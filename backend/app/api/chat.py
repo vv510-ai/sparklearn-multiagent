@@ -110,6 +110,7 @@ async def _persisted_events(
     resource_titles: list[str] = []
     summary_text = ""
     completed = False
+    source_evidence: list[dict] = []
     async for event in events:
         if event.get("type") == "token":
             answer_parts.append(str(event.get("delta") or ""))
@@ -117,6 +118,8 @@ async def _persisted_events(
             title = str(event["resource"].get("title") or "").strip()
             if title:
                 resource_titles.append(title)
+        elif event.get("type") == "citations" and event.get("agent") == "tutor":
+            source_evidence = event.get("evidence") or []
         elif event.get("type") == "summary":
             summary_text = str(event.get("text") or "").strip()
         elif event.get("type") == "done":
@@ -127,7 +130,7 @@ async def _persisted_events(
         answer = "".join(answer_parts).strip()
         if not answer and resource_titles:
             answer = summary_text or f"已整理学习资源：{'、'.join(resource_titles)}"
-        append_message(user_id, session_id, "assistant", answer)
+        append_message(user_id, session_id, "assistant", answer, source_evidence=source_evidence)
 
 
 @router.post("/chat")

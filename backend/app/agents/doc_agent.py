@@ -14,6 +14,7 @@ import uuid
 from ..config import is_demo
 from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_complete, parse_json
+from ..llm.failures import failure_code, generation_details, MESSAGES
 from ..prompt_templates import invoke_learning_prompt, render_learning_prompt_call
 from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
@@ -463,13 +464,6 @@ def _custom_topic_fallback_doc(name: str) -> str:
     ])
 
 
-def _ensure_visible_citations(md: str, n_citations: int) -> str:
-    if n_citations <= 0 or used_indices(md, n_citations):
-        return md
-    refs = " ".join(f"[^{i}]" for i in range(1, min(n_citations, 3) + 1))
-    return md.rstrip() + f"\n\n## 引用说明\n本文核心概念、算法操作和复杂度说明来自检索到的课程资料 {refs}。"
-
-
 def _narration_text(name: str, markdown: str, limit: int = 900) -> str:
     text = re.sub(r"```.*?```", "", markdown, flags=re.S)
     text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
@@ -847,7 +841,8 @@ async def _gen_one(
                 timeout=_DOC_TIMEOUT_S,
             )
             if not str(md or "").strip():
-                raise ValueError("模型未返回讲解正文")
+                from ..llm.failures import ModelFailure
+                raise ModelFailure("empty_response")
         except Exception as exc:  # noqa: BLE001
             fallback = True
             remediation_rag_fallback = prompt_template == "remediation"
@@ -857,9 +852,9 @@ async def _gen_one(
                 if conversation_fallback
                 else _rag_fallback_doc(name, chunks, kind)
             )
-            if not conversation_fallback:
-                flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
-                              "detail": f"文档生成超时或失败,已使用 RAG 降级文档:{exc}"})
+            code = failure_code(exc)
+            flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
+                          "reason_code": code, "detail": MESSAGES[code]})
 
     notes_template = kind == "doc" and prompt_template in {"", "complete_notes", "conversation_notes"}
     if kind != "code" and not notes_template:
@@ -884,11 +879,15 @@ async def _gen_one(
     if interactive_audio:
         await emit({"type": "progress", "agent": "doc", "stage": "resource_check",
                     "text": "正在检查讲解内容与资料范围…"})
+    # Citation bounds are deterministic and independent of the semantic judge.
+    citation_check = grounding_check_local(md, [c["text"] for c in chunks], allow_supplement=True)
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
     if source_scope_missing:
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
+    elif not fallback and not citation_check.get("accepted"):
+        ground = citation_check
     elif supplement and not fallback:
-        ground = grounding_check_local(md, [c["text"] for c in chunks], allow_supplement=True)
+        ground = citation_check
     elif custom_topic and not chunks:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "自定义主题使用模型通用知识生成，未声明虚构资料引用。"}
@@ -910,13 +909,14 @@ async def _gen_one(
                 grounding_check(md, [c["text"] for c in chunks]),
                 timeout=_GROUNDING_TIMEOUT_S,
             )
+            ground["verification"] = "model_judge"
         except Exception as exc:  # noqa: BLE001
             ground = {"grounded": False, "unsupported": [],
                       "verdict": f"grounding 校验超时或失败:{exc}"}
             flags.append({"agent": "doc", "kind": kind, "type": "grounding_timeout",
                           "detail": ground["verdict"]})
     # Never deliver fabricated citations, including when no source was retrieved.
-    invalid_citations = supplement and not fallback and not ground.get("accepted") and not ground.get("grounded")
+    invalid_citations = not fallback and not citation_check.get("accepted")
     if invalid_citations:
         flags.append({"agent": "doc", "kind": kind, "type": "invalid_citation",
                       "detail": "模型使用了不存在的资料引用，已拒绝该正文"})
@@ -943,8 +943,6 @@ async def _gen_one(
         fallback = True
         content_status = "source_excerpt"
         ground = {"grounded": True, "unsupported": [], "verdict": "直接引用本次检索片段，未采用未通过检查的扩写"}
-    if not supplement:
-        md = _ensure_visible_citations(md, len(citations))
     # 防幻觉第二层:内容安全过滤(本地词表 + 讯飞审核挂接)
     safety = safety_filter(md)
     if not unavailable and not ground.get("grounded", True) and not ground.get("accepted", False):
@@ -956,8 +954,6 @@ async def _gen_one(
 
     used = used_indices(md, len(citations))
     cite_used = [citations[i - 1] for i in used if 0 < i <= len(citations)]
-    if not cite_used and not supplement:
-        cite_used = citations[:3]
     rid = uuid.uuid4().hex[:12]
     payload = {
         "markdown": md,
@@ -972,6 +968,8 @@ async def _gen_one(
         "source_policy": "supplement" if supplement else "strict",
         "source_evidence": cite_used,
     }
+    payload["verification"] = ground.get("verification", "source_excerpt" if fallback and chunks else "unverified")
+    payload["generation_details"] = generation_details(flags, mode=payload["generation_mode"], source_empty=source_scope_missing)
     if notes_template or supplement:
         payload["notes_scope"] = (
             "本次资料优先，允许通用补充；补充部分未经资料逐项核验。" if supplement and chunks else

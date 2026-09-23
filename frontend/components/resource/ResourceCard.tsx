@@ -1,8 +1,10 @@
+/** @jsxImportSource react */
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { voiceLabel } from "@/lib/media";
 import Markdown from "@/components/chat/Markdown";
+import SourceEvidence from "@/components/chat/SourceEvidence";
 import { Badge, Notice, Panel } from "@/components/ui";
 import { kpName } from "@/lib/kp";
 import type { PathPlan, ResourceItem } from "@/lib/types";
@@ -130,6 +132,7 @@ export default function ResourceCard({
   interactionBusy?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const citeBase = `${r.id}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const payload = r.payload || {};
   const interactiveAudio = isInteractiveAudioResource(r);
   const baseMeta = KIND_META[r.kind] || { label: r.kind, code: r.kind.toUpperCase(), icon: "资", variant: "neutral" as const, hint: "" };
@@ -268,17 +271,18 @@ export default function ResourceCard({
             <PptBlock payload={payload} />
           ) : payload.markdown ? (
             <>
+              {payload.generation_details?.message && <p role="status" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">{payload.generation_details.message}</p>}
               {payload.notes_scope && <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">{payload.notes_scope}</p>}
               {payload.one_page_visual && payload.generation_mode !== "unavailable" && <OnePageVisual visual={payload.one_page_visual} />}
               {payload.one_page_visual?.image_url ? (
                 <details className="rounded-xl border border-[#E5E9E3] bg-[#FBFCFA] px-4 py-3">
                   <summary className="cursor-pointer text-xs font-bold text-[#0F6B50]">查看文字版与出处</summary>
                   <div className="mt-3 border-t border-[#E5E9E3] pt-3">
-                    <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code" || (r.kind === "doc" && ["", "complete_notes", "conversation_notes"].includes(payload.template || ""))} />
+                    <><Markdown text={payload.markdown} citeBase={citeBase} evidence={payload.source_evidence} allowCodeBlocks={r.kind === "code" || (r.kind === "doc" && ["", "complete_notes", "conversation_notes"].includes(payload.template || ""))} /><SourceEvidence citeBase={citeBase} evidence={payload.source_evidence} /></>
                   </div>
                 </details>
               ) : (
-                <Markdown text={payload.markdown} citeBase={r.id} citations={r.citations} allowCodeBlocks={r.kind === "code" || (r.kind === "doc" && ["", "complete_notes", "conversation_notes"].includes(payload.template || ""))} />
+                <><Markdown text={payload.markdown} citeBase={citeBase} evidence={payload.source_evidence} allowCodeBlocks={r.kind === "code" || (r.kind === "doc" && ["", "complete_notes", "conversation_notes"].includes(payload.template || ""))} /><SourceEvidence citeBase={citeBase} evidence={payload.source_evidence} /></>
               )}
             </>
           ) : (

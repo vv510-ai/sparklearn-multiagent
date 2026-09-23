@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from threading import Lock
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from ..config import auth_required, get_settings, sqlite_default_url
@@ -84,9 +84,18 @@ def init_db() -> None:
         if _initialized_engine is engine:
             return
         Base.metadata.create_all(engine)
+        _ensure_conversation_evidence(engine)
         if engine.dialect.name == "postgresql":
             _apply_postgres_tenant_security(engine)
         _initialized_engine = engine
+
+
+def _ensure_conversation_evidence(engine) -> None:
+    """Additive upgrade: existing messages keep NULL evidence; never invent it."""
+    with engine.begin() as conn:
+        if "source_evidence" not in {col["name"] for col in inspect(conn).get_columns("conversation_messages")}:
+            qualifier = "IF NOT EXISTS " if conn.dialect.name == "postgresql" else ""
+            conn.execute(text(f"ALTER TABLE conversation_messages ADD COLUMN {qualifier}source_evidence JSON"))
 
 
 def _apply_postgres_tenant_security(engine) -> None:

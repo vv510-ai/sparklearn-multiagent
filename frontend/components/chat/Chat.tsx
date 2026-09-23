@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, BookPlus, FileUp, Gauge, LoaderCircle, MessageSquarePlus, Mic, NotebookPen, Plus, Route, Square } from "lucide-react";
 import { USER_ID, apiPost, apiUpload, postSSE } from "@/lib/api";
-import type { ResourceItem, SparkEvent } from "@/lib/types";
+import type { ResourceItem, SparkEvent, SourceEvidence as Evidence } from "@/lib/types";
 import AnswerChoices from "./AnswerChoices";
 import Markdown from "./Markdown";
+import SourceEvidence from "./SourceEvidence";
 import ResourceCard from "@/components/resource/ResourceCard";
 import StudySuggestion from "./StudySuggestion";
 import { dismissGuidance, emptyGuidance, readGuidance, recordLearningTurn, studyStage, type LearningGuidance, type StudyStage, type SuggestedTool } from "@/lib/learning-guidance";
@@ -15,6 +16,7 @@ interface Msg {
   text: string;
   resources: ResourceItem[];
   citations: string[];
+  evidence?: Evidence[];
   streaming?: boolean;
   progress?: string;
 }
@@ -114,7 +116,7 @@ export default function Chat({
   request?: { path: string; body: Record<string, unknown>; display: string };
   notebookId?: string;
   sessionId?: string;
-  initialMessages?: { role: "user" | "assistant"; content: string }[];
+  initialMessages?: { role: "user" | "assistant"; content: string; source_evidence?: Evidence[] }[];
   sourceIds?: string[];
   sourcePolicy?: "auto" | "strict" | "supplement";
   onSourcePolicyChange?: (value: "auto" | "strict" | "supplement") => void;
@@ -137,6 +139,7 @@ export default function Chat({
   const [msgs, setMsgs] = useState<Msg[]>(() => initialMessages.map((message) => ({
     role: message.role,
     text: message.content,
+    evidence: message.source_evidence || [],
     resources: [],
     citations: [],
   })));
@@ -332,6 +335,7 @@ export default function Chat({
                 if (ev.resource) patchLast((a) => ({ ...a, resources: [...a.resources, ev.resource!] }));
                 break;
               case "citations":
+                if (ev.agent === "tutor" && ev.evidence) patchLast(a => ({ ...a, evidence: ev.evidence }));
                 if (ev.items?.length && (!directRequest || directRequest.path === "/chat")) {
                   patchLast((a) => ({ ...a, citations: Array.from(new Set([...a.citations, ...ev.items!])) }));
                 }
@@ -541,7 +545,8 @@ export default function Chat({
                     aria-live={m.streaming ? "polite" : "off"}
                   >
                     {m.text ? (
-                      <Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} citations={m.citations} />
+                      <><Markdown text={m.text} streaming={m.streaming} citeBase={`chat-${i}`} evidence={m.evidence} />
+                      <SourceEvidence citeBase={`chat-${i}`} evidence={m.evidence} /></>
                     ) : (
                       <p role="status" aria-label="生成进度" className="flex items-center gap-2 text-sm text-[#57635A]">
                         <LoaderCircle size={15} className="shrink-0 motion-safe:animate-spin" aria-hidden />

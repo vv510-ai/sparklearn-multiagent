@@ -122,7 +122,7 @@ def get_notebook(user_id: str, notebook_id: str, *, include_messages: bool = Fal
         )
         if include_messages:
             result["messages"] = [
-                {"role": message.role, "content": message.content}
+                {"role": message.role, "content": message.content, "source_evidence": message.source_evidence or []}
                 for message in message_rows
             ]
         return result

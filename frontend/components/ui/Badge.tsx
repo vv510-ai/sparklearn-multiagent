@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 ﻿import type { ReactNode } from "react";
 
 export type BadgeVariant = "neutral" | "info" | "success" | "warn" | "danger";

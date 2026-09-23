@@ -3,6 +3,18 @@ export type AgentId =
   | "profile" | "orchestrator" | "planner" | "path"
   | "doc" | "mindmap" | "quiz" | "media" | "tutor" | "eval";
 
+export interface SourceEvidence {
+  index: number;
+  citation: string;
+  source_id?: string;
+  source?: string;
+  chapter?: string;
+  page?: number;
+  location_kind?: string;
+  preview?: string;
+  excerpt?: string;
+}
+
 export interface SparkEvent {
   type:
     | "agent_start" | "agent_end" | "agent_token"
@@ -19,6 +31,7 @@ export interface SparkEvent {
   profile?: StudentProfile;
   path?: PathPlan;
   items?: string[];
+  evidence?: SourceEvidence[];
   text?: string;
   percent?: number;
   stage?: string;
@@ -40,7 +53,7 @@ export interface LearningNotebook {
   message_count: number;
   created_at: string;
   updated_at: string;
-  messages?: { role: "user" | "assistant"; content: string }[];
+  messages?: { role: "user" | "assistant"; content: string; source_evidence?: SourceEvidence[] }[];
 }
 
 export interface QuizQuestion {
@@ -62,6 +75,9 @@ export interface ResourceItem {
   title: string;
   payload: {
     markdown?: string;
+    source_evidence?: SourceEvidence[];
+    verification?: string;
+    generation_details?: { status: string; reason_codes: string[]; message: string };
     generation_mode?: "unavailable" | "demo" | "source_guide" | "model";
     template?: string;
     notes_scope?: string;

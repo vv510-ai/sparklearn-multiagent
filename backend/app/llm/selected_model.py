@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 
 from ..config import get_settings
-from .openai_client import error_label
+from .failures import ModelFailure, failure_code, finish_failure
 
 
 def _request(route, messages, max_tokens, json_object, reasoning_mode):
@@ -51,20 +51,20 @@ async def complete(route, messages, *, max_tokens=None, json_object=False, reaso
             if route["provider"] == "openai":
                 response = client.responses.create(**params)
                 if response.status != "completed":
-                    raise RuntimeError("Incomplete response")
+                    raise finish_failure(getattr(getattr(response, "incomplete_details", None), "reason", None))
                 text = response.output_text
             else:
                 response = client.chat.completions.create(**params)
                 if not response.choices or response.choices[0].finish_reason != "stop":
-                    raise RuntimeError("Incomplete response")
+                    raise finish_failure(response.choices[0].finish_reason if response.choices else None)
                 text = response.choices[0].message.content
             if not text or not text.strip():
-                raise RuntimeError("Empty response")
+                raise ModelFailure("empty_response")
             return text
     try:
         return await asyncio.to_thread(run)
     except Exception as exc:
-        raise RuntimeError(f"所选模型 {route['model']} 调用失败：{error_label(exc)}；请检查设置或额度") from None
+        raise ModelFailure(failure_code(exc), status_code=getattr(exc, "status_code", None)) from None
 
 
 async def stream(route, messages, *, max_tokens=None, reasoning_mode=""):
@@ -86,13 +86,13 @@ async def stream(route, messages, *, max_tokens=None, reasoning_mode=""):
                         continue
                     choice = chunk.choices[0]
                     if choice.finish_reason and choice.finish_reason != "stop":
-                        raise RuntimeError("Incomplete Kimi response")
+                        raise finish_failure(choice.finish_reason)
                     if choice.delta.content:
                         emitted = True
                         yield choice.delta.content
                     if choice.finish_reason == "stop":
                         completed = True
             if not completed or not emitted:
-                raise RuntimeError("Incomplete or empty Kimi stream")
+                raise ModelFailure("incomplete_response" if not completed else "empty_response")
     except Exception as exc:
-        raise RuntimeError(f"所选模型 {route['model']} 流式调用失败：{error_label(exc)}；请检查设置或额度") from None
+        raise ModelFailure(failure_code(exc), streaming=True, status_code=getattr(exc, "status_code", None)) from None
