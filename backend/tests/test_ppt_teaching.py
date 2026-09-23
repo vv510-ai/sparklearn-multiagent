@@ -90,6 +90,7 @@ def test_long_comparison_repeats_headers_and_preserves_every_cell(tmp_path):
         rows.extend([[cell.text.replace("\v", "") for cell in row.cells] for row in list(rendered.rows)[1:]])
         assert sum(row.height for row in rendered.rows) / 914400 <= 4.4
         assert rendered.cell(1, 0).margin_left > 0
+        assert rendered.cell(1, 0).text_frame.margin_left > 0
     assert rows == table.rows
 
 

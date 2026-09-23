@@ -216,6 +216,9 @@ def render(outline: Outline, target: Path, references: list[str] | None = None) 
                     style(cell.text_frame, wrapped, item["size"], "FFFFFF" if row_index == 0 else "263E37", row_index == 0)
                     cell.margin_left = cell.margin_right = Inches(.14)
                     cell.margin_top = cell.margin_bottom = Inches(.11)
+                    # WPS honors bodyPr insets before table-cell margins.
+                    cell.text_frame.margin_left = cell.text_frame.margin_right = Inches(.14)
+                    cell.text_frame.margin_top = cell.text_frame.margin_bottom = Inches(.11)
         else:
             y, size = 2.18, item["size"]
             for lines in item["blocks"]:
