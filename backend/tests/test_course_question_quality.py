@@ -85,3 +85,13 @@ def test_semantic_rejection_reaches_bounded_repair(monkeypatch):
     asyncio.run(service.generate_valid_course(SimpleNamespace(prompt="原要求", system="教学"), "生态学", []))
     assert len(prompts) == len(reviews) == 2
     assert "D 选项不能因为资料未提及就判错" in prompts[1]
+
+
+def test_support_flag_cannot_override_an_explicit_source_gap(monkeypatch):
+    output = result([True, True, False, False])
+    output["questions"][0]["options"][-1]["reason"] = "资料未提，且不直接释放二氧化碳。"
+    install(monkeypatch, output)
+    with pytest.raises(service.DraftValidationError) as caught:
+        asyncio.run(service.review_course_questions(course(), [{"evidence_id": "s1c1", "text": "呼吸和分解释放二氧化碳。"}]))
+    assert caught.value.code == "answer_review"
+    assert "必须更换无法据资料判定的选项" in caught.value.repair_issue

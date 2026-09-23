@@ -46,7 +46,7 @@ async def check_question(answer: str, context: str) -> tuple[str, dict | None]:
     if found is None:
         return answer, None
     start, question, labels, kind = found
-    call = invoke_learning_prompt("tutor.check_question", question=question, context=context)
+    call = invoke_learning_prompt("tutor.check_question", question=answer, context=context)
     reason = "review_unavailable"
     try:
         raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system,

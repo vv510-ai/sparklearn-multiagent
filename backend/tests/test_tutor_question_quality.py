@@ -64,3 +64,17 @@ def test_question_heading_keeps_separate_premises_and_multiple_type(monkeypatch,
     review(monkeypatch, [True, False, False])
     rejected, status = asyncio.run(quality.check_question(question, ""))
     assert heading not in rejected and "简答检查" in rejected
+
+
+def test_review_sees_initial_conditions_even_without_a_formatted_heading(monkeypatch):
+    answer = "先约定初始 n=3，且 n 是整数。\n\n请判断哪种不能终止？\nA. n 每次减一，到0停止\nB. n 每次加一，到0停止"
+    prompts = []
+    async def complete(prompt, **kwargs):
+        prompts.append(prompt)
+        return json.dumps({"conditions_sufficient": True, "options": [
+            {"label": "A", "correct": False, "reason": "3到0能停止"},
+            {"label": "B", "correct": True, "reason": "3不断增加不能到0"}]})
+    monkeypatch.setattr(quality, "llm_complete", complete)
+    checked, status = asyncio.run(quality.check_question(answer, ""))
+    assert "初始 n=3" in prompts[0]
+    assert status["accepted"] and checked == answer
