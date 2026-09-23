@@ -34,22 +34,26 @@ for (const scenario of [
   const result = await response;
   console.log("one-page: generation response received");
   expect(result.status()).toBe(200);
-  const stream = await result.text();
-  const events = stream.split("\n").filter(line => line.startsWith("data:")).map(line => JSON.parse(line.slice(5)));
-  const resource = events.find(event => event.type === "resource")?.resource;
+  const request = result.request().postDataJSON();
+  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 240_000 });
+  // Read the persisted result; Chromium can discard a completed SSE response body.
+  const saved = await (await page.request.get(`/api/resources?${new URLSearchParams({ user_id: "session_user", notebook_id: request.notebook_id })}`)).json();
+  const resource = saved.items.find((item: { payload: { template: string } }) => item.payload.template === "one_page");
+  expect(resource).toBeTruthy();
+  const summary = await page.locator('[aria-label="小知回答"]').last().innerText();
   await writeFile(info.outputPath("one-page-evidence.json"), JSON.stringify({
-    request: result.request().postDataJSON(), resource,
-    summary: events.find(event => event.type === "summary"),
+    request, resource, summary,
     chat: await page.locator('[aria-label="小知回答"]').allTextContents(),
   }, null, 2));
   await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  const card = page.getByRole("button", { name: new RegExp(resource.title) }).first();
+  if (await card.getAttribute("aria-expanded") === "false") await card.click();
   await page.screenshot({ path: info.outputPath("one-page-result.png"), fullPage: true });
   if (!scenario.supported) {
     expect(resource?.payload.generation_mode).toBe("unavailable");
     expect(resource?.payload.one_page_visual).toBeUndefined();
-    expect(events.find(event => event.type === "summary")?.text).toContain("未生成");
-    const card = page.getByRole("button", { name: /量子纠缠.*一图看懂/ }).first();
-    if (await card.getAttribute("aria-expanded") === "false") await card.click();
+    expect(summary).toContain("未生成");
+    await page.getByText("当前资料中未找到与这次问题相关的内容，尚未开始生成图片。", { exact: true }).scrollIntoViewIfNeeded();
     await expect(page.getByText("当前资料中未找到与这次问题相关的内容，尚未开始生成图片。", { exact: true })).toBeVisible();
     await expect(page.getByText("知识图暂不可用 · 资料摘录", { exact: true })).toHaveCount(0);
     await expect(page.getByText("根据课程资料整理，先看结论与结构，再沿着例子理解。", { exact: true })).toHaveCount(0);
