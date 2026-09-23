@@ -39,11 +39,22 @@ test("复合六级请求保留考点占分方法并直接生成一图看懂", as
     const markdown = resource.payload.markdown;
     for (const topic of ["听力", "阅读", "写作", "翻译", "35%", "15%"]) expect(markdown).toContain(topic);
     expect(markdown).toMatch(/网站|平台|小知|LearnLoop/);
+    // A valid citation must not turn the site's short drill into an exam rule.
+    for (const line of markdown.split("\n").filter((line: string) => /120\s*[–—-]\s*150/.test(line))) {
+      expect(line).toMatch(/本站|基础|起步|练习长度|非.{0,6}考试|不是.{0,6}考试/);
+    }
     expect(resource.payload.grounded).toBe(false);
   }
   const card = page.getByRole("button", { name: new RegExp(resource.title) }).first();
   if (await card.getAttribute("aria-expanded") === "false") await card.click();
   await expect(page.getByRole("img", { name: /^一图看懂/ }).first()).toBeVisible();
+  const images = page.getByRole("img", { name: /^一图看懂/ });
+  for (let index = 0; index < await images.count(); index++) {
+    const image = images.nth(index);
+    await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(500);
+    await image.evaluate(async el => { await (el as HTMLImageElement).decode(); });
+    await image.screenshot({ path: info.outputPath(`compound-image-${index + 1}.png`), animations: "disabled" });
+  }
   const summary = await page.locator('[aria-label="小知回答"]').last().innerText();
   await writeFile(info.outputPath("compound-request-evidence.json"), JSON.stringify({ request, resource, summary }, null, 2));
   await page.screenshot({ path: info.outputPath("compound-request.png"), fullPage: true, animations: "disabled" });
