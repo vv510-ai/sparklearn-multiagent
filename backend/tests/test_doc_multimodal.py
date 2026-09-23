@@ -351,6 +351,7 @@ def test_review_ppt_is_an_explicit_source_bound_async_resource(monkeypatch):
         goal="生成考前复习PPT",
         prompt_template="review_ppt",
         trace_id="ppt-doc-test",
+        conversation="用户：再解释为什么不能把节点数值当成访问顺序。",
     ))
 
     resource = result["resource"]
@@ -362,6 +363,8 @@ def test_review_ppt_is_an_explicit_source_bound_async_resource(monkeypatch):
     assert captured["citations"][0]["source"] == _chunk()["source"]
     assert "不联网搜索" in captured["query"]
     assert "二叉树每个节点最多有两个孩子" in captured["query"]
+
+    assert "为什么不能把节点数值当成访问顺序" in captured["query"]
 
 
 def test_remediation_disables_unrelated_generic_mock_fallback(monkeypatch):

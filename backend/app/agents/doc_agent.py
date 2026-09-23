@@ -486,7 +486,7 @@ def _cover_prompt(name: str, *, source_bound: bool = False, custom_topic: bool =
     )
 
 
-def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound: bool) -> str:
+def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound: bool, conversation: str = "") -> str:
     scope = (
         "只允许使用下方所选资料与课程片段，不得补写资料外的事实。"
         if source_bound
@@ -494,12 +494,13 @@ def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound
     )
     material = without_source_code(context).strip() or "（本次没有选定资料，请紧扣当前主题制作基础复习版。）"
     return (
-        f"请为学习者制作一份约 8—10 页的中文复习 PPT。\n"
+        f"请为学习者制作一份讲解完整、可独立复习的中文 PPT，通常约 8—12 页。\n"
         f"主题：{name}\n学习目标：{goal or f'复习{name}'}\n学习偏好：{persona}\n"
         f"约束：{scope} 不联网搜索；表达亲切、准确、适合学生复习；不展示源码、伪代码、函数定义、程序语句或系统实现信息，算法改写为白话步骤。\n"
-        "建议结构：封面→本次要会什么→核心概念→关键步骤→最小例子→易错点→三分钟回顾。\n"
+        "教学要求：明确目标、概念与条件、完整例题与推理、易混概念对照、独立自测和答案解析；详细讲解写入演讲者备注。\n"
+        f"最近学习对话（只用于保持学习焦点，不作为课程来源）：\n{without_source_code(conversation)}\n"
         f"可用学习资料：\n{material}"
-    )[:12000]
+    )
 
 
 async def _gen_ppt_resource(
@@ -513,6 +514,7 @@ async def _gen_ppt_resource(
     source_ids: list[str],
     trace_id: str,
     source_policy: str = "",
+    conversation: str = "",
 ) -> dict:
     source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks)
     flags: list[dict] = []
@@ -537,6 +539,7 @@ async def _gen_ppt_resource(
                 _persona(profile),
                 context,
                 source_bound=bool(chunks),
+                conversation=conversation,
             ),
             trace_id=trace_id,
             citations=ppt_citations,
@@ -770,6 +773,7 @@ async def _gen_one(
             source_ids=source_ids,
             trace_id=trace_id,
             source_policy=source_policy,
+            conversation=conversation,
         )
     if kind == "doc":
         prompt_call = render_learning_prompt_call(
