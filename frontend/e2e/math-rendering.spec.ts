@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import Markdown from "../components/chat/Markdown";
 import MathText from "../components/chat/MathText";
+import AssessmentReview from "../components/assessment/AssessmentReview";
+import type { Assessment } from "../lib/assessment";
 
 // Component rendering regressions: these fixtures do not call or mock an LLM.
 const render = (text: string) => renderToStaticMarkup(React.createElement(Markdown, { text, allowCodeBlocks: true }));
@@ -49,6 +51,16 @@ test("题目只解释公式，Python 乘号、数组、原有段落与代码示�
   await page.setContent(renderToStaticMarkup(React.createElement(MathText, { text })));
   expect(await page.locator(".math-text").textContent()).toBe(text);
   await expect(page.locator("em, code, .katex")).toHaveCount(0);
+});
+
+test("复盘中已保存的本人回答与参考答案同时显示公式", async ({ page }) => {
+  const formula = String.raw`$\frac{x^3}{3}$`;
+  const report = { skills: [], explanations: [{ id: "saved-answer", stem: "求一个原函数", options: [formula],
+    learner_answer: `A. ${formula}`, answer: `A. ${formula}`, explain: "求导可核对", correct: true,
+  }] } as unknown as NonNullable<Assessment["report"]>;
+  await page.setContent(renderToStaticMarkup(React.createElement(AssessmentReview, { report, onLearn: () => {} })));
+  await expect(page.locator("p").filter({ hasText: "你当时的回答：" }).locator(".katex")).toHaveCount(1);
+  await expect(page.locator("p").filter({ hasText: "参考答案：" }).locator(".katex")).toHaveCount(1);
 });
 
 for (const width of [1440, 390]) test(`${width}px：长公式在自身区域滚动，页面不横向溢出`, async ({ page }, info) => {
