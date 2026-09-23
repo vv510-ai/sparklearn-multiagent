@@ -10,14 +10,20 @@ import hashlib
 import json
 import logging
 import re
+import threading
+import time
+from functools import lru_cache
+
+import numpy as np
 from pathlib import Path
 from typing import Any
 
 from ..config import CORPUS_DIR, DATA_DIR, EXTRA_SOURCES_DIR, UPLOAD_SOURCES_DIR
-from .embedding import embed_texts
+from .embedding import embed_texts, embedding_dim
 from .vector_store import get_store
 
 log = logging.getLogger("sparklearn.ingest")
+_INGEST_LOCK = threading.RLock()
 
 CHUNK = 420
 OVERLAP = 50
@@ -93,6 +99,14 @@ def _read_text(path: Path) -> str:
 
 def _source_file_signature(path: Path) -> dict[str, Any]:
     data = path.read_bytes()
+    if path.name.endswith(".meta.json"):
+        try:
+            meta = json.loads(data)
+            fields = {k: meta.get(k) for k in ("id", "user_id", "notebook_id", "title", "filename", "kp", "source_type", "url", "tags", "sha256", "ocr")}
+            fields["active"] = source_is_active(meta)
+            data = json.dumps(fields, ensure_ascii=False, sort_keys=True).encode()
+        except (ValueError, TypeError, AttributeError):
+            pass
     try:
         rel = path.relative_to(DATA_DIR).as_posix()
     except ValueError:
@@ -113,7 +127,7 @@ def _current_manifest() -> dict[str, Any]:
             if p.is_file()
             and (p.suffix.lower() in SUPPORTED_UPLOAD or p.name.endswith(".meta.json"))
         )
-    return {"version": 3, "files": [_source_file_signature(p) for p in files]}
+    return {"version": 4, "files": [_source_file_signature(p) for p in files]}
 
 
 def _manifest_matches(current: dict[str, Any]) -> bool:
@@ -359,7 +373,17 @@ def _read_docx(path: Path) -> str:
 
 
 def _load_uploaded_source(path: Path) -> list[dict[str, Any]]:
+    signature = (_source_file_signature(path)["sha256"], _source_file_signature(upload_meta_path(path))["sha256"]) if upload_meta_path(path).exists() else ("", "")
+    return _parsed_upload(str(path), signature)
+
+
+@lru_cache(maxsize=256)
+def _parsed_upload(filename: str, signature: tuple[str, str]) -> list[dict[str, Any]]:
+    path = Path(filename)
     meta = _upload_meta(path)
+    # A missing/half-written sidecar must never turn private uploads into public corpus.
+    if not meta.get("id") or not meta.get("user_id") or not source_is_active(meta):
+        return []
     user_id = str(meta.get("user_id") or "")
     source_id = str(meta.get("id") or path.stem)
     source = str(meta.get("title") or meta.get("filename") or path.stem)
@@ -468,12 +492,12 @@ def _load_uploaded_sources() -> list[dict[str, Any]]:
     return chunks
 
 
+def _indexed_chunks(*, source_id: str | None = None, user_id: str | None = None) -> list[dict[str, Any]]:
+    return get_store().source_chunks(source_id=source_id, user_id=user_id)
+
+
 def chunks_for_source(source_id: str, user_id: str | None = None) -> list[dict[str, Any]]:
-    return [
-        chunk for chunk in load_all_chunks()
-        if chunk.get("source_id") == source_id
-        and (user_id is None or str(chunk.get("user_id") or "") == str(user_id))
-    ]
+    return _indexed_chunks(source_id=source_id, user_id=user_id)
 
 
 def validate_source_scope(
@@ -498,7 +522,7 @@ def validate_source_scope(
             if isinstance(meta, dict) and meta.get("id"):
                 metas[str(meta["id"])] = meta
 
-    indexed = {str(chunk.get("source_id") or "") for chunk in load_all_chunks()}
+    indexed = {str(chunk.get("source_id") or "") for chunk in _indexed_chunks(user_id=user_id)}
     invalid = [
         source_id
         for source_id in normalized
@@ -517,31 +541,43 @@ def load_all_chunks() -> list[dict[str, Any]]:
     return _load_seed_corpus() + _load_extra_sources() + _load_uploaded_sources()
 
 
-def ingest_corpus(force: bool = False) -> int:
-    """Build or refresh the vector store. Returns total chunk count."""
-    store = get_store()
-    manifest = _current_manifest()
-    if store.count() > 0 and not force and _manifest_matches(manifest):
-        log.info("knowledge base exists (%d chunks), manifest unchanged", store.count())
+def ingest_corpus(force: bool = False, diagnostics: dict | None = None) -> int:
+    """Refresh a snapshot, reusing unchanged vectors. Serialize writers only."""
+    with _INGEST_LOCK:
+        started = time.monotonic()
+        store = get_store()
+        manifest = _current_manifest()
+        if store.count() > 0 and not force and _manifest_matches(manifest):
+            return store.count()
+        all_chunks = load_all_chunks()
+        parsed_ms = round((time.monotonic() - started) * 1000)
+        cache = {}
+        if hasattr(store, "snapshot"):
+            old_chunks, old_vectors = store.snapshot()
+            if old_vectors is not None:
+                cache = {(c.get("user_id", ""), c.get("source_id", ""), c["text"]): v
+                    for c, v in zip(old_chunks, old_vectors)}
+        keys = [(c.get("user_id", ""), c.get("source_id", ""), c["text"]) for c in all_chunks]
+        missing = list(dict.fromkeys(k for k in keys if k not in cache))
+        if missing:
+            vectors = embed_texts([key[2] for key in missing])
+            cache.update(zip(missing, vectors))
+        embedded_ms = round((time.monotonic() - started) * 1000) - parsed_ms
+        vecs = np.asarray([cache[key] for key in keys], dtype=np.float32) if keys else np.empty((0, embedding_dim()), dtype=np.float32)
+        if hasattr(store, "replace"):
+            store.replace(all_chunks, vecs)
+        else:
+            # Compatibility maintenance path for Milvus; no snapshot swap claim.
+            store.clear()
+            if all_chunks:
+                store.upsert(all_chunks, vecs)
+        try:
+            _write_manifest(manifest)
+        except OSError:
+            log.warning("Index snapshot saved; manifest cache could not be written")
+        if diagnostics is not None:
+            diagnostics.update(backend=type(store).__name__, parse_ms=parsed_ms, embed_ms=embedded_ms, embedded_chunks=len(missing),
+                reused_chunks=len(all_chunks) - len(missing), index_ms=round((time.monotonic() - started) * 1000))
+        log.info("Index refreshed chunks=%d embedded=%d parse_ms=%d embed_ms=%d total_ms=%d",
+            len(all_chunks), len(missing), parsed_ms, embedded_ms, (time.monotonic() - started) * 1000)
         return store.count()
-
-    if store.count() > 0:
-        log.info("knowledge base manifest changed, rebuilding vector store")
-        clear = getattr(store, "clear", None)
-        if callable(clear):
-            clear()
-
-    all_chunks = load_all_chunks()
-    if not all_chunks:
-        log.warning("no corpus chunks found, knowledge base not built")
-        return 0
-
-    vecs = embed_texts([c["text"] for c in all_chunks])
-    store.upsert(all_chunks, vecs)
-    _write_manifest(manifest)
-    by_type: dict[str, int] = {}
-    for chunk in all_chunks:
-        key = str(chunk.get("source_type", "unknown"))
-        by_type[key] = by_type.get(key, 0) + 1
-    log.info("knowledge base built: %d chunks (%s)", len(all_chunks), by_type)
-    return store.count()

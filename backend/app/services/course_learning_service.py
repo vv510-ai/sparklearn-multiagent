@@ -7,11 +7,13 @@ import hashlib
 import json
 import logging
 import re
+import time
 
 from fastapi import HTTPException
 
 from ..data.course_packs import PACKS, build_pack
 from ..llm.spark_client import llm_complete, parse_json
+from ..llm.failures import failure_code, MESSAGES
 from ..models.db import session
 from ..models.entities import LearningSpace, AssessmentSession
 from ..prompt_templates import invoke_learning_prompt
@@ -63,10 +65,11 @@ def material_snapshot(user_id: str, notebook_id: str, source_ids: list[str]) -> 
 
 def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
     topics = raw.get("topics") if isinstance(raw, dict) else None
-    if not isinstance(topics, list) or not 3 <= len(topics) <= 6:
-        raise ValueError("需要 3–6 个有资料依据的知识点")
+    if not isinstance(topics, list) or not 1 <= len(topics) <= 3:
+        raise ValueError("需要 1–3 个有依据且互不重复的起点知识点")
     by_id = {c["evidence_id"]: c for c in chunks}
     nodes, bank, lessons, evidence, stems = [], [], {}, {}, set()
+    names: set[str] = set()
     for index, topic in enumerate(topics):
         if not isinstance(topic, dict):
             raise ValueError("知识点格式无效")
@@ -74,7 +77,12 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
         name, objective = str(topic.get("name") or "").strip(), str(topic.get("objective") or "").strip()
         if not name or len(name) > 80 or not objective or not str(topic.get("lesson") or "").strip():
             raise ValueError("知识点名称、目标和讲义不能为空")
+        if name in names:
+            raise ValueError("知识点名称重复，请合并而不是凑数量")
+        names.add(name)
         cited = topic.get("chunk_ids") or []
+        if not isinstance(cited, list) or any(not isinstance(k, str) for k in cited):
+            raise ValueError("资料片段编号应为字符串数组")
         quote = str(topic.get("quote") or "").strip()
         if chunks and (not cited or any(k not in by_id for k in cited) or len(quote) < 8
                        or not any(quote in by_id[k]["text"] for k in cited)):
@@ -97,8 +105,8 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
             keys = answer if isinstance(answer, list) else [answer]
             if not keys or len(set(keys)) != len(keys) or any(k not in list("ABCDE"[:len(options)]) for k in keys):
                 raise ValueError("答案不在选项范围内")
-            if q.get("type") == "multiple" and (not isinstance(answer, list) or len(answer) < 2):
-                raise ValueError(f"知识点 {index+1} 第 {qi+1} 题：多选题需要至少两个正确选项，请重新设计选项，不能把错误选项加入答案")
+            if q.get("type") == "multiple" and (not isinstance(answer, list) or not 2 <= len(answer) < len(options)):
+                raise ValueError(f"知识点 {index+1} 第 {qi+1} 题：多选题需要至少两个正确选项和一个错误选项，请重新设计选项，不能把错误选项加入答案")
             if q.get("type") not in ("single", "multiple") or (q["type"] == "single" and not isinstance(answer, str)):
                 raise ValueError("题型和答案格式不一致")
             explanation = str(q.get("explain") or "").strip()
@@ -121,8 +129,8 @@ async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
         call = prompt
         for attempt in range(2):
             raw = await llm_complete(call.prompt, system=call.system, role="reasoner",
-                temperature=0.2, max_tokens=12000 if attempt else 9000, json_mode=True, json_object=True,
-                reasoning_mode="enabled" if attempt else "disabled", allow_mock_fallback=False)
+                temperature=0.2, max_tokens=6500, json_mode=True, json_object=True,
+                reasoning_mode="disabled", allow_mock_fallback=False)
             try:
                 return validate_draft(parse_json(raw), title, chunks)
             except (ValueError, TypeError, KeyError) as exc:
@@ -160,10 +168,16 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
     else:
         prompt = invoke_learning_prompt("assessment.course_draft", title=title,
             survey=json.dumps(survey, ensure_ascii=False), context=json.dumps(chunks, ensure_ascii=False) if chunks else "未提供资料；仅根据明确主题生成初步检查")
+        started = time.monotonic()
         try:
             course = await generate_valid_course(prompt, title, chunks)
         except Exception as exc:
-            raise HTTPException(422, "暂未生成可核对的课程题目，原资料和选择已保留。请重试或选用内置入门课程。") from exc
+            code = "invalid_draft" if isinstance(exc, (ValueError, TypeError, KeyError)) else failure_code(exc)
+            log.warning("Course preparation failed code=%s elapsed_ms=%d", code, (time.monotonic() - started) * 1000)
+            detail = "题目、题型或原文引用未通过检查，未保存这份题库。" if code == "invalid_draft" else MESSAGES[code]
+            raise HTTPException(422 if code == "invalid_draft" else 503,
+                detail + "原资料和选择已保留，可缩小学习主题后重试。", headers={"X-Learning-Failure": code}) from None
+        log.info("Course preparation completed elapsed_ms=%d topics=%d", (time.monotonic() - started) * 1000, len(course["graph"]["nodes"]))
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,
         coverage_note="基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))
     course["revision"] = hashlib.sha256(json.dumps(course, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]

@@ -59,7 +59,7 @@ def test_processing_source_cannot_be_selected_even_if_partial_chunks_exist(monke
     }
     (tmp_path / "source-a.meta.json").write_text(json.dumps(meta), encoding="utf-8")
     monkeypatch.setattr(ingest, "UPLOAD_SOURCES_DIR", tmp_path)
-    monkeypatch.setattr(ingest, "load_all_chunks", lambda: [{"source_id": "source-a"}])
+    monkeypatch.setattr(ingest, "_indexed_chunks", lambda **kwargs: [{"source_id": "source-a"}])
 
     with pytest.raises(ValueError, match="selected sources are unavailable"):
         ingest.validate_source_scope("alice", ["source-a"])

@@ -690,6 +690,7 @@ async def run(state: dict) -> dict:
     grounding_fallback_reason = ""
     answer_scope_fallback_reason = ""
     answer_streamed = False
+    model_answer = False
     # Only numbered retrieved chunks define valid citation indices.
     ground_contexts = [str(c.get("text") or "") for c in chunks]
     if (is_demo() and resolve(prompt) is None) and _is_binary_tree_first_lesson(question, topic_kp, guided=guided):
@@ -874,6 +875,14 @@ async def run(state: dict) -> dict:
             }
             if selected_model_failed:
                 ground["grounded"] = False
+
+    if model_answer and not answer_streamed:
+        from ..services.tutor_question_quality import check_question
+        answer, question_quality = await check_question(answer, ctx)
+        if question_quality:
+            await emit({"type": "progress", "agent": "tutor", "stage": "question_quality", "percent": 100,
+                "detail": "检查题已进行模型复核，仍可指出有争议的条件" if question_quality["accepted"] else "检查题未通过条件与答案核对，已改为简答",
+                "question_quality": question_quality})
 
     # Release only the complete, checked answer. Local checks are not fact verification.
     if supplement and ground.get("accepted"):

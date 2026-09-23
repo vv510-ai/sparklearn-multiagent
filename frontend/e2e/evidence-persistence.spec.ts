@@ -23,10 +23,23 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   await page.getByRole("button", { name: "继续", exact: true }).click();
   await page.getByRole("radio", { name: "其他课程或主题", exact: true }).check();
   await page.getByLabel("课程或学习主题", { exact: true }).fill("生态学入门");
+  const uploadStarted = Date.now();
+  const uploadResponse = page.waitForResponse(r => r.url().endsWith("/api/knowledge/upload") && r.request().method() === "POST");
   await page.locator('.intake-upload input[type="file"]').setInputFiles({ name: "引用核对生态讲义.txt", mimeType: "text/plain", buffer: Buffer.from(NOTES) });
   await expect(page.getByText("解析完成，已选中的资料将用于准备课程范围与起点题。", { exact: true })).toBeVisible();
+  const uploaded = await uploadResponse;
+  const uploadResult = await uploaded.json();
+  const uploadMs = Date.now() - uploadStarted;
+  await writeFile(info.outputPath("upload-timings.json"), JSON.stringify({ status: uploaded.status(), elapsed_ms: uploadMs, timings: uploadResult.timings }, null, 2));
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "继续", exact: true }).click();
+  const prepareStarted = Date.now();
+  const preparedResponse = page.waitForResponse(r => r.url().endsWith("/learning/prepare") && r.request().method() === "POST", { timeout: 150_000 });
   await page.getByRole("button", { name: "生成并核对学习范围", exact: true }).click();
+  const prepared = await preparedResponse;
+  const preparedBody = await prepared.json();
+  await writeFile(info.outputPath("prepared-course.json"), JSON.stringify({ status: prepared.status(), failure: prepared.headers()["x-learning-failure"], elapsed_ms: Date.now() - prepareStarted, course: preparedBody }, null, 2));
+  expect(prepared.ok(), JSON.stringify(preparedBody)).toBe(true);
+  expect(preparedBody.outline.length).toBeGreaterThan(0);
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
   await page.getByRole("button", { name: "返回对话", exact: true }).click();
@@ -62,10 +75,25 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   }
   await page.screenshot({ path: info.outputPath("source-open.png"), fullPage: true });
   await page.reload();
-  if (await page.getByRole("button", { name: "返回对话", exact: true }).count()) await page.getByRole("button", { name: "返回对话", exact: true }).click();
+  await page.addLocatorHandler(page.getByRole("button", { name: "返回对话", exact: true }), b => b.click());
+  await expect(page.getByRole("combobox", { name: "回答依据" })).toHaveValue("strict");
   const reloaded = page.locator('[aria-label="小知回答"]').last();
   await reloaded.getByRole("link", { name: /查看引用/ }).first().click();
   expect(await page.locator(href!).innerText()).toBe(before);
   await writeFile(info.outputPath("saved-evidence.json"), JSON.stringify({ request, message, events: body }, null, 2));
   await page.screenshot({ path: info.outputPath("source-after-reload.png"), fullPage: true });
+  // Finish only this disposable test account's check to inspect actual generated keys.
+  let assessment = (await (await page.request.get(`/api/assessment?notebook_id=${request.notebook_id}`)).json()).assessment;
+  const questions = [];
+  for (let i = 0; assessment?.question && i < 20; i++) {
+    questions.push(assessment.question);
+    const submitted = await page.request.post(`/api/assessment/${assessment.id}/answers`, { data: {
+      revision: assessment.revision, question_id: assessment.question.id, status: "dont_know",
+    }});
+    expect(submitted.ok()).toBe(true);
+    assessment = await submitted.json();
+  }
+  expect(assessment.question).toBeNull();
+  await writeFile(info.outputPath("actual-question-review.json"), JSON.stringify({ questions, report: assessment.report }, null, 2));
+
 });

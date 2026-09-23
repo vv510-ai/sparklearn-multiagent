@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.24.7",
+  "version": "2026.09.24.8",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -143,6 +143,10 @@
     "research.report": {
       "file": "research/report.md",
       "description": "有编号证据的研究学习笔记"
+    },
+    "tutor.check_question": {
+      "description": "逐项核对对话检查题的条件和答案数量",
+      "file": "tutor/check-question.md"
     }
   }
 }

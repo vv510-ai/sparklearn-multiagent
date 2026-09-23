@@ -296,3 +296,34 @@ def test_generated_draft_repairs_once_without_bypassing_validation(monkeypatch):
     with pytest.raises(RuntimeError):
         asyncio.run(service.generate_valid_course(prompt, "生态学", []))
     assert len(calls) == 1
+
+
+def test_short_material_does_not_have_to_invent_three_topics(monkeypatch):
+    from app.services.course_learning_service import validate_draft
+    topic = {"name": "光合作用", "objective": "区分生产者和消费者", "lesson": "植物制造有机物。",
+        "questions": [{"stem": f"问题{i}", "type": "multiple" if i == 2 else "single",
+            "options": ["符合条件甲", "符合条件乙", "不符合条件"], "answer": ["A", "B"] if i == 2 else "A",
+            "explain": "依据光合作用与摄食获得有机物的区别判断。"} for i in range(3)]}
+    result = validate_draft({"topics": [topic]}, "短讲义", [])
+    assert len(result["bank"]) == 3
+    topic["questions"][2]["answer"] = ["A", "B", "C"]
+    with pytest.raises(ValueError, match="错误选项"):
+        validate_draft({"topics": [topic]}, "短讲义", [])
+
+
+@pytest.mark.parametrize("exception,status,code,word", [
+    (TimeoutError(), 503, "timeout", "超时"),
+    (ValueError("private draft must not leak"), 422, "invalid_draft", "未通过检查"),
+])
+def test_course_failures_keep_sources_and_classify_safely(learner, monkeypatch, exception, status, code, word):
+    from app.services import course_learning_service as service
+    client, user = learner
+    book = client.post("/api/notebooks", json={"user_id": user, "title": "资料课程"}).json()
+    async def fail(*args, **kwargs):
+        raise exception
+    monkeypatch.setattr(service, "generate_valid_course", fail)
+    result = client.post(f"/api/notebooks/{book['id']}/learning/prepare", json={"title": "资料课程", "course_key": "custom"})
+    assert result.status_code == status
+    assert result.headers["x-learning-failure"] == code
+    assert word in result.json()["detail"] and "private draft" not in result.text
+    assert client.get(f"/api/notebooks/{book['id']}/learning").json()["course"]["kind"] == "unconfigured"

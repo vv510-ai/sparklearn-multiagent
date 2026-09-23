@@ -264,6 +264,24 @@ export default function Home() {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, expireSession);
   }, []);
 
+  // Preferences are local to this account and course, including after reload.
+  useEffect(() => {
+    if (!authUser?.id) { setSourcePolicies({}); return; }
+    try {
+      const saved = JSON.parse(localStorage.getItem(`learnloop:source-policies:${authUser.id}`) || "{}");
+      setSourcePolicies(Object.fromEntries(Object.entries(saved).filter(([, value]) =>
+        value === "auto" || value === "strict" || value === "supplement")) as Record<string, "auto" | "strict" | "supplement">);
+    } catch { setSourcePolicies({}); }
+  }, [authUser?.id]);
+
+  const changeSourcePolicy = (value: "auto" | "strict" | "supplement") => {
+    if (!authUser?.id || !activeNotebook) return;
+    const next = { ...sourcePolicies, [activeNotebook.id]: value };
+    setSourcePolicies(next);
+    try { localStorage.setItem(`learnloop:source-policies:${authUser.id}`, JSON.stringify(next)); }
+    catch { setPanelError("回答依据已用于本次对话，但浏览器未能保存，刷新后请重新选择。"); }
+  };
+
   const running = useMemo(() => Object.values(trace).some((node) => node.status === "running"), [trace]);
   const finished = useMemo(() => Object.values(trace).some((node) => node.status === "done"), [trace]);
   const currentTopicTitle = useMemo(() => {
@@ -909,7 +927,7 @@ export default function Home() {
         <aside data-guide="sources" className="hidden min-h-0 xl:block">{sourcePanel}</aside>
 
         <section className="notebook-column notebook-main-column relative flex min-h-0 flex-col overflow-hidden">
-          {activePanel === "chat" && profile?.learning_intake && <div className="learning-context-strip"><div><strong>{profile.course_title || activeNotebook?.title}</strong><span>优先：{profile.learning_intake.goal} · 每次 {profile.learning_intake.daily_minutes} 分钟 · 已绑定 {activeCourse?.source_ids?.length || 0} 份资料</span></div><button onClick={() => openPanel("assessment")}>查看依据与计划 <ArrowRight size={14} /></button></div>}
+          {activePanel === "chat" && profile?.learning_intake && <div className="learning-context-strip"><div><strong>{profile.course_title || activeNotebook?.title}</strong><span>优先：{profile.learning_intake.goal} · 每次 {profile.learning_intake.daily_minutes} 分钟 · 当前答疑已选 {selectedSourceIds.filter(id => id !== COURSE_SOURCE_ID).length} 份上传资料{selectedSourceIds.includes(COURSE_SOURCE_ID) ? " + 课程讲义" : ""}</span></div><button onClick={() => openPanel("assessment")}>查看依据与计划 <ArrowRight size={14} /></button></div>}
           {openingNotebookId && (
             <div className="absolute inset-0 z-40 grid place-items-center bg-white/82 px-6 text-center backdrop-blur-sm">
               <div className="rounded-2xl border border-emerald-200 bg-white px-6 py-5 shadow-xl">
@@ -933,7 +951,7 @@ export default function Home() {
               topic={conversationFocus || notebookTopic}
               sourceIds={selectedSourceIds}
               sourcePolicy={sourcePolicies[activeNotebook?.id || ""] || "auto"}
-              onSourcePolicyChange={(value) => setSourcePolicies(current => ({ ...current, [activeNotebook?.id || ""]: value }))}
+              onSourcePolicyChange={changeSourcePolicy}
               onUploadClick={() => activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true)}
               onCreateNotebook={() => { setPanelError(""); setNewBookOpen(true); }}
               onNewConversation={activeNotebook ? () => void startNewConversation() : undefined}

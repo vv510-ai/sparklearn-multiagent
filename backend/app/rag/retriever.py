@@ -5,7 +5,7 @@ import logging
 import numpy as np
 
 from .embedding import embed_texts
-from .ingest import COURSE_SCOPE_ID, chunks_for_source
+from .ingest import COURSE_SCOPE_ID, chunks_for_source, validate_source_scope
 from .reranker import rerank
 from .vector_store import get_store
 
@@ -65,19 +65,15 @@ def _hits_from_sources(
     top_k: int,
     user_id: str | None,
 ) -> list[dict]:
-    chunks: list[dict] = []
-    for source_id in source_ids:
-        # Missing tenant context is allowed to see only built-in (ownerless)
-        # chunks. Uploaded sources always require their exact authenticated id.
-        chunks.extend(chunks_for_source(source_id, user_id=user_id or ""))
-    if not chunks:
+    if not user_id:
         return []
-
-    vectors = embed_texts([c.get("text", "") for c in chunks])
+    try:
+        valid = validate_source_scope(user_id, source_ids)
+    except ValueError:
+        return []
     qv = embed_texts([query], domain="query")[0]
-    scores = vectors @ qv
-    idx = np.argsort(-scores)[:top_k]
-    return [{**chunks[i], "score": float(scores[i])} for i in idx]
+    return get_store().search(qv, top_k=top_k, user_id=user_id, source_ids=valid, include_builtin=False)
+
 
 
 def retrieve(

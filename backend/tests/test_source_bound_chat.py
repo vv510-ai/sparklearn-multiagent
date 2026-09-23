@@ -198,8 +198,8 @@ def test_validate_source_scope_enforces_owner_and_normalizes(monkeypatch, tmp_pa
     monkeypatch.setattr(ingest, "UPLOAD_SOURCES_DIR", tmp_path)
     monkeypatch.setattr(
         ingest,
-        "load_all_chunks",
-        lambda: [{"source_id": "source-a"}, {"source_id": "source-b"}],
+        "_indexed_chunks",
+        lambda **kwargs: [{"source_id": "source-a"}, {"source_id": "source-b"}],
     )
 
     assert ingest.validate_source_scope("alice", [" source-a ", "source-a"]) == ["source-a"]
