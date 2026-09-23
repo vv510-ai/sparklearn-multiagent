@@ -345,3 +345,23 @@ def test_known_validation_issue_is_actionable_without_exposing_draft(learner, mo
     assert result.headers["x-learning-validation"] == "citation_mismatch"
     assert "资料引用未能与原文对应" in result.json()["detail"]
     assert client.get(f"/api/notebooks/{book['id']}/learning").json()["course"]["kind"] == "unconfigured"
+
+
+def test_source_text_is_bound_by_ids_not_model_recopied_quotes():
+    from app.services import course_learning_service as service
+    original = "真实讲义：植物通过光合作用制造有机物。"
+    chunks = [{"evidence_id": "s1c1", "source": "原件", "source_id": "owned", "text": original}]
+    topic = {"name": "光合作用", "objective": "识别植物获取有机物的方式", "lesson": "植物通过光合作用制造有机物。",
+        "chunk_ids": ["s1c1"], "quote": "模型随意改写的文字，不能当成原文",
+        "questions": [{"stem": f"问题{i}", "type": "multiple" if i == 2 else "single",
+            "options": ["甲", "乙", "丙"], "answer": ["A", "B"] if i == 2 else "A",
+            "explain": "根据光合作用的定义判断选项。"} for i in range(3)]}
+    value = service.validate_draft({"topics": [topic]}, "讲义", chunks)
+    assert value["evidence"]["topic_1"][0]["text"] == original
+    assert "模型随意改写" not in json.dumps(value, ensure_ascii=False)
+    assert all(q["evidence_ids"] == ["s1c1"] for q in value["bank"])
+    topic["chunk_ids"] = ["invented"]
+    with pytest.raises(service.DraftValidationError, match="片段编号"):
+        service.validate_draft({"topics": [topic]}, "讲义", chunks)
+    with pytest.raises(service.DraftValidationError, match="片段编号"):
+        service.validate_draft({"topics": [topic]}, "无资料主题", [])

@@ -91,10 +91,10 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
         cited = topic.get("chunk_ids") or []
         if not isinstance(cited, list) or any(not isinstance(k, str) for k in cited):
             raise DraftValidationError("citation_format", "资料片段编号应为字符串数组")
-        quote = str(topic.get("quote") or "").strip()
-        if chunks and (not cited or any(k not in by_id for k in cited) or len(quote) < 8
-                       or not any(quote in by_id[k]["text"] for k in cited)):
-            raise DraftValidationError("citation_mismatch", "资料引用未能与原文对应")
+        # Provenance is bound by validated IDs to our stored originals. Asking
+        # the model to recopy a quote creates a second, unreliable source of truth.
+        if (chunks and not cited) or any(k not in by_id for k in cited):
+            raise DraftValidationError("citation_mismatch", "引用片段编号未能与当前资料对应")
         evidence[kp] = [{"source": by_id[k]["source"], "source_id": by_id[k]["source_id"],
             "page": by_id[k].get("page"), "text": by_id[k]["text"],
             "location_kind": "页" if str(by_id[k].get("source_type", "")).endswith("pdf") else "片段"} for k in cited if k in by_id]
@@ -122,7 +122,7 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
                 raise DraftValidationError("explanation", "题目缺少可核对的解释")
             stems.add(stem)
             bank.append({"id": f"{kp}-{qi+1}", "kp": kp, "stem": stem, "type": q["type"],
-                "options": options, "answer": answer, "explain": explanation, "difficulty": min(3, max(1, int(q.get("difficulty", 1)))),
+                "options": options, "answer": answer, "explain": explanation, "evidence_ids": list(cited), "difficulty": min(3, max(1, int(q.get("difficulty", 1)))),
                 "citations": [{k: v for k, v in item.items() if k != "text"} for item in evidence[kp]]})
         nodes.append({"id": kp, "name": name, "desc": objective[:240], "difficulty": 1, "chapter": name})
         lessons[kp] = str(topic["lesson"])[:5000]
@@ -134,7 +134,8 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
 async def review_course_questions(course: dict, chunks: list[dict]) -> None:
     """Independently solve without showing generated keys; still fallible model review."""
     bank = course["bank"]
-    questions = [{k: q[k] for k in ("id", "stem", "type", "options")} for q in bank]
+    questions = [{**{k: q[k] for k in ("id", "stem", "type", "options")},
+        "evidence_ids": q.get("evidence_ids", [])} for q in bank]
     context = json.dumps({"title": course["title"], "materials": [
         {"id": c["evidence_id"], "text": c["text"]} for c in chunks]}, ensure_ascii=False)
     call = invoke_learning_prompt("assessment.course_check", context=context,
@@ -219,7 +220,9 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
         course = build_pack(course_key)
     else:
         prompt = invoke_learning_prompt("assessment.course_draft", title=title,
-            survey=json.dumps(survey, ensure_ascii=False), context=json.dumps(chunks, ensure_ascii=False) if chunks else "未提供资料；仅根据明确主题生成初步检查")
+            survey=json.dumps(survey, ensure_ascii=False), context=json.dumps([
+                {"evidence_id": c["evidence_id"], "source": c["source"], "text": c["text"]}
+                for c in chunks], ensure_ascii=False) if chunks else "未提供资料；仅根据明确主题生成初步检查")
         started = time.monotonic()
         try:
             course = await generate_valid_course(prompt, title, chunks)
