@@ -164,6 +164,12 @@ async def review_course_questions(course: dict, chunks: list[dict]) -> None:
     if issues:
         raise DraftValidationError("answer_review", "题目答案、条件或资料支持未通过独立复核",
             repair_issue="请重新设计以下不可靠题目，不能只改字母凑数：" + json.dumps(issues, ensure_ascii=False)[:5000])
+    # Never publish the draft's unchecked explanation after reviewing the keys.
+    # Reuse the reasons that actually supported the independent option judgments.
+    for q, row in zip(bank, rows):
+        q["explain"] = "\n".join(
+            f"{o['label']}（{'应选' if o['correct'] else '不选'}）：{str(o['reason']).strip()}"
+            for o in row["options"])
     course["quality_review"] = {"verification": "model_review", "reviewed_questions": len(bank)}
 
 

@@ -1,6 +1,8 @@
 import asyncio
 import json
 
+import pytest
+
 from app.services import tutor_question_quality as quality
 
 AMBIGUOUS = "递归必须逐步接近终止条件。\n\n检查（单选）：下面哪种写法最可能无限递归？\nA. n 从 3 递减，到 0 停止\nB. n 一直保持 3\nC. 没有终止条件\nD. n 从 3 递减，到 1 停止"
@@ -45,8 +47,10 @@ def test_review_failure_preserves_lesson_without_guessing(monkeypatch):
     assert status["reason"] == "review_unavailable"
 
 
-def test_question_heading_keeps_separate_premises_and_multiple_type(monkeypatch):
+@pytest.mark.parametrize("heading", ["## 多选理解检查", "**多选理解检查**"])
+def test_question_heading_keeps_separate_premises_and_multiple_type(monkeypatch, heading):
     question = "递归要接近停止条件。\n\n## 多选理解检查\n\n假设初始 n=3，n 为整数。\n\n哪些方案不能终止？\nA. n 不变，n=0 停止\nB. n 增加，n=0 停止\nC. n 递减，n=0 停止"
+    question = question.replace("## 多选理解检查", heading)
     prompts = []
     async def complete(prompt, **kwargs):
         prompts.append(prompt)
@@ -59,4 +63,4 @@ def test_question_heading_keeps_separate_premises_and_multiple_type(monkeypatch)
     assert "假设初始 n=3" in prompts[0]
     review(monkeypatch, [True, False, False])
     rejected, status = asyncio.run(quality.check_question(question, ""))
-    assert "## 多选理解检查" not in rejected and "简答检查" in rejected
+    assert heading not in rejected and "简答检查" in rejected

@@ -17,7 +17,7 @@ test("多选先组合再提交，回答依据在刷新后保持", async ({ page 
   await page.getByRole("combobox", { name: "切换科目书本" }).selectOption(book.id);
   await expect(page.getByRole("combobox", { name: "回答依据" })).toHaveValue("strict");
   const requests: { message: string; display_message: string; source_policy: string }[] = [];
-  const question = "## 多选理解检查\n\n按整数加法判断。\n\n以下哪些等式成立？\nA. $1+1=2$\nB. $2+2=4$\nC. $1+1=3$";
+  const question = "**多选理解检查**\n\n按整数加法判断。\n\n以下哪些等式成立？\nA. $1+1=2$\nB. $2+2=4$\nC. $1+1=3$";
   await page.route("**/api/chat", async route => {
     requests.push(route.request().postDataJSON());
     const text = requests.length === 1 ? question : "已收到组合答案。";

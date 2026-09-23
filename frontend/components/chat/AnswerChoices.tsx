@@ -35,7 +35,7 @@ export default function AnswerChoices({text,disabled,onChoose}:{text:string;disa
   useEffect(() => setSelected([]), [text]);
   const optionStart = text.search(/^\s*(?:[-*]\s*)?(?:\*\*)?A[.、．:：)）]/m);
   const beforeOptions = optionStart >= 0 ? text.slice(0, optionStart).trim() : "";
-  const questionHeading = [...beforeOptions.matchAll(/^#{1,6}[^\n]*(?:单选|多选|检查|练习|小测)[^\n]*$/gm)].at(-1);
+  const questionHeading = [...beforeOptions.matchAll(/^(?:#{1,6}[ \t]*|\*\*)[^\n]*(?:单选|多选|检查|练习|小测)[^\n]*$/gm)].at(-1);
   const questionStem = questionHeading && beforeOptions.length - questionHeading.index! <= 4000
     ? beforeOptions.slice(questionHeading.index) : beforeOptions.split(/\n\s*\n/).at(-1) || "";
   const multiple = /多选/.test(questionStem);

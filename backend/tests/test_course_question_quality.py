@@ -61,6 +61,9 @@ def test_agreed_key_gets_model_review_label_only(monkeypatch):
     value = course()
     asyncio.run(service.review_course_questions(value, []))
     assert value["quality_review"] == {"verification": "model_review", "reviewed_questions": 1}
+    assert "燃烧非资料内容" not in value["bank"][0]["explain"]
+    assert value["bank"][0]["explain"].startswith("A（应选）：独立判断")
+    assert "D（不选）：独立判断" in value["bank"][0]["explain"]
 
 
 def test_semantic_rejection_reaches_bounded_repair(monkeypatch):
