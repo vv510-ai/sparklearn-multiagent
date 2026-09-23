@@ -9,6 +9,11 @@ for (const scenario of [
 ]) test(scenario.title, async ({ page }, info) => {
   test.setTimeout(360_000);
   await page.setViewportSize({ width: 1440, height: 1000 });
+  // The guide imports asynchronously and can appear before or after returning
+  // from assessment. Dismiss it through its UI whenever it blocks an action.
+  await page.addLocatorHandler(page.getByRole("button", { name: "跳过引导", exact: true }), async button => {
+    await button.click();
+  });
   await registerLearner(page, "one-page-feedback");
   console.log("one-page: registered");
   await page.getByRole("checkbox", { name: /从零开始，系统学习/ }).check();
@@ -21,8 +26,6 @@ for (const scenario of [
   await expect(page.locator(".entry-question-card")).toBeVisible();
   await page.getByRole("button", { name: "返回对话", exact: true }).click();
   console.log("one-page: course prepared");
-  const skip = page.getByRole("button", { name: "跳过引导", exact: true });
-  await skip.click({ timeout: 15_000 });
   // Offline intent fixtures require punctuation; production uses the exact feedback wording.
   const question = scenario.question + (process.env.PLAYWRIGHT_BASE_URL ? "" : "？");
   await page.getByLabel("学习目标输入", { exact: true }).fill(question);
