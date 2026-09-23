@@ -1,5 +1,7 @@
 "use client";
 
+import MathText from "@/components/chat/MathText";
+
 import { useMemo, useRef, useState } from "react";
 import { Badge, Notice, Stat, masteryTone } from "@/components/ui";
 import { USER_ID, apiPost } from "@/lib/api";
@@ -237,7 +239,7 @@ export default function QuizPlayer({
             <div className="mb-3 flex items-start gap-2">
               <Badge variant="info" mono>Q{i + 1}</Badge>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-bold leading-6 text-slate-950">{q.stem}</div>
+                <div className="text-sm font-bold leading-6 text-slate-950"><MathText text={q.stem} /></div>
                 <div className="mt-1 flex flex-wrap gap-2">
                   <Badge variant="neutral">{TYPE_LABEL[q.type] || q.type}</Badge>
                   <Badge variant="neutral" mono>D{q.difficulty}</Badge>
@@ -268,7 +270,7 @@ export default function QuizPlayer({
                       } disabled:cursor-not-allowed disabled:opacity-70`}
                     >
                       <span className="mr-2 font-mono text-[11px] font-bold text-emerald-600">{tag}</span>
-                      {op.replace(/^[A-D][.、：:\s]*/, "")}
+                      <MathText text={op.replace(/^[A-D][.、：:\s]*/, "")} />
                     </button>
                   );
                 })}
@@ -344,14 +346,14 @@ export default function QuizPlayer({
                 {supportError && <div className="text-[11px] font-medium text-rose-600">{supportError}</div>}
                 {hints[q.id] && (
                   <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-800">
-                    <span className="font-bold">提示：</span>{hints[q.id]}
+                    <span className="font-bold">提示：</span><MathText text={hints[q.id]} />
                   </div>
                 )}
                 {revealed && (
                   <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-3 text-xs text-orange-800">
                     <div>
-                      <div className="font-bold">参考答案：{displayAnswer(q, revealed.expected || q.answer)}</div>
-                      {revealed.explain && <div className="mt-1 leading-5 text-slate-600">{revealed.explain}</div>}
+                      <div className="font-bold">参考答案：<MathText text={displayAnswer(q, revealed.expected || q.answer)} /></div>
+                      {revealed.explain && <div className="mt-1 leading-5 text-slate-600"><MathText text={revealed.explain} /></div>}
                     </div>
                     <div>
                       <div className="mb-2 font-bold text-slate-800">你觉得这次卡在哪里？</div>
@@ -380,13 +382,13 @@ export default function QuizPlayer({
 
             {submitted && (
               <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-orange-200 bg-orange-50 text-orange-700"}`}>
-                <div className="font-bold">{ok ? "回答正确" : `参考答案：${displayAnswer(q, expected)}`}</div>
+                <div className="font-bold"><MathText text={ok ? "回答正确" : `参考答案：${displayAnswer(q, expected)}`} /></div>
                 {gradedItem?.support_level && gradedItem.support_level !== "independent" && (
                   <div className="mt-1 font-medium text-slate-600">
                     学习证据：{gradedItem.support_level === "revealed" ? "已揭晓（不计独立掌握）" : "提示后作答"}
                   </div>
                 )}
-                {(gradedItem?.explain || q.explain) && <div className="mt-1 text-slate-600">{gradedItem?.explain || q.explain}</div>}
+                {(gradedItem?.explain || q.explain) && <div className="mt-1 text-slate-600"><MathText text={(gradedItem?.explain || q.explain || "")} /></div>}
                 {calibrationSignalText(gradedItem?.calibration_signal) && (
                   <div className="mt-1 font-medium text-violet-700">{calibrationSignalText(gradedItem?.calibration_signal)}</div>
                 )}

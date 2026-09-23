@@ -1,5 +1,7 @@
 "use client";
 
+import MathText from "@/components/chat/MathText";
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -279,7 +281,7 @@ export default function AssessmentPanel({
             </p>
             <p className="question-instruction">{data.question.instruction || (data.question.type === "multiple" ? "点击所有你认为正确的选项，可以选择多个。" : "读题后，在下方点击一个你认为正确的选项。")}</p>
             <h2 className="assessment-stem" tabIndex={-1} ref={questionHeading}>
-              {data.question.stem.replace(/\s+(?=\[[A-D]\])/g, "\n\n")}
+              <MathText text={data.question.stem.replace(/\s+(?=\[[A-D]\])/g, "\n\n")} />
             </h2>
             {data.question.audio_url && <ListeningAudio key={data.question.id} src={data.question.audio_url} onListened={() => setListened(true)} />}
             <fieldset className="entry-options" disabled={busy}>
@@ -299,7 +301,7 @@ export default function AssessmentPanel({
                       onChange={() => data.question?.type === "multiple" ? setChoices(v => v.includes(key) ? v.filter(k => k !== key) : [...v, key].sort()) : setChoice(key)}
                     />
                     <b>{key}</b>
-                    <span>{option}</span>
+                    <span><MathText text={option} /></span>
                     {(data.question?.type === "multiple" ? choices.includes(key) : choice === key) && <Check size={18} />}
                   </label>
                 );

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/brand";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 import "./learning-upgrade.css";
 import "./learning-intake.css";

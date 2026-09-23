@@ -830,6 +830,34 @@ body::after {
     linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(251, 252, 250, 0.94));
 }
 
+.math-content { min-width: 0; }
+.math-text { overflow-wrap: anywhere; white-space: pre-line; }
+.math-content .katex {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: middle;
+  padding-block: 0.12em;
+  white-space: normal;
+  text-indent: 0;
+}
+.math-content .katex-display {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0.8em 0;
+}
+.math-content .katex-display > .katex {
+  display: inline-block;
+  min-width: 100%;
+  max-width: none;
+  overflow: visible;
+  white-space: nowrap;
+}
+.math-content .katex-error { white-space: pre-wrap; overflow-wrap: anywhere; }
+
 .prose-spark {
   color: #273449;
   line-height: 1.75;

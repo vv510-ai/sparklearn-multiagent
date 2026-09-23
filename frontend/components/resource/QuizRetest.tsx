@@ -1,5 +1,7 @@
 "use client";
 
+import MathText from "@/components/chat/MathText";
+
 import { useMemo, useRef, useState } from "react";
 import { Badge, Notice, Stat, masteryTone } from "@/components/ui";
 import { USER_ID, apiPost } from "@/lib/api";
@@ -206,7 +208,7 @@ export default function QuizRetest({
           <div key={question.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="mb-2 flex items-start gap-2">
               <Badge variant="neutral" mono>R{index + 1}</Badge>
-              <div className="text-xs font-bold leading-5 text-slate-900">{question.stem}</div>
+              <div className="text-xs font-bold leading-5 text-slate-900"><MathText text={question.stem} /></div>
             </div>
             {question.type === "single" || (question.type === "complexity" && question.options.length > 0) ? (
               <div className="grid gap-2 sm:grid-cols-2">
@@ -225,7 +227,7 @@ export default function QuizRetest({
                       } disabled:cursor-not-allowed`}
                     >
                       <span className="mr-2 font-mono font-bold text-sky-600">{letter}</span>
-                      {option.replace(/^[A-D][.、：:\s]*/, "")}
+                      <MathText text={option.replace(/^[A-D][.、：:\s]*/, "")} />
                     </button>
                   );
                 })}
@@ -272,9 +274,9 @@ export default function QuizRetest({
                   : "border-orange-200 bg-orange-50 text-orange-700"
               }`}>
                 <div className="font-bold">
-                  {graded.correct ? "独立答对，已形成恢复证据" : `仍需巩固 · 参考答案：${displayAnswer(question, graded.expected || "")}`}
+                  <MathText text={graded.correct ? "独立答对，已形成恢复证据" : `仍需巩固 · 参考答案：${displayAnswer(question, graded.expected || "")}`} />
                 </div>
-                {graded.explain && <div className="mt-1 leading-5 text-slate-600">{graded.explain}</div>}
+                {graded.explain && <div className="mt-1 leading-5 text-slate-600"><MathText text={graded.explain} /></div>}
                 {calibrationSignalText(graded.calibration_signal) && (
                   <div className="mt-1 font-medium text-violet-700">{calibrationSignalText(graded.calibration_signal)}</div>
                 )}

@@ -1,5 +1,7 @@
 "use client";
 
+import MathText from "@/components/chat/MathText";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Notice, Stat } from "@/components/ui";
 import { USER_ID, apiGet, apiPost } from "@/lib/api";
@@ -246,7 +248,7 @@ export default function ReviewQueue({
             <div className="mb-3 flex items-start gap-2">
               <Badge variant="neutral" mono>D{index + 1}</Badge>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-bold leading-6 text-[#1D2028]">{question.stem}</div>
+                <div className="text-sm font-bold leading-6 text-[#1D2028]"><MathText text={question.stem} /></div>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   <Badge variant="info">{item.kp_name}</Badge>
                   <Badge variant="warn">上次卡点：{item.reason}</Badge>
@@ -272,7 +274,7 @@ export default function ReviewQueue({
                       } disabled:cursor-not-allowed`}
                     >
                       <span className="mr-2 font-mono font-bold text-[#0F6B50]">{letter}</span>
-                      {option.replace(/^[A-D][.、：:\s]*/, "")}
+                      <MathText text={option.replace(/^[A-D][.、：:\s]*/, "")} />
                     </button>
                   );
                 })}
@@ -315,9 +317,9 @@ export default function ReviewQueue({
                 graded.correct ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-orange-200 bg-orange-50 text-orange-700"
               }`}>
                 <div className="font-bold">
-                  {graded.correct ? "回忆正确" : `需要继续巩固 · 参考答案：${displayAnswer(question, graded.expected || "")}`}
+                  <MathText text={graded.correct ? "回忆正确" : `需要继续巩固 · 参考答案：${displayAnswer(question, graded.expected || "")}`} />
                 </div>
-                {graded.explain && <div className="mt-1 leading-5 text-slate-600">{graded.explain}</div>}
+                {graded.explain && <div className="mt-1 leading-5 text-slate-600"><MathText text={graded.explain} /></div>}
                 {calibrationSignalText(graded.calibration_signal) && (
                   <div className="mt-1 font-medium text-violet-700">{calibrationSignalText(graded.calibration_signal)}</div>
                 )}

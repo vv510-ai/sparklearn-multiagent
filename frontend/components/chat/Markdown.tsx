@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 "use client";
 /** Markdown 渲染:react-markdown + GFM。
  *  1) ```mermaid 代码块经 CDN 渲染为图,失败时给学习者友好提示;
@@ -6,6 +7,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { mathRemarkPlugins, mathRehypePlugins } from "@/lib/math";
 import { getMermaid } from "@/lib/cdn";
 import { withoutCodeBlocks } from "@/lib/learningContent";
 
@@ -124,9 +126,10 @@ export default function Markdown({
   const cite = (children: React.ReactNode) => withoutCites(children);
   const learnerText = allowCodeBlocks ? text : withoutCodeBlocks(text, true);
   return (
-    <div className={`prose-spark text-[13.5px] ${streaming ? "caret" : ""}`}>
+    <div className={`prose-spark math-content text-[13.5px] ${streaming ? "caret" : ""}`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, ...mathRemarkPlugins]}
+        rehypePlugins={mathRehypePlugins}
         components={{
           code(props) {
             const { className, children } = props as { className?: string; children?: React.ReactNode };

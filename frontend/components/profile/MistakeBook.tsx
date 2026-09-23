@@ -1,5 +1,7 @@
 "use client";
 
+import MathText from "@/components/chat/MathText";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpenCheck, RefreshCw, Star } from "lucide-react";
 import { Badge, Notice, Stat } from "@/components/ui";
@@ -164,7 +166,7 @@ export default function MistakeBook({ onEvaluated, notebookId = "" }: { notebook
                 <div className="flex items-start gap-3 p-4">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-50 font-mono text-xs font-black text-orange-700">{index + 1}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-black leading-6 text-slate-950">{item.question.stem}</div>
+                    <div className="text-sm font-black leading-6 text-slate-950"><MathText text={item.question.stem} /></div>
                     <div className="mt-2 flex flex-wrap gap-1.5"><Badge variant="info">{item.kp_name}</Badge><Badge variant={item.status === "resolved" ? "success" : "warn"}>{item.status === "resolved" ? "已恢复" : "待巩固"}</Badge><Badge variant="neutral">错因：{item.reason}</Badge>{item.lapse_count > 0 && <Badge variant="warn">反复错 {item.lapse_count + 1} 次</Badge>}</div>
                   </div>
                   <button type="button" onClick={() => void toggleFavorite(item)} className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border transition ${item.favorite ? "border-amber-300 bg-amber-50 text-amber-500" : "border-slate-200 text-slate-400 hover:text-amber-500"}`} aria-label={item.favorite ? "取消收藏" : "收藏错题"}><Star size={17} fill={item.favorite ? "currentColor" : "none"} /></button>
@@ -172,8 +174,8 @@ export default function MistakeBook({ onEvaluated, notebookId = "" }: { notebook
 
                 <details className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-xs">
                   <summary className="cursor-pointer font-bold text-slate-600">查看上次错误与解析</summary>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2"><div className="rounded-lg border border-rose-100 bg-rose-50 p-3"><div className="font-bold text-rose-700">上次答案</div><div className="mt-1 leading-5 text-slate-600">{choiceLabel(item.question.options, item.last_answer)}</div></div><div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3"><div className="font-bold text-emerald-700">参考答案</div><div className="mt-1 leading-5 text-slate-600">{choiceLabel(item.question.options, item.expected)}</div></div></div>
-                  {item.explain && <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 leading-6 text-slate-600">{item.explain}</p>}
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2"><div className="rounded-lg border border-rose-100 bg-rose-50 p-3"><div className="font-bold text-rose-700">上次答案</div><div className="mt-1 leading-5 text-slate-600"><MathText text={choiceLabel(item.question.options, item.last_answer)} /></div></div><div className="rounded-lg border border-emerald-100 bg-emerald-50 p-3"><div className="font-bold text-emerald-700">参考答案</div><div className="mt-1 leading-5 text-slate-600"><MathText text={choiceLabel(item.question.options, item.expected)} /></div></div></div>
+                  {item.explain && <p className="mt-2 rounded-lg border border-slate-200 bg-white p-3 leading-6 text-slate-600"><MathText text={item.explain} /></p>}
                 </details>
 
                 <div className="border-t border-slate-100 p-4">
@@ -181,7 +183,7 @@ export default function MistakeBook({ onEvaluated, notebookId = "" }: { notebook
                     <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-xs text-slate-500">随时重做；结果会更新掌握度和下一次复习时间。</span><button type="button" onClick={() => begin(item.id)} className="primary-action">重做这题</button></div>
                   ) : (
                     <div className="space-y-3">
-                      {isChoice ? <div className="grid gap-2 sm:grid-cols-2">{item.question.options.map((option, optionIndex) => { const letter = String.fromCharCode(65 + optionIndex); return <button type="button" key={letter} onClick={() => setAnswer(letter)} className={`rounded-lg border px-3 py-2 text-left text-xs ${answer === letter ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}><span className="mr-2 font-mono font-bold">{letter}</span>{option.replace(/^[A-D][.、：:\s]*/, "")}</button>; })}</div> : item.question.type === "judge" ? <div className="flex gap-2">{["对", "错"].map((value) => <button type="button" key={value} onClick={() => setAnswer(value)} className={`rounded-lg border px-5 py-2 text-xs font-bold ${answer === value ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200"}`}>{value}</button>)}</div> : <textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={3} placeholder="独立写下答案" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400" />}
+                      {isChoice ? <div className="grid gap-2 sm:grid-cols-2">{item.question.options.map((option, optionIndex) => { const letter = String.fromCharCode(65 + optionIndex); return <button type="button" key={letter} onClick={() => setAnswer(letter)} className={`rounded-lg border px-3 py-2 text-left text-xs ${answer === letter ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}><span className="mr-2 font-mono font-bold">{letter}</span><MathText text={option.replace(/^[A-D][.、：:\s]*/, "")} /></button>; })}</div> : item.question.type === "judge" ? <div className="flex gap-2">{["对", "错"].map((value) => <button type="button" key={value} onClick={() => setAnswer(value)} className={`rounded-lg border px-5 py-2 text-xs font-bold ${answer === value ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-200"}`}>{value}</button>)}</div> : <textarea value={answer} onChange={(event) => setAnswer(event.target.value)} rows={3} placeholder="独立写下答案" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-emerald-400" />}
                       {answer.trim() && <ConfidencePicker value={confidence} onChange={setConfidence} disabled={busy} />}
                       <div className="flex justify-end gap-2"><button type="button" onClick={() => setActiveId(null)} className="secondary-action">取消</button><button type="button" onClick={() => void submit(item)} disabled={!answer.trim() || !confidence || busy} className="primary-action disabled:opacity-40">{busy ? "正在判分…" : "提交重做"}</button></div>
                     </div>
