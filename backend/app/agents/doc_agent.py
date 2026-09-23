@@ -773,6 +773,10 @@ async def _gen_one(
     if source_scope_missing:
         fallback = True
         md = (
+            f"# {name}·一图看懂未生成\n\n"
+            "> 当前资料中未找到与这次问题相关的内容，尚未开始生成图片。\n\n"
+            "请把问题写得更具体，或选择包含该主题的资料后重试。"
+        ) if kind == "doc" and prompt_template == "one_page" else (
             f"# {name}·资料不足\n\n"
             "> 当前选中的资料没有可检索内容，因此未生成资料范围外的知识。\n\n"
             "请重新选择已完成索引的资料，或上传包含正文的 TXT、MD、PDF、PNG/JPG 文件。"
@@ -904,7 +908,7 @@ async def _gen_one(
             if chunks else "本次没有可用的资料片段；内容依据可用对话或通用知识，不代表已核验课程原文。"
         )
     one_page = kind == "doc" and prompt_template == "one_page"
-    if one_page:
+    if one_page and not source_scope_missing:
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
     interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
     if interactive_audio:

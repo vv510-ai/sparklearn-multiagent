@@ -62,6 +62,7 @@ export interface ResourceItem {
   title: string;
   payload: {
     markdown?: string;
+    generation_mode?: "unavailable" | "demo" | "source_guide" | "model";
     template?: string;
     notes_scope?: string;
     markmap?: string;

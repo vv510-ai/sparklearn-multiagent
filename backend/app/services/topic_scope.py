@@ -23,7 +23,7 @@ def topic_terms(topic_name: str) -> list[str]:
     compact = re.split(r"[？?。；;！!]", compact, maxsplit=1)[0]
     compact = re.sub(r"^(?:请问|什么是|如何理解|怎么理解)", "", compact)
     subject = re.split(
-        r"是什么|是啥|有什么(?:区别|联系|关系|作用)|有哪些(?:区别|联系|关系|作用)|有何(?:区别|联系|关系)|怎么|如何",
+        r"是什么|是啥|有没有|有什么(?:区别|联系|关系|作用)|有哪些(?:区别|联系|关系|作用)|有何(?:区别|联系|关系)|怎么|如何",
         compact, maxsplit=1,
     )[0]
     compact = subject or compact

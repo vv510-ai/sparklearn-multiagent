@@ -36,6 +36,14 @@ def _learner_summary(resources: dict, flags: list, prompt_template: str = "") ->
     """Return a learner-facing handoff; technical checks remain in trace evidence."""
     if not resources:
         return "这次还没有生成可用内容，可以换一种说法或重新选择学习资料后再试。"
+    if prompt_template == "one_page":
+        payloads = [resource.get("payload") or {} for resource in resources.values()]
+        if all(payload.get("generation_mode") == "unavailable" for payload in payloads):
+            return "一图看懂未生成：当前资料未找到与这次问题相关的内容。请细化问题或选择相关资料后重试。"
+        visuals = [payload["one_page_visual"] for payload in payloads if payload.get("one_page_visual")]
+        pages = [page for visual in visuals for page in (visual.get("pages") or [visual])]
+        if pages and any(page.get("image_status") != "ready" for page in pages):
+            return "部分图片未生成，已保留可用图片和文字内容。" if any(page.get("image_status") == "ready" for page in pages) else "图片未生成，已保留文字内容与出处，可先阅读文字版后重试。"
     text = _ARTIFACT_READY_TEXT.get(
         prompt_template,
         "学习内容已经准备好了，打开下面的卡片继续学习。",

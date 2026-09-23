@@ -193,7 +193,7 @@ export default function ResourceCard({
 
       {open && (
         <div className="border-t border-[#E5E9E3] bg-white px-4 py-4">
-          {meta.hint && (
+          {meta.hint && payload.generation_mode !== "unavailable" && (
             <p className="mb-3 rounded-[10px] border border-[#E5E9E3] bg-[#FBFCFA] px-3 py-2 text-xs leading-5 text-[#57635A]">{meta.hint}</p>
           )}
 
@@ -267,7 +267,7 @@ export default function ResourceCard({
           ) : payload.markdown ? (
             <>
               {payload.notes_scope && <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">{payload.notes_scope}</p>}
-              {payload.one_page_visual && <OnePageVisual visual={payload.one_page_visual} />}
+              {payload.one_page_visual && payload.generation_mode !== "unavailable" && <OnePageVisual visual={payload.one_page_visual} />}
               {payload.one_page_visual?.image_url ? (
                 <details className="rounded-xl border border-[#E5E9E3] bg-[#FBFCFA] px-4 py-3">
                   <summary className="cursor-pointer text-xs font-bold text-[#0F6B50]">查看文字版与出处</summary>
