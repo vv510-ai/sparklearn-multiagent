@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -39,8 +37,8 @@
    - 字号地板:mono 微标 11px / 正文最小 12px
    ============================================================ */
 :root {
-  --font-display: "Instrument Serif", serif;
-  --font-body: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-display: Georgia, "Songti SC", serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --background: 201 100% 13%;
   --foreground: 0 0% 100%;
   --muted-foreground: 240 4% 72%;

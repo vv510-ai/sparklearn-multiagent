@@ -35,6 +35,8 @@ import CourseRecommendations from "@/components/courses/CourseRecommendations";
 import OnboardingGate from "@/components/onboarding/OnboardingGate";
 import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
 import CinematicBackground from "@/components/ui/CinematicBackground";
+import AdaptiveMenu from "@/components/ui/AdaptiveMenu";
+import { LearnerScope, useStudyViewport } from "@/lib/study-workspace";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
@@ -190,6 +192,10 @@ function EvidenceSummary({
 }
 
 export default function Home() {
+  useStudyViewport();
+  const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
+  const [studioCollapsed, setStudioCollapsed] = useState(false);
+  const [sourceWidth, setSourceWidth] = useState(280);
   const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "anonymous">("loading");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [entered, setEntered] = useState(false);
@@ -234,6 +240,23 @@ export default function Home() {
   const sourceInputRef = useRef<HTMLInputElement>(null);
   const activeNotebookIdRef = useRef("");
   const notebookSwitchRef = useRef(0);
+  const accountEpochRef = useRef(0);
+
+  const clearSession = useCallback(() => {
+    accountEpochRef.current += 1;
+    notebookSwitchRef.current += 1;
+    activeNotebookIdRef.current = "";
+    setAuthUser(null); setAuthStatus("anonymous"); setEntered(false);
+    setOnboardingRequired(false); setOnboardingLoading(false); setOnboardingError("");
+    setNotebooks([]); setActiveNotebook(null); setInitialChatMessages([]);
+    setNotebookTopic(""); setConversationFocus(""); setChatSessionId(""); setSessionId(null);
+    setSources([]); setSelectedSourceIds([]); setResources([]); setSourcePolicies({});
+    setProfile(null); setPathPlan(null); setActiveCourse(null); setSelectedPathNode(null);
+    setSeed(undefined); setRequest(undefined); setTrace(emptyTrace()); setQualityEvidence(emptyQualityEvidence());
+    setOpeningNotebookId(""); setNewBookOpen(false); setMobilePane(null); setEvidenceOpen(false);
+    setPanelError(""); setLibraryError(""); setUploadNote(""); setUploadError(false);
+    setActivePanel("chat"); setChatInstance(value => value + 1);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -253,16 +276,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const expireSession = () => {
-      setAuthUser(null);
-      setAuthStatus("anonymous");
-      setEntered(false);
-      setOnboardingRequired(false);
-      setOnboardingLoading(false);
-    };
-    window.addEventListener(UNAUTHORIZED_EVENT, expireSession);
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, expireSession);
-  }, []);
+    window.addEventListener(UNAUTHORIZED_EVENT, clearSession);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, clearSession);
+  }, [clearSession]);
 
   const running = useMemo(() => Object.values(trace).some((node) => node.status === "running"), [trace]);
   const finished = useMemo(() => Object.values(trace).some((node) => node.status === "done"), [trace]);
@@ -288,10 +304,12 @@ export default function Home() {
   }, []);
 
   const loadOnboarding = useCallback(async () => {
+    const epoch = accountEpochRef.current;
     setOnboardingLoading(true);
     setOnboardingError("");
     try {
       const data = await apiGet<OnboardingResponse>("/onboarding");
+      if (epoch !== accountEpochRef.current) return;
       setOnboardingRequired(Boolean(data.required));
       if (data.profile) setProfile(data.profile);
       if (data.path) {
@@ -300,22 +318,32 @@ export default function Home() {
       }
       if (!data.required) {
         setEntered(true);
-        if (data.resume?.assessment_id && ["assessment", "plan"].includes(data.resume.phase)) {
-          if (data.resume.notebook_id) {
-            const notebook = await apiGet<LearningNotebook>(`/notebooks/${data.resume.notebook_id}?user_id=${USER_ID}`);
+        const books = await apiGet<{ items: LearningNotebook[] }>(`/notebooks?user_id=${USER_ID}`);
+        if (epoch !== accountEpochRef.current) return;
+        let remembered = "";
+        try { remembered = localStorage.getItem(`learnloop:last-notebook:${authUser?.id}`) || ""; } catch { /* Optional local resume. */ }
+        const recent = books.items.find(book => book.id === remembered) || books.items[0];
+        if (recent && !activeNotebookIdRef.current) {
+          const notebook = await apiGet<LearningNotebook>(`/notebooks/${recent.id}?user_id=${USER_ID}`);
+          if (epoch !== accountEpochRef.current) return;
+          if (!activeNotebookIdRef.current) {
             enterNotebook(notebook);
+            if (recent.id === data.resume?.notebook_id && data.resume.assessment_id
+              && ["assessment", "plan"].includes(data.resume.phase)) setActivePanel("assessment");
             await loadSources(notebook.id);
+            if (epoch !== accountEpochRef.current) return;
             await loadProfile();
           }
+        } else if (!recent && data.resume?.assessment_id && !data.resume.notebook_id) {
           setActivePanel("assessment");
         }
       }
     } catch {
-      setOnboardingError("暂时无法读取你的学习进度。请重试，已保存的选择和作答不会丢失。");
+      if (epoch === accountEpochRef.current) setOnboardingError("暂时无法读取你的学习进度。请重试，已保存的选择和作答不会丢失。");
     } finally {
-      setOnboardingLoading(false);
+      if (epoch === accountEpochRef.current) setOnboardingLoading(false);
     }
-  }, []);
+  }, [authUser?.id]);
 
   const loadPath = useCallback(async () => {
     setPanelError("");
@@ -376,10 +404,12 @@ export default function Home() {
   }, []);
 
   const loadNotebooks = useCallback(async () => {
+    const epoch = accountEpochRef.current;
     setNotebookLoading(true);
     setLibraryError("");
     try {
       const data = await apiGet<{ items: LearningNotebook[] }>(`/notebooks?user_id=${USER_ID}`);
+      if (epoch !== accountEpochRef.current) return;
       const items = data.items || [];
       setNotebooks(items);
       setActiveNotebook((current) => {
@@ -388,9 +418,9 @@ export default function Home() {
         return refreshed ? { ...current, ...refreshed, messages: current.messages } : null;
       });
     } catch (error) {
-      setLibraryError(`书本列表暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
+      if (epoch === accountEpochRef.current) setLibraryError(`书本列表暂时无法读取：${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setNotebookLoading(false);
+      if (epoch === accountEpochRef.current) setNotebookLoading(false);
     }
   }, []);
 
@@ -474,6 +504,7 @@ export default function Home() {
 
   const enterNotebook = (notebook: LearningNotebook, initialGoal = "") => {
     const goal = initialGoal.trim();
+    if (authUser?.id) try { localStorage.setItem(`learnloop:last-notebook:${authUser.id}`, notebook.id); } catch { /* Server history remains available. */ }
     activeNotebookIdRef.current = notebook.id;
     setActiveNotebook(notebook);
     setProfile(null);
@@ -640,22 +671,7 @@ export default function Home() {
     try {
       await apiPost<{ ok: boolean }>("/auth/logout", {});
     } finally {
-      notebookSwitchRef.current += 1;
-      activeNotebookIdRef.current = "";
-      setAuthUser(null);
-      setAuthStatus("anonymous");
-      setEntered(false);
-      setNotebooks([]);
-      setActiveNotebook(null);
-      setNotebookTopic("");
-      setConversationFocus("");
-      setChatSessionId("");
-      setSources([]);
-      setSelectedSourceIds([]);
-      setResources([]);
-      setProfile(null);
-      setPathPlan(null);
-      setSessionId(null);
+      clearSession();
     }
   };
 
@@ -862,6 +878,7 @@ export default function Home() {
   const profilePace = asRecord(profile?.pace);
 
   return (
+    <LearnerScope.Provider value={authUser.id}>
     <main className="notebook-app notebook-app-enter flex h-dvh flex-col overflow-clip text-[#1D2028]">
       <input
         ref={sourceInputRef}
@@ -887,26 +904,45 @@ export default function Home() {
           <div className="hidden truncate text-[11px] text-[#818795] md:block">当前主题：{currentTopicTitle} · 已选 {selectedSourceIds.length} 项资料</div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="workspace-pane-controls">
+          <button type="button" onClick={() => window.innerWidth >= 900 ? setSourcesCollapsed(value => !value) : setMobilePane("sources")} className="study-icon" aria-label="切换资料栏" title="切换资料栏" aria-pressed={!sourcesCollapsed}><PanelLeftOpen size={19} /></button>
+          <button type="button" onClick={() => window.innerWidth >= 1400 ? setStudioCollapsed(value => !value) : setMobilePane("studio")} className="study-icon" aria-label="切换工坊栏" title="切换工坊栏"><PanelRightOpen size={19} /></button>
+        </div>
+        <AdaptiveMenu label="学习菜单" className="workspace-actions">
           <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden md:inline">测评与计划</span></button>
-          <button onClick={() => setMobilePane("sources")} className="notebook-icon-button hidden md:grid xl:hidden" aria-label="打开学习来源"><PanelLeftOpen size={18} /></button>
-          <button onClick={() => setMobilePane("studio")} className="notebook-icon-button hidden md:grid xl:hidden" aria-label="打开学习工坊"><PanelRightOpen size={18} /></button>
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold md:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
           </span>
           <LearningGuide userId={authUser.id} enabled={activePanel === "chat" && !newBookOpen && !openingNotebookId && !mobilePane} onPrepare={() => { setActivePanel("chat"); setMobilePane(null); }} />
-          <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button">
-            <ShieldCheck size={16} /><span className="hidden md:inline">依据</span>
+          <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button" aria-label="查看学习依据">
+            <ShieldCheck size={16} /><span>依据</span>
           </button>
           <div className="hidden max-w-28 truncate text-xs font-semibold text-[#626978] lg:block" title={authUser.email}>{authUser.name}</div>
           <button onClick={() => void logout()} className="notebook-icon-button" aria-label="退出登录" title="退出登录">
             <LogOut size={17} />
           </button>
-        </div>
+        </AdaptiveMenu>
       </header>
 
-      <div className="notebook-layout min-h-0 flex-1">
-        <aside data-guide="sources" className="hidden min-h-0 xl:block">{sourcePanel}</aside>
+      <div className="notebook-layout min-h-0 flex-1" data-sources-collapsed={sourcesCollapsed} data-studio-collapsed={studioCollapsed}
+        style={{ "--study-source-width": `${sourceWidth}px` } as React.CSSProperties}>
+        <aside data-guide="sources" className="workspace-sources min-h-0">{sourcePanel}
+          <div className="pane-resizer" role="separator" aria-label="资料栏宽度" aria-orientation="vertical" tabIndex={0}
+            aria-valuemin={240} aria-valuemax={380} aria-valuenow={sourceWidth}
+            onKeyDown={event => {
+              if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+                event.preventDefault();
+                setSourceWidth(value => event.key === "Home" ? 240 : event.key === "End" ? 380 : Math.max(240, Math.min(380, value + (event.key === "ArrowRight" ? 16 : -16))));
+              }
+            }}
+            onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); }}
+            onPointerMove={event => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                const left = event.currentTarget.parentElement?.getBoundingClientRect().left || 0;
+                setSourceWidth(Math.max(240, Math.min(380, event.clientX - left)));
+              }
+            }} />
+        </aside>
 
         <section className="notebook-column notebook-main-column relative flex min-h-0 flex-col overflow-hidden">
           {activePanel === "chat" && profile?.learning_intake && <div className="learning-context-strip"><div><strong>{profile.course_title || activeNotebook?.title}</strong><span>优先：{profile.learning_intake.goal} · 每次 {profile.learning_intake.daily_minutes} 分钟 · 已绑定 {activeCourse?.source_ids?.length || 0} 份资料</span></div><button onClick={() => openPanel("assessment")}>查看依据与计划 <ArrowRight size={14} /></button></div>}
@@ -1049,17 +1085,17 @@ export default function Home() {
 
         </section>
 
-        <aside data-guide="studio" className="hidden min-h-0 xl:block">{studioPanel}</aside>
+        <aside data-guide="studio" className="workspace-studio min-h-0">{studioPanel}</aside>
       </div>
 
-      <nav className="notebook-mobile-nav xl:hidden" aria-label="移动端学习工作台导航">
+      <nav className="notebook-mobile-nav" aria-label="移动端学习工作台导航">
         <button type="button" data-guide="sources-nav" onClick={() => setMobilePane("sources")}><PanelLeftOpen size={17} /><span>学习来源</span></button>
         <button type="button" className="is-active" onClick={() => { setActivePanel("chat"); setMobilePane(null); }}><BookOpen size={17} /><span>学习对话</span></button>
         <button type="button" data-guide="studio-nav" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
       </nav>
 
       {mobilePane && (
-        <div className="notebook-mobile-scrim fixed inset-0 z-40 xl:hidden" onClick={() => setMobilePane(null)}>
+        <div className="notebook-mobile-scrim fixed inset-0 z-40" onClick={() => setMobilePane(null)}>
           <div className={`notebook-mobile-sheet absolute inset-y-0 w-[min(88vw,360px)] p-3 shadow-2xl ${mobilePane === "sources" ? "left-0" : "right-0"}`} onClick={(event) => event.stopPropagation()}>
             <button onClick={() => setMobilePane(null)} className="notebook-mobile-sheet-close absolute right-5 top-5 z-10 grid h-8 w-8 place-items-center rounded-full text-[#596171] shadow-sm" aria-label="关闭"><X size={17} /></button>
             {mobilePane === "sources" ? sourcePanel : studioPanel}
@@ -1093,5 +1129,6 @@ export default function Home() {
       />}
 
     </main>
+    </LearnerScope.Provider>
   );
 }

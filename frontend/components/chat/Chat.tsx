@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, BookPlus, FileUp, Gauge, LoaderCircle, MessageSquarePlus, Mic, NotebookPen, Plus, Route, Square } from "lucide-react";
+import { ArrowRight, BookPlus, FileUp, Gauge, LoaderCircle, Maximize2, MessageSquarePlus, Mic, NotebookPen, Plus, Route, Square } from "lucide-react";
 import { USER_ID, apiPost, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent, SourceEvidence as Evidence } from "@/lib/types";
 import AnswerChoices from "./AnswerChoices";
@@ -9,6 +9,9 @@ import Markdown from "./Markdown";
 import SourceEvidence from "./SourceEvidence";
 import ResourceCard from "@/components/resource/ResourceCard";
 import StudySuggestion from "./StudySuggestion";
+import StudyDialog from "@/components/ui/StudyDialog";
+import AdaptiveMenu from "@/components/ui/AdaptiveMenu";
+import { readStudyDraft, writeStudyDraft } from "@/lib/study-workspace";
 import { dismissGuidance, emptyGuidance, readGuidance, recordLearningTurn, studyStage, type LearningGuidance, type StudyStage, type SuggestedTool } from "@/lib/learning-guidance";
 
 interface Msg {
@@ -150,6 +153,10 @@ export default function Chat({
   const [transcribing, setTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("");
   const [composerMenuOpen, setComposerMenuOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [restoredDraft, setRestoredDraft] = useState("");
+  const draftKey = `learnloop:chat-draft:${learnerId}:${notebookId || "welcome"}:${notebookId ? sessionId : "new"}`;
   const abortRef = useRef<(() => void) | null>(null);
   const voiceRecorderRef = useRef<VoiceRecorder | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -176,6 +183,29 @@ export default function Chat({
     return () => { mountedRef.current = false; };
   }, [guidanceKey]);
   useEffect(() => { onStudyStage?.(studyStage(guidance)); }, [guidance, onStudyStage]);
+
+  useEffect(() => {
+    setInput(readStudyDraft(draftKey, (value): value is string => typeof value === "string") || "");
+    setRestoredDraft(draftKey);
+  }, [draftKey]);
+  useEffect(() => {
+    if (learnerId && restoredDraft === draftKey) writeStudyDraft(draftKey, input);
+  }, [draftKey, input, learnerId, restoredDraft]);
+  useEffect(() => {
+    const resize = () => {
+      const element = inputRef.current;
+      if (!element) return;
+      element.style.height = "auto";
+      element.style.height = `${Math.min(element.scrollHeight, Math.max(56, Math.min(160, (window.visualViewport?.height || innerHeight) * 0.3)))}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    window.visualViewport?.addEventListener("resize", resize);
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.visualViewport?.removeEventListener("resize", resize);
+    };
+  }, [input, expanded]);
 
   useEffect(() => {
     onSessionReady?.(sessionRef.current);
@@ -303,6 +333,7 @@ export default function Chat({
           if (settled) return;
           settled = true;
           abortRef.current = null;
+          if (!completed && !directRequest && mountedRef.current) setInput(current => current || q);
           if (completed && captureLearningTurn && !directRequest && teachingFocus && !generatedResource
             && answer.trim().length >= 80 && !isProductOperation(q, answer)) {
             updateGuidance(current => recordLearningTurn(current, q));
@@ -432,7 +463,8 @@ export default function Chat({
               学习对话
             </h2>
           </div>
-          <div className="notebook-chat-actions flex flex-wrap items-center gap-2">
+          <AdaptiveMenu className="chat-options" label="对话选项" expandedAt={100000}>
+          <div className="notebook-chat-actions">
             {onNewConversation && (
               <button
                 type="button"
@@ -472,6 +504,7 @@ export default function Chat({
               {sourceIds.length ? `${sourceIds.length} 份已选资料` : "当前课程 · 尚未选择上传资料"}
             </div>
           </div>
+          </AdaptiveMenu>
         </div>
       </div>
 
@@ -533,8 +566,8 @@ export default function Chat({
               </div>
             </div>
           ) : (
-            <div key={i} className="flex gap-3">
-              <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-emerald-200 bg-[#E3F0E9] font-mono text-[10px] font-bold text-emerald-800">
+            <div key={i} className="chat-assistant-row flex gap-3">
+              <div className="chat-avatar mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-emerald-200 bg-[#E3F0E9] font-mono text-[10px] font-bold text-emerald-800">
                 小知
               </div>
               <div className="min-w-0 flex-1 space-y-3">
@@ -598,8 +631,25 @@ export default function Chat({
       </div>
 
       <div className="notebook-chat-footer shrink-0 border-t border-[#E1E4EC] p-4">
-        <label htmlFor="learning-chat-input" className="notebook-composer-label">和小知对话 · 在这里提问或回答</label>
-        <div className="notebook-composer relative flex items-end gap-2">
+        <label htmlFor="learning-chat-input" className="sr-only">和小知对话</label>
+        <div className="notebook-composer relative">
+          <textarea
+            ref={inputRef}
+            id="learning-chat-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && !window.matchMedia("(pointer: coarse)").matches) {
+                e.preventDefault();
+                void send(input);
+              }
+            }}
+            rows={2}
+            aria-label="学习目标输入"
+            placeholder="向小知提问，或写下你的想法…"
+            className="study-chat-input"
+          />
+          <div className="composer-toolbar">
           {composerMenuOpen && (
             <div className="notebook-composer-menu absolute bottom-14 left-0 z-20 w-60 overflow-hidden rounded-2xl border border-[#DDE2DA] p-2 shadow-[0_18px_55px_rgba(20,35,27,0.18)]">
               {onNewConversation && (
@@ -642,21 +692,8 @@ export default function Chat({
           >
             {transcribing ? <LoaderCircle size={19} className="animate-spin" /> : <Mic size={19} />}
           </button>
-          <textarea
-            id="learning-chat-input"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                send(input);
-              }
-            }}
-            rows={1}
-            aria-label="学习目标输入"
-            placeholder="输入问题、你的答案，或者告诉小知哪里没懂…"
-            className="min-w-0 max-h-28 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-sm text-[#182119] outline-none placeholder:text-[#65766D]"
-          />
+          <button type="button" className="study-icon" onClick={() => { setComposerMenuOpen(false); setExpanded(true); }} aria-label="展开编辑" title="展开编辑"><Maximize2 size={18} /></button>
+          <span className="flex-1" />
           {busy ? (
             <button
               onClick={() => abortRef.current?.()}
@@ -675,6 +712,7 @@ export default function Chat({
               <ArrowRight size={19} />
             </button>
           )}
+          </div>
         </div>
         {queuedHint && <div className="mt-2 text-xs font-semibold text-orange-700">{queuedHint}</div>}
         {voiceStatus && (
@@ -683,6 +721,14 @@ export default function Chat({
           </div>
         )}
       </div>
+      <StudyDialog open={expanded} title="编辑消息" onClose={() => setExpanded(false)} className="composer-dialog"
+        footer={<button type="button" className="study-primary" disabled={busy || !input.trim()} onClick={() => { setExpanded(false); void send(input); }}><ArrowRight size={18} />发送</button>}>
+        {msgs.filter(message => message.role === "assistant" && message.text).length > 0 && <details className="composer-context">
+          <summary>查看上一条回复</summary>
+          <Markdown text={msgs.filter(message => message.role === "assistant" && message.text).at(-1)!.text} />
+        </details>}
+        <textarea aria-label="展开的消息编辑器" autoFocus value={input} onChange={event => setInput(event.target.value)} placeholder="写下你的问题、答案或思路…" />
+      </StudyDialog>
     </div>
   );
 }

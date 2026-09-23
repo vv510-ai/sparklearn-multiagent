@@ -2,7 +2,10 @@
 
 import MathText from "@/components/chat/MathText";
 
-import { useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useId, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Maximize2 } from "lucide-react";
+import StudyDialog from "@/components/ui/StudyDialog";
+import { LearnerScope, readStudyDraft, STUDY_DRAFT_EVENT, writeStudyDraft } from "@/lib/study-workspace";
 import { Badge, Notice, Stat, masteryTone } from "@/components/ui";
 import { USER_ID, apiPost } from "@/lib/api";
 import type { QuizQuestion } from "@/lib/types";
@@ -18,6 +21,27 @@ interface SupportResponse {
   expected?: string;
   explain?: string;
   error_tags?: string[];
+}
+
+interface QuizDraft {
+  answers: Record<string, string>;
+  hints: Record<string, string>;
+  reveals: Record<string, SupportResponse>;
+  misconceptions: Record<string, string>;
+  confidences: Record<string, ConfidenceLevel>;
+  current: number;
+  report: EvaluationReport | null;
+}
+
+function validDraft(value: unknown): value is QuizDraft {
+  if (!value || typeof value !== "object") return false;
+  const draft = value as QuizDraft;
+  const strings = (record: unknown) => record && typeof record === "object" && !Array.isArray(record)
+    && Object.values(record).every(item => typeof item === "string");
+  return Boolean(strings(draft.answers) && strings(draft.hints) && strings(draft.misconceptions) && strings(draft.confidences)
+    && draft.reveals && typeof draft.reveals === "object" && Object.values(draft.reveals).every(item => item?.mode === "reveal")
+    && Number.isInteger(draft.current) && (!draft.report || (Array.isArray(draft.report.items) && Array.isArray(draft.report.per_kp)
+      && Array.isArray(draft.report.suggestions) && typeof draft.report.accuracy === "number")));
 }
 
 const MISCONCEPTIONS = [
@@ -96,6 +120,58 @@ export default function QuizPlayer({
   const [supportBusy, setSupportBusy] = useState("");
   const [supportErrors, setSupportErrors] = useState<Record<string, string>>({});
   const startedAt = useRef<Record<string, number>>({});
+  const learnerId = useContext(LearnerScope);
+  const [focused, setFocused] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [restoredDraft, setRestoredDraft] = useState("");
+  const draftKey = `learnloop:quiz-draft:${learnerId}:${resourceId}`;
+  const instanceId = useId();
+  const importingDraft = useRef(false);
+  const savedSnapshot = useRef("");
+  const questionRef = useRef<HTMLDivElement>(null);
+  const launchRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const restore = () => {
+      const saved = learnerId ? readStudyDraft(draftKey, validDraft) : null;
+      if (!saved || JSON.stringify(saved) === savedSnapshot.current) return;
+      savedSnapshot.current = JSON.stringify(saved);
+      importingDraft.current = true;
+      setAnswers(saved.answers); setHints(saved.hints); setReveals(saved.reveals);
+      setMisconceptions(saved.misconceptions); setConfidences(saved.confidences);
+      setCurrent(Math.max(0, Math.min(questions.length - 1, saved.current)));
+      setReport(saved.report); setSubmitted(Boolean(saved.report));
+    };
+    restore();
+    setRestoredDraft(draftKey);
+    const onDraft = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.key === draftKey && detail.source !== instanceId) restore();
+    };
+    const onStorage = (event: StorageEvent) => { if (event.key === draftKey) restore(); };
+    window.addEventListener(STUDY_DRAFT_EVENT, onDraft);
+    window.addEventListener("storage", onStorage);
+    return () => { window.removeEventListener(STUDY_DRAFT_EVENT, onDraft); window.removeEventListener("storage", onStorage); };
+  }, [draftKey, learnerId, questions.length, instanceId]);
+  useEffect(() => {
+    if (importingDraft.current) { importingDraft.current = false; return; }
+    if (learnerId && restoredDraft === draftKey) {
+      const value = { answers, hints, reveals, misconceptions, confidences, current, report };
+      savedSnapshot.current = JSON.stringify(value);
+      writeStudyDraft(draftKey, value, instanceId);
+    }
+  }, [answers, hints, reveals, misconceptions, confidences, current, report, draftKey, learnerId, restoredDraft, instanceId]);
+  useEffect(() => {
+    if (!focused) return;
+    const frame = requestAnimationFrame(() => {
+      questionRef.current?.closest(".study-dialog-body")?.scrollTo({ top: 0 });
+      questionRef.current?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [current, focused]);
+  const closeFocus = () => {
+    setFocused(false);
+    requestAnimationFrame(() => launchRef.current?.focus({ preventScroll: true }));
+  };
 
   const results = useMemo(
     () => Object.fromEntries(questions.map((q) => [q.id, isCorrect(q, answers[q.id] || "")])),
@@ -213,20 +289,22 @@ export default function QuizPlayer({
     }
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 text-[11px] leading-4 text-slate-500">
+  const content = (
+    <div className={`quiz-player space-y-4 ${focused ? "is-focused" : ""}`}>
+      {!focused && <button ref={launchRef} type="button" className="study-primary quiz-focus-launch" onClick={() => setFocused(true)}><Maximize2 size={18} />{submitted ? "查看作答复盘" : answered ? "继续专注作答" : "开始专注作答"}<span>{questions.length} 题</span></button>}
+      <div className="quiz-intro flex flex-wrap items-center gap-2 text-[11px] leading-4 text-slate-500">
         <Badge variant="info">练习会校准画像</Badge>
         <span>先尝试，再按需获取提示；揭晓后完成错因复盘，系统会按真实学习证据更新掌握度。</span>
       </div>
 
-      <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3">
+      <div className="quiz-summary grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3">
         <Stat label="题目数" value={questions.length} tone="neutral" />
         <Stat label="已作答" value={answered} tone={answered === questions.length ? "success" : "action"} />
         <Stat label="状态" value={submitted ? "已提交" : "待提交"} tone={submitted ? "success" : "muted"} />
       </div>
 
       {questions.map((q, i) => {
+        if (focused && i !== current) return null;
         const mine = answers[q.id] || "";
         const gradedItem = graded[q.id];
         const ok = gradedItem ? Boolean(gradedItem.correct) : results[q.id];
@@ -235,7 +313,7 @@ export default function QuizPlayer({
         const revealed = reveals[q.id];
         const supportError = supportErrors[q.id];
         return (
-          <div key={q.id} className="rounded-xl border border-slate-200 bg-white p-4">
+          <div key={q.id} ref={focused ? questionRef : undefined} tabIndex={-1} className="quiz-question rounded-xl border border-slate-200 bg-white p-4" aria-label={`第 ${i + 1} 题`}>
             <div className="mb-3 flex items-start gap-2">
               <Badge variant="info" mono>Q{i + 1}</Badge>
               <div className="min-w-0 flex-1">
@@ -258,6 +336,7 @@ export default function QuizPlayer({
                     <button
                       key={j}
                       onClick={() => set(q.id, tag)}
+                      aria-pressed={chosen}
                       disabled={Boolean(revealed) || submitted || busy}
                       className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
                         isAns
@@ -284,6 +363,7 @@ export default function QuizPlayer({
                     <button
                       key={v}
                       onClick={() => set(q.id, v)}
+                      aria-pressed={chosen}
                       disabled={Boolean(revealed) || submitted || busy}
                       className={`rounded-lg border px-4 py-2 text-xs font-bold ${
                         isAns
@@ -303,9 +383,10 @@ export default function QuizPlayer({
             ) : (
               <textarea
                 value={mine}
+                aria-label={`第 ${i + 1} 题答案`}
                 onChange={(e) => set(q.id, e.target.value)}
                 disabled={Boolean(revealed) || submitted || busy}
-                rows={q.type === "fill" ? 1 : 3}
+                rows={q.type === "fill" ? 2 : focused ? 7 : 4}
                 placeholder={q.type === "fill" ? "填写答案" : "写下你的思路与答案"}
                 className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
               />
@@ -404,7 +485,7 @@ export default function QuizPlayer({
       })}
 
       {!submitted ? (
-        <div className="space-y-2">
+        <div className="quiz-submit-area space-y-2" hidden={focused && current !== questions.length - 1 && answered !== questions.length}>
           {pendingReflections > 0 && (
             <Notice tone="warn" title="还差一步错因复盘" desc={`请为已揭晓的 ${pendingReflections} 道题选择一个最接近的卡点。`} />
           )}
@@ -426,7 +507,7 @@ export default function QuizPlayer({
       ) : busy ? (
         <div className="text-center font-mono text-xs text-slate-500">正在判分并更新掌握度...</div>
       ) : report ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs">
+        <div className="quiz-report rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs">
           <div className="mb-3 font-mono text-[11px] tracking-[0.18em] text-emerald-600">EVAL REPORT</div>
           <div className="grid gap-2 sm:grid-cols-3">
             <Stat label="正确率" value={`${Math.round(report.accuracy * 100)}%`} tone={report.accuracy >= 0.7 ? "success" : "warn"} />
@@ -495,7 +576,7 @@ export default function QuizPlayer({
                 <div className="text-xs font-black text-orange-800">错题已自动收入错题本</div>
                 <div className="mt-1 text-[11px] text-slate-500">{report.review?.scheduled ?? wrongTags.length} 道待巩固题会保留错因、收藏状态与重做记录。</div>
               </div>
-              {onOpenMistakes && <button type="button" onClick={onOpenMistakes} className="secondary-action">打开错题本</button>}
+              {onOpenMistakes && <button type="button" onClick={() => { setFocused(false); onOpenMistakes(); }} className="secondary-action">打开错题本</button>}
             </div>
           )}
           {report.attempt_id && report.diagnosis?.status === "needed" && (
@@ -520,4 +601,19 @@ export default function QuizPlayer({
       ) : null}
     </div>
   );
+
+  return <>
+    {!focused && content}
+    <StudyDialog open={focused} title={submitted ? "作答复盘" : "专注作答"} onClose={closeFocus} className="quiz-dialog"
+      footer={<div className="quiz-paging">
+        <button type="button" className="study-icon" disabled={current === 0} aria-label="上一题" title="上一题" onClick={() => setCurrent(index => index - 1)}><ArrowLeft size={20} /></button>
+        <label><span className="sr-only">选择题目</span><select aria-label="选择题目" value={current} onChange={event => setCurrent(Number(event.target.value))}>
+          {questions.map((question, index) => <option key={question.id} value={index}>第 {index + 1} / {questions.length} 题{answers[question.id]?.trim() ? " · 已作答" : ""}</option>)}
+        </select></label>
+        <button type="button" className="study-icon" disabled={current === questions.length - 1} aria-label="下一题" title="下一题" onClick={() => setCurrent(index => index + 1)}><ArrowRight size={20} /></button>
+      </div>}>
+      <progress className="quiz-progress" value={answered} max={questions.length} aria-label="作答进度" />
+      {content}
+    </StudyDialog>
+  </>;
 }
