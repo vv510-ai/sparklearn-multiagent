@@ -133,6 +133,8 @@ def test_upload_is_in_prompt_assessment_and_learning_materials(learner, monkeypa
         return json.dumps({"topics": [{"name": ["生产者与消费者", "能量流动", "物质循环"][i], "objective": "区分生态系统中的能量来源", "lesson": "先区分生产者和消费者，再举生活中的食物链例子。", "chunk_ids": ["s1c1"], "quote": "生产者通过光合作用将太阳能转化为化学能。", "questions": [
             {"stem": f"第{i}组情境{j}：判断生产者的能量来源与转化。", "type": "multiple" if j == 2 else "single", "options": ["光合作用", "太阳能转化为化学能", "吞食动物", "不需能量"], "answer": ["A", "B"] if j == 2 else "A", "explain": "资料说明生产者通过光合作用将太阳能转化为化学能。", "difficulty": 1} for j in range(3)]} for i in range(3)]}, ensure_ascii=False)
     monkeypatch.setattr(course_learning_service, "llm_complete", model)
+    async def reviewed(*args): pass
+    monkeypatch.setattr(course_learning_service, "review_course_questions", reviewed)
     survey = {"notebook_id": book["id"], "course_key": "custom", "course_title": "生态学笔记", "source_ids": [source["id"]], "goal": "看懂学习资料", "goals": ["看懂学习资料"], "daily_minutes": 15, "supports": ["steps"]}
     response = client.post(f"/api/notebooks/{book['id']}/learning/prepare", json={"title": "生态学笔记", "source_ids": [source["id"]], "survey": survey})
     assert response.status_code == 200, response.text
@@ -276,6 +278,8 @@ def test_generated_draft_repairs_once_without_bypassing_validation(monkeypatch):
         calls.append(prompt)
         return json.dumps(bad if len(calls) == 1 else good, ensure_ascii=False)
     monkeypatch.setattr(service, "llm_complete", repair)
+    async def reviewed(*args): pass
+    monkeypatch.setattr(service, "review_course_questions", reviewed)
     prompt = SimpleNamespace(prompt="按照生态学原理出题", system="教学服务")
     result = asyncio.run(service.generate_valid_course(prompt, "生态学", []))
     assert len(calls) == 2 and len(result["bank"]) == 9

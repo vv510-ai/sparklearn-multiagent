@@ -34,7 +34,11 @@ export default function AnswerChoices({text,disabled,onChoose}:{text:string;disa
   const [selected, setSelected] = useState<string[]>([]);
   useEffect(() => setSelected([]), [text]);
   const optionStart = text.search(/^\s*(?:[-*]\s*)?(?:\*\*)?A[.、．:：)）]/m);
-  const multiple = optionStart >= 0 && /多选/.test(text.slice(0, optionStart).trim().split(/\n\s*\n/).at(-1) || "");
+  const beforeOptions = optionStart >= 0 ? text.slice(0, optionStart).trim() : "";
+  const questionHeading = [...beforeOptions.matchAll(/^#{1,6}[^\n]*(?:单选|多选|检查|练习|小测)[^\n]*$/gm)].at(-1);
+  const questionStem = questionHeading && beforeOptions.length - questionHeading.index! <= 4000
+    ? beforeOptions.slice(questionHeading.index) : beforeOptions.split(/\n\s*\n/).at(-1) || "";
+  const multiple = /多选/.test(questionStem);
   if(!choices.length)return null;
   const submit = (labels: string[]) => {
     const display = choices.filter(c => labels.includes(c.label)).map(c => `${c.label}. ${c.text}`).join("；");

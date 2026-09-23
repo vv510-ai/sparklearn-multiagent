@@ -30,6 +30,11 @@ def terminal_question(answer: str):
         return None
     before = answer[:group[0].start()].rstrip()
     start = before.rfind("\n\n") + 2 if "\n\n" in before else 0
+    # A question heading owns all following premise paragraphs, not just the
+    # last line immediately before A. Losing the premises causes false rejects.
+    headings = list(re.finditer(r"(?m)^#{1,6}[^\n]*(?:单选|多选|检查|练习|小测)[^\n]*$", before))
+    if headings and len(before) - headings[-1].start() <= 4000:
+        start = headings[-1].start()
     stem = before[start:]
     if not re.search(r"[?？]|单选|多选|检查|练习|哪", stem):
         return None

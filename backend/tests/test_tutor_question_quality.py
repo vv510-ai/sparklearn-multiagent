@@ -43,3 +43,20 @@ def test_review_failure_preserves_lesson_without_guessing(monkeypatch):
     answer, status = asyncio.run(quality.check_question(AMBIGUOUS, ""))
     assert "递归必须" in answer and "A." not in answer
     assert status["reason"] == "review_unavailable"
+
+
+def test_question_heading_keeps_separate_premises_and_multiple_type(monkeypatch):
+    question = "递归要接近停止条件。\n\n## 多选理解检查\n\n假设初始 n=3，n 为整数。\n\n哪些方案不能终止？\nA. n 不变，n=0 停止\nB. n 增加，n=0 停止\nC. n 递减，n=0 停止"
+    prompts = []
+    async def complete(prompt, **kwargs):
+        prompts.append(prompt)
+        return json.dumps({"conditions_sufficient": True, "options": [
+            {"label": label, "correct": correct, "reason": "代入 n=3 检查参数能否到达零"}
+            for label, correct in zip("ABC", [True, True, False])]})
+    monkeypatch.setattr(quality, "llm_complete", complete)
+    answer, status = asyncio.run(quality.check_question(question, ""))
+    assert answer == question and status["accepted"] and status["question_type"] == "multiple"
+    assert "假设初始 n=3" in prompts[0]
+    review(monkeypatch, [True, False, False])
+    rejected, status = asyncio.run(quality.check_question(question, ""))
+    assert "## 多选理解检查" not in rejected and "简答检查" in rejected

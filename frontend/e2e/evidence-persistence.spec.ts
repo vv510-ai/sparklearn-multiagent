@@ -37,9 +37,10 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   await page.getByRole("button", { name: "生成并核对学习范围", exact: true }).click();
   const prepared = await preparedResponse;
   const preparedBody = await prepared.json();
-  await writeFile(info.outputPath("prepared-course.json"), JSON.stringify({ status: prepared.status(), failure: prepared.headers()["x-learning-failure"], elapsed_ms: Date.now() - prepareStarted, course: preparedBody }, null, 2));
+  await writeFile(info.outputPath("prepared-course.json"), JSON.stringify({ status: prepared.status(), failure: prepared.headers()["x-learning-failure"], validation: prepared.headers()["x-learning-validation"], elapsed_ms: Date.now() - prepareStarted, course: preparedBody }, null, 2));
   expect(prepared.ok(), JSON.stringify(preparedBody)).toBe(true);
   expect(preparedBody.outline.length).toBeGreaterThan(0);
+  expect(preparedBody.quality_review).toEqual({ verification: "model_review", reviewed_questions: preparedBody.question_count });
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
   await page.getByRole("button", { name: "返回对话", exact: true }).click();

@@ -30,7 +30,7 @@ def catalogue() -> list[dict]:
 
 
 def public_course(course: dict) -> dict:
-    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference")} | {
+    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference", "quality_review")} | {
         "outline": [{"id": n["id"], "name": n["name"], "objective": n.get("desc", "")}
                     for n in course.get("graph", {}).get("nodes", [])],
         "question_count": len(course.get("bank", [])),
@@ -65,8 +65,9 @@ def material_snapshot(user_id: str, notebook_id: str, source_ids: list[str]) -> 
 
 class DraftValidationError(ValueError):
     """Only application-authored messages may reach the learner."""
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, *, repair_issue: str = ""):
         self.code = code
+        self.repair_issue = repair_issue or message
         super().__init__(message)
 
 
@@ -130,6 +131,42 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
         "boundary": "模型生成的起点检查，答案及难度尚未经教研标定；只描述已测内容。发现题目有问题可以跳过，不据此判定整门课的能力。"}
 
 
+async def review_course_questions(course: dict, chunks: list[dict]) -> None:
+    """Independently solve without showing generated keys; still fallible model review."""
+    bank = course["bank"]
+    questions = [{k: q[k] for k in ("id", "stem", "type", "options")} for q in bank]
+    context = json.dumps({"title": course["title"], "materials": [
+        {"id": c["evidence_id"], "text": c["text"]} for c in chunks]}, ensure_ascii=False)
+    call = invoke_learning_prompt("assessment.course_check", context=context,
+        draft=json.dumps(questions, ensure_ascii=False))
+    raw = await llm_complete(call.prompt, system=call.system, role="reasoner", temperature=0,
+        max_tokens=4500, json_mode=True, json_object=True, reasoning_mode="disabled", allow_mock_fallback=False)
+    result = parse_json(raw)
+    rows = result.get("questions") if isinstance(result, dict) else None
+    if (not isinstance(rows, list) or len(rows) != len(bank)
+            or any(not isinstance(row, dict) for row in rows)
+            or [row.get("id") for row in rows] != [q["id"] for q in bank]):
+        raise DraftValidationError("review_incomplete", "题库独立复核没有覆盖全部题目")
+    issues = []
+    for q, row in zip(bank, rows):
+        labels = list("ABCDE"[:len(q["options"])])
+        options = row.get("options")
+        complete = (isinstance(options, list) and len(options) == len(labels)
+            and all(isinstance(o, dict) for o in options)
+            and [o.get("label") for o in options] == labels
+            and all(type(o.get("correct")) is bool and str(o.get("reason") or "").strip() for o in options))
+        solved = [o["label"] for o in options if o["correct"]] if complete else []
+        expected = q["answer"] if isinstance(q["answer"], list) else [q["answer"]]
+        if (not complete or row.get("conditions_sufficient") is not True
+                or row.get("supported") is not True or set(solved) != set(expected)):
+            # Review comments are repair data only, never serialized into HTTP errors.
+            issues.append({"id": q["id"], "original_key": expected, "review": row})
+    if issues:
+        raise DraftValidationError("answer_review", "题目答案、条件或资料支持未通过独立复核",
+            repair_issue="请重新设计以下不可靠题目，不能只改字母凑数：" + json.dumps(issues, ensure_ascii=False)[:5000])
+    course["quality_review"] = {"verification": "model_review", "reviewed_questions": len(bank)}
+
+
 async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
     """Repair once after validation; transport policy stays gateway-owned."""
     async def generate():
@@ -139,13 +176,15 @@ async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
                 temperature=0.2, max_tokens=6500, json_mode=True, json_object=True,
                 reasoning_mode="disabled", allow_mock_fallback=False)
             try:
-                return validate_draft(parse_json(raw), title, chunks)
+                course = validate_draft(parse_json(raw), title, chunks)
+                await review_course_questions(course, chunks)
+                return course
             except (ValueError, TypeError, KeyError) as exc:
                 log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, exc.code if isinstance(exc, DraftValidationError) else "json_or_format")
                 if attempt:
                     raise
                 call = invoke_learning_prompt("assessment.course_repair", base_request=prompt.prompt,
-                    draft=raw, validation_issue=str(exc)[:240])
+                    draft=raw, validation_issue=exc.repair_issue if isinstance(exc, DraftValidationError) else "JSON 或字段格式不正确，请按 schema 重写")
         raise ValueError("未取得可核对题目")
     return await asyncio.wait_for(generate(), timeout=110)
 
