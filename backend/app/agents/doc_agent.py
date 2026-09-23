@@ -203,6 +203,19 @@ def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
     }
 
 
+def _unsupported_one_page_durations(markdown: str, chunks: list[dict]) -> list[str]:
+    """A heading is still a claim: do not invent a source-backed time budget.
+
+    This is a narrow deterministic check, alongside the semantic judge. It
+    intentionally falls back to excerpts for unproven conversions/derivations.
+    """
+    pattern = r"[0-9零〇一二两三四五六七八九十百千万]+(?:\.[0-9]+)?\s*(?:毫秒|秒钟|分钟|小时|个月|秒|天|周|年)"
+    def mentions(text: str) -> set[str]:
+        return {re.sub(r"\s+", "", value) for value in re.findall(pattern, text)}
+    source = "\n".join(str(chunk.get("text") or "") for chunk in chunks)
+    return sorted(mentions(markdown) - mentions(source))
+
+
 def _one_page_parts(markdown: str) -> list[str]:
     """Split dense maps at a section boundary, retaining every section."""
     explicit = re.search(r"(?m)^#{1,3}\s+0?2[.、：\s].*(?:应用|复习)", markdown)
@@ -881,10 +894,11 @@ async def _gen_one(
                           "detail": ground["verdict"]})
     one_page = kind == "doc" and prompt_template == "one_page"
     content_status = "general_knowledge" if not chunks else "checked"
-    if one_page and chunks and (fallback or not ground.get("grounded") or "```" in md):
+    unsupported_durations = _unsupported_one_page_durations(md, chunks) if one_page and chunks else []
+    if one_page and chunks and (fallback or not ground.get("grounded") or "```" in md or unsupported_durations):
         flags.append({"agent": "doc", "kind": kind, "type": "one_page_source_excerpt",
                       "detail": "扩写未通过检查，改为本次检索资料的原文摘录",
-                      "rejected_check": ground})
+                      "rejected_check": ground, "unsupported_durations": unsupported_durations})
         # Keep complete retrieved paragraphs, including negations and examples.
         # No summarizer, image model, truncation, or generic learning tips here.
         md = f"# {name}\n\n" + "\n\n".join(

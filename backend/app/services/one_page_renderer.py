@@ -32,7 +32,7 @@ def _width(text: str) -> float:
 def _wrap(text: str, budget: float = 26) -> list[str]:
     """Keep words intact when possible; preserve every character across lines."""
     lines, current = [], ""
-    for token in re.findall(r"[A-Za-z0-9_]+|\s+|.", text):
+    for token in re.findall(r"\[\d+\]|[A-Za-z0-9_]+|\s+|.", text):
         if _width(current + token) > budget and current:
             lines.append(current)
             current = ""

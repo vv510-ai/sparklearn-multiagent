@@ -27,14 +27,15 @@ def visible_text(visual):
     return "".join(texts)
 
 
-def generate(monkeypatch, *, approved=True, has_source=True):
+def generate(monkeypatch, *, approved=True, has_source=True, extra_duration=False):
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
     monkeypatch.setattr(doc_agent, "retrieve", lambda *a, **k: [{
         "text": SOURCE, "source": "课程原文", "source_id": "vocab", "page": 1,
     }])
 
     async def complete(*a, **k):
-        return "# 选词\n\n## 例子\n" + (SOURCE if approved else "promising = proven，表示已经证明有效。") + "[^1]"
+        return "# 选词\n\n## 例子\n" + (SOURCE if approved else "promising = proven，表示已经证明有效。") + "[^1]" + (
+            "\n\n## 每天 20 分钟的记忆点练法\n每天从资料中挑词。" if extra_duration else "")
 
     async def grounding(*a, **k):
         return {"grounded": approved, "unsupported": [] if approved else ["promising = proven"], "verdict": "checked"}
@@ -101,3 +102,15 @@ def test_general_knowledge_does_not_claim_source_verification(monkeypatch):
     assert not payload["grounded"]
     assert not payload["source_evidence"]
     assert payload["one_page_visual"]["content_status"] == "general_knowledge"
+
+
+def test_invented_duration_in_heading_is_rejected_even_if_judge_passes(monkeypatch):
+    payload = generate(monkeypatch, extra_duration=True)["resource"]["payload"]
+    assert "20 分钟" not in payload["markdown"]
+    assert payload["one_page_visual"]["content_status"] == "source_excerpt"
+
+
+def test_duration_check_allows_source_numbers_and_ignores_list_markers():
+    assert doc_agent._unsupported_one_page_durations("## 20 分钟练习\n1. 看原句\n2. 看搭配[^1]",
+        [{"text": "练习20分钟。"}]) == []
+    assert doc_agent._unsupported_one_page_durations("每天二十分钟", [{"text": SOURCE}]) == ["二十分钟"]
