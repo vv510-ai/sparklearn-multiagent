@@ -158,6 +158,7 @@ test("专注练习单题导航、草稿、提示证据同步、提交和复盘",
   for (let i = 1; i < questions.length; i++) {
     await dialog.getByLabel("选择题目").selectOption(String(i));
     await answer(questions[i], i);
+    if (questions[i].type === "design") await screenshot(page, info, "mobile-written-answer");
   }
   const submit = page.waitForResponse(response => response.url().endsWith("/api/eval/submit"));
   await dialog.getByRole("button", { name: "提交并更新掌握度", exact: true }).click();
