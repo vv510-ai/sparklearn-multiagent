@@ -41,6 +41,8 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   expect(prepared.ok(), JSON.stringify(preparedBody)).toBe(true);
   expect(preparedBody.outline.length).toBeGreaterThan(0);
   expect(preparedBody.quality_review).toEqual({ verification: "model_review", reviewed_questions: preparedBody.question_count });
+  await expect(page.getByRole("region", { name: "本次学习范围" })).toContainText(preparedBody.coverage_note);
+  await page.screenshot({ path: info.outputPath("confirmed-scope.png"), fullPage: true });
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
   await page.getByRole("button", { name: "返回对话", exact: true }).click();

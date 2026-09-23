@@ -131,7 +131,30 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
         "boundary": "模型生成的起点检查，答案及难度尚未经教研标定；只描述已测内容。发现题目有问题可以跳过，不据此判定整门课的能力。"}
 
 
-async def review_course_questions(course: dict, chunks: list[dict]) -> None:
+def validate_final_topics(raw: dict, title: str, chunks: list[dict]) -> dict:
+    """Last attempt only: keep whole valid topics, never repair a key by guessing."""
+    try:
+        return validate_draft(raw, title, chunks)
+    except (ValueError, TypeError, KeyError) as original:
+        topics = raw.get("topics") if isinstance(raw, dict) else None
+        if not isinstance(topics, list) or not 1 <= len(topics) <= 3:
+            raise original
+        selected = []
+        course = None
+        for topic in topics:
+            try:
+                candidate = validate_draft({"topics": [*selected, topic]}, title, chunks)
+            except (ValueError, TypeError, KeyError):
+                continue
+            selected.append(topic)
+            course = candidate
+        if course is None:
+            raise original
+        course["omitted_topic_count"] = len(topics) - len(selected)
+        return course
+
+
+async def review_course_questions(course: dict, chunks: list[dict], allow_partial: bool = False) -> None:
     """Independently solve without showing generated keys; still fallible model review."""
     bank = course["bank"]
     questions = [{**{k: q[k] for k in ("id", "stem", "type", "options")},
@@ -156,7 +179,10 @@ async def review_course_questions(course: dict, chunks: list[dict]) -> None:
             and all(isinstance(o, dict) for o in options)
             and [o.get("label") for o in options] == labels
             and all(type(o.get("correct")) is bool and str(o.get("reason") or "").strip() for o in options))
-        solved = [o["label"] for o in options if o["correct"]] if complete else []
+        if (not complete or type(row.get("conditions_sufficient")) is not bool
+                or type(row.get("supported")) is not bool):
+            raise DraftValidationError("review_incomplete", "题库独立复核没有完成所有选项的明确判断")
+        solved = [o["label"] for o in options if o["correct"]]
         expected = q["answer"] if isinstance(q["answer"], list) else [q["answer"]]
         # A reviewer occasionally claims support while its own reason admits
         # missing evidence. Reject that contradiction instead of trusting a flag.
@@ -169,8 +195,22 @@ async def review_course_questions(course: dict, chunks: list[dict]) -> None:
             issues.append({"id": q["id"], "original_key": expected, "review": row,
                 "source_gap": "复核理由承认资料缺失，必须更换无法据资料判定的选项" if source_gap else ""})
     if issues:
-        raise DraftValidationError("answer_review", "题目答案、条件或资料支持未通过独立复核",
-            repair_issue="请重新设计以下不可靠题目，不能只改字母凑数：" + json.dumps(issues, ensure_ascii=False)[:5000])
+        bad_ids = {issue["id"] for issue in issues}
+        bad_kps = {q["kp"] for q in bank if q["id"] in bad_ids} if allow_partial else set()
+        retained = [q for q in bank if q["kp"] not in bad_kps] if allow_partial else []
+        if not retained:
+            raise DraftValidationError("answer_review", "题目答案、条件或资料支持未通过独立复核",
+                repair_issue="请重新设计以下不可靠题目，不能只改字母凑数：" + json.dumps(issues, ensure_ascii=False)[:5000])
+        # Keep reviewed IDs intact across every consumer and the assessment snapshot.
+        keep = {q["kp"] for q in retained}
+        course["bank"] = bank = retained
+        course["graph"]["nodes"] = [n for n in course["graph"]["nodes"] if n["id"] in keep]
+        course["graph"]["edges"] = [e for e in course["graph"]["edges"]
+            if e["from"] in keep and e["to"] in keep]
+        for field in ("lessons", "evidence"):
+            course[field] = {kp: value for kp, value in course[field].items() if kp in keep}
+        course["omitted_topic_count"] = course.get("omitted_topic_count", 0) + len(bad_kps)
+        rows = [row for row in rows if row["id"] in {q["id"] for q in bank}]
     # Never publish the draft's unchecked explanation after reviewing the keys.
     # Reuse the reasons that actually supported the independent option judgments.
     for q, row in zip(bank, rows):
@@ -189,8 +229,13 @@ async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
                 temperature=0.2, max_tokens=6500, json_mode=True, json_object=True,
                 reasoning_mode="disabled", allow_mock_fallback=False)
             try:
-                course = validate_draft(parse_json(raw), title, chunks)
-                await review_course_questions(course, chunks)
+                parsed = parse_json(raw)
+                course = (validate_final_topics if attempt else validate_draft)(parsed, title, chunks)
+                await review_course_questions(course, chunks, bool(attempt))
+                if course.get("omitted_topic_count"):
+                    course["preparation_note"] = (
+                        f"本次先准备了 {len(course['graph']['nodes'])} 个通过检查的起点知识点；"
+                        f"另有 {course['omitted_topic_count']} 个未通过检查，未纳入本次范围。请核对下方知识点。")
                 return course
             except (ValueError, TypeError, KeyError) as exc:
                 log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, exc.code if isinstance(exc, DraftValidationError) else "json_or_format")
@@ -244,7 +289,8 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
                 }) from None
         log.info("Course preparation completed elapsed_ms=%d topics=%d", (time.monotonic() - started) * 1000, len(course["graph"]["nodes"]))
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,
-        coverage_note="基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))
+        coverage_note=("基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))
+            + course.get("preparation_note", ""))
     course["revision"] = hashlib.sha256(json.dumps(course, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
     with session() as db:
         row = db.query(LearningSpace).filter_by(notebook_id=notebook_id, user_id=user_id).with_for_update().one()

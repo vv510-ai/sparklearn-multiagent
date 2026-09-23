@@ -95,3 +95,29 @@ def test_support_flag_cannot_override_an_explicit_source_gap(monkeypatch):
         asyncio.run(service.review_course_questions(course(), [{"evidence_id": "s1c1", "text": "呼吸和分解释放二氧化碳。"}]))
     assert caught.value.code == "answer_review"
     assert "必须更换无法据资料判定的选项" in caught.value.repair_issue
+
+
+@pytest.mark.parametrize("damage", ["missing", "wrong_id", "unknown"])
+def test_partial_mode_does_not_salvage_incomplete_reviews(monkeypatch, damage):
+    output = result([True, True, False, False])
+    if damage == "missing":
+        output["questions"] = []
+    elif damage == "wrong_id":
+        output["questions"][0]["id"] = "other"
+    else:
+        output["questions"][0]["options"][0]["correct"] = None
+    install(monkeypatch, output)
+    with pytest.raises(service.DraftValidationError) as caught:
+        asyncio.run(service.review_course_questions(course(), [], True))
+    assert caught.value.code == "review_incomplete"
+
+
+def test_last_attempt_still_rejects_cross_topic_duplicate_questions():
+    from copy import deepcopy
+    topic = {"name": "甲", "objective": "条件判断", "lesson": "根据题目条件判断。", "questions": [
+        {"stem": f"条件{i}", "type": "multiple" if i == 2 else "single", "options": ["甲", "乙", "丙"],
+         "answer": ["A", "B"] if i == 2 else "A", "explain": "根据给定条件分别判断每个选项。"} for i in range(3)]}
+    duplicate = {**deepcopy(topic), "name": "乙"}
+    saved = service.validate_final_topics({"topics": [topic, duplicate]}, "条件", [])
+    assert len(saved["bank"]) == 3 and saved["omitted_topic_count"] == 1
+    assert len({q["stem"] for q in saved["bank"]}) == 3

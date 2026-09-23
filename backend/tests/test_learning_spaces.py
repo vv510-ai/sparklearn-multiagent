@@ -289,6 +289,13 @@ def test_generated_draft_repairs_once_without_bypassing_validation(monkeypatch):
         return json.dumps(bad)
     calls.clear()
     monkeypatch.setattr(service, "llm_complete", still_bad)
+    result = asyncio.run(service.generate_valid_course(prompt, "生态学", []))
+    assert len(calls) == 2 and len(result["bank"]) == 6
+    assert [n["name"] for n in result["graph"]["nodes"]] == ["知识点1", "知识点2"]
+    assert "另有 1 个未通过检查" in result["preparation_note"]
+    for topic in bad["topics"]:
+        topic["questions"][2]["answer"] = ["A"]
+    calls.clear()
     with pytest.raises(ValueError):
         asyncio.run(service.generate_valid_course(prompt, "生态学", []))
     assert len(calls) == 2
@@ -365,3 +372,57 @@ def test_source_text_is_bound_by_ids_not_model_recopied_quotes():
         service.validate_draft({"topics": [topic]}, "讲义", chunks)
     with pytest.raises(service.DraftValidationError, match="片段编号"):
         service.validate_draft({"topics": [topic]}, "无资料主题", [])
+
+
+@pytest.mark.parametrize("bad_index", [0, 1])
+def test_last_attempt_keeps_reviewed_whole_topics_through_assessment(learner, monkeypatch, bad_index):
+    from app.services import course_learning_service as service
+    from app.models.entities import LearningSpace
+    client, user = learner
+    book, survey, old = prepare(client, user)
+    body = "甲与乙符合本题条件，丙不符合本题条件。本练习要求先阅读完整题干，再区分单选与多选。每项判断需要说明所用条件，不能仅凭选项位置推测答案。"
+    upload = client.post("/api/knowledge/upload", data={"user_id": user, "notebook_id": book["id"], "title": "条件练习"},
+        files={"file": ("conditions.txt", body.encode(), "text/plain")})
+    assert upload.status_code == 200, upload.text
+    source_id = upload.json()["source"]["id"]
+    draft = {"topics": [{"name": f"条件{i}", "objective": "区分给定条件", "lesson": f"讲义{i}：{body}", "chunk_ids": ["s1c1"],
+        "questions": [{"stem": f"条件{i}问题{j}", "type": "multiple" if j == 2 else "single",
+            "options": ["甲", "乙", "丙"], "answer": ["A", "B"] if j == 2 else "A",
+            "explain": "根据题目条件分别判断每个选项。"} for j in range(3)]} for i in range(3)]}
+    # Full independent response, with one explicit rejected question in a whole topic.
+    rows = [{"id": f"topic_{i+1}-{j+1}", "conditions_sufficient": True, "supported": i != bad_index or j != 0,
+        "options": [{"label": label, "correct": label in (["A", "B"] if j == 2 else ["A"]),
+            "reason": f"根据条件{i}判断{label}"} for label in "ABC"]} for i in range(3) for j in range(3)]
+    calls = []
+    async def model(prompt, **kwargs):
+        calls.append(prompt)
+        return json.dumps(draft if len(calls) % 2 else {"questions": rows}, ensure_ascii=False)
+    monkeypatch.setattr(service, "llm_complete", model)
+    response = client.post(f"/api/notebooks/{book['id']}/learning/prepare", json={
+        "title": "条件练习", "course_key": "custom", "source_ids": [source_id], "survey": survey})
+    assert response.status_code == 200, response.text
+    public = response.json()
+    keep = {f"topic_{i+1}" for i in range(3) if i != bad_index}
+    assert len(calls) == 4
+    assert {n["id"] for n in public["outline"]} == keep
+    assert public["question_count"] == public["quality_review"]["reviewed_questions"] == 6
+    assert "未覆盖全文" in public["coverage_note"] and "另有 1 个未通过检查" in public["coverage_note"]
+    survey.update(course_revision=public["revision"], target_kps=sorted(keep), course_key="custom", source_ids=[source_id])
+    finished = finish(client, survey, False)
+    assert finished["answered"] == 6
+    with session() as db:
+        saved = db.get(LearningSpace, book["id"]).course
+        snapshot = db.get(AssessmentSession, finished["id"]).data["course_snapshot"]
+        for value in (saved, snapshot):
+            assert {q["kp"] for q in value["bank"]} == keep
+            assert set(value["lessons"]) == set(value["evidence"]) == keep
+            assert {n["id"] for n in value["graph"]["nodes"]} == keep
+            assert all("根据条件" in q["explain"] for q in value["bank"])
+    # A subsequent complete semantic failure must leave the accepted course intact.
+    for row in rows:
+        row["supported"] = False
+    calls.clear()
+    failed = client.post(f"/api/notebooks/{book['id']}/learning/prepare", json={
+        "title": "另一范围", "course_key": "custom", "source_ids": [source_id], "survey": survey})
+    assert failed.status_code == 422, failed.text
+    assert client.get(f"/api/notebooks/{book['id']}/learning").json()["course"]["revision"] == public["revision"]
