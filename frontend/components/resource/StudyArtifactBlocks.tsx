@@ -129,16 +129,25 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
   const nodes = visual.nodes || [];
   const imageUrl = apiAssetUrl(visual.image_url);
   if (imageUrl) {
+    const textLayout = visual.renderer === "svg-text-v1";
+    const picture = <a href={imageUrl} target="_blank" rel="noreferrer" className="block bg-[#FAF9F6]" title="打开高清原图">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={imageUrl} alt={`一图看懂${visual.title || "当前主题"}`} className="aspect-video h-auto w-full object-contain" />
+    </a>;
     return (
       <figure className="mb-4 overflow-hidden rounded-2xl border border-emerald-200 bg-[#FAF9F6] shadow-sm" aria-label={`${visual.title || "当前主题"}一图看懂`}>
         <div className="flex items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3">
           <div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-700">一图看懂</div><h3 className="mt-1 text-lg font-black text-slate-950">{visual.title || "知识图"}</h3></div>
         </div>
-        <a href={imageUrl} target="_blank" rel="noreferrer" className="block bg-[#FAF9F6]" title="打开高清原图">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt={`一图看懂${visual.title || "当前主题"}`} className="aspect-video h-auto w-full object-contain" />
-        </a>
-        <figcaption className="px-4 py-2 text-center text-[10px] text-slate-400">点击查看高清图；AI 生成的文字与公式请结合下方正文核对。</figcaption>
+        {textLayout ? <>
+          {visual.content_status === "source_excerpt" && <p className="border-b border-emerald-100 px-4 py-3 text-xs leading-5 text-emerald-900">本次扩写未通过核对，以下仅展示相关资料原文摘录，未覆盖整份资料。</p>}
+          {visual.content_status === "general_knowledge" && <p className="px-4 py-3 text-xs text-amber-800">以下为通用知识整理，未经课程资料核验。</p>}
+          {picture}
+        </> : <div className="px-4 py-3">
+          <p role="note" className="mb-3 text-sm leading-6 text-amber-900">旧版 AI 配图的文字、编号和符号可能失真。请重新生成，并结合下方正文核对。</p>
+          <details><summary className="cursor-pointer text-xs text-slate-600">查看旧版配图</summary>{picture}</details>
+        </div>}
+        <figcaption className="px-4 py-2 text-center text-xs text-slate-500">点击图可放大阅读；出处与文字版见下方。</figcaption>
       </figure>
     );
   }
@@ -151,7 +160,7 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
         <div className="space-y-3">{nodes.filter((_, index) => index % 2 === 1).map((node) => <VisualNode key={node.label} node={node} />)}</div>
       </div>
       {(visual.steps || []).length > 0 && <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{(visual.steps || []).map((step, index) => <div key={step} className="flex items-center gap-2"><span className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-emerald-900">{index + 1}. {step}</span>{index < (visual.steps || []).length - 1 && <ArrowRight size={13} className="text-emerald-400" />}</div>)}</div>}
-      <figcaption className="mt-3 text-center text-[10px] text-slate-400">当前只展示资料摘录，不代表完整的关系图。图像服务恢复后可重新生成。</figcaption>
+      <figcaption className="mt-3 text-center text-[10px] text-slate-400">当前只展示资料摘录，不代表完整的关系图。可稍后重新生成。</figcaption>
     </figure>
   );
 }

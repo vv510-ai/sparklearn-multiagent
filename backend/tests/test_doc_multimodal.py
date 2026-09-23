@@ -177,7 +177,7 @@ def test_doc_template_has_a_distinct_resource_label():
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
 
 
-def test_one_page_failure_keeps_excerpts_without_invented_relationships(monkeypatch):
+def test_one_page_does_not_depend_on_image_provider_availability(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
     result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
         "doc",
@@ -193,10 +193,11 @@ def test_one_page_failure_keeps_excerpts_without_invented_relationships(monkeypa
     assert visual["nodes"]
     assert visual["steps"] == []
     assert all(node["label"].startswith("资料摘录") for node in visual["nodes"])
-    assert visual["image_status"] == "fallback"
+    assert visual["image_status"] == "ready"
+    assert visual["image_url"].endswith(".svg")
 
 
-def test_one_page_uses_configured_provider_and_stores_image_provenance(monkeypatch):
+def test_one_page_records_text_renderer_without_claiming_an_image_model(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
     captured = {}
 
@@ -223,18 +224,12 @@ def test_one_page_uses_configured_provider_and_stores_image_provenance(monkeypat
     ))
 
     visual = result["resource"]["payload"]["one_page_visual"]
-    assert visual["image_url"] == "/static/gen/one-page.png"
-    assert visual["provider"] == "openai"
-    assert visual["model"] == "gpt-image-2.5-sunburst"
+    assert visual["image_url"].endswith(".svg")
+    assert visual["provider"] == "text_layout"
+    assert visual["renderer"] == "svg-text-v1"
+    assert "model" not in visual
     assert visual["image_status"] == "ready"
-    assert "preferred_provider" not in captured
-    assert (captured["width"], captured["height"]) == (1536, 864)
-    assert "35—50" in captured["prompt"]
-    assert "一图看懂二叉树" in captured["prompt"]
-    assert "二叉树每个节点最多有两个孩子" in captured["prompt"]
-    assert "不得出现任何颜色代码" in captured["prompt"]
-    assert "不显示分区字母" in captured["prompt"]
-    assert "#faf9f6" not in captured["prompt"]
+    assert captured == {}
 
 
 def test_one_page_strips_model_returned_source_code(monkeypatch):

@@ -21,6 +21,7 @@ from ..safety.grounding import grounding_check
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
+from ..services.one_page_renderer import render_one_page
 from ..services.topic_scope import focus_chunks_on_topic, topic_terms
 from .emitter import agent_end, agent_start, emit
 
@@ -878,6 +879,21 @@ async def _gen_one(
                       "verdict": f"grounding 校验超时或失败:{exc}"}
             flags.append({"agent": "doc", "kind": kind, "type": "grounding_timeout",
                           "detail": ground["verdict"]})
+    one_page = kind == "doc" and prompt_template == "one_page"
+    content_status = "general_knowledge" if not chunks else "checked"
+    if one_page and chunks and (fallback or not ground.get("grounded") or "```" in md):
+        flags.append({"agent": "doc", "kind": kind, "type": "one_page_source_excerpt",
+                      "detail": "扩写未通过检查，改为本次检索资料的原文摘录",
+                      "rejected_check": ground})
+        # Keep complete retrieved paragraphs, including negations and examples.
+        # No summarizer, image model, truncation, or generic learning tips here.
+        md = f"# {name}\n\n" + "\n\n".join(
+            f"## 资料片段 {index}\n" + "\n".join(f"> {line}" for line in str(chunk['text']).splitlines()) + f"\n[^{index}]"
+            for index, chunk in enumerate(chunks, 1)
+        )
+        fallback = True
+        content_status = "source_excerpt"
+        ground = {"grounded": True, "unsupported": [], "verdict": "直接引用本次检索片段，未采用未通过检查的扩写"}
     md = _ensure_visible_citations(md, len(citations))
     # 防幻觉第二层:内容安全过滤(本地词表 + 讯飞审核挂接)
     safety = safety_filter(md)
@@ -907,9 +923,14 @@ async def _gen_one(
             f"本次依据 {len(chunks)} 个相关资料片段和可用对话整理，未对整份课件逐页核验。"
             if chunks else "本次没有可用的资料片段；内容依据可用对话或通用知识，不代表已核验课程原文。"
         )
-    one_page = kind == "doc" and prompt_template == "one_page"
     if one_page and not source_scope_missing:
+        payload["grounded"] = bool(chunks) and bool(ground.get("grounded"))
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
+        try:
+            payload["one_page_visual"].update(render_one_page(name, md, content_status=content_status))
+        except Exception as exc:  # Keep source text accessible if local rendering fails.
+            payload["one_page_visual"].update(image_status="fallback", image_error=str(exc)[:240])
+            flags.append({"agent": "doc", "kind": kind, "type": "image_degraded", "detail": "知识图排版失败，已保留正文"})
     interactive_audio = kind == "doc" and prompt_template == "interactive_audio"
     if interactive_audio:
         md = re.sub(
@@ -922,44 +943,20 @@ async def _gen_one(
     if interactive_audio and not source_scope_missing:
         payload["audio_narration"] = narration
     if (kind == "doc" and not source_scope_missing
-            and prompt_template != "conversation_notes" and not skip_multimodal):
-        if one_page:
-            audio = None
-            parts = _one_page_parts(md)
-            covers = await asyncio.gather(*(
-                multimodal_gateway.text_to_image(
-                    _one_page_image_prompt(f"{name} · {index + 1}/{len(parts)}" if len(parts) > 1 else name, part),
-                    width=1536,
-                    height=864,
-                    trace_id=trace_id,
-                ) for index, part in enumerate(parts)
-            ), return_exceptions=True)
-            cover = covers[0]
-            if len(parts) > 1:
-                pages = []
-                for index, (part, item) in enumerate(zip(parts, covers)):
-                    page = _one_page_visual(f"{name} · {index + 1}/{len(parts)}", [], part)
-                    if isinstance(item, dict) and item.get("ok"):
-                        page.update({key: item["data"].get(key, "") for key in ("image_url", "provider", "model")}, image_status="ready")
-                    else:
-                        page.update(image_status="fallback", image_error="本页图像未生成，保留资料摘录和完整正文")
-                        flags.append({"agent": "doc", "kind": kind, "type": "image_degraded", "detail": f"知识图第 {index + 1} 页未生成"})
-                    pages.append(page)
-                payload["one_page_visual"]["pages"] = pages
-        else:
-            audio, cover = await asyncio.gather(
-                multimodal_gateway.tts(
-                    narration,
-                    trace_id=trace_id,
-                ),
-                multimodal_gateway.text_to_image(
-                    _cover_prompt(name, source_bound=bool(source_ids), custom_topic=custom_topic),
-                    width=768,
-                    height=768,
-                    trace_id=trace_id,
-                ),
-                return_exceptions=True,
-            )
+            and prompt_template not in {"conversation_notes", "one_page"} and not skip_multimodal):
+        audio, cover = await asyncio.gather(
+            multimodal_gateway.tts(
+                narration,
+                trace_id=trace_id,
+            ),
+            multimodal_gateway.text_to_image(
+                _cover_prompt(name, source_bound=bool(source_ids), custom_topic=custom_topic),
+                width=768,
+                height=768,
+                trace_id=trace_id,
+            ),
+            return_exceptions=True,
+        )
         if isinstance(audio, dict) and audio.get("ok"):
             payload["audio_url"] = audio["data"]["audio_url"]
             if interactive_audio:
@@ -992,32 +989,7 @@ async def _gen_one(
                 "detail": f"互动讲解已切换浏览器朗读：{error[:160]}",
             })
         if isinstance(cover, dict) and cover.get("ok"):
-            if one_page:
-                payload["one_page_visual"].update({
-                    "image_url": cover["data"]["image_url"],
-                    "provider": str(cover["data"].get("provider") or "unknown"),
-                    "model": str(cover["data"].get("model") or ""),
-                    "image_status": "ready",
-                })
-            else:
-                payload["cover_url"] = cover["data"]["image_url"]
-        elif one_page:
-            error = (
-                str(cover.get("error") or "图像生成服务暂时不可用")
-                if isinstance(cover, dict)
-                else str(cover) if isinstance(cover, BaseException)
-                else "图像生成服务暂时不可用"
-            )
-            payload["one_page_visual"].update({
-                "image_status": "fallback",
-                "image_error": error[:240],
-            })
-            flags.append({
-                "agent": "doc",
-                "kind": kind,
-                "type": "image_degraded",
-                "detail": f"知识图生成失败，已保留资料摘录：{error[:160]}",
-            })
+            payload["cover_url"] = cover["data"]["image_url"]
     elif interactive_audio:
         payload["audio"] = {
             "status": "blocked" if source_scope_missing else "fallback",
