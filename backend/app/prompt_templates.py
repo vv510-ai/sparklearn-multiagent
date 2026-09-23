@@ -190,6 +190,7 @@ def render_learning_prompt_call(
     context: str,
     conversation: str = "",
     general_knowledge: bool = False,
+    source_policy: str = "strict",
 ) -> PromptCall:
     key = supported_template(template_key)
     return invoke_learning_prompt(
@@ -199,7 +200,8 @@ def render_learning_prompt_call(
         persona=persona or "循序渐进",
         context=context or "（没有检索到可用资料）",
         conversation=conversation or "（当前没有可整理的学习对话）",
-        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/source-supplement.md")} if source_policy == "supplement"
+           else {"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 
@@ -233,8 +235,11 @@ def render_tutor_prompt(
     conversation: list[dict] | None = None,
     guided: bool = False,
     general_knowledge: bool = False,
+    source_policy: str = "strict",
 ) -> PromptCall:
     source_scope = (
+        "优先使用本次资料，允许明确标识的通用补充；未找到的原文不能补造"
+        if source_policy == "supplement" else
         "仅使用本次选中的学习资料"
         if source_ids
         else "围绕当前自定义主题使用模型通用知识，不混入旧主题"
@@ -250,7 +255,8 @@ def render_tutor_prompt(
         source_scope=source_scope,
         conversation=_dialog_text(conversation),
         context=context or "（没有检索到可用片段）",
-        **({"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
+        **({"source_rules": _read_prompt("shared/source-supplement.md")} if source_policy == "supplement"
+           else {"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
     )
 
 

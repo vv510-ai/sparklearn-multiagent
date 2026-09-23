@@ -17,12 +17,13 @@ from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt, render_learning_prompt_call
 from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
-from ..safety.grounding import grounding_check
+from ..safety.grounding import grounding_check, grounding_check_local
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
 from ..services.one_page_renderer import render_one_page
 from ..services.topic_scope import focus_chunks_on_topic, topic_terms
+from ..services.learning_context import supplemental_context
 from .emitter import agent_end, agent_start, emit
 
 _STYLE = {
@@ -517,8 +518,9 @@ async def _gen_ppt_resource(
     citations: list[dict],
     source_ids: list[str],
     trace_id: str,
+    source_policy: str = "",
 ) -> dict:
-    source_scope_missing = bool(source_ids and not chunks)
+    source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks)
     flags: list[dict] = []
     if source_scope_missing:
         ppt = {
@@ -563,6 +565,8 @@ async def _gen_ppt_resource(
         "explicit_only": True,
         "source_bound": bool(chunks),
         "ppt": ppt,
+        "generation_mode": "unavailable" if ppt.get("status") in {"blocked", "failed"} else "model",
+        "blocked_reason": "source_scope_empty" if source_scope_missing else "generation_failed" if ppt.get("status") == "failed" else "",
     }
     if ppt.get("cover_url"):
         payload["cover_url"] = ppt["cover_url"]
@@ -591,9 +595,10 @@ async def _gen_structured_resource(
     citations: list[dict],
     source_ids: list[str],
     custom_topic: bool,
+    source_policy: str = "",
 ) -> dict:
     label, capability = _STYLE[kind]
-    source_scope_missing = bool(source_ids and not chunks)
+    source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks)
     flags: list[dict] = []
     prompt_call = invoke_learning_prompt(
         capability,
@@ -668,6 +673,8 @@ async def _gen_structured_resource(
     rid = uuid.uuid4().hex[:12]
     payload = {
         kind: artifact,
+        "generation_mode": "unavailable" if source_scope_missing else "source_guide" if flags else "model",
+        "blocked_reason": "source_scope_empty" if source_scope_missing else "",
         "template": kind,
         "source_bound": bool(source_ids),
         "grounded": bool(chunks) or (custom_topic and not source_ids) or source_scope_missing,
@@ -718,14 +725,16 @@ async def _gen_one(
     user_id: str = "demo_user",
     skip_multimodal: bool = False,
     required_retrieval_terms: list[str] | None = None,
+    source_policy: str = "",
 ) -> dict:
     name = topic_name or resolve_topic([kp])[1]
     label, capability = _STYLE.get(kind, _STYLE["doc"])
     if kind == "doc":
         label = _doc_label(label, prompt_template)
+    supplement = source_policy == "supplement" and kind == "doc" and prompt_template not in {"remediation", "conversation_notes", "question_review"}
     chunks = [] if custom_topic and not source_ids else retrieve(
-        f"{name} 概念 操作 复杂度 易错点 {goal}",
-        final_k=5,
+        f"{goal}\n当前主题：{name}" if goal else name,
+        final_k=8 if re.search(r"框架|总览|考点|占分|对比|比较", goal) else 5,
         source_ids=source_ids,
         # The course-library sentinel is selected by default in the UI.  Source
         # scoping and topic scoping are independent: uploaded chunks without a
@@ -736,6 +745,8 @@ async def _gen_one(
         user_id=user_id,
     )
     chunks = focus_chunks_on_topic(chunks, kp, name)
+    if supplement:
+        chunks.extend(supplemental_context(goal))
     ctx, citations = build_context(chunks)
     if kind in _STRUCTURED_KINDS:
         return await _gen_structured_resource(
@@ -748,6 +759,7 @@ async def _gen_one(
             citations=citations,
             source_ids=source_ids,
             custom_topic=custom_topic,
+            source_policy=source_policy,
         )
     if kind == "ppt":
         return await _gen_ppt_resource(
@@ -759,6 +771,7 @@ async def _gen_one(
             citations=citations,
             source_ids=source_ids,
             trace_id=trace_id,
+            source_policy=source_policy,
         )
     if kind == "doc":
         prompt_call = render_learning_prompt_call(
@@ -769,6 +782,7 @@ async def _gen_one(
             context=ctx,
             conversation=conversation,
             general_knowledge=custom_topic and not source_ids,
+            source_policy="supplement" if supplement else "strict",
         )
     else:
         prompt_call = invoke_learning_prompt(
@@ -783,7 +797,7 @@ async def _gen_one(
     fallback = False
     remediation_rag_fallback = False
     demo_fallback = (is_demo() and resolve(prompt_call.prompt) is None)
-    source_scope_missing = bool(source_ids and not chunks)
+    source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks and not supplement)
     if source_scope_missing:
         fallback = True
         md = (
@@ -866,6 +880,8 @@ async def _gen_one(
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
     if source_scope_missing:
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
+    elif supplement and not fallback:
+        ground = grounding_check_local(md, [c["text"] for c in chunks], allow_supplement=True)
     elif custom_topic and not chunks:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "自定义主题使用模型通用知识生成，未声明虚构资料引用。"}
@@ -892,10 +908,22 @@ async def _gen_one(
                       "verdict": f"grounding 校验超时或失败:{exc}"}
             flags.append({"agent": "doc", "kind": kind, "type": "grounding_timeout",
                           "detail": ground["verdict"]})
+    # Never deliver fabricated citations, including when no source was retrieved.
+    invalid_citations = supplement and not fallback and not ground.get("accepted") and not ground.get("grounded")
+    if invalid_citations:
+        flags.append({"agent": "doc", "kind": kind, "type": "invalid_citation",
+                      "detail": "模型使用了不存在的资料引用，已拒绝该正文"})
+        fallback = True
+        md = _rag_fallback_doc(name, chunks, kind)
+        ground = {"grounded": bool(chunks), "unsupported": [], "verdict": "无效引用正文已拒绝，仅保留可用资料"}
+    unavailable = source_scope_missing or (fallback and not chunks and not demo_fallback
+                                           and not (prompt_template == "conversation_notes" and conversation.strip()))
+    if unavailable and not source_scope_missing:
+        md = f"# {name}·未生成\n\n本次讲解未能生成可用正文，也没有可展示的相关资料。请重试，或选择相关资料后再生成。"
     one_page = kind == "doc" and prompt_template == "one_page"
-    content_status = "general_knowledge" if not chunks else "checked"
-    unsupported_durations = _unsupported_one_page_durations(md, chunks) if one_page and chunks else []
-    if one_page and chunks and (fallback or not ground.get("grounded") or "```" in md or unsupported_durations):
+    content_status = "supplemented" if supplement and chunks and not fallback else "general_knowledge" if not chunks else "checked"
+    unsupported_durations = _unsupported_one_page_durations(md, chunks) if one_page and chunks and not supplement else []
+    if one_page and chunks and (fallback or not (ground.get("grounded") or ground.get("accepted")) or "```" in md or unsupported_durations):
         flags.append({"agent": "doc", "kind": kind, "type": "one_page_source_excerpt",
                       "detail": "扩写未通过检查，改为本次检索资料的原文摘录",
                       "rejected_check": ground, "unsupported_durations": unsupported_durations})
@@ -908,10 +936,11 @@ async def _gen_one(
         fallback = True
         content_status = "source_excerpt"
         ground = {"grounded": True, "unsupported": [], "verdict": "直接引用本次检索片段，未采用未通过检查的扩写"}
-    md = _ensure_visible_citations(md, len(citations))
+    if not supplement:
+        md = _ensure_visible_citations(md, len(citations))
     # 防幻觉第二层:内容安全过滤(本地词表 + 讯飞审核挂接)
     safety = safety_filter(md)
-    if not ground.get("grounded", True):
+    if not unavailable and not ground.get("grounded", True) and not ground.get("accepted", False):
         flags.append({"agent": "doc", "kind": kind, "type": "grounding",
                       "detail": ground.get("verdict", ""), "unsupported": ground.get("unsupported", [])})
         md += "\n\n> ⚠️ 溯源提示:以上个别表述未在教材语料中找到直接依据,已标记供复核。"
@@ -919,25 +948,30 @@ async def _gen_one(
         flags.append({"agent": "doc", "kind": kind, "type": "safety", "detail": safety.get("hits", [])})
 
     used = used_indices(md, len(citations))
-    cite_used = [citations[i - 1] for i in used if 0 < i <= len(citations)] or citations[:3]
+    cite_used = [citations[i - 1] for i in used if 0 < i <= len(citations)]
+    if not cite_used and not supplement:
+        cite_used = citations[:3]
     rid = uuid.uuid4().hex[:12]
     payload = {
         "markdown": md,
-        "generation_mode": "unavailable" if source_scope_missing else "demo" if demo_fallback else "source_guide" if fallback else "model",
+        "generation_mode": "unavailable" if unavailable else "demo" if demo_fallback else "source_guide" if fallback else "model",
+        "blocked_reason": "source_scope_empty" if source_scope_missing else "generation_failed" if unavailable else "",
         "grounded": ground.get("grounded", True),
         "template": prompt_template,
         "reusable_note": prompt_template == "conversation_notes",
         "prompt_skill": prompt_call.metadata(),
         "topic_label": name,
         "source_ids": source_ids,
+        "source_policy": "supplement" if supplement else "strict",
         "source_evidence": cite_used,
     }
-    if notes_template:
+    if notes_template or supplement:
         payload["notes_scope"] = (
+            "本次资料优先，允许通用补充；补充部分未经资料逐项核验。" if supplement and chunks else
             f"本次依据 {len(chunks)} 个相关资料片段和可用对话整理，未对整份课件逐页核验。"
             if chunks else "本次没有可用的资料片段；内容依据可用对话或通用知识，不代表已核验课程原文。"
         )
-    if one_page and not source_scope_missing:
+    if one_page and not unavailable:
         payload["grounded"] = bool(chunks) and bool(ground.get("grounded"))
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
         try:
@@ -954,9 +988,9 @@ async def _gen_one(
         )
         payload["markdown"] = md
     narration = _narration_text(name, md, limit=720 if interactive_audio else 320)
-    if interactive_audio and not source_scope_missing:
+    if interactive_audio and not unavailable:
         payload["audio_narration"] = narration
-    if (kind == "doc" and not source_scope_missing
+    if (kind == "doc" and not unavailable
             and prompt_template not in {"conversation_notes", "one_page"} and not skip_multimodal):
         audio, cover = await asyncio.gather(
             multimodal_gateway.tts(
@@ -1062,6 +1096,7 @@ async def run(state: dict) -> dict:
             user_id=state.get("user_id", "demo_user"),
             skip_multimodal=skip_multimodal,
             required_retrieval_terms=required_retrieval_terms,
+            source_policy=str(state.get("source_policy") or ""),
         )
         resources[out["resource"]["id"]] = out["resource"]
         flags += out["flags"]

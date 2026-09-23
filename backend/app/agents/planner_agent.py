@@ -51,6 +51,7 @@ async def run(state: dict) -> dict:
                     f"目标主题「{topic_name}」,计划 {len(plan['resources'])} 项:"
                     + plan.get("order", ""), {"plan": plan})
     return {
+        "learning_goal": goal,
         "plan": plan,
         "knowledge_points": [kp0],
         "topic_label": topic_name,

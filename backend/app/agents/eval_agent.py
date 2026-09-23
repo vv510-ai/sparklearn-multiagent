@@ -36,6 +36,19 @@ def _learner_summary(resources: dict, flags: list, prompt_template: str = "") ->
     """Return a learner-facing handoff; technical checks remain in trace evidence."""
     if not resources:
         return "这次还没有生成可用内容，可以换一种说法或重新选择学习资料后再试。"
+    unavailable = [resource for resource in resources.values()
+                   if (resource.get("payload") or {}).get("generation_mode") == "unavailable"
+                   or (resource.get("payload") or {}).get("blocked_reason")]
+    if unavailable:
+        if len(unavailable) == len(resources):
+            if any((resource.get("payload") or {}).get("blocked_reason") == "generation_failed" for resource in unavailable):
+                return "这次没有生成可用的学习内容：生成失败，且没有可展示的相关资料。请重试或检查模型连接。"
+            if prompt_template == "one_page":
+                return "一图看懂未生成：当前资料未找到与这次问题相关的内容。请细化问题或选择相关资料后重试。"
+            return "这次没有生成可用的学习内容。当前资料未找到相关依据；可以选择相关资料，或允许补充通用知识后重试。"
+        return "部分学习内容未生成。已保留可用内容，未完成的项目已说明原因。"
+    if any(flag.get("type") == "source_scope_empty" for flag in flags):
+        return "部分学习内容未生成：相关资料不足。已保留本次可用内容。"
     if prompt_template == "one_page":
         payloads = [resource.get("payload") or {} for resource in resources.values()]
         if all(payload.get("generation_mode") == "unavailable" for payload in payloads):

@@ -25,6 +25,7 @@ for (const scenario of [
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
   await page.getByRole("button", { name: "返回对话", exact: true }).click();
+  await page.getByRole("combobox", { name: "回答依据" }).selectOption("strict");
   console.log("one-page: course prepared");
   // Offline intent fixtures require punctuation; production uses the exact feedback wording.
   const question = scenario.question + (process.env.PLAYWRIGHT_BASE_URL ? "" : "？");

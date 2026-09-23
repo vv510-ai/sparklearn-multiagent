@@ -106,6 +106,10 @@ def focus_chunks_on_topic(chunks: list[dict], kp: str | None, topic_name: str) -
         return [dict(chunk) for chunk in chunks]
     from .learning_scope import current_space
     space = current_space()
+    course = (space or {}).get("course") or {}
+    whole_course = bool(kp == "custom_topic" and topic_name and
+                        re.sub(r"\s+", "", topic_name).casefold() ==
+                        re.sub(r"\s+", "", str(course.get("title") or "")).casefold())
     named_topic = kp == "custom_topic" or bool(space and space["course"].get("kind") != "ds_algo")
     focused_chunks: list[dict] = []
     requested = set(infer_kp_ids(topic_name)) | ({kp} if kp != "custom_topic" else set())
@@ -116,7 +120,7 @@ def focus_chunks_on_topic(chunks: list[dict], kp: str | None, topic_name: str) -
         # Preserve all explicitly mentioned subjects in a compound question.
         if (space and chunk.get("source_type") == "textbook"
                 and chunk.get("source_id") == space["course"].get("textbook", {}).get("id")
-                and _metadata_kps(chunk) & requested):
+                and (whole_course or _metadata_kps(chunk) & requested)):
             focused_chunks.append(copied)
             continue
         copied["text"] = _focused_text(

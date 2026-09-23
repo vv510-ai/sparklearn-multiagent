@@ -65,6 +65,7 @@ export interface ResourceItem {
     generation_mode?: "unavailable" | "demo" | "source_guide" | "model";
     template?: string;
     notes_scope?: string;
+    source_policy?: "strict" | "supplement";
     markmap?: string;
     questions?: QuizQuestion[];
     flashcards?: {

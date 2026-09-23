@@ -177,6 +177,7 @@ async def chat(req: ChatRequest):
         )
 
     history = get_session_messages(req.user_id, session_id, limit=120)
+    from ..services.source_policy import resolve_source_policy
     current = {"role": "user", "content": req.message}
     append_message(req.user_id, session_id, "user", visible_message)
     touch_notebook(req.user_id, req.notebook_id)
@@ -185,6 +186,8 @@ async def chat(req: ChatRequest):
         "session_id": session_id,
         "notebook_id": req.notebook_id,
         "messages": [current],
+        "learning_goal": req.message,
+        "source_policy": resolve_source_policy(req.source_policy, req.message, history),
         "conversation": [*history, current],
         "topic_label": req.topic_label,
         "source_ids": source_ids,

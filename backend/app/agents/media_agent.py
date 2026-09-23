@@ -365,7 +365,7 @@ async def run(state: dict) -> dict:
     )
     chunks = focus_chunks_on_topic(chunks, kp, name)
     context, citations = build_context(chunks)
-    if source_ids and not chunks:
+    if (source_ids or state.get("source_policy") == "strict") and not chunks:
         script = {
             "title": f"{name}·资料不足",
             "narration": "当前选中的资料没有可检索内容，因此未生成资料范围外的讲解视频。",
@@ -378,7 +378,7 @@ async def run(state: dict) -> dict:
             "kind": explicit_kind,
             "kp": kp,
             "title": script["title"],
-            "payload": {"script": script, "degraded": True, "reason": "selected sources have no indexed content"},
+            "payload": {"script": script, "degraded": True, "generation_mode": "unavailable", "blocked_reason": "source_scope_empty", "reason": "selected sources have no indexed content"},
             "citations": [],
         }
         await emit({"type": "resource", "resource": resource})

@@ -18,6 +18,8 @@ from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check, grounding_check_local
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, kp_retrieval_text, resolve_conversation_topic
+from ..services.source_policy import allows_supplement
+from ..services.learning_context import supplemental_context
 from ..services.note_service import recent_note_chunks
 from ..services.topic_scope import focus_chunks_on_topic
 from .emitter import agent_end, agent_start, agent_token, emit
@@ -580,6 +582,9 @@ async def run(state: dict) -> dict:
     )
     chunks = _focused_kp_chunks(chunks, retrieval_kp)
     chunks = focus_chunks_on_topic(chunks, retrieval_kp, topic_name)
+    supplement = allows_supplement(state)
+    if supplement:
+        chunks.extend(supplemental_context(question))
     if guided:
         chunks = _beginner_first_chunks(chunks)
     if not source_ids and not guided and retrieval_kp:
@@ -609,7 +614,7 @@ async def run(state: dict) -> dict:
         "retrieval": retrieval,
     })
     ctx, citations = build_context(chunks)
-    if source_ids and not chunks and not interaction_resource:
+    if (source_ids or state.get("source_policy") == "strict") and not chunks and not interaction_resource and not supplement:
         answer = "在你当前选中的资料中没有检索到可用内容，所以我没有补充资料之外的答案。请换一份资料，或检查上传文件是否已完成索引。"
         await agent_token("tutor", answer)
         await emit({"type": "token", "delta": answer})
@@ -658,6 +663,7 @@ async def run(state: dict) -> dict:
         conversation=state.get("conversation") or state.get("messages") or [],
         guided=guided,
         general_knowledge=custom_topic and not source_ids,
+        source_policy="supplement" if supplement else "strict",
     )
     prompt = prompt_call.prompt
     task_context = {"question": question, "source_count": len(source_ids), "material_chars": len(ctx),
@@ -747,6 +753,10 @@ async def run(state: dict) -> dict:
                 task_context=task_context,
             ):
                 raw_parts.append(delta)
+                # A later token can introduce a fabricated source number.
+                # Supplemented answers are released only after the full citation check.
+                if supplement:
+                    continue
                 if answer_streamed:
                     filtered_delta = safety_filter(delta)
                     safe_delta = str(filtered_delta.get("text") or delta)
@@ -765,11 +775,12 @@ async def run(state: dict) -> dict:
                     candidate,
                     ground_contexts,
                     question=question,
+                    allow_supplement=supplement,
                 )
                 preliminary_safety = safety_filter(candidate)
                 if (
                     candidate
-                    and preliminary_ground.get("grounded", False)
+                    and (preliminary_ground.get("grounded", False) or preliminary_ground.get("accepted", False))
                     and preliminary_safety.get("passed", preliminary_safety.get("safe", True))
                     and (
                         interaction_resource
@@ -841,7 +852,7 @@ async def run(state: dict) -> dict:
                 )
 
         if model_answer:
-            if custom_topic and not chunks:
+            if custom_topic and not chunks and not supplement:
                 ground = {
                     "grounded": True,
                     "unsupported": [],
@@ -852,8 +863,9 @@ async def run(state: dict) -> dict:
                     answer,
                     ground_contexts,
                     question=question,
+                    allow_supplement=supplement,
                 )
-            if not ground.get("grounded", False):
+            if not ground.get("grounded", False) and not ground.get("accepted", False):
                 grounding_fallback_reason = str(ground.get("verdict") or "存在资料外表述")
                 failed_grounding = {
                     "grounded": False,
@@ -904,6 +916,12 @@ async def run(state: dict) -> dict:
 
     # Deterministic and short guarded answers are emitted here. Longer model
     # answers start streaming after a small validated prefix above.
+    if supplement and ground.get("accepted"):
+        notice = "\n\n> " + ("以上依据相关资料并允许通用补充；补充部分未经资料逐项核验。" if chunks
+                                  else "本次未找到相关资料，以上为通用知识讲解，未经课程资料核验。")
+        answer += notice
+        if answer_streamed:
+            await _emit_answer(notice)
     safety = safety_filter(answer)
     if not safety.get("passed", safety.get("safe", True)):
         answer = str(safety.get("text") or answer)
@@ -914,20 +932,21 @@ async def run(state: dict) -> dict:
         "grounded": bool(ground.get("grounded", False)),
         "unsupported_count": len(ground.get("unsupported") or []),
         "verdict": ground.get("verdict", ""),
+        "verification": ground.get("verification", "source_check"),
     }
     await emit({
         "type": "progress",
         "agent": "tutor",
         "stage": "grounding",
         "percent": 100,
-        "detail": "资料溯源通过" if grounding["grounded"] else "资料溯源需要复核",
+        "detail": "含通用补充，未声称全部经过资料核验" if ground.get("accepted") else "资料溯源通过" if grounding["grounded"] else "资料溯源需要复核",
         "grounding": grounding,
     })
     flags = (
         [{"agent": "tutor", "type": "grounding_fallback", "detail": grounding_fallback_reason}]
         if grounding_fallback_reason else []
     )
-    if not ground.get("grounded", True):
+    if not ground.get("grounded", True) and not ground.get("accepted", False):
         flags.append({"agent": "tutor", "type": "grounding", "detail": ground.get("verdict", "")})
         await emit({"type": "safety", "level": "warn",
                     "detail": "部分表述未命中教材依据,已提示复核"})

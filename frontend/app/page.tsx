@@ -197,6 +197,7 @@ export default function Home() {
   const [notebooks, setNotebooks] = useState<LearningNotebook[]>([]);
   const [activeNotebook, setActiveNotebook] = useState<LearningNotebook | null>(null);
   const [initialChatMessages, setInitialChatMessages] = useState<NonNullable<LearningNotebook["messages"]>>([]);
+  const [sourcePolicies, setSourcePolicies] = useState<Record<string, "auto" | "strict" | "supplement">>({});
   const [notebookLoading, setNotebookLoading] = useState(false);
   const [openingNotebookId, setOpeningNotebookId] = useState("");
   const [libraryError, setLibraryError] = useState("");
@@ -698,6 +699,7 @@ export default function Home() {
         knowledge_points: topicKp ? [topicKp] : [],
         kinds,
         source_ids: selectedSourceIds,
+        source_policy: sourcePolicies[activeNotebook.id] || "auto",
         prompt_template: promptTemplate,
         artifact_scope: conversationWide ? "conversation" : "current_topic",
       },
@@ -927,6 +929,8 @@ export default function Home() {
               initialMessages={initialChatMessages}
               topic={conversationFocus || notebookTopic}
               sourceIds={selectedSourceIds}
+              sourcePolicy={sourcePolicies[activeNotebook?.id || ""] || "auto"}
+              onSourcePolicyChange={(value) => setSourcePolicies(current => ({ ...current, [activeNotebook?.id || ""]: value }))}
               onUploadClick={() => activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true)}
               onCreateNotebook={() => { setPanelError(""); setNewBookOpen(true); }}
               onNewConversation={activeNotebook ? () => void startNewConversation() : undefined}

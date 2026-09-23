@@ -45,6 +45,16 @@ def _is_lightweight_chat(message: str) -> bool:
     )
 
 
+def _affirmed(message: str, hint: str) -> bool:
+    compact = re.sub(r"\s+", "", str(message or "")).lower()
+    if hint not in compact:
+        return False
+    return re.search(
+        rf"(?:不需要|不要|不用|无需|别(?:再)?(?:生成|给|做)?|不想要|不是要)[^。！？!?，,；;]{{0,16}}{re.escape(hint)}",
+        compact,
+    ) is None
+
+
 def requested_resource_kinds(message: str) -> list[str]:
     """只把用户明确点名的产物交给生成链路，避免模型擅自扩展成全套资源。"""
     if is_draft_feedback(message):
@@ -52,13 +62,7 @@ def requested_resource_kinds(message: str) -> list[str]:
     compact = re.sub(r"\s+", "", str(message or "")).lower()
 
     def affirmed(hint: str) -> bool:
-        if hint not in compact:
-            return False
-        negated = re.search(
-            rf"(?:不需要|不要|不用|无需|别(?:再)?(?:生成|给|做)?|不想要|不是要)[^。！？!?，,；;]{{0,16}}{re.escape(hint)}",
-            compact,
-        )
-        return negated is None
+        return _affirmed(compact, hint)
 
     if any(affirmed(hint) for hint in _ALL_RESOURCE_HINTS):
         return ["doc", "mindmap", "quiz", "video"]
@@ -142,6 +146,13 @@ async def run(state: dict) -> dict:
     await agent_end("orchestrator", f"意图={intent}({reason})→ {plan_hint}",
                     {"intent": intent, "kinds": selected_kinds})
     output = {"intent": intent, "artifact_policy": "on_demand", "model_depth": model_depth}
+    if intent == "generate":
+        output["learning_goal"] = state.get("learning_goal") or msg
+        if "doc" in selected_kinds and not state.get("prompt_template"):
+            output["prompt_template"] = (
+                "one_page" if any(_affirmed(msg, hint) for hint in ("一图看懂", "一页看懂"))
+                else "complete_notes"
+            )
     if selected_kinds:
         output["kinds"] = selected_kinds
     return output

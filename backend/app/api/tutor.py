@@ -60,6 +60,7 @@ async def transcribe_question(
 @router.post("/tutor")
 @scoped_endpoint
 async def tutor(req: TutorRequest):
+    from ..services.source_policy import resolve_source_policy
     from ..rag.ingest import validate_source_scope
     from ..services.learning_scope import selected_sources
     ensure_user(req.user_id)
@@ -71,6 +72,7 @@ async def tutor(req: TutorRequest):
         "user_id": req.user_id,
         "notebook_id": req.notebook_id,
         "source_ids": source_ids,
+        "source_policy": resolve_source_policy(req.source_policy, req.question),
         "session_id": uuid.uuid4().hex[:8],
         "messages": [{"role": "user", "content": req.question or "请讲讲这道题"}],
         "intent": "tutor",

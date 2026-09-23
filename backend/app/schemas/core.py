@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     session_id: str = Field(default="s1")
     notebook_id: str = ""
     message: str
+    source_policy: Literal["auto", "strict", "supplement"] = "auto"
     topic_label: str = ""
     source_ids: list[str] = Field(default_factory=list)
     display_message: str = Field(default="", description="前端可见且持久化的用户原话")
@@ -29,6 +30,7 @@ class GenerateRequest(BaseModel):
     knowledge_points: list[str] = Field(default_factory=list)
     kinds: list[str] = Field(default_factory=lambda: ["doc", "mindmap", "quiz", "video"])
     source_ids: list[str] = Field(default_factory=list)
+    source_policy: Literal["auto", "strict", "supplement"] = "auto"
     prompt_template: str = Field(default="", description="后端白名单学习模板键")
     artifact_scope: Literal["current_topic", "conversation"] = Field(
         default="current_topic",
@@ -53,6 +55,7 @@ class TutorRequest(BaseModel):
     user_id: str = "demo_user"
     notebook_id: str = ""
     source_ids: list[str] = Field(default_factory=list)
+    source_policy: Literal["auto", "strict", "supplement"] = "auto"
     question: str = ""
     image_base64: Optional[str] = None
     want: Literal["text", "diagram", "video", "auto"] = "auto"

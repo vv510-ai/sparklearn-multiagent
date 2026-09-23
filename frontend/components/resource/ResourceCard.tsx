@@ -137,6 +137,7 @@ export default function ResourceCard({
     ? { label: "互动音频", code: "听讲", icon: "听", variant: "success" as const, hint: "来源约束的短讲解；可边听边暂停提问" }
     : baseMeta;
   const grounded = r.payload?.grounded;
+  const supplemented = payload.source_policy === "supplement" && payload.generation_mode === "model";
   const issue = resourceIssue(r);
   const [audioPath, setAudioPath] = useState(payload.audio_url || "");
   const [audioState, setAudioState] = useState(payload.audio);
@@ -183,7 +184,8 @@ export default function ResourceCard({
             <span>{kpName(r.kp)}</span>
           </span>
         </span>
-        {grounded === false && <Badge variant="warn" title="来源核对未通过或未完成，建议复核">待复核</Badge>}
+        {supplemented ? <Badge variant="neutral" title="允许模型补充解释，补充部分未经资料逐项核验">含通用补充</Badge>
+          : grounded === false && <Badge variant="warn" title="来源核对未通过或未完成，建议复核">待复核</Badge>}
         {issue && <Badge variant="danger">内容待补全</Badge>}
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[#D8DED7] bg-[#F7F8F5] text-sm font-black text-[#57635A] transition ${open ? "rotate-90" : ""}`} aria-hidden>
           ›
@@ -194,7 +196,7 @@ export default function ResourceCard({
       {open && (
         <div className="border-t border-[#E5E9E3] bg-white px-4 py-4">
           {meta.hint && payload.generation_mode !== "unavailable" && (
-            <p className="mb-3 rounded-[10px] border border-[#E5E9E3] bg-[#FBFCFA] px-3 py-2 text-xs leading-5 text-[#57635A]">{meta.hint}</p>
+            <p className="mb-3 rounded-[10px] border border-[#E5E9E3] bg-[#FBFCFA] px-3 py-2 text-xs leading-5 text-[#57635A]">{supplemented ? "资料优先，允许补充解释与例子；补充部分未经资料逐项核验。" : meta.hint}</p>
           )}
 
           {isText && (audioPath || narration || audioState || payload.cover_url) && (

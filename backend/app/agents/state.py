@@ -26,6 +26,7 @@ class LearningState(TypedDict, total=False):
     knowledge_points: list[str]
     kinds: list[str]                                   # 期望生成的资源类型
     source_ids: list[str]                              # 指定上传资料
+    source_policy: str                                # strict|supplement，独立于检索范围
     prompt_template: str                              # 白名单学习模板键
     artifact_scope: str                               # current_topic|conversation
     conversation_topics: list[dict]                   # 会话级产物覆盖的去重知识点

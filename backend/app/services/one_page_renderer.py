@@ -86,7 +86,8 @@ def render_one_page(name: str, markdown: str, *, content_status: str) -> dict:
     header = title if _width(title) <= 36 else "一图看懂 · 完整主题见正文"
     scope = {"source_excerpt": "资料原文摘录 · 仅覆盖本次检索片段",
              "checked": "依据相关资料整理 · 可结合出处复核",
-             "general_knowledge": "通用知识整理 · 未经课程资料核验"}[content_status]
+             "general_knowledge": "通用知识整理 · 未经课程资料核验",
+             "supplemented": "资料优先，含通用补充 · 补充部分未经资料核验"}[content_status]
     try:
         for page_index, group in enumerate(groups):
             parts = [

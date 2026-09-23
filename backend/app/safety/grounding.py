@@ -19,6 +19,7 @@ def grounding_check_local(
     contexts: list[str],
     *,
     question: str = "",
+    allow_supplement: bool = False,
 ) -> dict:
     """Fast, deterministic guard for the live tutor stream.
 
@@ -30,9 +31,6 @@ def grounding_check_local(
     if not text:
         return {"grounded": False, "unsupported": ["空回答"], "verdict": "回答为空"}
     usable_contexts = [str(item or "").strip() for item in contexts if str(item or "").strip()]
-    if not usable_contexts:
-        return {"grounded": True, "unsupported": [], "verdict": "通用知识回答，无资料引用声明"}
-
     citations = [int(value) for value in re.findall(r"\[\^(\d+)\]", text)]
     invalid = [value for value in citations if value < 1 or value > len(usable_contexts)]
     if invalid:
@@ -41,6 +39,11 @@ def grounding_check_local(
             "unsupported": [f"无效引用 [^{value}]" for value in invalid[:5]],
             "verdict": "引用编号超出当前资料范围",
         }
+    if allow_supplement:
+        return {"grounded": False, "accepted": True, "verification": "citation_only",
+                "unsupported": [], "verdict": "仅完成引用编号检查；通用补充未逐项核实"}
+    if not usable_contexts:
+        return {"grounded": True, "unsupported": [], "verdict": "通用知识回答，无资料引用声明"}
 
     compact_question = re.sub(r"\s+", "", str(question or ""))
     subject_match = re.search(

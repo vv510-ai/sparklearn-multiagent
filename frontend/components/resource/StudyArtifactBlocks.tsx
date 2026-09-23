@@ -142,6 +142,7 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
         {textLayout ? <>
           {visual.content_status === "source_excerpt" && <p className="border-b border-emerald-100 px-4 py-3 text-xs leading-5 text-emerald-900">本次扩写未通过核对，以下仅展示相关资料原文摘录，未覆盖整份资料。</p>}
           {visual.content_status === "general_knowledge" && <p className="px-4 py-3 text-xs text-amber-800">以下为通用知识整理，未经课程资料核验。</p>}
+          {visual.content_status === "supplemented" && <p className="px-4 py-3 text-xs text-amber-800">以下优先依据资料，并包含通用补充；补充部分未经资料逐项核验。</p>}
           {picture}
         </> : <div className="px-4 py-3">
           <p role="note" className="mb-3 text-sm leading-6 text-amber-900">旧版 AI 配图的文字、编号和符号可能失真。请重新生成，并结合下方正文核对。</p>

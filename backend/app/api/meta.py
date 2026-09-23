@@ -4,6 +4,8 @@ GET /api/profile/{user_id}  —— 8 维学生画像;
 GET /api/health             —— 健康检查(含运行模式)。"""
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter
 
 from ..auth import require_current_user_id
@@ -95,6 +97,7 @@ async def save_onboarding(req: OnboardingRequest):
 @router.get("/health")
 async def health():
     return {"status": "ok", "demo_mode": is_demo(),
+            "release": os.getenv("APP_RELEASE", "unknown"),
             "course": COURSE_NAME,
             "llm": active_llm_label(),
             "llm_provider": "mock" if is_demo() else active_provider(),

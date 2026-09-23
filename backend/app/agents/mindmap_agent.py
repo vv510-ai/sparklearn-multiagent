@@ -206,6 +206,7 @@ def _retrieve_node_chunks(
 async def _expand_node(
     node_id: str, *, source_ids: list[str], goal: str, guided: bool = False,
     topic_name: str = "", custom_topic: bool = False, user_id: str = "demo_user",
+    source_policy: str = "",
 ) -> tuple[list[str], list[dict], PromptCall]:
     name = topic_name or kp_name(node_id)
     node_desc = load_kg()["nodes"].get(node_id, {}).get("desc", "")
@@ -224,6 +225,8 @@ async def _expand_node(
         context=ctx or "(无)",
         general_knowledge=custom_topic and not source_ids,
     )
+    if source_policy == "strict" and not chunks:
+        return ["当前资料未找到相关内容，请选择相关资料后重试"], [], prompt_call
 
     points: list[str] = _guided_goal_points(goal, chunks) if guided else []
     if (chunks or custom_topic) and not points and not (is_demo() and resolve("CAPABILITY=mindmap.leaf") is None):
@@ -415,6 +418,7 @@ async def run(state: dict) -> dict:
                 topic_name=topic["name"] if topic["custom"] else "",
                 custom_topic=topic["custom"],
                 user_id=state.get("user_id", "demo_user"),
+                source_policy=str(state.get("source_policy") or ""),
             )
             relation_points = _conversation_relation_points(
                 topic["id"], selected_ids, position,
@@ -450,6 +454,7 @@ async def run(state: dict) -> dict:
                 "topic_label": "本次对话学习全景",
                 "custom_topic": all(topic["custom"] for topic in conversation_topics),
                 "conversation_map": True,
+                "generation_mode": "unavailable" if state.get("source_policy") == "strict" and not citations else "model",
                 "topic_count": len(conversation_topics),
                 "topics": conversation_topics,
                 "prompt_skill": prompt_meta,
@@ -485,6 +490,7 @@ async def run(state: dict) -> dict:
             goal=goal,
             guided=guided,
             topic_name=name if custom_topic else "",
+            source_policy=str(state.get("source_policy") or ""),
             custom_topic=custom_topic,
             user_id=state.get("user_id", "demo_user"),
         )
@@ -503,6 +509,7 @@ async def run(state: dict) -> dict:
                 "payload": {"markmap": md,
                             "topic_label": name,
                             "custom_topic": custom_topic,
+                            "generation_mode": "unavailable" if state.get("source_policy") == "strict" and not citations else "model",
                             "prompt_skill": prompt_meta,
                             "outline_node_ids": [{"relation": rel, "id": node_id}
                                                  for rel, node_id in outline]},

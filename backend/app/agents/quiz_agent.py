@@ -261,7 +261,7 @@ async def run(state: dict) -> dict:
         user_id=state.get("user_id", "demo_user"),
     )
     chunks = focus_chunks_on_topic(chunks, kp, name)
-    if source_ids and not chunks:
+    if (source_ids or state.get("source_policy") == "strict") and not chunks:
         await agent_end("quiz", "所选资料无可用片段,已阻止无依据出题")
         return {
             "generated_resources": {},

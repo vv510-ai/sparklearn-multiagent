@@ -76,6 +76,10 @@ async def generate(req: GenerateRequest):
         topic_label=req.topic_label,
     )
     msg = req.goal or f"请为我生成 {topic_name} 的学习资源"
+    from ..services.source_policy import resolve_source_policy
+    source_policy = resolve_source_policy(req.source_policy, req.goal, history)
+    if conversation_wide or req.prompt_template in {"remediation", "question_review"}:
+        source_policy = "strict"
     conversation_topics = (
         collect_conversation_topics(history, req.conversation_focus)
         if conversation_map else []
@@ -92,6 +96,7 @@ async def generate(req: GenerateRequest):
         "knowledge_points": [topic_kp],
         "kinds": req.kinds,
         "source_ids": source_ids,
+        "source_policy": source_policy,
         "prompt_template": req.prompt_template,
         "artifact_scope": "conversation" if conversation_wide else req.artifact_scope,
         "conversation_topics": conversation_topics,

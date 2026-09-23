@@ -89,6 +89,8 @@ export default function Chat({
   sessionId = "",
   initialMessages = [],
   sourceIds = [],
+  sourcePolicy = "auto",
+  onSourcePolicyChange,
   topic = "",
   onUploadClick,
   onCreateNotebook,
@@ -113,6 +115,8 @@ export default function Chat({
   sessionId?: string;
   initialMessages?: { role: "user" | "assistant"; content: string }[];
   sourceIds?: string[];
+  sourcePolicy?: "auto" | "strict" | "supplement";
+  onSourcePolicyChange?: (value: "auto" | "strict" | "supplement") => void;
   topic?: string;
   onUploadClick?: () => void;
   onCreateNotebook?: () => void;
@@ -303,13 +307,14 @@ export default function Chat({
 
         abortRef.current = postSSE(
           directRequest?.path || "/chat",
-          directRequest?.body || {
+          directRequest ? { source_policy: sourcePolicy, ...directRequest.body } : {
             user_id: USER_ID,
             session_id: sessionRef.current,
             notebook_id: notebookId,
             message: q,
             topic_label: topic,
             source_ids: sourceIds,
+            source_policy: sourcePolicy,
             display_message: displayText?.trim() || q,
           },
           (ev) => {
@@ -371,7 +376,7 @@ export default function Chat({
         );
       });
     },
-    [busy, notebookId, onEvent, onLearningTurn, sourceIds, topic, updateGuidance],
+    [busy, notebookId, onEvent, onLearningTurn, sourceIds, sourcePolicy, topic, updateGuidance],
   );
 
   useEffect(() => {
@@ -442,6 +447,18 @@ export default function Chat({
                 整理本次笔记
               </button>
             )}
+            {onSourcePolicyChange && <select
+              aria-label="回答依据"
+              value={sourcePolicy}
+              disabled={busy}
+              onChange={(event) => onSourcePolicyChange(event.target.value as "auto" | "strict" | "supplement")}
+              className="notebook-soft-control max-w-full rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-medium text-[#596171]"
+              title="明确说只按资料时会遵守；允许补充的内容会与资料依据区分"
+            >
+              <option value="auto">按对话要求（默认可补充）</option>
+              <option value="supplement">资料优先，允许补充</option>
+              <option value="strict">仅依据资料</option>
+            </select>}
             <div className="notebook-soft-control rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-medium text-[#596171]">
               {sourceIds.length ? `${sourceIds.length} 份已选资料` : "当前课程 · 尚未选择上传资料"}
             </div>
