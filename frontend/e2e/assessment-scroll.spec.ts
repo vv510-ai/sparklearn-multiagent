@@ -74,7 +74,7 @@ for (const viewport of [
       await page.getByRole("button", { name: "这题还不会", exact: true }).click();
       await expect.poll(async () => (await activeQuestion.allTextContents()).join("")).not.toBe(previous);
     }
-    const result = page.getByRole("heading", { name: "你的学习起点，已经清楚了一些", exact: true });
+    const result = page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/, exact: true });
     await expect(result).toBeInViewport({ ratio: 1 });
     await expect(result).toBeFocused();
     await page.screenshot({ path: info.outputPath("completed.png") });

@@ -233,9 +233,8 @@ export default function AssessmentPanel({
     >
       <div className="notebook-content-heading">
         <div>
-          <span>ASSESS · PLAN · LEARN</span>
           <h1>起点测评与学习计划</h1>
-          <p>{data?.course?.title || initialSurvey.course_title || "当前课程"} · 每一步，都有作答依据。</p>
+          <p>{data?.course?.title || initialSurvey.course_title || "当前课程"} · 一次只做一步。</p>
         </div>
         <button className="secondary-action" onClick={onBack}>
           <ArrowLeft size={15} />
@@ -250,17 +249,6 @@ export default function AssessmentPanel({
           </button>
         </div>
       )}
-      {data?.course && <details className="entry-course-context"><summary>这份计划依据哪些目标与资料？</summary><p>优先：{data.survey.goal}；每个学习日 {data.survey.daily_minutes} 分钟，每周 {data.survey.study_days.length} 天。</p><p>{data.course.coverage_note}</p>{data.course.sources?.map(source => <p key={source.id}>{source.title} · {source.location_kind} {source.locations.join("、")} · 已取样 {source.sampled_chunks}/{source.total_chunks} 个片段</p>)}{!data.course.sources?.length && <p>使用本课程入门内容；尚未绑定上传文件。</p>}<p>{data.course.boundary}</p></details>}
-      {data?.course?.textbook && <TextbookScope book={data.course.textbook} />}
-      {data?.course?.exam_reference && <details className="entry-course-context"><summary>六级正式考试与本课练习的区别</summary>
-        <p>正式笔试 {data.course.exam_reference.total_minutes} 分钟：{data.course.exam_reference.parts.map(p => `${p.name} ${p.weight}%（${p.minutes} 分钟）`).join("；")}。</p>
-        <p>{data.course.boundary}</p><a href={data.course.exam_reference.url} target="_blank" rel="noopener noreferrer">查看教育部教育考试院的考试结构 ↗</a>
-      </details>}
-      {data && <details className="entry-course-context assessment-basis"><summary>这些题怎样判断学习起点？</summary>
-        <p>题目按当前课程的知识点编写，用来决定先讲什么、先练什么。{data.course?.kind === "cet6" ? "六级课程参照官方考试模块组织原创小题，题目不是官方真题，也没有经过标准化测验校准，不能预测六级分数。" : "这些是教学用的小题，没有经过标准化测验校准，不用于预测考试分数。"}</p>
-        <p>每个模块先收集 3 次作答：少于 3 次保持待测；答对 0–1 题先补基础，2 题继续巩固，3 题再用新题确认。这是教学安排的初步规则，不代表已经全面掌握。</p>
-        <p>“还不会”记录当前困难；“暂时跳过”不计错。自述水平、作答速度和信心不加分。学过之后，再用未见过的题和间隔复测调整计划；写作、翻译还需要检查实际输出。</p>
-      </details>}
       {loading ? (
         <p className="entry-loading" role="status">
           正在读取你的学习起点…
@@ -379,25 +367,22 @@ export default function AssessmentPanel({
         <div className="entry-results">
           <section className="entry-result-hero">
             <span className="entry-symbol">
-              <Check size={26} />
+              {report.coverage > 0 ? <Check size={26} /> : <BookOpen size={26} />}
             </span>
             <div>
-              <p className="entry-eyebrow">从这里开始</p>
-              <h2 ref={resultHeading} tabIndex={-1}>你的学习起点，已经清楚了一些</h2>
+              <p className="entry-eyebrow">当前学习安排</p>
+              <h2 ref={resultHeading} tabIndex={-1}>{report.coverage > 0 ? "你的学习起点，已经清楚了一些" : "先学一步，再逐步了解你"}</h2>
               <p>
-                本次完成 {report.coverage}/{report.total_skills}{" "}
-                个知识点的初步测评。
-                {data.mode === "screening" ? "这是起点抽样；其余知识点保留待测，可以接着补全。" : data.mode === "foundation"
-                  ? "范围为入门基础，其他章节仍需测评。"
-                  : "从薄弱环节开始，逐步用新题验证。"}
+                {report.coverage > 0
+                  ? `已初步了解 ${report.coverage}/${report.total_skills} 个知识点，先完成下面这一步。`
+                  : "已有的作答还不足以判断各知识点的掌握情况，可以先学，再用新题逐步确认。"}
               </p>
             </div>
           </section>
-          <p className="entry-note">{report.boundary}</p>
           {plan.practice_update && <p className="intake-response" role="status">{plan.practice_update}</p>}
           {firstTask && !studyTask && <section className="entry-first-step">
-            <p className="entry-eyebrow">把下一步变得具体</p><h3>{firstTask.title}</h3>
-            <p>{firstTask.reason}。这一步约 {firstTask.minutes} 分钟，先完成它就好。</p>
+            <p className="entry-eyebrow">现在只做这一项 · 约 {firstTask.minutes} 分钟</p><h3>{firstTask.title}</h3>
+            <p>{firstTask.criterion}</p>
             <button className="intake-primary" onClick={() => setStudyTask(firstTask)}>开始第一项学习任务 <ArrowRight size={18} /></button>
           </section>}
           {studyTask && <section className="entry-study">
@@ -411,12 +396,20 @@ export default function AssessmentPanel({
             {!practiceActive && (studyMaterial ? <><p className="entry-eyebrow">对应学习资料 · 按作答与当前目标整理</p><Markdown text={studyMaterial.markdown} allowCodeBlocks /></> : <p className="intake-response">这一步先补充作答证据。小知会逐题等待你回答，再决定需要哪些讲解。</p>)}
             <button className="intake-primary" onClick={() => onLearn(studyTask.goal)}><Play size={16} />请小知带我练习</button>
           </section>}
+          {!firstTask && !studyTask && <section className="entry-first-step">
+            <h3>当前可做的任务已完成</h3>
+            <p>可以回到对话继续提问，或展开完整计划查看后续安排。</p>
+            <button className="intake-primary" onClick={onBack}>继续学习对话 <ArrowRight size={18} /></button>
+          </section>}
+          <details className="entry-report-details">
+            <summary>查看完整计划、作答记录与学习资料</summary>
+            <p className="entry-note">{report.boundary}</p>
           {!!data.learning_progress && Object.keys(data.learning_progress).length > 0 && <section className="textbook-scope" aria-label="新题与复测记录"><strong>学习之后，有什么变化？</strong>{Object.entries(data.learning_progress).map(([kp, progress]) => {
             const task = allTasks.find(t => t.kp === kp);
             const name = data.course?.outline.find(n => n.id === kp)?.name || kp;
             return <div key={kp}><p>{name}：独立答对 {progress.correct || 0}/{progress.independent || 0} 道新题。{progress.exhausted ? "本主题的新题已全部完成。" : progress.next_due_at ? `下次复测：${new Date(progress.next_due_at).toLocaleString("zh-CN")}。` : "本轮可以继续。"}</p>{task && <button className="secondary-action" onClick={() => setStudyTask(task)}>继续{name}练习 / 复测</button>}</div>;
           })}<small>起点报告保留原始作答。计划会随新的独立证据调整；看过答案后的正确作答不会提高独立掌握记录。</small></section>}
-          {!!plan.adaptations?.length && <details className="entry-adaptations" open><summary>为什么这样安排 · 根据你的选择</summary><ul>{plan.adaptations.map((s, i) => <li key={i}>{s}</li>)}</ul></details>}
+          {!!plan.adaptations?.length && <details className="entry-adaptations"><summary>为什么这样安排 · 根据你的选择</summary><ul>{plan.adaptations.map((s, i) => <li key={i}>{s}</li>)}</ul></details>}
           {data.mode !== "comprehensive" && report.coverage < report.total_skills && <div className="entry-result-actions"><button className="intake-secondary" disabled={busy} onClick={() => void continueAssessment()}>继续补全课程摸底 <ArrowRight size={16} /></button><p className="entry-note">已做题目保留，继续检查尚未覆盖的知识点，可随时暂停。</p></div>}
           <section>
             <div className="entry-section-heading">
@@ -612,8 +605,23 @@ export default function AssessmentPanel({
             )}
           </section>
           <AssessmentReview key={data.id} report={report} onLearn={onLearn} />
+          </details>
         </div>
       ) : null}
+      {data && !setup && !loading && <details className="entry-reference-details">
+        <summary>了解测评方法与资料来源</summary>
+      {data?.course && <details className="entry-course-context"><summary>这份计划依据哪些目标与资料？</summary><p>优先：{data.survey.goal}；每个学习日 {data.survey.daily_minutes} 分钟，每周 {data.survey.study_days.length} 天。</p><p>{data.course.coverage_note}</p>{data.course.sources?.map(source => <p key={source.id}>{source.title} · {source.location_kind} {source.locations.join("、")} · 已取样 {source.sampled_chunks}/{source.total_chunks} 个片段</p>)}{!data.course.sources?.length && <p>使用本课程入门内容；尚未绑定上传文件。</p>}<p>{data.course.boundary}</p></details>}
+      {data?.course?.textbook && <TextbookScope book={data.course.textbook} />}
+      {data?.course?.exam_reference && <details className="entry-course-context"><summary>六级正式考试与本课练习的区别</summary>
+        <p>正式笔试 {data.course.exam_reference.total_minutes} 分钟：{data.course.exam_reference.parts.map(p => `${p.name} ${p.weight}%（${p.minutes} 分钟）`).join("；")}。</p>
+        <p>{data.course.boundary}</p><a href={data.course.exam_reference.url} target="_blank" rel="noopener noreferrer">查看教育部教育考试院的考试结构 ↗</a>
+      </details>}
+      {data && <details className="entry-course-context assessment-basis"><summary>这些题怎样判断学习起点？</summary>
+        <p>题目按当前课程的知识点编写，用来决定先讲什么、先练什么。{data.course?.kind === "cet6" ? "六级课程参照官方考试模块组织原创小题，题目不是官方真题，也没有经过标准化测验校准，不能预测六级分数。" : "这些是教学用的小题，没有经过标准化测验校准，不用于预测考试分数。"}</p>
+        <p>每个模块先收集 3 次作答：少于 3 次保持待测；答对 0–1 题先补基础，2 题继续巩固，3 题再用新题确认。这是教学安排的初步规则，不代表已经全面掌握。</p>
+        <p>“还不会”记录当前困难；“暂时跳过”不计错。自述水平、作答速度和信心不加分。学过之后，再用未见过的题和间隔复测调整计划；写作、翻译还需要检查实际输出。</p>
+      </details>}
+      </details>}
     </div>
   );
 }

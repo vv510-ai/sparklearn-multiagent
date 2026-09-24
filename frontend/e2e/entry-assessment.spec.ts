@@ -60,8 +60,9 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
   });
   for (let i = 3; i <= 18; i++) await answer(i);
   await expect(
-    page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" }),
+    page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/ }),
   ).toBeVisible();
+  await page.locator(".entry-report-details > summary").click();
   await expect(page.locator(".entry-skill")).toHaveCount(6);
   await expect(page.locator(".entry-material").first()).toBeVisible();
   await page.setViewportSize({ width: 1512, height: 982 });
@@ -114,7 +115,7 @@ test("起点测评可续答，并生成计划、资料与可预览的网课", as
   await page.reload();
   await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" }),
+    page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/ }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

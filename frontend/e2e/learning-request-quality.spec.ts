@@ -15,7 +15,7 @@ test("复合六级请求保留考点占分方法并直接生成一图看懂", as
   await page.getByRole("button", { name: "生成并核对学习范围", exact: true }).click();
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
-  await page.getByRole("button", { name: "返回对话", exact: true }).click();
+  await page.getByTitle("返回学习对话", { exact: true }).click();
   await page.getByLabel("对话选项", { exact: true }).click();
   await expect(page.getByRole("combobox", { name: "回答依据" })).toHaveValue("auto");
   await page.getByLabel("对话选项", { exact: true }).press("Escape");

@@ -70,7 +70,7 @@ test("真实资料经模型生成起点题，目标与来源继续进入学习�
   await expect(page.locator(".entry-study")).toContainText("生态学入门验收资料.txt");
   await page.screenshot({ path: testInfo.outputPath("material-first-task.png"), fullPage: true });
   await page.reload();
-  await expect(page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/ })).toBeVisible();
   const generated = await page.request.post("/api/resources/generate", { timeout: 180_000, data: {
     user_id: "session_user", notebook_id: state.notebook_id, kinds: ["doc"], prompt_template: "complete_notes",
     goal: "根据已选资料，分步骤讲解生态系统的能量流动与物质循环，并留下一个独立思考问题。",

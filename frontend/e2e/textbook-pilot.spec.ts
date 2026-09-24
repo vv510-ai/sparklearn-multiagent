@@ -40,7 +40,8 @@ test("Python 教材、个性化计划、新题与延迟复测在同一学习流�
   const weak = await preparePython(page);
   expect(weak.state.plan.days.flatMap((d: { tasks: { kind: string }[] }) => d.tasks).some((t: { kind: string }) => t.kind === "study")).toBe(true);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/ })).toBeVisible();
+  await page.locator(".entry-reference-details > summary").click();
   await expect(page.getByRole("region", { name: "教材依据与范围" })).toContainText("Python 官方教程");
   await page.getByRole("button", { name: "开始第一项学习任务" }).click();
   await expect(page.locator(".textbook-readings")).toContainText("数字");
@@ -67,6 +68,7 @@ test("Python 教材、个性化计划、新题与延迟复测在同一学习流�
   await page.screenshot({ path: testInfo.outputPath("textbook-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.reload();
+  await page.locator(".entry-report-details > summary").click();
   await expect(page.getByRole("region", { name: "新题与复测记录" })).toContainText("独立答对 3/3 道新题");
   await page.getByRole("region", { name: "新题与复测记录" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath("textbook-desktop.png"), fullPage: true });

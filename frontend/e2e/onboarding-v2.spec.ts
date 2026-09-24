@@ -68,11 +68,11 @@ test("多选引导可恢复，短测直达资料，并继续剩余摸底", async
     if (i === 2) {
       await page.getByRole("button", { name: "暂停，稍后继续" }).click();
       await page.reload();
-      await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
+      await expect(page.locator(".entry-question-card")).toBeVisible();
       await expect(page.getByText("已提交 3 题 / 最多 12 题", { exact: true })).toBeVisible();
     }
   }
-  await expect(page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/ })).toBeVisible();
   expect(sawMultiple).toBe(true);
   await expect(page.locator(".entry-skill.is-unmeasured")).toHaveCount(12);
   await expect(page.locator(".entry-adaptations")).toContainText("准备课程考试");
@@ -86,6 +86,7 @@ test("多选引导可恢复，短测直达资料，并继续剩余摸底", async
   await expect(page.locator(".entry-study")).toContainText("补全关键步骤");
   await page.screenshot({ path: testInfo.outputPath("05-first-task.png"), fullPage: true });
   await page.getByRole("button", { name: "返回起点报告" }).click();
+  await page.locator(".entry-report-details > summary").click();
   await page.getByRole("button", { name: "继续补全课程摸底" }).click();
   await expect(page.getByText("已提交 12 题 / 最多 48 题", { exact: true })).toBeVisible();
   const continued = await currentAssessment(page);
@@ -102,6 +103,7 @@ test("跳过引导后仍能找到测评入口", async ({ page }) => {
   await page.getByRole("button", { name: "看看原因" }).click();
   await expect(page.getByText("对，你抓住了最近访问的顺序。")).toBeVisible();
   await page.getByRole("button", { name: "已有明确方向，直接进入" }).click();
+  await page.getByRole("button", { name: "跳过引导", exact: true }).click();
   await expect(page.getByRole("button", { name: "先测一下我的水平", exact: true })).toBeVisible();
   const profile = (await (await page.request.get("/api/onboarding")).json()).profile;
   expect(profile.learning_intake.intro_practiced).toBe(true);

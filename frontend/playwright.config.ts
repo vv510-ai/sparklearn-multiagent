@@ -19,6 +19,7 @@ mkdirSync(runDir, { recursive: true });
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: process.env.PLAYWRIGHT_REAL_MODE === "1" ? [] : ["**/feedback-live.spec.ts"],
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,
@@ -27,12 +28,13 @@ export default defineConfig({
     ["list"],
     ["html", { open: "never", outputFolder: "playwright-report" }],
   ],
-  outputDir: "test-results",
+  outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR || "test-results",
   use: {
     baseURL: externalBaseURL || `http://localhost:${frontendPort}`,
-    trace: "retain-on-failure",
+    ignoreHTTPSErrors: process.env.ACCEPTANCE_ALLOW_SELF_SIGNED === "1",
+    trace: process.env.PLAYWRIGHT_REAL_MODE === "1" ? "off" : "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: process.env.PLAYWRIGHT_REAL_MODE === "1" ? "off" : "retain-on-failure",
   },
   projects: [
     {

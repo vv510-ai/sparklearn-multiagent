@@ -39,7 +39,7 @@ test("注册直接多选引导，Python 计划与高数课程独立，并自动�
       await expect(page.getByText("已提交 2 题 / 最多 12 题", { exact: true })).toBeVisible();
     }
   }
-  await expect(page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/ })).toBeVisible();
   state = await currentAssessment(page);
   expect(state.course.title).toBe("Python 入门");
   expect(state.plan.adaptations.join(" ")).toContain("符号");
@@ -64,7 +64,7 @@ test("注册直接多选引导，Python 计划与高数课程独立，并自动�
   await page.getByRole("combobox", { name: "切换科目书本" }).selectOption(pythonId);
   await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "切换科目书本" })).toBeEnabled();
-  await expect(page.getByRole("heading", { name: "你的学习起点，已经清楚了一些" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /你的学习起点，已经清楚了一些|先学一步，再逐步了解你/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("05-separated-plan.png"), fullPage: true });
   expect(errors).toEqual([]);
 });
