@@ -16,7 +16,9 @@ test("复合六级请求保留考点占分方法并直接生成一图看懂", as
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
   await page.getByRole("button", { name: "返回对话", exact: true }).click();
+  await page.getByLabel("对话选项", { exact: true }).click();
   await expect(page.getByRole("combobox", { name: "回答依据" })).toHaveValue("auto");
+  await page.getByLabel("对话选项", { exact: true }).press("Escape");
   const question = "帮我列出六级要考的考点、占分、你这个网站能提供的学习方法，以及怎么学习的框架，然后生成一图看懂。";
   await page.getByLabel("学习目标输入", { exact: true }).fill(question);
   const response = page.waitForResponse(r => r.url().endsWith("/api/chat") && r.request().method() === "POST", { timeout: 180_000 });

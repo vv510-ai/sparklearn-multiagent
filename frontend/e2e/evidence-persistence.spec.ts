@@ -46,7 +46,9 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
   await page.getByRole("button", { name: "返回对话", exact: true }).click();
+  await page.getByLabel("对话选项", { exact: true }).click();
   await page.getByRole("combobox", { name: "回答依据" }).selectOption("strict");
+  await page.getByLabel("对话选项", { exact: true }).press("Escape");
   const response = page.waitForResponse(r => r.url().endsWith("/api/chat") && r.request().method() === "POST");
   await page.getByLabel("学习目标输入", { exact: true }).fill("请用上传讲义解释能量流动和物质循环的区别，举草、兔、狐的例子，并保留引用编号。");
   await page.getByRole("button", { name: "发送", exact: true }).click();
@@ -79,7 +81,9 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   await page.screenshot({ path: info.outputPath("source-open.png"), fullPage: true });
   await page.reload();
   await page.addLocatorHandler(page.getByRole("button", { name: "返回对话", exact: true }), b => b.click());
+  await page.getByLabel("对话选项", { exact: true }).click();
   await expect(page.getByRole("combobox", { name: "回答依据" })).toHaveValue("strict");
+  await page.getByLabel("对话选项", { exact: true }).press("Escape");
   const reloaded = page.locator('[aria-label="小知回答"]').last();
   await reloaded.getByRole("link", { name: /查看引用/ }).first().click();
   expect(await page.locator(href!).innerText()).toBe(before);

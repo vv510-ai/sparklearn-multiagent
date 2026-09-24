@@ -39,7 +39,9 @@ test("已有课程上传递归资料并核对理解检查题", async ({ page }, 
   if (!(await source.getAttribute("class"))?.includes("is-selected")) await source.click();
   const builtin = page.getByRole("button", { name: /数据结构基础讲义/ });
   if ((await builtin.getAttribute("class"))?.includes("is-selected")) await builtin.click();
+  await page.getByLabel("对话选项", { exact: true }).click();
   await page.getByRole("combobox", { name: "回答依据" }).selectOption("strict");
+  await page.getByLabel("对话选项", { exact: true }).press("Escape");
   const response = page.waitForResponse(r => r.url().endsWith("/api/chat") && r.request().method() === "POST");
   await page.getByLabel("学习目标输入", { exact: true }).fill("请用上传讲义解释递归，重点说明终止条件和缩小问题的关系，并保留引用编号。");
   await page.getByRole("button", { name: "发送", exact: true }).click();
@@ -72,7 +74,9 @@ test("已有课程上传递归资料并核对理解检查题", async ({ page }, 
   await page.screenshot({ path: info.outputPath("source-open.png"), fullPage: true });
   await page.reload();
   await page.addLocatorHandler(page.getByRole("button", { name: "返回对话", exact: true }), b => b.click());
+  await page.getByLabel("对话选项", { exact: true }).click();
   await expect(page.getByRole("combobox", { name: "回答依据" })).toHaveValue("strict");
+  await page.getByLabel("对话选项", { exact: true }).press("Escape");
   const reloaded = page.locator('[aria-label="小知回答"]').last();
   await reloaded.getByRole("link", { name: /查看引用/ }).first().click();
   expect(await page.locator(href!).innerText()).toBe(before);
