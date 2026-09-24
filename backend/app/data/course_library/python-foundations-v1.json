@@ -777,7 +777,7 @@
       ],
       "markdown": "现在把前面的知识组合起来：记录每次学习的科目和分钟数，计算总时长，找出达到目标的记录，并保存到自己的文本文件。\n\n### 先拆任务，再写程序\n输入是什么？用列表保存多条记录，每条记录用字典表示。怎样检查？分钟数不能是负数；非法输入给出清楚提示。怎样计算？把汇总逻辑写进函数，通过 return 返回结果。怎样保存？用 UTF-8 文本，并说明文件模式会不会覆盖旧内容。\n\n### 分别验证各部分\n先用两条合法记录检查汇总，再试空列表、零分钟和非法文本。每次只增加一个功能。示例只演示内存中的统计，你的独立任务要补上输入检查和文件保存。\n\n完成这个任务说明你练习了本课程列出的基础，不代表已经学完面向对象、网络开发、数据分析或所有大学 Python 课程。",
       "example": {
-        "code": "def total_minutes(records):\n    return sum(item['minutes'] for item in records)\n\nrecords = [{'subject': 'Python', 'minutes': 20}, {'subject': '英语', 'minutes': 15}]\nprint(total_minutes(records))",
+        "code": "def total_minutes(records):\n    total = 0\n    for item in records:\n        total += item['minutes']\n    return total\n\nrecords = [{'subject': 'Python', 'minutes': 20}, {'subject': '英语', 'minutes': 15}]\nprint(total_minutes(records))",
         "output": "35"
       },
       "task": "独立完成一个学习记录程序：至少三条科目/分钟记录；用函数汇总；列出不少于 20 分钟的记录；验证非法分钟文本；保存到自己的 study_log.txt 并读回。提交实现、测试输入输出和一个你修复过的问题。",
@@ -792,7 +792,7 @@
         {
           "id": "project-1",
           "stem": "合上讲解，独立判断下面程序的输出。",
-          "code": "records = [{'minutes': 12}, {'minutes': 18}, {'minutes': 20}]\nprint(sum(r['minutes'] for r in records if r['minutes'] >= 18))",
+          "code": "records = [{'minutes': 12}, {'minutes': 18}, {'minutes': 20}]\ntotal = 0\nfor record in records:\n    if record['minutes'] >= 18:\n        total += record['minutes']\nprint(total)",
           "options": [
             "50",
             "20",

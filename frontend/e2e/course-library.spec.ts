@@ -36,7 +36,7 @@ test("工作台可直接选经典课程，失败续建不重复，切换课程�
   const python = (await (await page.request.get(`/api/notebooks/${pythonId}/learning`)).json()).course;
   expect(python.kind).toBe("python");
   expect(python.question_count).toBe(12);
-  await expect(page.locator(".course-source-summary").first()).toContainText("Python 入门");
+  await expect(page.locator(".course-source-summary").first()).toContainText("Python 官方教程");
   await expect(page.getByRole("heading", { name: "你希望小知先帮你完成什么？", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "新建课程", exact: true }).click();
@@ -52,7 +52,7 @@ test("工作台可直接选经典课程，失败续建不重复，切换课程�
   expect((await (await page.request.get(`/api/notebooks/${mathsId}/learning`)).json()).course.kind).toBe("calculus");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("combobox", { name: "切换科目书本" }).selectOption(pythonId);
-  await expect(page.locator(".course-source-summary").first()).toContainText("Python 入门");
+  await expect(page.locator(".course-source-summary").first()).toContainText("Python 官方教程");
   await expect(page.getByText("数据结构基础讲义", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("python-workspace.png"), fullPage: true });
 });

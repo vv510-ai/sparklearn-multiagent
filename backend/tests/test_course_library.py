@@ -224,8 +224,9 @@ def test_withdrawn_resource_interaction_and_provider_poll_are_blocked(learner, m
     client, user = learner
     b = bundle()
     library.publish(b)
+    study = library.enroll(user, b["release_id"])
     rid, task_id = uuid.uuid4().hex, uuid.uuid4().hex
-    payload = {"template": "interactive_audio", "markdown": "Protected", "video": {"task_id": task_id},
+    payload = {"notebook_id": study["notebook_id"], "template": "interactive_audio", "markdown": "Protected", "video": {"task_id": task_id},
                "learning_context": {"course_release_id": b["release_id"]}}
     with session() as db:
         db.add(Resource(id=rid, user_id=user, kind="doc", title="Fixture", payload=payload))
@@ -233,6 +234,10 @@ def test_withdrawn_resource_interaction_and_provider_poll_are_blocked(learner, m
     from app.services.ownership_service import sync_resource_ownership, task_belongs_to_user
     sync_resource_ownership(user, rid, payload)
     assert task_belongs_to_user(user, task_id)
+    from app.api.chat import _interaction_resource
+    assert _interaction_resource(user, rid, study["notebook_id"])["markdown"] == "Protected"
+    missing_scope = client.post("/api/chat", json={"user_id": user, "message": "再举例", "interaction_action": "example", "resource_id": rid})
+    assert missing_scope.status_code == 404
     library.withdraw(b["release_id"], "resource bypass regression")
     from app.api.chat import _interaction_resource
     with pytest.raises(HTTPException) as exc:

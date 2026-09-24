@@ -140,9 +140,9 @@ print 是在屏幕显示内容，return 是把结果交还给调用处。需要�
 先用两条合法记录检查汇总，再试空列表、零分钟和非法文本。每次只增加一个功能。示例只演示内存中的统计，你的独立任务要补上输入检查和文件保存。
 
 完成这个任务说明你练习了本课程列出的基础，不代表已经学完面向对象、网络开发、数据分析或所有大学 Python 课程。""",
-"def total_minutes(records):\n    return sum(item['minutes'] for item in records)\n\nrecords = [{'subject': 'Python', 'minutes': 20}, {'subject': '英语', 'minutes': 15}]\nprint(total_minutes(records))", "35",
+"def total_minutes(records):\n    total = 0\n    for item in records:\n        total += item['minutes']\n    return total\n\nrecords = [{'subject': 'Python', 'minutes': 20}, {'subject': '英语', 'minutes': 15}]\nprint(total_minutes(records))", "35",
 "独立完成一个学习记录程序：至少三条科目/分钟记录；用函数汇总；列出不少于 20 分钟的记录；验证非法分钟文本；保存到自己的 study_log.txt 并读回。提交实现、测试输入输出和一个你修复过的问题。",
 ["三条记录且字段清楚", "汇总函数可被独立调用", "条件筛选包含恰好 20 分钟", "测试空列表、零值及非数字输入", "文件读回与保存内容一致，并说明覆盖/追加选择"],
-[("records = [{'minutes': 12}, {'minutes': 18}, {'minutes': 20}]\nprint(sum(r['minutes'] for r in records if r['minutes'] >= 18))", "38", ["50", "20", "30"], "符合条件的是 18 和 20，合计 38。"),
+[("records = [{'minutes': 12}, {'minutes': 18}, {'minutes': 20}]\ntotal = 0\nfor record in records:\n    if record['minutes'] >= 18:\n        total += record['minutes']\nprint(total)", "38", ["50", "20", "30"], "符合条件的是 18 和 20，合计 38。"),
  ("def total(values):\n    result = 0\n    for n in values:\n        if n > 0:\n            result += n\n    return result\nprint(total([0, -2, 7, 3]))", "10", ["8", "7", "0"], "只累加大于 0 的元素，7 + 3 = 10。")]),
 ]

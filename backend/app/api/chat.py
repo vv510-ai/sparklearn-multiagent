@@ -89,14 +89,16 @@ def _interaction_resource(user_id: str, resource_id: str, notebook_id: str) -> d
         if not row or row.user_id != user_id:
             raise HTTPException(404, "互动讲解资源不存在")
         payload = dict(row.payload or {})
-        from ..services.course_library import blocked_payload, WITHDRAWN
+        from ..services.course_library import blocked_payload, provenance, WITHDRAWN
         if blocked_payload(payload):
             raise HTTPException(410, WITHDRAWN)
         if row.kind != "doc" or payload.get("template") != "interactive_audio":
             raise HTTPException(400, "该资源不是可互动的讲解")
         resource_notebook = str(payload.get("notebook_id") or "")
-        if notebook_id and resource_notebook and resource_notebook != notebook_id:
-            raise HTTPException(404, "互动讲解资源不属于当前科目")
+        if resource_notebook and resource_notebook != notebook_id:
+            raise HTTPException(404, "请在该互动讲解所属的科目内提问")
+        if provenance(payload) and not resource_notebook:
+            raise HTTPException(409, "课程讲解缺少所属科目，请回到课程重新生成")
         return {
             "id": row.id,
             "title": row.title,
