@@ -20,5 +20,6 @@ RUN pip install --no-cache-dir "onnx>=1.16,<2" \
     && pip uninstall -y onnx \
     && rm -f /tmp/prepare_fastembed.py
 COPY app ./app
+COPY scripts/manage_course_library.py ./scripts/manage_course_library.py
 EXPOSE 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
