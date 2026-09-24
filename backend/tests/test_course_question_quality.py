@@ -204,3 +204,13 @@ def test_preparation_timing_does_not_store_prompts_or_answers(monkeypatch):
     assert [stage["stage"] for stage in progress["stages"]] == ["solve", "final_review"]
     assert all(set(stage) == {"stage", "attempt", "elapsed_ms"} for stage in progress["stages"])
     assert all(stage["elapsed_ms"] >= 0 for stage in progress["stages"])
+
+
+@pytest.mark.parametrize("reason", ["燃烧不是生物群落摄取碳的途径，也不在资料中。", "寄生者不是资料中的分类，且腐生不是寄生。"])
+def test_real_source_gap_wordings_cannot_be_approved(monkeypatch, reason):
+    output = result([True, True, False, False])
+    output["questions"][0]["options"][-1]["reason"] = reason
+    install(monkeypatch, output)
+    with pytest.raises(service.DraftValidationError) as caught:
+        asyncio.run(service.review_course_questions(course(), [{"evidence_id": "s1c1", "text": "呼吸释放二氧化碳。"}]))
+    assert "必须更换无法据资料判定的选项" in caught.value.repair_issue

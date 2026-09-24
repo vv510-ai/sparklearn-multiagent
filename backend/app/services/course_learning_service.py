@@ -228,7 +228,7 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
         # A reviewer occasionally claims support while its own reason admits
         # missing evidence. Reject that contradiction instead of trusting a flag.
         source_gap = bool(chunks) and complete and any(re.search(
-            r"(?:资料|原文|材料|片段|文中).{0,8}(?:未提|没提|没有提|未说明|没有说明|未涉及|未出现|未给|未提供|未写)|(?:非|不在)资料(?:内容|范围)",
+            r"(?:资料|原文|材料|片段|文中).{0,8}(?:未提|没提|没有提|未说明|没有说明|未涉及|未出现|未给|未提供|未写)|(?:非|不在|不是)(?:资料|原文|材料)(?:内容|范围|中|里|内)",
             str(o["reason"])) for o in options)
         if (not complete or source_gap or row.get("conditions_sufficient") is not True
                 or row.get("supported") is not True or set(solved) != set(expected)

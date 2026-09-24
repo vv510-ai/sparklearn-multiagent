@@ -103,3 +103,14 @@ def test_abbreviated_whole_course_overview_keeps_real_course_concepts():
         assert not doc_agent._content_on_topic("听力信息提取：先读题。", "仔细阅读与推断", "cet6_reading")
     finally:
         _scope.reset(token)
+
+
+def test_four_branch_map_preserves_navigation_notes_and_references(monkeypatch, tmp_path):
+    markdown = "# 六级复习\n" + "\n".join(f"## 分支{i}\n" + "保留适用条件与否定，不把练习当考试。"*7 for i in range(4))
+    markdown += "\n## 学习路径\n词汇积累 → 阅读定位 → 输出练习\n（建议：每周五天，每天二十分钟；按个人节奏调整。）\n---\n引用：[1][2][3]"
+    monkeypatch.setattr(renderer, "GEN_DIR", tmp_path)
+    result = renderer.render_one_page("六级复习", markdown, content_status="supplemented")
+    assert result["renderer"] == "svg-map-v2" and result["relation_count"] == 6
+    text = "".join(n.text or "" for n in ET.parse(tmp_path/result["image_url"].rsplit("/",1)[-1]).getroot().iter() if n.get("data-content"))
+    assert "按个人节奏调整" in text and "引用：[1][2][3]" in text
+    assert text.count("保留适用条件与否定，不把练习当考试。") == 28

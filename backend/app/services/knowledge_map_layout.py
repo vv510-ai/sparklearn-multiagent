@@ -9,9 +9,14 @@ from xml.sax.saxutils import escape
 
 def map_plan(name, markdown):
     from .one_page_renderer import _plain, _width, _wrap
-    title, intro, groups = name, [], []
+    title, intro, groups, references = name, [], [], []
     for raw in markdown.splitlines():
         if not raw.strip():
+            continue
+        if re.fullmatch(r"\s*[-*_]{3,}\s*", raw):
+            continue
+        if re.fullmatch(r"\s*(?:引用|参考|来源)?[：: ]*(?:\[\^?\d+\][、,， ]*)+\s*", raw):
+            references.append(_plain(raw.strip()))
             continue
         if re.match(r"^#\s+", raw):
             title = _plain(re.sub(r"^#\s+", "", raw))
@@ -29,17 +34,28 @@ def map_plan(name, markdown):
     nodes = [g for g in groups if g not in paths]
     if not 2 <= len(nodes) <= 6 or len(_wrap(title, 11)) > 3 or len(intro) > 1 or (intro and _width(intro[0]) > 58):
         return None
+    row_budget = 10 if len(nodes) <= 4 else 6
     for node in nodes:
         node["heading"] = _wrap(node["title"], 16)
         node["rows"] = [line for text in node["lines"] for line in _wrap(text, 19)]
-        if not node["rows"] or len(node["heading"]) > 2 or len(node["rows"]) + len(node["heading"]) > 6:
+        if not node["rows"] or len(node["heading"]) > 2 or len(node["rows"]) + len(node["heading"]) > row_budget:
             return None  # No clipping or smaller fonts to force a success.
-    steps = []
+    steps, annotations = [], []
     if paths:
-        steps = [s.strip() for line in paths[0]["lines"] for s in line.split("→") if s.strip()]
+        navigation = [line for line in paths[0]["lines"] if "→" in line]
+        if navigation:
+            annotations = [line for line in paths[0]["lines"] if "→" not in line]
+        else:
+            navigation = paths[0]["lines"]
+        steps = [s.strip() for line in navigation for s in line.split("→") if s.strip()]
         if not 2 <= len(steps) <= 5 or any(len(_wrap(s, 11)) > 3 for s in steps):
             return None
-    return {"title": title, "intro": intro, "nodes": nodes, "paths": paths, "steps": steps}
+    annotation_rows = [row for line in annotations for row in _wrap(line, 16)]
+    reference_text = " ".join(references)
+    if len(annotation_rows) > 6 or _width(reference_text) > 36:
+        return None
+    return {"title": title, "intro": intro, "nodes": nodes, "paths": paths, "steps": steps,
+        "annotations": annotation_rows, "references": reference_text}
 
 
 def render_map(name, markdown, content_status, directory):
@@ -64,25 +80,28 @@ def render_map(name, markdown, content_status, directory):
         text_line(intro[0], 960, 110, 28, anchor="middle")
     left = (len(nodes) + 1) // 2
     positions = []
+    height = 330 if len(nodes) <= 4 else 218
     for side, subset in enumerate((nodes[:left], nodes[left:])):
-        ys = {1: [375], 2: [220, 570], 3: [145, 385, 625]}[len(subset)]
+        ys = ({1: [335], 2: [145, 505]} if len(nodes) <= 4 else {1: [375], 2: [220, 570], 3: [145, 385, 625]})[len(subset)]
         for node, y in zip(subset, ys):
             x = 60 if side == 0 else 1330
             start, target = (735, 590) if side == 0 else (1185, 1330)
-            parts.append(f'<path data-relation="topic-branch" d="M{start},490 C{(start+target)/2},490 {(start+target)/2},{y+105} {target},{y+105}" fill="none" stroke="#71958a" stroke-width="3" marker-end="url(#branch)"/>')
+            parts.append(f'<path data-relation="topic-branch" d="M{start},490 C{(start+target)/2},490 {(start+target)/2},{y+height/2} {target},{y+height/2}" fill="none" stroke="#71958a" stroke-width="3" marker-end="url(#branch)"/>')
             positions.append((node,x,y,side))
     parts.append('<rect x="735" y="395" width="450" height="190" rx="30" fill="#174c40"/>')
     for i, line in enumerate(_wrap(title, 11)):
         text_line(line, 960, 455 + i*45, 34, "#ffffff", 700, "middle", (759, 415, 1161, 565))
     parts.append('<text x="960" y="622" text-anchor="middle" font-size="24" fill="#57736a">先看主线，再沿分支理解</text>')
+    for i,line in enumerate(plan["annotations"]):
+        text_line(line, 960, 680+i*28, 24, anchor="middle", bounds=(750, 650, 1170, 850))
     colors = ["#2B6CB0", "#4B6B73", "#C46B28", "#7057A3", "#287257", "#496b9b"]
     for index,(node,x,y,side) in enumerate(positions):
         color = colors[index]
-        parts.append(f'<rect x="{x}" y="{y}" width="530" height="218" rx="20" fill="white" stroke="{color}" stroke-width="2"/>')
+        parts.append(f'<rect x="{x}" y="{y}" width="530" height="{height}" rx="20" fill="white" stroke="{color}" stroke-width="2"/>')
         for i,line in enumerate(node["heading"]):
-            text_line(line,x+24,y+44+i*34,29,color,700,bounds=(x+18,y+12,x+512,y+206))
+            text_line(line,x+24,y+44+i*34,29,color,700,bounds=(x+18,y+12,x+512,y+height-12))
         for i,line in enumerate(node["rows"]):
-            text_line(line,x+24,y+48+len(node["heading"])*34+i*28,25,bounds=(x+18,y+12,x+512,y+206))
+            text_line(line,x+24,y+48+len(node["heading"])*34+i*28,25,bounds=(x+18,y+12,x+512,y+height-12))
     if steps:
         text_line(paths[0]["title"], 60, 892, 26, "#287257", 700)
         width, gap = (1800 - 40*(len(steps)-1))/len(steps), 40
@@ -93,6 +112,8 @@ def render_map(name, markdown, content_status, directory):
                 text_line(line,x+width/2,947+j*28,26,anchor="middle",bounds=(x+12,918,x+width-12,1011))
             if i:
                 parts.append(f'<path data-relation="learning-order" d="M{x-gap},962 L{x-5},962" fill="none" stroke="#71958a" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#branch)"/>')
+    if plan["references"]:
+        text_line(plan["references"], 1860, 1057, 21, "#57736a", anchor="end", bounds=(1050, 1025, 1880, 1075))
     scope={"checked":"依据相关资料整理 · 出处与完整文字见笔记", "general_knowledge":"通用知识整理 · 未经课程资料核验", "supplemented":"资料优先，含通用补充 · 补充内容未经资料逐项核验"}[content_status]
     parts.extend([f'<text x="60" y="1057" font-size="21" fill="#57736a">{escape(scope)}</text>', '</g></svg>'])
     filename=f"one_page_{uuid.uuid4().hex}.svg"
