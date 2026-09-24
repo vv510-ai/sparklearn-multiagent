@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { registerLearner } from "./intake-helpers";
+test.use({ actionTimeout: 20_000 });
 
 for (const scenario of [
   { question: "选词有没有记忆点", supported: true, title: "六级自然追问保留课程依据并生成一图看懂" },
@@ -24,8 +25,10 @@ for (const scenario of [
   await page.getByRole("button", { name: "生成并核对学习范围", exact: true }).click();
   await page.getByRole("button", { name: "确认范围，开始独立作答", exact: true }).click();
   await expect(page.locator(".entry-question-card")).toBeVisible();
-  await page.getByRole("button", { name: "返回对话", exact: true }).click();
+  await page.getByTitle("返回学习对话", { exact: true }).click();
+  await page.getByTitle("对话选项", { exact: true }).click();
   await page.getByRole("combobox", { name: "回答依据" }).selectOption("strict");
+  await page.keyboard.press("Escape");
   console.log("one-page: course prepared");
   // Offline intent fixtures require punctuation; production uses the exact feedback wording.
   const question = scenario.question + (process.env.PLAYWRIGHT_BASE_URL ? "" : "？");

@@ -32,6 +32,9 @@ test("课程隔离、听力暂停恢复、改名持久化与移动阅读", async
   await audio.evaluate(async (e: HTMLAudioElement) => { e.muted = true; e.playbackRate = 4; await e.play(); });
   await expect(submit).toBeEnabled({ timeout: 40_000 });
   await page.getByRole("button", { name: "暂停，稍后继续", exact: true }).click();
+  const oldSession = (await (await page.request.get(`/api/notebooks/${notebookId}?user_id=session_user`)).json()).session_id;
+  await page.getByRole("button", { name: "新对话", exact: true }).click();
+  await expect.poll(async () => (await (await page.request.get(`/api/notebooks/${notebookId}?user_id=session_user`)).json()).session_id).not.toBe(oldSession);
   await page.getByRole("button", { name: /^起点测评与计划/ }).click();
   await expect(card.locator('input[value="A"]')).toBeChecked();
   await expect(submit).toBeEnabled();
