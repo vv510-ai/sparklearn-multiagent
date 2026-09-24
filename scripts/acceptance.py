@@ -186,6 +186,12 @@ def ledger_status(write_markdown=False):
                       "- 限制：" + item["limitations"],
                       "- 下一步：" + item["next_action"],
                       "- 固定检查：" + ", ".join(item["test_refs"])]
+        for finding in data.get("new_findings", []):
+            lines += ["", "## " + finding["id"] + " 本轮新增：" + finding["title"], "",
+                      "- 状态：" + labels[finding["status"]] + "（不混入原文 25 项计数）",
+                      "- 版本：" + finding["checked_commit"],
+                      "- 证据：" + "；".join(finding["evidence"]),
+                      "- 下一步：" + finding["next_action"]]
         (ROOT / "docs/quality/feedback-ledger.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return data
 

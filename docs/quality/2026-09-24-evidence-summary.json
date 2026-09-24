@@ -1,0 +1,79 @@
+{
+  "date": "2026-09-24",
+  "application_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+  "original_feedback_counts": {
+    "verified": 15,
+    "partial": 8,
+    "open": 1,
+    "unverified": 1
+  },
+  "new_open_findings": [
+    "QA-01"
+  ],
+  "backend_passed": 557,
+  "runner_tests_passed": 4,
+  "browser_cases_passed": 30,
+  "live_cases_second_run": [
+    {
+      "name": "六级学习指令保留真实主题",
+      "passed": true,
+      "seconds": 31.462
+    },
+    {
+      "name": "六级巩固测验有真实学科题目",
+      "passed": true,
+      "seconds": 24.609
+    },
+    {
+      "name": "六级闪卡有实际内容",
+      "passed": true,
+      "seconds": 25.659
+    },
+    {
+      "name": "对话笔记保持章节范围且改名后可读",
+      "passed": true,
+      "seconds": 58.887
+    },
+    {
+      "name": "六级一图看懂生成且实际图像可读取",
+      "passed": true,
+      "seconds": 18.191
+    },
+    {
+      "name": "原创 Word/PDF 上传并索引",
+      "passed": true,
+      "seconds": 2.308
+    },
+    {
+      "name": "上传资料可生成独立课程",
+      "passed": false,
+      "error": "Error: Error: /api/notebooks/nb_1bf2a91ba8f3463b869dfd3123a7c3f9/learning/prepare HTTP 422 {\"detail\":\"题目、题型或原文引用未通过检查，未保存这份题库。原因：题库独立复核没有完成所有选项的明确判断。原资料和选择已保留，可缩小学习主题后重试。\"}"
+    },
+    {
+      "name": "上传资料问答可接续 B 并整理笔记",
+      "passed": true,
+      "seconds": 83.591
+    },
+    {
+      "name": "金融词汇、雅思 PDF、动画脚本分别解析为自身内容",
+      "passed": true,
+      "seconds": 2.304
+    },
+    {
+      "name": "线上归档页面显示保存的新笔记",
+      "passed": false,
+      "error": "Error: expect(locator).toBeVisible() failed\n\nLocator:  locator('.prose-spark').filter({ hasText: '词汇' }).first()\nExpected: visible\nReceived: hidden\nTimeout:  90000ms\n\n"
+    }
+  ],
+  "archive_followup": {
+    "passed": true,
+    "release": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+    "selectedCharacters": 68,
+    "textLength": 2401
+  },
+  "retained_first_run_failures": [
+    "conversation_notes degraded to source_guide due to topic_drift",
+    "uploaded material course preparation HTTP 422"
+  ],
+  "conclusion": "Not all resolved; original failures retained, no all-green claim."
+}

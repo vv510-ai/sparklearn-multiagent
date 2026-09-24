@@ -43,11 +43,14 @@
       "test_refs": [
         "frontend/e2e/one-page-feedback.spec.ts"
       ],
-      "status": "unverified",
-      "checked_commit": "",
-      "evidence": [],
-      "limitations": "需本轮真实模型与图文结果",
-      "next_action": "按固定验收入口与资料边界复核",
+      "status": "verified",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+      "evidence": [
+        ".tmp/acceptance/20260924T111903Z-live/browser/**/live-evidence.json：六级一图看懂实际生成，SVG 请求 200；已阅读文字并查看渲染图片，无裁切或重叠",
+        ".tmp/acceptance/20260924T110329Z-local/report.json：正常主题、资料不足、图像与权限回归通过"
+      ],
+      "limitations": "仅验证当前课程范围内的样本；资料不包含的内容仍应明确拒绝。",
+      "next_action": "相关检索或提示词变化时，复测正常与无资料两种分支。",
       "cause": "自然问句被当成整体主题过滤，丢失相关课程片段；生成提示也未使用当前对话。无资料时还把错误包装成图。"
     },
     {
@@ -112,13 +115,15 @@
         "frontend/e2e/generation-progress.spec.ts",
         "backend/tests/test_doc_multimodal.py"
       ],
-      "status": "partial",
-      "checked_commit": "",
+      "status": "verified",
+      "checked_commit": "e87aebed78f1791ac0c7676867cdc92f0e41cee4",
       "evidence": [
-        "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
+        "历史真实生产记录：D:/Desktop/知行循证LearnLoop/LearnLoop-audio-latency/.tmp/feedback-06/verification.md；卡片交付从 92.625 秒降至 30.029 秒，语音后等待从 77.223 秒降至 0.055 秒；实际音频可播放",
+        ".tmp/acceptance/20260924T110823Z-local/report.json：最新应用基线 88a5086，557 项后端回归及 4 项验收工具自测通过",
+        ".tmp/acceptance/20260924T110329Z-local/report.json：进度、完成、失败和停止恢复回归通过"
       ],
-      "limitations": "进度与移除封面等待已验证；本轮未重新合成真实互动音频，没有所有请求耗时保证",
-      "next_action": "按固定验收入口与资料边界复核",
+      "limitations": "本轮复用历史真实耗时/播放证据和当前回归；没有重新合成音频。单个样本不承诺固定响应时间，普通语音回退和音色问题另见 FB-11。",
+      "next_action": "保持不等待装饰封面的回归；模型或语音供应商变化后重新测耗时与播放。",
       "cause": "语音已完成仍等待装饰封面生成；互动讲解现已去掉此依赖，并显示真实阶段。实际耗时仍受模型和语音服务影响。"
     },
     {
@@ -135,13 +140,15 @@
       "test_refs": [
         "docs/2026-09-24-feedback-07-ppt-depth.md"
       ],
-      "status": "partial",
-      "checked_commit": "",
+      "status": "verified",
+      "checked_commit": "1ce6867025fa21d368b0afd0245ba4851ee1ea02",
       "evidence": [
-        "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
+        "历史真实生产记录：D:/Desktop/知行循证LearnLoop/LearnLoop-ppt-depth/.tmp/feedback-07/verification.md；真实 14 页 PPT、14 页备注、可编辑对照表、两个例题与独立自测解析；14/14 WPS 页面已检查",
+        ".tmp/acceptance/20260924T110823Z-local/report.json：最新应用基线 88a5086，557 项后端回归及 4 项验收工具自测通过",
+        "git diff 1ce6867 f8d997d：spark_ppt.py、media_agent.py、native_ppt.py、media/ppt-outline.md 无改动"
       ],
-      "limitations": "历史真实成品验收及本轮渲染回归存在；本轮没有重新生成并逐页审核真实 PPT",
-      "next_action": "按固定验收入口与资料边界复核",
+      "limitations": "本轮复用已经查看过的真实成品及当前结构回归，没有再次生成新课件；不代表任意新主题的数学内容都无需复核。旧课件不会自动更新。",
+      "next_action": "新主题生成后检查条件、推理与逐页排版；相关生成契约修改时重跑真实成品。",
       "cause": "旧 PPT 契约和渲染器只能承载短列表，压缩了推理；已增加例题、对照、自测解析、备注及续页。"
     },
     {
@@ -205,11 +212,16 @@
         "frontend/e2e/feedback-batch.spec.ts",
         "frontend/e2e/feedback-live.spec.ts"
       ],
-      "status": "unverified",
-      "checked_commit": "",
-      "evidence": [],
-      "limitations": "需本轮真实生成；资料核验不足提示不应隐瞒",
-      "next_action": "按固定验收入口与资料边界复核",
+      "status": "partial",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+      "evidence": [
+        ".tmp/acceptance/20260924T110329Z-local/report.json：改名、筛选、刷新保留通过",
+        ".tmp/acceptance/20260924T111903Z-live/browser/**/live-evidence.json：实际笔记 generation_mode=source_guide，topic_drift 导致降级，未达到真实完整笔记标准",
+        ".tmp/acceptance/20260924T112538Z-live/browser/**/live-evidence.json：第二次生成完整 model 笔记、章节来源正确且改名持久化通过；第一次降级仍保留，不关闭稳定性问题。",
+        ".tmp/feedback-audit/archive-result.json：使用发布锁，在真实线上已保存笔记中复核归档显示及鼠标选字通过；第二轮原检查误选隐藏聊天正文，已限定卡片定位。"
+      ],
+      "limitations": "改名、保存、归档与正文选字已验证；首轮生成降级仍说明完整笔记输出存在波动。",
+      "next_action": "复现词汇与语境的对话笔记偏题，定位生成与主题检查，修正后验证连续多次生成及改名、选字、刷新。",
       "cause": "请求话术被用作标题；改名后父列表未同步；无上传资料时未正确区分对话整理与资料核验。"
     },
     {
@@ -227,12 +239,12 @@
         "frontend/e2e/feedback-live.spec.ts"
       ],
       "status": "partial",
-      "checked_commit": "",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
       "evidence": [
-        "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
+        ".tmp/acceptance/20260924T112538Z-live/browser/**/live-evidence.json：六级题目、8 张闪卡、一图看懂及第二次笔记均生成；首轮笔记降级，未验证所有其他工具。"
       ],
       "limitations": "按闪卡及笔记分别验证，不能概括为全部工具已可用",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "优先修正 FB-09 的笔记降级，再按每类工具分别验收，不能以闪卡通过代表所有工具。",
       "cause": "生成能力与资料是否足够混为一谈；需按具体任务检查当前课程或上传来源，不用一处缺口封死全部工具。"
     },
     {
@@ -256,7 +268,7 @@
         "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
       ],
       "limitations": "加载重试/暂停状态已改善；12段静态音色没有替换，尚未完成自然度试听验收",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "确定可用的英文合成音色，用同一讲稿 A/B 试听后再批量替换；验证整段播放和手机体验。",
       "cause": "现有静态英语听力音频仍为原音色；新音色整批替换尚未完成。不能用音频可播放证明自然度已改善。"
     },
     {
@@ -274,11 +286,14 @@
         "frontend/e2e/feedback-live.spec.ts",
         "backend/tests/test_feedback_batch.py"
       ],
-      "status": "unverified",
-      "checked_commit": "",
-      "evidence": [],
-      "limitations": "需本轮真实题目检查",
-      "next_action": "按固定验收入口与资料边界复核",
+      "status": "verified",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+      "evidence": [
+        ".tmp/acceptance/20260924T111903Z-live/browser/**/live-evidence.json：8 道词汇语境题，已阅读；首轮检查误将填空/判断题要求为选择题，保留失败记录",
+        ".tmp/acceptance/20260924T112538Z-live/browser/**/live-evidence.json：按实际题型检查通过"
+      ],
+      "limitations": "题目属于六级起点训练，不是正式真题；文字比喻仍有泛化，需要内容复核。",
+      "next_action": "保留课程与题型检查；题干、答案、解释正确性仍看实际题目。",
       "cause": "课程范围和主题提取不稳，生成失败时通用模板也会冒充学科题目；已约束真实题目和失败行为。"
     },
     {
@@ -302,7 +317,7 @@
         "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
       ],
       "limitations": "链接/替代入口可验证；用户网络下 YouTube 的可达性没有解决或证明",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "验证原链接失效/网络不可达时的替代入口；不能承诺任何网络都能访问 YouTube。",
       "cause": "检索链接可修正关键词，但不能保证用户网络可访问 YouTube；保留 B 站等替代入口。"
     },
     {
@@ -349,7 +364,7 @@
         "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
       ],
       "limitations": "按钮和结构回归通过；生成图的知识关系质量仍需按内容审查，不能以可点击替代",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "真实生成一份多知识点导图，检查关系和先后依赖，再操作缩放、逐个查看与复位。",
       "cause": "原生成内容可能把提问列为节点；控件也需作用于实际导图实例。按钮行为已回归，关系内容仍须逐图阅读。"
     },
     {
@@ -419,7 +434,7 @@
         "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
       ],
       "limitations": "错误反馈和草稿恢复已测试；历史请求原因缺少日志，不能保证所有网络故障消失",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "保留断网、超时和会话失效的重试入口；发布锁避免验收被自动部署中断，尚不是全站零停机。",
       "cause": "底层网络异常直接显示 Failed to fetch；已改为可理解的失败和重试。不能据此消除所有网络或发布中断。"
     },
     {
@@ -442,8 +457,8 @@
         "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
       ],
       "limitations": "已有原因和建议文本；卡片到补充资料/重试的完整便捷操作尚需复核",
-      "next_action": "按固定验收入口与资料边界复核",
-      "cause": "资料不足的提示未充分说明缺什么、下一步怎么补；降级文案已有改进，补资料入口仍需人工复核。"
+      "next_action": "在具体缺口旁提供查看对应题目或补充文件的入口，并说明只影响哪些结论；不删除真实依据不足提示。",
+      "cause": "原截图是笔记正文中的“资料缺口说明”：有文字建议，却没有直接查看原错题或补充资料的操作入口。"
     },
     {
       "id": "FB-20",
@@ -506,11 +521,13 @@
       "test_refs": [
         "frontend/e2e/feedback-live.spec.ts"
       ],
-      "status": "unverified",
-      "checked_commit": "",
-      "evidence": [],
-      "limitations": "使用原创材料验证；缺少原上传文件，不等于所有格式都通过",
-      "next_action": "按固定验收入口与资料边界复核",
+      "status": "verified",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+      "evidence": [
+        ".tmp/acceptance/20260924T112538Z-live/browser/**/live-evidence.json：原创生态 Word/PDF 均上传索引；读取资料后系统给出选择题，回复 B 后给出“分解者”解释，并能继续整理笔记；已阅读全文"
+      ],
+      "limitations": "验证的是原创文本型 Word/PDF 样本；不等于原件或所有格式均已修复。“上传资料生成独立课程”另有失败，单列 QA-01。",
+      "next_action": "保留单字母续答回归；优先修正 QA-01，确保新用户建课到问答也能连续通过。",
       "cause": "可能涉及上传索引、来源绑定、短答案续接多个环节；原文件缺失，使用原创材料逐段验证，不推定单一根因。"
     },
     {
@@ -530,12 +547,13 @@
         "backend/tests/test_feedback_batch.py"
       ],
       "status": "partial",
-      "checked_commit": "",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
       "evidence": [
-        "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
+        ".tmp/acceptance/20260924T112538Z-live/browser/**/live-evidence.json：原创五秒动画脚本 Word 解析为自身内容；仅此上传检查，不代表互动语音或视频成功。",
+        ".tmp/acceptance/20260924T110823Z-local/report.json：后端占位/不可用状态回归通过"
       ],
       "limitations": "本轮检查上传/笔记及错误占位防护；真实互动音频和视频成片仍未完整重测",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "用动画样本实际生成互动讲解，试听正文与错误处理，再单独验收可播放的视频成片。",
       "cause": "无可用正文时仍可能进入互动媒体分支；需先校验正文。上传成功不代表语音或视频成品已成功。"
     },
     {
@@ -553,10 +571,12 @@
         "frontend/e2e/feedback-live.spec.ts"
       ],
       "status": "unverified",
-      "checked_commit": "",
-      "evidence": [],
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+      "evidence": [
+        ".tmp/acceptance/20260924T112538Z-live/browser/**/live-evidence.json：原创 CFA 词汇、雅思 PDF、动画 Word 各自解析出正确文本；原截图文件均缺失，无法复核原件。"
+      ],
       "limitations": "截图是六级书本内选中 CFA 词汇文件；原文件缺失，不能断定金融题属于误识别",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "当前无原件，保留证据不足；以后出现同类问题时同时保存原文件、所选来源与提问，以区分误解析和选错来源。",
       "cause": "截图中六级书本选中了 CFA 文件，金融题可能来自该文件；缺少原件，无法将现象定性为解析错误。"
     },
     {
@@ -575,14 +595,29 @@
         "frontend/e2e/feedback-batch.spec.ts"
       ],
       "status": "partial",
-      "checked_commit": "",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
       "evidence": [
-        "本轮源码及历史验收记录复核；尚不满足完整关闭要求"
+        ".tmp/acceptance/20260924T112538Z-live/browser/**/live-evidence.json：两个文本型 PDF 成功上传、索引并读出实际内容",
+        ".tmp/acceptance/20260924T110329Z-local/report.json：课程目录断网仍可选择上传文件；不冒充解析测试"
       ],
       "limitations": "截图明确显示课程列表加载失败；原创PDF可复测，原雅思PDF缺失",
-      "next_action": "按固定验收入口与资料边界复核",
+      "next_action": "原创 PDF 解析与目录断网分别验收；后续补充扫描件、图片 PDF 与原文件样本，不泛化为全部 PDF。",
       "cause": "截图实际报错为课程列表加载失败；需将目录网络故障与 PDF 解析分别验证，不能仅据截图断定解析器故障。"
     }
   ],
-  "audit_note": "本轮仍在进行线上复核。已验证项的范围与基线详见逐项证据；原创样本不能替代缺失原件。"
+  "audit_note": "2026-09-24 复核结束：原反馈不能标记全部解决。新增 QA-01 独立跟踪，不混入原文 25 项计数。单次样本不保证所有模型输出；详见 2026-09-24-audit.md。",
+  "new_findings": [
+    {
+      "id": "QA-01",
+      "title": "上传资料生成独立课程被题库复核阻断",
+      "status": "open",
+      "group": "资料与课程生成",
+      "checked_commit": "f8d997dbb45a714f25e7531b7ecd02226a774fb7",
+      "evidence": [
+        "首轮及校正后复测均为 HTTP 422；见两轮 live-evidence.json",
+        "最新错误：题库独立复核没有完成所有选项的明确判断。原资料保留，未保存未通过检查的题库。"
+      ],
+      "next_action": "保存脱敏生成/复核结构，定位字段缺失、顺序或题目覆盖问题；完善契约及有限修复后，重新验证从上传建课到测评问答。不能绕过题库质量校验。"
+    }
+  ]
 }
