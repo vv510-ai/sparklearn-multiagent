@@ -31,9 +31,12 @@ async function archive(page: Page) {
   if (await page.locator(".workspace-studio").isVisible()) {
     await page.locator(".workspace-studio").getByRole("button", { name: /资料归档/ }).click();
   } else {
-    const mobile = page.getByRole("button", { name: "学习工坊", exact: true });
-    if (await mobile.isVisible()) await mobile.click();
-    else await page.getByRole("button", { name: "切换工坊栏", exact: true }).click();
+    if (await page.getByRole("button", { name: "切换工坊栏", exact: true }).isVisible()) {
+      await page.getByRole("button", { name: "切换工坊栏", exact: true }).click();
+    } else {
+      await page.getByLabel("学习菜单", { exact: true }).click();
+      await page.locator(".workspace-actions").getByRole("button", { name: "学习工坊", exact: true }).click();
+    }
     await page.locator(".notebook-mobile-sheet").getByRole("button", { name: /资料归档/ }).click();
   }
   await expect(page.getByRole("heading", { name: "资料归档", exact: true })).toBeVisible();
@@ -174,7 +177,7 @@ test("专注练习单题导航、草稿、提示证据同步、提交和复盘",
   await expect(page.getByRole("button", { name: /查看作答复盘/ })).toBeVisible();
 });
 
-test("可视视口缩短时发送区可见，恢复后导航返回", async ({ page }, info) => {
+test("可视视口缩短时发送区可见，恢复后仍无常驻底栏", async ({ page }, info) => {
   await enter(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByLabel("学习目标输入").fill("验证软键盘布局");
@@ -191,7 +194,8 @@ test("可视视口缩短时发送区可见，恢复后导航返回", async ({ pa
     Reflect.deleteProperty(window.visualViewport!, "height");
     window.visualViewport!.dispatchEvent(new Event("resize"));
   });
-  await expect(page.locator(".notebook-mobile-nav")).toBeVisible();
+  await expect(page.locator(".notebook-mobile-nav")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "学习来源", exact: true })).toBeVisible();
   await assertFit(page);
 });
 

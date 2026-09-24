@@ -3,7 +3,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 
-export default function AdaptiveMenu({ label, className = "", children, expandedAt = 1400 }: { label: string; className?: string; children: ReactNode; expandedAt?: number }) {
+export default function AdaptiveMenu({ label, className = "", children, expandedAt = 1400, icon, guide }: { label: string; className?: string; children: ReactNode; expandedAt?: number; icon?: ReactNode; guide?: string }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const media = window.matchMedia(`(min-width: ${expandedAt}px)`);
@@ -19,9 +19,12 @@ export default function AdaptiveMenu({ label, className = "", children, expanded
   return <details ref={ref} className={`adaptive-menu ${className}`} onKeyDown={event => {
     if (event.key === "Escape" && window.innerWidth < expandedAt && ref.current) { ref.current.open = false; ref.current.querySelector("summary")?.focus(); }
   }}>
-    <summary className="study-icon" aria-label={label} title={label}><MoreHorizontal size={21} /></summary>
+    <summary className="study-icon" aria-label={label} title={label} data-guide={guide}>{icon || <MoreHorizontal size={21} />}</summary>
     <div className="adaptive-menu-content" onClick={event => {
-      if ((event.target as HTMLElement).closest("button") && window.innerWidth < expandedAt && ref.current) ref.current.open = false;
+      if ((event.target as HTMLElement).closest("button") && window.innerWidth < expandedAt && ref.current) {
+        ref.current.open = false;
+        ref.current.querySelector("summary")?.focus();
+      }
     }}>{children}</div>
   </details>;
 }

@@ -2,13 +2,16 @@
 
 import {
   ArrowRight,
+  ArrowLeft,
   BookOpen,
+  ChevronDown,
   FolderOpen,
   LogOut,
   PanelLeftOpen,
   PanelRightOpen,
   Route,
   ShieldCheck,
+  SquarePen,
   Target,
   X,
 } from "lucide-react";
@@ -36,6 +39,7 @@ import OnboardingGate from "@/components/onboarding/OnboardingGate";
 import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import AdaptiveMenu from "@/components/ui/AdaptiveMenu";
+import StudyDialog from "@/components/ui/StudyDialog";
 import { LearnerScope, useStudyViewport } from "@/lib/study-workspace";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic, kpName } from "@/lib/kp";
@@ -213,6 +217,7 @@ export default function Home() {
   const [conversationFocus, setConversationFocus] = useState("");
   const [chatSessionId, setChatSessionId] = useState("");
   const [chatInstance, setChatInstance] = useState(0);
+  const [chatBusy, setChatBusy] = useState(false);
   const [studyStage, setStudyStage] = useState<StudyStage>("start");
   const [newBookOpen, setNewBookOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
@@ -492,13 +497,13 @@ export default function Home() {
 
   const toggleCourseSource = () => setSelectedSourceIds((ids) => (
     ids.includes(COURSE_SOURCE_ID)
-      ? ids.length > 1 ? ids.filter((id) => id !== COURSE_SOURCE_ID) : ids
+      ? ids.filter((id) => id !== COURSE_SOURCE_ID)
       : [COURSE_SOURCE_ID, ...ids]
   ));
 
   const togglePersonalSource = (sourceId: string) => setSelectedSourceIds((ids) => (
     ids.includes(sourceId)
-      ? ids.length > 1 ? ids.filter((id) => id !== sourceId) : ids
+      ? ids.filter((id) => id !== sourceId)
       : [...ids, sourceId]
   ));
 
@@ -894,21 +899,21 @@ export default function Home() {
       />
 
       <header className="notebook-topbar relative z-20 flex h-[68px] shrink-0 items-center gap-3 px-4 sm:px-5">
-        <button onClick={() => setActivePanel("chat")} className="flex shrink-0 items-center gap-2.5" title="返回学习对话">
-          <SparkMark running={running} />
+        <button onClick={() => setActivePanel("chat")} className="study-icon workspace-home" aria-label="学习对话" title="返回学习对话">
+          {activePanel === "chat" ? <SparkMark running={running} /> : <ArrowLeft size={22} />}
           <strong className="hidden text-lg tracking-tight md:block">知行循证</strong>
         </button>
-        <span className="hidden h-5 w-px bg-[#DDE0E8] md:block" />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[#343944]">{activeNotebook ? `${activeNotebook.emoji} ${activeNotebook.title}` : "我的学习工作台"}</div>
-          <div className="hidden truncate text-[11px] text-[#818795] md:block">当前主题：{currentTopicTitle} · 已选 {selectedSourceIds.length} 项资料</div>
-        </div>
+        <button type="button" className="workspace-course" data-guide="sources-nav" onClick={() => setMobilePane("sources")} aria-label="学习来源" title={activeNotebook?.title || "选择课程与资料"}>
+          <span>{activeNotebook?.title || "我的学习工作台"}</span><ChevronDown size={17} />
+        </button>
+        {activeNotebook && <button type="button" onClick={() => { setActivePanel("chat"); void startNewConversation(); }} disabled={chatBusy || !!openingNotebookId} className="study-icon" aria-label="新对话" title="新对话"><SquarePen size={21} /></button>}
 
         <div className="workspace-pane-controls">
           <button type="button" onClick={() => window.innerWidth >= 900 ? setSourcesCollapsed(value => !value) : setMobilePane("sources")} className="study-icon" aria-label="切换资料栏" title="切换资料栏" aria-pressed={!sourcesCollapsed}><PanelLeftOpen size={19} /></button>
           <button type="button" onClick={() => window.innerWidth >= 1400 ? setStudioCollapsed(value => !value) : setMobilePane("studio")} className="study-icon" aria-label="切换工坊栏" title="切换工坊栏"><PanelRightOpen size={19} /></button>
         </div>
         <AdaptiveMenu label="学习菜单" className="workspace-actions">
+          <button type="button" className="notebook-home-button workspace-tools-entry" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
           <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden md:inline">测评与计划</span></button>
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold md:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
             {running ? "正在整理" : finished ? "已经完成" : "准备就绪"}
@@ -945,7 +950,6 @@ export default function Home() {
         </aside>
 
         <section className="notebook-column notebook-main-column relative flex min-h-0 flex-col overflow-hidden">
-          {activePanel === "chat" && profile?.learning_intake && <div className="learning-context-strip"><div><strong>{profile.course_title || activeNotebook?.title}</strong><span>优先：{profile.learning_intake.goal} · 每次 {profile.learning_intake.daily_minutes} 分钟 · 已绑定 {activeCourse?.source_ids?.length || 0} 份资料</span></div><button onClick={() => openPanel("assessment")}>查看依据与计划 <ArrowRight size={14} /></button></div>}
           {openingNotebookId && (
             <div className="absolute inset-0 z-40 grid place-items-center bg-white/82 px-6 text-center backdrop-blur-sm">
               <div className="rounded-2xl border border-emerald-200 bg-white px-6 py-5 shadow-xl">
@@ -968,11 +972,14 @@ export default function Home() {
               initialMessages={initialChatMessages}
               topic={conversationFocus || notebookTopic}
               sourceIds={selectedSourceIds}
+              sourceLabel={selectedSourceIds.map(id => id === COURSE_SOURCE_ID ? "课程教材" : sources.find(source => source.id === id)?.title || "已选资料").join("、")}
+              onOpenSources={() => setMobilePane("sources")}
+              onOpenStudio={() => setMobilePane("studio")}
+              onBusyChange={setChatBusy}
               sourcePolicy={sourcePolicies[activeNotebook?.id || ""] || "auto"}
               onSourcePolicyChange={(value) => setSourcePolicies(current => ({ ...current, [activeNotebook?.id || ""]: value }))}
               onUploadClick={() => activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true)}
               onCreateNotebook={() => { setPanelError(""); setNewBookOpen(true); }}
-              onNewConversation={activeNotebook ? () => void startNewConversation() : undefined}
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}
               onLearningTurn={setConversationFocus}
               onSessionReady={setChatSessionId}
@@ -1088,22 +1095,11 @@ export default function Home() {
         <aside data-guide="studio" className="workspace-studio min-h-0">{studioPanel}</aside>
       </div>
 
-      <nav className="notebook-mobile-nav" aria-label="移动端学习工作台导航">
-        <button type="button" data-guide="sources-nav" onClick={() => setMobilePane("sources")}><PanelLeftOpen size={17} /><span>学习来源</span></button>
-        <button type="button" className="is-active" onClick={() => { setActivePanel("chat"); setMobilePane(null); }}><BookOpen size={17} /><span>学习对话</span></button>
-        <button type="button" data-guide="studio-nav" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
-      </nav>
+      <StudyDialog open={!!mobilePane} title={mobilePane === "sources" ? "学习来源" : "学习工坊"} onClose={() => setMobilePane(null)} className="workspace-drawer">
+        <div className="notebook-mobile-sheet">{mobilePane === "sources" ? sourcePanel : studioPanel}</div>
+      </StudyDialog>
 
-      {mobilePane && (
-        <div className="notebook-mobile-scrim fixed inset-0 z-40" onClick={() => setMobilePane(null)}>
-          <div className={`notebook-mobile-sheet absolute inset-y-0 w-[min(88vw,360px)] p-3 shadow-2xl ${mobilePane === "sources" ? "left-0" : "right-0"}`} onClick={(event) => event.stopPropagation()}>
-            <button onClick={() => setMobilePane(null)} className="notebook-mobile-sheet-close absolute right-5 top-5 z-10 grid h-8 w-8 place-items-center rounded-full text-[#596171] shadow-sm" aria-label="关闭"><X size={17} /></button>
-            {mobilePane === "sources" ? sourcePanel : studioPanel}
-          </div>
-        </div>
-      )}
-
-      <section className={`fixed inset-y-0 right-0 z-50 w-[min(92vw,420px)] border-l border-white/10 bg-[#072C3A]/[0.98] text-white shadow-[-22px_0_70px_rgba(0,18,28,0.3)] backdrop-blur-xl transition-transform duration-300 ${evidenceOpen ? "translate-x-0" : "translate-x-full"}`}>
+      <section aria-hidden={!evidenceOpen} inert={!evidenceOpen} style={{ visibility: evidenceOpen ? "visible" : "hidden" }} className={`fixed inset-y-0 right-0 z-50 w-[min(92vw,420px)] border-l border-white/10 bg-[#072C3A]/[0.98] text-white shadow-[-22px_0_70px_rgba(0,18,28,0.3)] backdrop-blur-xl transition-transform duration-300 ${evidenceOpen ? "translate-x-0" : "translate-x-full"}`}>
         <div className="flex h-[68px] items-center justify-between border-b border-white/10 px-5">
           <div><div className="text-[10px] tracking-[0.18em] text-white/45">EVIDENCE</div><strong>依据与过程</strong></div>
           <button onClick={() => setEvidenceOpen(false)} className="grid h-9 w-9 place-items-center rounded-full bg-white/5 text-white/70 hover:bg-white/10" aria-label="关闭依据面板"><X size={18} /></button>

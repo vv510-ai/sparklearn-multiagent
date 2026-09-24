@@ -1,50 +1,57 @@
-# SparkLearn 首页到学习工作台转场 Design QA
+# LearnLoop Conversation-First Design QA
 
-- source visual truth:
-  - `C:\Users\26054\AppData\Local\Temp\codex-clipboard-b23692e3-ae01-4513-84b8-a3085b7cbd7c.png`
-  - `C:\Users\26054\AppData\Local\Temp\codex-clipboard-e79e7d95-6c87-402c-ae4c-cf4303adde02.png`
-- implementation screenshots:
-  - `C:\Users\26054\AppData\Local\Temp\sparklearn-design-qa\landing.png`
-  - `C:\Users\26054\AppData\Local\Temp\sparklearn-design-qa\transition.png`
-  - `C:\Users\26054\AppData\Local\Temp\sparklearn-design-qa\workspace.png`
-- combined comparison evidence: `C:\Users\26054\AppData\Local\Temp\sparklearn-design-qa\comparison.png`
-- viewport: 1280 × 720
-- state: 学生身份；输入“我想系统掌握递归与分治”；从首页进入工作台
+Date: 2026-09-24. Scope: the approved combined concept in the existing learning application. Local verification only, not a production release.
 
-## Full-view comparison evidence
+The previous transition review is preserved unchanged in `docs/design-qa-workspace-transition.md`.
 
-组合图左侧为用户参考图，右侧为本地浏览器实现。首页保留了同一星空视频、暖光书桌、衬线标题、玻璃输入框、人物头像和底部身份卡；工作台保留白色三栏结构、浅灰页面底色和学习工坊的六张柔和彩色卡片。实现截图进入后显示真实生成内容，而参考图显示空状态，这是既有产品行为差异，不是布局漂移。
+## Visual Evidence
 
-## Focused comparison evidence
+- Source visual truth: `C:/Users/26054/.codex/generated_images/01a0cf34-0339-7110-a483-af52c2158f52/exec-cb142e69-9377-43b1-b628-3e29593d0a9b.png`.
+- Reference copy: `.tmp/conversation-first-delivery/reference.png`.
+- Implementation: `.tmp/conversation-first-delivery/phone.png`.
+- Same-input comparison: `.tmp/conversation-first-delivery/comparison.png`.
+- Additional captures: `.tmp/conversation-first-delivery/tablet.png`, `desktop.png`, `expanded-input.png`, `focused-answer.png`.
+- Source pixels: 853 x 1844. Implementation pixels and CSS viewport: 390 x 844, deviceScaleFactor 1. In the comparison, the source is rendered 390 pixels wide preserving aspect ratio (843.1 pixels high); implementation remains 390 x 844. No device/browser frame is included.
+- State: authenticated, one selected source, completed affect/effect conversation, collapsed citation, empty composer, keyboard closed. The implementation uses ordinary Markdown, not a hard-coded vocabulary component.
+- Both images were inspected in one browser-rendered comparison. At this size labels and controls are readable; separate crops were unnecessary. Full-resolution tablet, desktop, expanded-input and practice captures were also opened.
 
-本次新增部分是全屏转场，因此使用 `transition.png` 检查白色学习纸面从首页输入区域附近展开、品牌状态文案居中、星空背景退后，以及工作台落位时的淡入。无需额外局部裁图：文字、图标和卡片细节均沿用已验证的现有组件，新变化只发生在全屏运动与挂载时序。
+## Findings And Comparison History
 
-## Findings
+1. Initial capture: [P2] a closed evidence panel cast its shadow onto the chat. Fixed with visibility and inert state; the final comparison has an unobstructed white surface.
+2. Initial 320 x 740 check: [P2] excess textarea minimum height reduced reading space below the 68% target. Corrected to 56 pixels while preserving two lines and 44-pixel controls. Final compact-view tests pass.
+3. Initial source interaction: [P2] the last selected source could not be deselected. Empty selection is now permitted; the context row disappears in automatic mode, while strict mode remains visible. Tests also verify the outgoing empty source list and strict policy.
+4. Post-fix comparison: no remaining actionable P0/P1/P2 findings in scope. Header, source context, reading area, citation, action row and full-width composer follow the accepted hierarchy.
 
-- 没有 P0、P1 或 P2 问题。
-- Fonts and typography: 首页继续使用 Instrument Serif，正文与工作台继续使用 Inter/中文系统字体；转场状态文案保持 13px、700 字重，不抢主标题层级。
-- Spacing and layout rhythm: 转场表面从圆角输入区域展开至全屏，820ms 后工作台落位；1280 × 720 下无裁切、重叠或持久控件位移。
-- Colors and visual tokens: 过渡纸面使用 `#F3F5FA`，与工作台浅灰背景一致；星芒继续使用现有暖金/绿色状态逻辑。
-- Image quality and asset fidelity: 继续复用原星空视频与三张角色头像，没有新增占位图、CSS 插画或低清替代资产。
-- Copy and content: “正在铺开你的学习工作台”描述当前状态，短且可在转场完成前读完。
-- Interaction and accessibility: 提交后身份、上传与开始按钮会暂时禁用，避免重复提交；根节点设置 `aria-busy`；`prefers-reduced-motion: reduce` 时跳过动画并在约 40ms 内进入工作台。
-- Browser evidence: 首页输入、提交、工作台落位和真实生成链路均通过；浏览器控制台 error 数为 0。
+## Required Fidelity Surfaces
 
-## Comparison history
+- Fonts/typography: 16-pixel body and input, Chinese/system sans-serif fallbacks, zero letter spacing. Semantic Markdown is retained; the mock's oversized colored headwords and numbered circles are intentionally not hard-coded into arbitrary model answers.
+- Spacing/layout: one 56-pixel compact header, optional 44-pixel source row, no duplicate chat heading or permanent bottom navigation. The source row is deliberately taller than the mock's approximate 32 pixels for touch access. Textarea owns its full row; tablet/desktop retain collapsible side panes.
+- Colors/tokens: white workspace, gray user messages, green `#176c58` actions, blue `#326ec4` citations. Send is gray while empty, unlike the mock's always-green illustration. Hidden panels no longer tint the page.
+- Images/icons: existing LearnLoop brand mark retained; new controls use the existing Lucide library. This text-based sample requires no new raster teaching assets. Source text is selectable, not a flattened screenshot.
+- Copy/content: live course/source data, visible strict-source boundary, expandable citation disclaimer and original excerpts, concise empty-state learning actions. No explanatory styling copy was added to the app.
 
-- Pass 1: 对照首页、转场中帧与工作台落位截图；未发现需要修复的 P0/P1/P2 差异，因此没有进入第二轮修复。
+## Verification
 
-## Implementation checklist
+- `npm run build`: passed. `npm run typecheck`: passed.
+- Chromium on local production-mode Next.js with an isolated Demo backend: 31 tests passed (4 new cases plus 27 regressions).
+- New visual matrix: 320x740, 360x800, 390x844, 430x932, 768x1024, 1024x768, 1440x900, 1920x1080, 640x420. Existing responsive tests additionally cover 900x720 and 1280x800.
+- Verified: no viewport overflow, visible input/send, source selection and strict request contract, source/tool dialogs and focus return, copy, quiz generation request, new conversation, long labels, enlarged root font, drafts, touch Enter, Chinese composition, failed-send recovery, simulated VisualViewport, assessment scroll, quiz hints/report, account isolation, formula overflow and citation isolation.
+- The new visual test captures console errors and uncaught page errors: none observed. Other regression scenarios intentionally simulate failed requests where documented.
+- Vocabulary answers and source metadata in the new visual test are explicit transport fixtures. Authentication, notebook creation/reset use the local backend. Quiz regressions also exercise persistence, hints and evaluation. This does not establish real model quality.
 
-- [x] 星空首页内容分层退场
-- [x] 白色学习纸面从输入区域展开
-- [x] 三栏工作台淡入落位
-- [x] 防重复提交
-- [x] 减少动态效果支持
-- [x] 浏览器交互与控制台检查
+## Residual Coverage
 
-## Follow-up polish
+- P3: exact typeface rasterization, icon variants and vocabulary styling differ from the generated mock; reusable semantic content and readable text take priority.
+- Not verified: physical iOS Safari, Android keyboards/candidate bars, WeChat, OS text scaling, production model and live release. Browser simulations are not device tests.
+- No backend implementation changed; the historical 463-test backend result is not a fresh result for this iteration.
+- Publication has not occurred.
 
-- P3: 后续若提供明确的 Figma 动效时间轴，可进一步对齐缓动曲线和逐帧节奏。
+## Checklist
+
+- [x] Approved concept applied to the existing app.
+- [x] Redundant chrome removed; tools, source boundaries and drafts retained.
+- [x] Actual mobile/tablet/desktop captures inspected against the source.
+- [x] Build, typecheck and 31 browser tests passed.
+- [x] Mock/live and local/production boundaries stated.
 
 final result: passed

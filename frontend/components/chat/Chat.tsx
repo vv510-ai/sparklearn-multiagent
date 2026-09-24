@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, BookPlus, FileUp, Gauge, LoaderCircle, Maximize2, MessageSquarePlus, Mic, NotebookPen, Plus, Route, Square } from "lucide-react";
+import { ArrowRight, ArrowUp, BookOpen, BookPlus, Check, ChevronDown, Copy, FileText, FileUp, Gauge, LoaderCircle, Maximize2, Mic, NotebookPen, PanelRightOpen, Play, Plus, Route, Square } from "lucide-react";
 import { USER_ID, apiPost, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent, SourceEvidence as Evidence } from "@/lib/types";
 import AnswerChoices from "./AnswerChoices";
@@ -67,13 +67,6 @@ function pcm16Blob(chunks: Float32Array[], sourceRate: number, targetRate = 1600
   }
   return new Blob([buffer], { type: "audio/pcm" });
 }
-const STARTERS = [
-  "请围绕当前课程，先解释一个最基础的概念",
-  "根据我现在的学习起点，给我一道可以独立尝试的新题",
-  "请用这门课程的一个例子，帮我区分容易混淆的概念",
-  "我今天时间有限，请带我完成计划中的第一小步",
-];
-
 const BEGINNER_PRESET =
   "请用完全零基础、由浅入深的方式教我【在这里填写知识点】。先判断我现在需要学习路线还是概念讲解，只回答当下最需要的内容；练习、导图或笔记等我需要时会单独提出。";
 
@@ -100,7 +93,6 @@ export default function Chat({
   topic = "",
   onUploadClick,
   onCreateNotebook,
-  onNewConversation,
   onSeedConsumed,
   onLearningTurn,
   onSessionReady,
@@ -112,6 +104,10 @@ export default function Chat({
   learnerId = "",
   onStudyStage,
   onSuggestedTool,
+  sourceLabel = "已选资料",
+  onOpenSources,
+  onOpenStudio,
+  onBusyChange,
 }: {
   onEvent?: (ev: SparkEvent) => void;
   /** 外部(首页快捷入口)注入的一次性发送内容 */
@@ -126,7 +122,6 @@ export default function Chat({
   topic?: string;
   onUploadClick?: () => void;
   onCreateNotebook?: () => void;
-  onNewConversation?: () => void;
   onSeedConsumed?: () => void;
   onLearningTurn?: (text: string) => void;
   onSessionReady?: (sessionId: string) => void;
@@ -138,6 +133,10 @@ export default function Chat({
   learnerId?: string;
   onStudyStage?: (stage: StudyStage) => void;
   onSuggestedTool?: (tool: SuggestedTool) => void;
+  sourceLabel?: string;
+  onOpenSources?: () => void;
+  onOpenStudio?: () => void;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const [msgs, setMsgs] = useState<Msg[]>(() => initialMessages.map((message) => ({
     role: message.role,
@@ -152,7 +151,8 @@ export default function Chat({
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState("");
-  const [composerMenuOpen, setComposerMenuOpen] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState<number | null>(null);
+  const [copyError, setCopyError] = useState("");
   const [expanded, setExpanded] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [restoredDraft, setRestoredDraft] = useState("");
@@ -183,6 +183,7 @@ export default function Chat({
     return () => { mountedRef.current = false; };
   }, [guidanceKey]);
   useEffect(() => { onStudyStage?.(studyStage(guidance)); }, [guidance, onStudyStage]);
+  useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
 
   useEffect(() => {
     setInput(readStudyDraft(draftKey, (value): value is string => typeof value === "string") || "");
@@ -455,105 +456,31 @@ export default function Chat({
 
   return (
     <div className="notebook-chat-shell flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="notebook-chat-header shrink-0 border-b border-[#E1E4EC] px-5 py-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="notebook-kicker text-[10px] font-bold tracking-[0.18em] text-[#737B8B]">LEARNING CONVERSATION</div>
-            <h2 className="mt-0.5 text-lg font-bold leading-tight tracking-tight text-[#182119]">
-              学习对话
-            </h2>
-          </div>
-          <AdaptiveMenu className="chat-options" label="对话选项" expandedAt={100000}>
-          <div className="notebook-chat-actions">
-            {onNewConversation && (
-              <button
-                type="button"
-                onClick={onNewConversation}
-                disabled={busy}
-                className="notebook-soft-control inline-flex items-center gap-1.5 rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-bold text-[#4E5665] transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                title="保留当前书本和资料，打开一页干净的新对话"
-              >
-                <MessageSquarePlus size={14} />
-                新对话
-              </button>
-            )}
-            {msgs.length > 0 && (
-              <button
-                type="button"
-                onClick={() => send("请把本次学习对话整理成一份可复习、可继续使用的个人笔记。", undefined, undefined, false)}
-                disabled={busy}
-                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <NotebookPen size={14} />
-                整理本次笔记
-              </button>
-            )}
-            {onSourcePolicyChange && <select
-              aria-label="回答依据"
-              value={sourcePolicy}
-              disabled={busy}
-              onChange={(event) => onSourcePolicyChange(event.target.value as "auto" | "strict" | "supplement")}
-              className="notebook-soft-control max-w-full rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-medium text-[#596171]"
-              title="明确说只按资料时会遵守；允许补充的内容会与资料依据区分"
-            >
-              <option value="auto">按对话要求（默认可补充）</option>
-              <option value="supplement">资料优先，允许补充</option>
-              <option value="strict">仅依据资料</option>
-            </select>}
-            <div className="notebook-soft-control rounded-full border border-[#DDE3ED] px-3 py-1.5 text-xs font-medium text-[#596171]">
-              {sourceIds.length ? `${sourceIds.length} 份已选资料` : "当前课程 · 尚未选择上传资料"}
-            </div>
-          </div>
-          </AdaptiveMenu>
-        </div>
-      </div>
+      {(sourceIds.length > 0 || sourcePolicy === "strict") && <button type="button" className="chat-source-context" onClick={onOpenSources} aria-label="查看已选资料" title={sourceIds.length ? sourceLabel : "尚未选择资料"}>
+        <FileText size={19} aria-hidden />
+        <span className="chat-source-title">{sourceIds.length ? sourceLabel : "尚未选择资料"}</span>
+        <span className="chat-source-count">{sourcePolicy === "strict" ? "仅依据资料" : `已选 ${sourceIds.length} 份`}</span>
+        <ChevronDown size={16} aria-hidden />
+      </button>}
 
       <div className="notebook-chat-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {msgs.length === 0 && (
-          <div className="learning-welcome mx-auto max-w-3xl space-y-5 pt-8">
-            <div className="text-center">
-              <div className="mx-auto grid h-12 w-12 place-items-center rounded-[12px] bg-[#e4f2eb] text-[#176c6b]"><BookPlus size={24} /></div>
-              <h3 className="mt-4 text-2xl font-semibold tracking-tight text-[#1D2028]">从一个问题开始</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#737B8B]">想弄懂一个概念，还是卡在一道题？告诉小知，我们从这里开始。</p>
-            </div>
+          <div className="learning-welcome">
+            <BookOpen size={28} className="text-[#176c58]" />
+            <h3>从一个问题开始</h3>
+            <p>今天想弄懂什么？</p>
             {recommendedTask && notebookId && (
-              <div className="rounded-[16px] border border-[#B9D9C5] bg-[#EDF7F0] p-4 shadow-[0_1px_2px_rgba(18,30,22,0.04),0_10px_24px_rgba(18,30,22,0.06)]">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] font-bold tracking-[0.16em] text-[#176C6B]">根据你的学习画像</div>
-                    <h3 className="mt-1 text-lg font-bold text-[#182119]">第一步：{recommendedTask.title}</h3>
-                    <p className="mt-1 text-xs leading-5 text-[#5D7062]">{recommendedTask.reason}</p>
-                  </div>
-                  {onOpenPath && <button type="button" onClick={onOpenPath} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-[#B9D9C5] bg-white px-3 text-xs font-bold text-[#176C6B] transition hover:bg-[#F5FBF7]"><Route size={14} /> 查看路径</button>}
-                </div>
-                <button type="button" onClick={() => void send(recommendedTask.prompt)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#176C6B] px-4 text-sm font-bold text-white transition hover:bg-[#125856]"><BookPlus size={16} /> 开始第一项任务 <ArrowRight size={15} /></button>
+              <div className="chat-next-task">
+                <strong>下一步：{recommendedTask.title}</strong>
+                <p>{recommendedTask.reason}</p>
+                <button type="button" className="study-primary" onClick={() => void send(recommendedTask.prompt)}><Play size={16} />开始第一项任务</button>
+                {onOpenPath && <button type="button" onClick={onOpenPath}><Route size={16} />查看路径</button>}
               </div>
             )}
-            <div className="grid gap-2 sm:grid-cols-3">
-              <button type="button" onClick={() => void send(recommendedTask?.prompt || `请根据“${topic || "当前课程"}”的学习目标与已选资料，带我了解学习路线，再给我第一道小题；没有教材时请说明。`)} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><BookPlus size={15} className="shrink-0 text-[#176C6B]" /> 从当前课程开始</button>
-              {onOpenAssessment && <button type="button" onClick={onOpenAssessment} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><Gauge size={15} className="shrink-0 text-[#176C6B]" /> 先测一下我的水平</button>}
-              <button type="button" onClick={onUploadClick} className="flex min-h-12 items-center gap-2 rounded-xl border border-[#DDE5DE] bg-white px-3 text-left text-xs font-semibold text-[#3F4E43] transition hover:border-[#A8C6B3] hover:bg-[#F4F8F4]"><FileUp size={15} className="shrink-0 text-[#176C6B]" /> 上传自己的资料</button>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setInput(BEGINNER_PRESET); document.getElementById("learning-chat-input")?.focus(); }}
-              className="notebook-beginner-preset w-full rounded-[14px] border border-emerald-200 px-4 py-3 text-left text-sm text-[#176c6b] transition hover:border-emerald-300 hover:bg-[#EDF6F1]"
-            >
-              我是零基础，帮我一步步学 <ArrowRight size={15} className="inline-block" />
-            </button>
-            <div>
-              <div className="mb-2 text-xs font-bold text-[#62746a]">也可以这样问</div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {STARTERS.slice(0, 2).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => { setInput(s); document.getElementById("learning-chat-input")?.focus(); }}
-                    className="notebook-starter-card rounded-[14px] border border-[#E5E9E3] p-4 text-left text-sm text-[#57635A] shadow-sm transition hover:-translate-y-0.5 hover:border-[#D2DAD2] hover:shadow-[0_1px_2px_rgba(18,30,22,0.05),0_6px_20px_rgba(18,30,22,0.08)]"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+            <div className="chat-start-actions">
+              {!recommendedTask && <button type="button" onClick={() => void send(`请根据“${topic || "当前课程"}”的学习目标与已选资料，带我了解学习路线，再给我第一道小题；没有教材时请说明。`)}><BookPlus size={18} />从当前课程开始<ArrowRight size={16} /></button>}
+              {onOpenAssessment && <button type="button" onClick={onOpenAssessment}><Gauge size={18} />先测一下我的水平<ArrowRight size={16} /></button>}
+              <button type="button" onClick={onUploadClick}><FileUp size={18} />上传自己的资料<ArrowRight size={16} /></button>
             </div>
           </div>
         )}
@@ -561,16 +488,14 @@ export default function Chat({
         {msgs.map((m, i) =>
           m.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[82%] rounded-[14px] rounded-br-md bg-[#0E1411] px-4 py-2.5 text-sm leading-6 text-white shadow-sm">
+              <div className="chat-user-message">
                 {m.text}
               </div>
             </div>
           ) : (
             <div key={i} className="chat-assistant-row flex gap-3">
-              <div className="chat-avatar mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-emerald-200 bg-[#E3F0E9] font-mono text-[10px] font-bold text-emerald-800">
-                小知
-              </div>
               <div className="min-w-0 flex-1 space-y-3">
+                <div className="chat-author">小知</div>
                 {(m.text || (m.streaming && !m.resources.length)) && (
                   <div
                     className="notebook-assistant-message rounded-[14px] rounded-tl-md border border-[#E5E9E3] px-4 py-3 shadow-sm"
@@ -620,6 +545,13 @@ export default function Chat({
                     onOpenMistakes={onOpenMistakes}
                   />
                 ))}
+                {!m.streaming && m.text && <div className="chat-answer-actions">
+                  {i === msgs.length - 1 && onSuggestedTool && !m.resources.length && <button type="button" disabled={busy} onClick={() => onSuggestedTool("quiz")}><Play size={17} />练一题</button>}
+                  <button type="button" className="study-icon chat-copy" aria-label="复制回答" title={copiedMessage === i ? "已复制" : "复制回答"} onClick={async () => {
+                    try { await navigator.clipboard.writeText(m.text); setCopiedMessage(i); setCopyError(""); }
+                    catch { setCopyError("复制失败，请选择正文复制。"); }
+                  }}>{copiedMessage === i ? <Check size={18} /> : <Copy size={18} />}</button>
+                </div>}
               </div>
             </div>
           ),
@@ -646,38 +578,25 @@ export default function Chat({
             }}
             rows={2}
             aria-label="学习目标输入"
-            placeholder="向小知提问，或写下你的想法…"
+            placeholder="继续提问，或写下你的理解…"
             className="study-chat-input"
           />
           <div className="composer-toolbar">
-          {composerMenuOpen && (
-            <div className="notebook-composer-menu absolute bottom-14 left-0 z-20 w-60 overflow-hidden rounded-2xl border border-[#DDE2DA] p-2 shadow-[0_18px_55px_rgba(20,35,27,0.18)]">
-              {onNewConversation && (
-                <button type="button" onClick={() => { setComposerMenuOpen(false); onNewConversation(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-emerald-50">
-                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><MessageSquarePlus size={18} /></span>
-                  <span><strong className="block text-sm text-slate-900">新开一页对话</strong><small className="mt-0.5 block text-[11px] text-slate-500">保留本书资料，清空当前聊天</small></span>
-                </button>
-              )}
-              <button type="button" onClick={() => { setComposerMenuOpen(false); onCreateNotebook?.(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-emerald-50">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-700"><BookPlus size={18} /></span>
-                <span><strong className="block text-sm text-slate-900">新建知识书本</strong><small className="mt-0.5 block text-[11px] text-slate-500">开始一段独立的学习对话</small></span>
-              </button>
-              <button type="button" onClick={() => { setComposerMenuOpen(false); onUploadClick?.(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-slate-50">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-sky-100 text-sky-700"><FileUp size={18} /></span>
-                <span><strong className="block text-sm text-slate-900">添加学习资料</strong><small className="mt-0.5 block text-[11px] text-slate-500">PDF、图片、Markdown 或文本</small></span>
-              </button>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => setComposerMenuOpen((open) => !open)}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#596171] transition hover:bg-[#EEF0F6] hover:text-[#1D2028]"
-            aria-label="新建知识书本或添加资料"
-            aria-expanded={composerMenuOpen}
-            title="新建知识书本或添加资料"
-          >
-            <Plus size={20} className={`transition ${composerMenuOpen ? "rotate-45" : ""}`} />
-          </button>
+          <AdaptiveMenu className="composer-options" label="对话选项" icon={<Plus size={22} />} guide="studio-nav" expandedAt={100000}>
+            <button type="button" onClick={onOpenSources}><BookOpen size={18} />学习来源</button>
+            <button type="button" onClick={onUploadClick}><FileUp size={18} />添加学习资料</button>
+            <button type="button" onClick={onOpenStudio}><PanelRightOpen size={18} />学习工坊</button>
+            <button type="button" onClick={onCreateNotebook}><BookPlus size={18} />新建知识书本</button>
+            <button type="button" onClick={() => { setInput(BEGINNER_PRESET); inputRef.current?.focus(); }}><BookOpen size={18} />零基础学习</button>
+            {msgs.length > 0 && <button type="button" disabled={busy} onClick={() => void send("请把本次学习对话整理成一份可复习、可继续使用的个人笔记。", undefined, undefined, false)}><NotebookPen size={18} />整理本次笔记</button>}
+            {onSourcePolicyChange && <label className="chat-policy-setting">回答依据
+              <select aria-label="回答依据" value={sourcePolicy} disabled={busy} onChange={event => onSourcePolicyChange(event.target.value as "auto" | "strict" | "supplement")}>
+                <option value="auto">按对话要求（默认可补充）</option>
+                <option value="supplement">资料优先，允许补充</option>
+                <option value="strict">仅依据资料</option>
+              </select>
+            </label>}
+          </AdaptiveMenu>
           <button
             type="button"
             onClick={() => void toggleRecording()}
@@ -692,7 +611,7 @@ export default function Chat({
           >
             {transcribing ? <LoaderCircle size={19} className="animate-spin" /> : <Mic size={19} />}
           </button>
-          <button type="button" className="study-icon" onClick={() => { setComposerMenuOpen(false); setExpanded(true); }} aria-label="展开编辑" title="展开编辑"><Maximize2 size={18} /></button>
+          <button type="button" className="study-icon" onClick={() => setExpanded(true)} aria-label="展开编辑" title="展开编辑"><Maximize2 size={18} /></button>
           <span className="flex-1" />
           {busy ? (
             <button
@@ -706,15 +625,17 @@ export default function Chat({
             <button
               onClick={() => send(input)}
               disabled={!input.trim()}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#14161B] text-white transition hover:scale-[1.03] disabled:cursor-not-allowed disabled:bg-[#E1E3E8] disabled:text-[#9AA0AD]"
+              className="chat-send grid h-10 w-10 shrink-0 place-items-center rounded-full text-white transition disabled:cursor-not-allowed disabled:bg-[#E1E3E8] disabled:text-[#9AA0AD]"
               aria-label="发送"
+              title="发送"
             >
-              <ArrowRight size={19} />
+              <ArrowUp size={22} />
             </button>
           )}
           </div>
         </div>
         {queuedHint && <div className="mt-2 text-xs font-semibold text-orange-700">{queuedHint}</div>}
+        {copyError && <div role="status" className="mt-2 text-xs text-orange-700">{copyError}</div>}
         {voiceStatus && (
           <div className={`mt-2 text-xs font-semibold ${recording ? "text-red-600" : "text-emerald-700"}`}>
             {voiceStatus}

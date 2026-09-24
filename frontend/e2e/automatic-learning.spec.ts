@@ -71,7 +71,8 @@ test("手机引导定位导航、无横向溢出，学习功能直接展示", as
     await page.screenshot({ path: info.outputPath(`guide-mobile-${step + 1}.png`), fullPage: true });
     await popover.getByRole("button", { name: step === 2 ? "开始学习" : "下一步", exact: true }).click();
   }
-  await page.getByRole("button", { name: "学习工坊", exact: true }).click();
+  await page.getByLabel("对话选项", { exact: true }).click();
+  await page.locator(".composer-options").getByRole("button", { name: "学习工坊", exact: true }).click();
   const sheet = page.locator(".notebook-mobile-sheet");
   await expect(sheet.locator(".studio-tile")).toHaveCount(11);
   await expect(sheet.locator(".studio-view")).toHaveCount(6);
