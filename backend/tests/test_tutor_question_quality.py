@@ -120,3 +120,26 @@ def test_linear_proof_matches_small_integer_execution():
 @pytest.mark.parametrize("initial", ["3.5", "3 * 2", "3或4"])
 def test_linear_checker_does_not_guess_an_unparsed_initial_value(initial):
     assert quality.linear_recursion_choices(REAL_BAD.replace("$n = 3$", "$n = " + initial + "$")) is None
+
+
+@pytest.mark.parametrize("division", ["n/2", "n / 2", "n÷2", "n/10"])
+def test_live_integer_division_ambiguity_cannot_pass_model_approval(monkeypatch, division):
+    question = REAL_BAD.replace("$n - 2$", division)
+    review(monkeypatch, [False, False, True, False])
+    answer, status = asyncio.run(quality.check_question(question, ""))
+    assert not status["accepted"] and status["reason"] == "division_rule_missing"
+    assert "简答检查" in answer and "A." not in answer
+
+
+@pytest.mark.parametrize("division", ["n//2", "floor(n/2)", "ceil(n/2)", "n/2（向下取整）"])
+def test_explicit_division_semantics_still_go_through_model_review(monkeypatch, division):
+    question = REAL_BAD.replace("$n - 2$", division)
+    assert not quality.ambiguous_integer_division(question)
+    review(monkeypatch, [False, False, True, False], conditions=False)
+    _, status = asyncio.run(quality.check_question(question, ""))
+    assert not status["accepted"] and status["verification"] == "model_review"
+
+
+def test_division_guard_does_not_infer_integer_domain_from_initial_value():
+    question = REAL_BAD.replace("$n - 2$", "n/2").replace("且 $n$ 始终为整数。", "")
+    assert not quality.ambiguous_integer_division(question)

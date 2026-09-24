@@ -47,7 +47,7 @@ test("复合六级请求保留考点占分方法并直接生成一图看懂", as
     expect(resource.payload.generation_mode).toBe("model");
     const markdown = resource.payload.markdown;
     for (const topic of ["听力", "阅读", "写作", "翻译", "35%", "15%"]) expect(markdown).toContain(topic);
-    expect(markdown).toMatch(/网站|平台|小知|LearnLoop/);
+    expect(markdown).toMatch(/网站|本站|平台|小知|LearnLoop/);
     // A valid citation must not turn the site's short drill into an exam rule.
     for (const line of markdown.split("\n").filter((line: string) => /120\s*[–—-]\s*150/.test(line))) {
       expect(line).toMatch(/本站|基础|起步|练习长度|非.{0,6}考试|不是.{0,6}考试/);

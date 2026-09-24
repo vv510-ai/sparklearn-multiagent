@@ -89,11 +89,46 @@ def linear_recursion_choices(question: str) -> list[bool] | None:
     return truth
 
 
+def ambiguous_integer_division(question: str) -> bool:
+    """Reject a missing rounding rule in explicit integer-recursion choices.
+
+    An integer initial value alone does not specify the domain of later values.
+    Restrict this guard to a stated integer domain and explicit update options.
+    """
+    text = question.replace("$", "").replace("`", "").replace("**", "")
+    options = list(_OPTION.finditer(text))
+    if not options:
+        return False
+    stem = text[:options[0].start()]
+    if "递归" not in stem or not re.search(r"n\s*(?:始终)?(?:为|是)\s*整数", stem):
+        return False
+    for option in options:
+        if "参数变化" not in option[2]:
+            continue
+        update = option[2].split("参数变化", 1)[1]
+        divisions = list(re.finditer(r"n\s*(?<!/)[/÷]\s*(?!/)(?:[2-9]|[1-9]\d+)\b", update))
+        if not divisions:
+            continue
+        # Explicit symbolic floor/ceil or an attached rounding rule removes
+        # this particular ambiguity; the ordinary solver still checks answers.
+        explicit = re.search(r"(?:向下|向上|向零)取整|截断(?:小数|取整)", update)
+        if explicit and not re.search(r"未|没有|不(?:做|作)?(?:取整|截断)", update):
+            continue
+        if all(re.search(r"(?:floor|ceil)\s*\(\s*$", update[:m.start()])
+               and re.match(r"\s*\)", update[m.end():]) for m in divisions):
+            continue
+        return True
+    return False
+
+
 async def check_question(answer: str, context: str) -> tuple[str, dict | None]:
     found = terminal_question(answer)
     if found is None:
         return answer, None
     start, question, labels, kind = found
+    if ambiguous_integer_division(question):
+        return answer[:start].rstrip() + "\n\n" + _REPLACEMENT, {
+            "accepted": False, "verification": "deterministic_check", "reason": "division_rule_missing"}
     proved = linear_recursion_choices(question)
     if proved is not None and not (sum(proved) == 1 if kind == "single" else 2 <= sum(proved) < len(labels)):
         return answer[:start].rstrip() + "\n\n" + _REPLACEMENT, {
