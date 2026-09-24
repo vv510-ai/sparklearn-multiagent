@@ -103,3 +103,20 @@ def test_compound_question_keeps_concepts_after_comma():
         assert '物质循环' in resolve_conversation_topic('请解释能量流动，比较它与物质循环的区别')[1]
     finally:
         _scope.reset(token)
+
+
+def test_tagged_course_sections_do_not_leak_via_incidental_vocabulary_words():
+    from app.data.cet6_course import build_course
+    from app.services.topic_scope import focus_chunks_on_topic
+    course = build_course()
+    token = _scope.set({'course': course, 'graph': graph_index(course['graph'])})
+    try:
+        chunks = [
+            {'source_type': 'textbook', 'source_id': course['textbook']['id'], 'kp': 'cet6_vocab', 'text': '词汇与语境：用词性和搭配选择单词。'},
+            {'source_type': 'textbook', 'source_id': course['textbook']['id'], 'kp': 'cet6_listening', 'text': '听力中也要理解词汇与语境，但本章练习听音频。'},
+        ]
+        assert [c['kp'] for c in focus_chunks_on_topic(chunks, 'cet6_vocab', '词汇与语境')] == ['cet6_vocab']
+        assert len(focus_chunks_on_topic(chunks, 'custom_topic', '词汇与语境和听力信息提取的关系')) == 2
+        assert len(focus_chunks_on_topic(chunks, 'custom_topic', course['title'])) == 2
+    finally:
+        _scope.reset(token)
