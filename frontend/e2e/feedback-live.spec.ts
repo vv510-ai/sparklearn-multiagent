@@ -176,7 +176,7 @@ test("生产固定样本：上传、问答续接、六级资料生成与归档",
       const card = page.locator("button[aria-expanded]").filter({ hasText: "词汇学习笔记：固定流程复核" });
       if (await card.getAttribute("aria-expanded") === "false") await card.click();
       await expect(card).toBeVisible();
-      const body = page.locator(".prose-spark").filter({ hasText: "词汇" }).first();
+      const body = card.locator("..").locator(".prose-spark").first();
       await expect(body).toBeVisible();
       expect(await body.evaluate(el => getComputedStyle(el).userSelect)).not.toBe("none");
       const selected = await body.evaluate(el => {
