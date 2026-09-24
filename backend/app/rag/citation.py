@@ -36,3 +36,27 @@ def used_indices(answer: str, n: int) -> list[int]:
     import re
     found = {int(m) for m in re.findall(r"\[\^(\d+)\]", answer) if 0 < int(m) <= n}
     return sorted(found)
+
+
+def normalize_reference_markers(answer: str) -> str:
+    """Normalize unambiguous prose references, preserving code and Markdown links.
+
+    A bare [1] can be a single-element list. Only sentence-final markers or
+    explicit source cues qualify. All new one-page contexts use [^n] directly.
+    Keep out-of-bounds markers so grounding rejects invented references.
+    """
+    import re
+    protected = re.compile(
+        r"(?P<ticks>`+)[\s\S]*?(?P=ticks)|"
+        r"(?P<fence>~{3,})[^\n]*\n[\s\S]*?\n(?P=fence)|"
+        r"!?\[[^\]\n]*\](?:\([^\n]*?\)|\[[^\]\n]*\])|"
+        r"(?m:^[ \t]{0,3}\[[^\]\n]+\]:[^\n]*)"
+    )
+    marker = re.compile(r"((?:[。！？.!?；;]|资料|来源|出处|文献|参见|参考|依据)\s*)\[(\d+)\](?![\[(：:])")
+    parts, start = [], 0
+    for item in protected.finditer(answer):
+        parts.append(marker.sub(r"\1[^\2]", answer[start:item.start()]))
+        parts.append(item.group())
+        start = item.end()
+    parts.append(marker.sub(r"\1[^\2]", answer[start:]))
+    return "".join(parts)

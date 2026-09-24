@@ -96,6 +96,10 @@ def test_chat_api_keeps_compound_goal_course_evidence_and_supplement_policy(lear
     prompts = []
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
     monkeypatch.setattr(doc_agent, "generate_one_page", _fake_image_pipeline)
+    monkeypatch.setattr(planner_agent, "is_demo", lambda: False)
+    async def scope_model(prompt, **kwargs):
+        return json.dumps({"topic": "大学英语六级", "overview": True})
+    monkeypatch.setattr(planner_agent, "llm_complete", scope_model)
 
     async def model(prompt, **kwargs):
         prompts.append(prompt)
