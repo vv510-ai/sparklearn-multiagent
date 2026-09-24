@@ -129,6 +129,8 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
   const nodes = visual.nodes || [];
   const imageUrl = apiAssetUrl(visual.image_url);
   if (imageUrl) {
+    const reviewedImage = visual.renderer === "xiaoyunque-infographic-v1";
+    const reviewPassed = visual.verification?.status === "passed";
     const textLayout = ["svg-text-v1", "svg-map-v2"].includes(visual.renderer || "");
     const picture = <a href={imageUrl} target="_blank" rel="noreferrer" className="block bg-[#FAF9F6]" title="打开高清原图">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -139,7 +141,18 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
         <div className="flex items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3">
           <div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-700">一图看懂</div><h3 className="mt-1 text-lg font-black text-slate-950">{visual.title || "知识图"}</h3></div>
         </div>
-        {textLayout ? <>
+        {reviewedImage ? <>
+          <div role="note" className={`border-b px-4 py-3 text-sm leading-6 ${reviewPassed ? "border-emerald-100 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-950"}`}>
+            <p className="font-semibold">{reviewPassed ? "已完成图片自动核对" : visual.verification?.status === "failed" ? "图片仍有待修正内容" : "图片已生成，仍需核对"}</p>
+            <p className="mt-1 text-xs">{reviewPassed ? "已对照文字版检查文字、公式和关系；自动检查仍可能遗漏，请结合出处阅读。" : "请先阅读下方核对提示，并以文字版与出处为参照。"}</p>
+            {!!visual.verification?.issues.length && <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">{visual.verification.issues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>}
+            {(visual.generation_attempts || 0) > 1 && <p className="mt-1 text-xs">已尝试自动修正一次。</p>}
+          </div>
+          {visual.content_status === "source_excerpt" && <p className="px-4 py-3 text-xs text-amber-900">本图依据本次检索到的原文片段制作，未覆盖整份资料。</p>}
+          {visual.content_status === "general_knowledge" && <p className="px-4 py-3 text-xs text-amber-900">内容为通用知识整理，未经课程资料核验。</p>}
+          {visual.content_status === "supplemented" && <p className="px-4 py-3 text-xs text-amber-900">内容优先依据资料，含未经资料逐项核验的通用补充。</p>}
+          {picture}
+        </> : textLayout ? <>
           {visual.layout === "text_excerpt" && <p role="note" className="border-b border-emerald-100 px-4 py-3 text-xs text-amber-900">关系图尚未生成；以下保留完整文字摘要，不代表知识关系图。</p>}
           {visual.content_status === "source_excerpt" && <p className="border-b border-emerald-100 px-4 py-3 text-xs leading-5 text-emerald-900">本次扩写未通过核对，以下仅展示相关资料原文摘录，未覆盖整份资料。</p>}
           {visual.content_status === "general_knowledge" && <p className="px-4 py-3 text-xs text-amber-800">以下为通用知识整理，未经课程资料核验。</p>}
@@ -153,6 +166,12 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
       </figure>
     );
   }
+  if (visual.renderer === "xiaoyunque-infographic-v1") return (
+    <div role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+      <p className="font-semibold">一图看懂图片未生成</p>
+      <p>{visual.image_error || "小云雀暂未返回图片，请先阅读文字版与出处，稍后重试。"}</p>
+    </div>
+  );
   return (
     <figure className="mb-4 overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-[#EFF8F3] via-white to-[#F7F2E8] p-4" aria-label={`${visual.title || "当前主题"}结构图`}>
       <div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-700">知识图暂不可用 · 资料摘录</div><h3 className="mt-1 text-lg font-black text-slate-950">{visual.title || "知识结构图"}</h3></div><span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Eye size={19} /></span></div>

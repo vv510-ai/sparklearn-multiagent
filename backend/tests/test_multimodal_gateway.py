@@ -803,3 +803,34 @@ def test_image_provider_error_keeps_code_and_sid(monkeypatch):
     assert sent_bodies[0]["header"]["app_id"] == "tti-app"
     assert sent_bodies[0]["parameter"]["chat"]["width"] == 768
     assert sent_bodies[0]["parameter"]["chat"]["height"] == 768
+
+
+def test_strict_xiaoyunque_failure_does_not_call_spark(monkeypatch, tmp_path):
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: _settings(xyq_access_key="test"))
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
+    monkeypatch.setattr(gateway, "_generate_xiaoyunque_image", lambda *a: (_ for _ in ()).throw(RuntimeError("unavailable")))
+    monkeypatch.setattr(gateway.spark_image, "generate_image", lambda *a, **k: pytest.fail("must not change provider"))
+    result = asyncio.run(gateway.text_to_image("知识图", preferred_provider="xiaoyunque", allow_provider_fallback=False))
+    assert not result["ok"]
+
+
+def test_strict_image_cache_retains_provider_and_is_tenant_scoped(monkeypatch, tmp_path):
+    monkeypatch.setattr(gateway, "GEN_DIR", tmp_path)
+    monkeypatch.setattr(gateway, "get_settings", lambda: _settings(xyq_access_key="test"))
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
+    calls = []
+    def generate(prompt, digest, settings):
+        calls.append(digest)
+        target = tmp_path / f"source_{digest}.png"
+        target.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x"*64)
+        return f"/static/gen/{target.name}"
+    monkeypatch.setattr(gateway, "_generate_xiaoyunque_image", generate)
+    monkeypatch.setattr(gateway, "current_user_id", lambda: "first")
+    for _ in range(2):
+        result = asyncio.run(gateway.text_to_image("知识图", preferred_provider="xiaoyunque", allow_provider_fallback=False))
+        assert result["ok"] and result["data"]["provider"] == "xiaoyunque"
+    assert len(calls) == 1 and result["data"]["cached"]
+    monkeypatch.setattr(gateway, "current_user_id", lambda: "second")
+    result = asyncio.run(gateway.text_to_image("知识图", preferred_provider="xiaoyunque", allow_provider_fallback=False))
+    assert len(calls) == 2 and not result["data"]["cached"]

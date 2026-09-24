@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.24.16",
+  "version": "2026.09.24.17",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -159,6 +159,18 @@
     "doc.one_page_repair": {
       "description": "对超出布局容量的一图看懂进行一次有界压缩",
       "file": "doc/one-page-repair.md"
+    },
+    "image.one_page_observe": {
+      "file": "image/one-page-observe.md",
+      "description": "独立读取实际知识图的文字、公式与关系"
+    },
+    "image.one_page_check": {
+      "file": "image/one-page-check.md",
+      "description": "对照底稿检查图片文字、公式与连线"
+    },
+    "image.one_page_image_repair": {
+      "file": "image/one-page-image-repair.md",
+      "description": "依据成图检查问题进行一次有界重生成"
     }
   }
 }

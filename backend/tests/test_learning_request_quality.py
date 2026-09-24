@@ -95,7 +95,7 @@ def test_chat_api_keeps_compound_goal_course_evidence_and_supplement_policy(lear
     book, _, _ = prepare(client, user, "cet6", "大学英语六级", "准备课程考试")
     prompts = []
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
-    monkeypatch.setattr(doc_agent, "render_one_page", lambda *a, **k: {"image_status": "ready", "content_status": k["content_status"]})
+    monkeypatch.setattr(doc_agent, "generate_one_page", _fake_image_pipeline)
 
     async def model(prompt, **kwargs):
         prompts.append(prompt)
@@ -146,7 +146,7 @@ def test_supplement_doc_preserves_request_and_never_invents_source_citation(monk
     calls = []
     monkeypatch.setattr(doc_agent, "retrieve", lambda *a, **k: [])
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
-    monkeypatch.setattr(doc_agent, "render_one_page", lambda *a, **k: {"image_status": "ready", "content_status": k["content_status"]})
+    monkeypatch.setattr(doc_agent, "generate_one_page", _fake_image_pipeline)
 
     async def model(prompt, **kwargs):
         calls.append(prompt)
@@ -216,7 +216,7 @@ def test_empty_supplement_failure_never_delivers_fake_content_or_image(monkeypat
         return "# 量子纠缠\n\n量子纠缠是联合量子状态的关联。[^99]"
 
     monkeypatch.setattr(doc_agent, "llm_complete", model)
-    monkeypatch.setattr(doc_agent, "render_one_page", lambda *a, **k: pytest.fail("No valid body to render"))
+    monkeypatch.setattr(doc_agent, "generate_one_page", lambda *a, **k: pytest.fail("No valid body to generate"))
     result = asyncio.run(doc_agent._gen_one("doc", "custom_topic", {}, topic_name="量子纠缠",
         custom_topic=True, source_ids=["selected"], source_policy="supplement", goal="解释量子纠缠",
         prompt_template=template, trace_id="failed-supplement", skip_multimodal=True))
@@ -246,3 +246,7 @@ def test_supplement_tutor_does_not_stream_late_fake_citation(monkeypatch):
     result = asyncio.run(tutor_agent.run({"messages": [{"role": "user", "content": "解释递归"}],
         "source_ids": ["selected"], "source_policy": "supplement", "student_profile": {}}))
     assert "[^99]" not in result["answer"] and "[^99]" not in "".join(emitted)
+
+
+async def _fake_image_pipeline(*args, **kwargs):
+    return {"image_status": "ready", "content_status": kwargs["content_status"], "pages": []}

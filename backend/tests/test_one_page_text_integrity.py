@@ -27,7 +27,7 @@ def visible_text(visual):
     return "".join(texts)
 
 
-def generate(monkeypatch, *, approved=True, has_source=True, extra_duration=False):
+def generate(monkeypatch, *, approved=True, has_source=True, extra_duration=False, image_ok=True):
     monkeypatch.setattr(doc_agent, "is_demo", lambda: False)
     monkeypatch.setattr(doc_agent, "retrieve", lambda *a, **k: [{
         "text": SOURCE, "source": "课程原文", "source_id": "vocab", "page": 1,
@@ -40,22 +40,24 @@ def generate(monkeypatch, *, approved=True, has_source=True, extra_duration=Fals
     async def grounding(*a, **k):
         return {"grounded": approved, "unsupported": [] if approved else ["promising = proven"], "verdict": "checked"}
 
-    async def image(*a, **k):
-        pytest.fail("Knowledge-map glyphs must never go through the image model")
+    async def image(name, parts, **kwargs):
+        page = {"image_status": "ready" if image_ok else "fallback", "renderer": "xiaoyunque-infographic-v1",
+                "content_status": kwargs["content_status"], "generated_from": "\n".join(parts),
+                "verification": {"status": "passed", "issues": []}}
+        return {**page, "pages": [page]}
 
     monkeypatch.setattr(doc_agent, "llm_complete", complete)
     monkeypatch.setattr(doc_agent, "grounding_check", grounding)
-    monkeypatch.setattr(doc_agent.multimodal_gateway, "text_to_image", image)
+    monkeypatch.setattr(doc_agent, "generate_one_page", image)
     return asyncio.run(doc_agent._gen_one("doc", "custom_topic", {}, topic_name="选词", custom_topic=True,
         source_ids=["vocab"] if has_source else [], goal="一图看懂", prompt_template="one_page", trace_id="feedback-03"))
 
 
-def test_map_uses_literal_text_instead_of_image_model(monkeypatch):
+def test_map_sends_checked_text_to_image_pipeline(monkeypatch):
     result = generate(monkeypatch)
     visual = result["resource"]["payload"]["one_page_visual"]
-    assert visual["image_url"].endswith(".svg")
-    assert visual["renderer"] == "svg-text-v1"
-    actual = visible_text(visual)
+    assert visual["renderer"] == "xiaoyunque-infographic-v1"
+    actual = visual["generated_from"]
     assert SOURCE in actual
     assert actual.count("③") == 1
     assert actual.count("≠") == 2
@@ -68,7 +70,7 @@ def test_failed_factual_check_cannot_publish_the_rejected_claim(monkeypatch):
     assert SOURCE in payload["markdown"]
     assert payload["generation_mode"] == "source_guide"
     assert payload["one_page_visual"]["content_status"] == "source_excerpt"
-    actual = visible_text(payload["one_page_visual"])
+    actual = payload["one_page_visual"]["generated_from"]
     assert SOURCE in actual and "promising = proven" not in actual
 
 
@@ -88,11 +90,8 @@ def test_svg_treats_markup_as_text_and_has_no_active_content():
     assert not any("href" in key or key.startswith("on") for node in root.iter() for key in node.attrib)
 
 
-def test_local_render_failure_retains_text_and_reports_failure(monkeypatch):
-    def fail(*args, **kwargs):
-        raise OSError("disk unavailable")
-    monkeypatch.setattr(doc_agent, "render_one_page", fail)
-    result = generate(monkeypatch)
+def test_image_failure_retains_checked_text_and_reports_failure(monkeypatch):
+    result = generate(monkeypatch, image_ok=False)
     assert result["resource"]["payload"]["one_page_visual"]["image_status"] == "fallback"
     assert SOURCE in result["resource"]["payload"]["markdown"]
 

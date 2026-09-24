@@ -158,7 +158,7 @@ def test_saved_evidence_survives_notebook_reload_and_owner_boundary(learner):
 def test_strict_doc_rejects_invalid_index_even_if_semantics_would_pass(monkeypatch,template):
     monkeypatch.setattr(doc_agent,"is_demo",lambda:False)
     monkeypatch.setattr(doc_agent,"retrieve",lambda *a,**k:CHUNKS[:1])
-    monkeypatch.setattr(doc_agent,"render_one_page",lambda *a,**k:{"image_status":"ready"})
+    monkeypatch.setattr(doc_agent,"generate_one_page",_fake_image_pipeline)
     async def model(*a,**k): return "递归必须有终止条件。[^99]"
     async def judge(*a,**k): pytest.fail("Invalid citations must be rejected before a billed semantic check")
     monkeypatch.setattr(doc_agent,"llm_complete",model)
@@ -169,3 +169,7 @@ def test_strict_doc_rejects_invalid_index_even_if_semantics_would_pass(monkeypat
     assert "[^99]" not in payload["markdown"]
     assert payload["generation_mode"] == "source_guide"
     assert "invalid_citation" in payload["generation_details"]["reason_codes"]
+
+
+async def _fake_image_pipeline(*args, **kwargs):
+    return {"image_status": "ready", "content_status": kwargs["content_status"], "pages": []}

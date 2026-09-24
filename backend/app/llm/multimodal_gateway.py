@@ -739,6 +739,7 @@ async def text_to_image(
     width: int = 768,
     height: int = 768,
     preferred_provider: str = "",
+    allow_provider_fallback: bool = True,
     trace_id: str = "",
 ) -> MMResult:
     s = get_settings()
@@ -762,6 +763,9 @@ async def text_to_image(
     if preferred not in {"", "xiaoyunque"}:
         raise ValueError(f"unsupported preferred image provider: {preferred_provider}")
     cache_scope = f"{preferred}\0" if preferred else ""
+    if not allow_provider_fallback:
+        # Separate strict calls from legacy caches that may contain fallback images.
+        cache_scope = f"strict-v1\0{current_user_id() or 'demo_user'}\0{selected}\0{getattr(s, 'xyq_base_url', '')}\0"
     digest = hashlib.sha1(
         f"{cache_scope}{width}x{height}\0{prompt}".encode("utf-8")
     ).hexdigest()[:16]
@@ -774,7 +778,8 @@ async def text_to_image(
             started,
             ok=True,
             degraded=False,
-            data={"image_url": f"/static/gen/{cached.name}", "cached": True},
+            data={"image_url": f"/static/gen/{cached.name}", "cached": True,
+                  **({"provider": selected} if not allow_provider_fallback else {})},
         )
         await _record(result, agent="media")
         return result
@@ -826,7 +831,7 @@ async def text_to_image(
                 ))
             else:
                 unavailable.append("xiaoyunque: credentials not configured or image capability disabled")
-        if spark_image.configured(s):
+        if (allow_provider_fallback or selected == "spark") and spark_image.configured(s):
             attempts.append((
                 "spark",
                 lambda: spark_image.generate_image(prompt, width=width, height=height),

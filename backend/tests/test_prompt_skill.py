@@ -58,6 +58,7 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "persona": "循序渐进",
         "context": "资料片段",
         "content": "示例主题的课程知识正文",
+        "observation": "{}", "issues": "[]",
         "conversation": "学习者：我想学",
         "question": "这是什么？",
         "cognitive_style": "视觉型",
