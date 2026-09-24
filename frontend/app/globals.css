@@ -1978,11 +1978,12 @@ body::after {
 }
 
 .notebook-mobile-sheet {
+  background-color: #f3f7f5;
   border-right: 1px solid rgba(255, 255, 255, 0.76);
   border-left: 1px solid rgba(255, 255, 255, 0.76);
   background:
     radial-gradient(92% 64% at 94% 2%, rgba(86, 139, 211, 0.28), transparent 70%),
-    linear-gradient(145deg, rgba(247, 250, 253, 0.68), rgba(219, 234, 239, 0.46));
+    linear-gradient(145deg,#f7fafd,#dbeaef);
   box-shadow: 0 0 70px rgba(28, 39, 57, 0.22);
   backdrop-filter: blur(30px) saturate(132%);
   -webkit-backdrop-filter: blur(30px) saturate(132%);

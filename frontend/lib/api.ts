@@ -17,6 +17,20 @@ export function apiAssetUrl(url?: string): string | undefined {
   return url.startsWith("/static/") ? `${BASE}${url}` : url;
 }
 
+function connectionMessage(error: unknown): string {
+  if ((error as Error)?.name === "AbortError") return "连接等待超时，请重试；已保存的学习记录仍然保留。";
+  if (error instanceof TypeError && /fetch|network|load/i.test(error.message)) return "暂时无法连接服务，请检查网络后重试；已保存的学习记录仍然保留。";
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function withRequestTimeout<T>(run: (signal: AbortSignal) => Promise<T>, timeout: number): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try { return await run(controller.signal); }
+  catch (error) { throw new Error(connectionMessage(error)); }
+  finally { clearTimeout(timer); }
+}
+
 /** POST + SSE:逐事件回调;返回 abort 函数。 */
 export function postSSE(
   path: string,
@@ -72,7 +86,7 @@ export function postSSE(
       }
     } catch (e: unknown) {
       if ((e as Error)?.name !== "AbortError")
-        onEvent({ type: "error", detail: String(e) });
+        onEvent({ type: "error", detail: connectionMessage(e) });
     } finally {
       onClose?.();
     }
@@ -81,17 +95,21 @@ export function postSSE(
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
+  return withRequestTimeout(async signal => {
+  const res = await fetch(`${BASE}${path}`, { cache: "no-store", signal });
   notifyUnauthorized(res.status);
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   return res.json() as Promise<T>;
+  }, 20_000);
 }
 
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return withRequestTimeout(async signal => {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
   const text = await res.text();
   notifyUnauthorized(res.status);
@@ -112,10 +130,12 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   } catch {
     throw new Error(`POST ${path} 返回了不完整的数据，请重试`);
   }
+  }, 180_000);
 }
 
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { method: "POST", body: form });
+  return withRequestTimeout(async signal => {
+  const res = await fetch(`${BASE}${path}`, { method: "POST", body: form, signal });
   notifyUnauthorized(res.status);
   if (!res.ok) {
     const text = await res.text();
@@ -129,6 +149,7 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
     throw new Error(message);
   }
   return res.json() as Promise<T>;
+  }, 180_000);
 }
 
 // This sentinel is overwritten by the BFF with the authenticated JWT subject.

@@ -9,6 +9,7 @@ import json
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field, field_validator
 
 from ..agents import doc_agent
 from ..agents.graph import run_with_events
@@ -145,6 +146,32 @@ async def list_resources(user_id: str = Query("demo_user"),
         return {"items": [_row_to_dict(r) for r in rows]}
 
 
+class RenameResourceRequest(BaseModel):
+    user_id: str = "demo_user"
+    title: str = Field(min_length=1, max_length=120)
+
+    @field_validator("title")
+    @classmethod
+    def clean_title(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value:
+            raise ValueError("名称不能为空")
+        return value
+
+
+@router.post("/{rid}/rename")
+async def rename_resource(rid: str, req: RenameResourceRequest):
+    ensure_user(req.user_id)
+    with session() as db:
+        resource = db.get(Resource, rid)
+        if not resource or resource.user_id != req.user_id:
+            raise HTTPException(404, "resource not found")
+        resource.title = req.title
+        db.commit()
+        db.refresh(resource)
+        return _row_to_dict(resource)
+
+
 @router.post("/{rid}/audio")
 async def retry_audio(rid: str, req: AudioRetryRequest):
     """Retry cloud TTS while keeping browser speech as a visible fallback."""
@@ -156,6 +183,8 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         if resource.kind != "doc":
             raise HTTPException(400, "only document resources support audio narration")
         payload = dict(_as_json(resource.payload, {}))
+        if payload.get("generation_mode") == "unavailable" or payload.get("blocked_reason") == "source_scope_empty":
+            raise HTTPException(409, "请先选择相关资料并重新生成讲解，再生成语音。")
         markdown = str(payload.get("markdown") or "").strip()
         if not markdown:
             raise HTTPException(409, "resource has no narration content")

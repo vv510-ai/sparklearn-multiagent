@@ -143,6 +143,8 @@ export default function StudioPanel({
   stage = "start",
   sourceCount = 0,
   hasNotebook = false,
+  courseKind = "",
+  courseTitle = "",
   coachKey,
   onCoachAction,
 }: {
@@ -152,6 +154,8 @@ export default function StudioPanel({
   stage?: StudyStage;
   sourceCount?: number;
   hasNotebook?: boolean;
+  courseKind?: string;
+  courseTitle?: string;
   coachKey: string;
   onCoachAction: (action: CoachAction) => void;
 }) {
@@ -192,7 +196,7 @@ export default function StudioPanel({
         <div className="studio-divider"><span>探索与回顾</span></div>
 
         <div className="space-y-2">
-          {VIEWS.map((item) => {
+          {VIEWS.filter(item => item.panel !== "english" || courseKind === "cet6" || /英语|英文|雅思|托福|\b(?:english|ielts|toefl|cet[- ]?[46])\b/i.test(courseTitle)).map((item) => {
             const Icon = item.icon;
             return (
               <button type="button" key={item.title} disabled={disabled} onClick={() => onOpen(item.panel)} className={`studio-view is-${item.tone} disabled:cursor-wait disabled:opacity-50`}>

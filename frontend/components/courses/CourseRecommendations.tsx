@@ -123,6 +123,7 @@ export default function CourseRecommendations({
               搜索
             </button>
           </form>
+          <p className="mt-2 text-xs text-slate-500">外站视频由原平台提供。YouTube 无法访问时，可用 B 站搜索同一关键词。</p>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <label className="flex items-center gap-2 whitespace-nowrap">
               视频来源
@@ -133,7 +134,7 @@ export default function CourseRecommendations({
               </select>
             </label>
             <a href={searchUrl} target="_blank" rel="noopener noreferrer" className="secondary-action">B 站全站搜索 <ArrowUpRight size={14} /></a>
-            <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" className="secondary-action">YouTube 搜索 <ArrowUpRight size={14} /></a>
+            <a title="需能访问 YouTube 原站；打不开时可使用旁边的 B 站搜索" href={youtubeUrl} target="_blank" rel="noopener noreferrer" className="secondary-action">YouTube 搜索 <ArrowUpRight size={14} /></a>
           </div>
           {!query && !!data?.topics.length && <details className="text-sm">
             <summary className="cursor-pointer text-emerald-800">按当前知识点筛选</summary>

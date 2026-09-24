@@ -290,9 +290,11 @@ async def run(state: dict) -> dict:
                 system=prompt_call.system,
                 role="reasoner",
                 temperature=0.4 if custom_topic else 0.6,
-                max_tokens=1800 if custom_topic else 3000,
+                max_tokens=6000,
+                reasoning_mode="disabled",
                 json_mode=True,
-                allow_mock_fallback=not custom_topic,
+                json_object=True,
+                allow_mock_fallback=False,
             )
             data = parse_json(raw)
             items = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
@@ -308,6 +310,9 @@ async def run(state: dict) -> dict:
         _custom_topic_fallback_questions(name, kp, diff) if custom_topic else
         [*_seed_questions(kp), *source_fallback]
     )
+    # Generic self-reflection prompts are demo fixtures, not real subject questions.
+    if not is_demo():
+        fallback_items = [] if source_ids or custom_topic else _seed_questions(kp)
     for item in [*items, *fallback_items]:
         valid = _validate(dict(item), kp) if isinstance(item, dict) else None
         if valid and remediation and _reuses_stem(valid.get("stem"), forbidden_stems):
