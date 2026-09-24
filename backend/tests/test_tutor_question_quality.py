@@ -78,3 +78,45 @@ def test_review_sees_initial_conditions_even_without_a_formatted_heading(monkeyp
     checked, status = asyncio.run(quality.check_question(answer, ""))
     assert "初始 n=3" in prompts[0]
     assert status["accepted"] and checked == answer
+
+
+REAL_BAD = """递归要到达终止条件。
+
+**单选题**：假设初始参数 $n = 3$，且 $n$ 始终为整数。下列哪种方案不能保证递归终止？
+A. 停止条件：$n = 0$；参数变化：每次调用变为 $n - 1$
+B. 停止条件：$n = 0$；参数变化：每次调用变为 $n - 2$
+C. 停止条件：$n = 0$；参数变化：每次调用变为 $n + 1$
+D. 停止条件：$n <= 0$；参数变化：每次调用变为 $n - 3$
+"""
+
+
+def test_actual_odd_step_bad_question_cannot_pass_a_mistaken_model(monkeypatch):
+    review(monkeypatch, [False, False, True, False])  # the observed bad single-key approval
+    answer, status = asyncio.run(quality.check_question(REAL_BAD, "递归讲义"))
+    assert quality.linear_recursion_choices(quality.terminal_question(REAL_BAD)[1]) == [False, True, True, False]
+    assert not status["accepted"] and status["verification"] == "deterministic_check"
+    assert "简答检查" in answer and "A." not in answer
+
+
+def test_linear_positive_control_and_already_stopped(monkeypatch):
+    good = REAL_BAD.replace("每次调用变为 $n - 2$", "每次调用变为 $n - 1$")
+    review(monkeypatch, [False, False, True, False])
+    assert asyncio.run(quality.check_question(good, ""))[1]["accepted"]
+    assert quality._linear_terminates(3, "=", 3, -1)
+    assert quality.linear_recursion_choices(good.replace("每次调用变为 $n - 1$", "每次调用变为 $n / 2$")) is None
+
+
+def test_linear_proof_matches_small_integer_execution():
+    import operator
+    checks = {"=": operator.eq, "<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge}
+    for initial in range(-5, 6):
+        for stop in range(-5, 6):
+            for delta in range(-3, 4):
+                for op, check in checks.items():
+                    observed = any(check(initial + k*delta, stop) for k in range(40))
+                    assert quality._linear_terminates(initial, op, stop, delta) == observed
+
+
+@pytest.mark.parametrize("initial", ["3.5", "3 * 2", "3或4"])
+def test_linear_checker_does_not_guess_an_unparsed_initial_value(initial):
+    assert quality.linear_recursion_choices(REAL_BAD.replace("$n = 3$", "$n = " + initial + "$")) is None

@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.24.14",
+  "version": "2026.09.24.15",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
