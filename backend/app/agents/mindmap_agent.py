@@ -423,8 +423,6 @@ async def run(state: dict) -> dict:
             relation_points = _conversation_relation_points(
                 topic["id"], selected_ids, position,
             )
-            if topic["questions"]:
-                relation_points.insert(0, f"你问过：{topic['questions'][-1][:36]}")
             combined_points = list(dict.fromkeys([*points, *relation_points]))[:8]
             node_label = (
                 topic["name"] if topic["custom"]

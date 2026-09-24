@@ -779,7 +779,7 @@ export default function Home() {
       setSelectedPathNode(event.path.next_kp || event.path.nodes[0]?.id || null);
     }
     if (event.type === "trace" && event.session_id) setSessionId(String(event.session_id));
-    if (event.type === "resource" && event.resource) setResources((items) => [event.resource!, ...items].slice(0, 30));
+    if (event.type === "resource" && event.resource) setResources((items) => [event.resource!, ...items.filter(item => item.id !== event.resource!.id)].slice(0, 30));
   }, []);
 
   const filteredResources = useMemo(() => {
@@ -876,7 +876,7 @@ export default function Home() {
     setActivePanel("chat"); setMobilePane(null);
     requestAnimationFrame(() => document.getElementById("learning-chat-input")?.focus());
   };
-  const studioPanel = <StudioPanel key={activeNotebook?.id || "welcome"} stage={studyStage} sourceCount={selectedSourceIds.length} hasNotebook={!!activeNotebook} coachKey={`learnloop:coach:v1:${authUser.id}:${activeNotebook?.id || "welcome"}`} onCoachAction={coachAction} onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
+  const studioPanel = <StudioPanel courseKind={activeCourse?.kind} courseTitle={activeCourse?.title || activeNotebook?.title} key={activeNotebook?.id || "welcome"} stage={studyStage} sourceCount={selectedSourceIds.length} hasNotebook={!!activeNotebook} coachKey={`learnloop:coach:v1:${authUser.id}:${activeNotebook?.id || "welcome"}`} onCoachAction={coachAction} onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
   const profilePace = asRecord(profile?.pace);
 
   return (
@@ -1049,7 +1049,7 @@ export default function Home() {
                 </div>
                 {groupedResources.length ? (
                   <div className="space-y-3">
-                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} onOpenMistakes={() => openPanel("mistakes")} />)}
+                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} onRenamed={saved => setResources(items => items.map(item => item.id === saved.id ? saved : item))} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} onOpenMistakes={() => openPanel("mistakes")} />)}
                   </div>
                 ) : <div className="source-empty min-h-[220px]"><FolderOpen size={24} /><strong>这里还没有资料</strong><span>从右侧学习工坊生成一份内容。</span></div>}
               </div>

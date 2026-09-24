@@ -85,7 +85,7 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
     return Object.entries(m)
       .sort((a, b) => a[1] - b[1])
       .slice(0, 6)
-      .map(([k, v]) => ({ name: profile.knowledge_labels?.[k] || KP_NAME[k] || k, v: Number(v) }));
+      .map(([k, v]) => ({ id: k, name: profile.knowledge_labels?.[k] || KP_NAME[k] || k, v: Number(v) }));
   }, [profile]);
 
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
     const versionChanged = prevVersionRef.current != null && prevVersionRef.current !== version;
 
     if (prev && versionChanged) {
-      for (const kp of ["binary_tree", "sorting_adv"]) {
+      for (const kp of Object.keys(mastery)) {
         if (prev[kp] == null || mastery[kp] == null) continue;
         const delta = Math.round((Number(mastery[kp]) - Number(prev[kp])) * 100);
         if (delta !== 0) nextDeltas[kp] = delta;
@@ -127,9 +127,7 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
     .slice(0, 2)
     .map(([k]) => ({ doc: "图文", video: "视频", quiz: "习题", mindmap: "脑图", code: "代码" }[k] || k))
     .join(" / ");
-  const mastery = profile.knowledge_mastery || {};
-  const binaryTree = Number(mastery.binary_tree ?? 0);
-  const sortingAdv = Number(mastery.sorting_adv ?? 0);
+  const weakest = radar.slice(0, 2);
   const hasRadar = radar.length >= 3;
 
   return (
@@ -146,12 +144,9 @@ export default function ProfileRadar({ profile }: { profile: StudentProfile | nu
         <EmptyState className="py-8" title="画像维度不足" desc="继续答题后会生成完整雷达图。" />
       )}
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <Stat label="二叉树" value={`${Math.round(binaryTree * 100)}%`} tone={masteryTone(binaryTree)} delta={deltas.binary_tree} deltaUnit="%" />
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <Stat label="高级排序" value={`${Math.round(sortingAdv * 100)}%`} tone={masteryTone(sortingAdv)} delta={deltas.sorting_adv} deltaUnit="%" />
-        </div>
+        {weakest.map(item => <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <Stat label={item.name} value={`${Math.round(item.v * 100)}%`} tone={masteryTone(item.v)} delta={deltas[item.id]} deltaUnit="%" />
+        </div>)}
       </div>
       <div className="mt-2">
         <Row k="讲解偏好" v={({ "视觉型": "偏好图示（自述）", "语言型": "偏好文字（自述）", "动手型": "偏好操作（自述）" } as Record<string, string>)[asText(profile.cognitive_style)] || "尚未记录"} />

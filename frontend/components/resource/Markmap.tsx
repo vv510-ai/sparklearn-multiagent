@@ -61,7 +61,8 @@ function instantTransition(selection: D3SelectionLike) {
 }
 
 type MarkmapInstance = {
-  setData: (data: unknown) => void;
+  setData: (data: unknown) => void | Promise<void>;
+  destroy?: () => void;
   transition: (selection: D3SelectionLike) => unknown;
   fit?: () => void;
 };
@@ -108,6 +109,8 @@ export default function Markmap({ markdown }: { markdown: string }) {
   const mmRef = useRef<MarkmapInstance | null>(null);
   const nodeCount = outlineItems(markdown).length;
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [activeNode, setActiveNode] = useState("");
   const [tall, setTall] = useState(() => nodeCount > 16);
   const [touring, setTouring] = useState(false);
   const hasPersonalMarks = /[✅⚠🔒]/.test(markdown);
@@ -115,6 +118,7 @@ export default function Markmap({ markdown }: { markdown: string }) {
   useEffect(() => {
     let alive = true;
     setFailed(false);
+    setReady(false);
     (async () => {
       try {
         const mm = await loadMarkmapRuntime();
@@ -129,8 +133,9 @@ export default function Markmap({ markdown }: { markdown: string }) {
         ref.current.innerHTML = "";
         const markmap = mm.Markmap.create(ref.current, options, null) as MarkmapInstance;
         markmap.transition = instantTransition;
-        markmap.setData(root);
         mmRef.current = markmap;
+        await markmap.setData(root);
+        if (alive) { await markmap.fit?.(); setReady(true); }
       } catch {
         if (alive) {
           setFailed(true);
@@ -140,6 +145,7 @@ export default function Markmap({ markdown }: { markdown: string }) {
     })();
     return () => {
       alive = false;
+      mmRef.current?.destroy?.();
       mmRef.current = null;
     };
   }, [markdown]);
@@ -162,12 +168,14 @@ export default function Markmap({ markdown }: { markdown: string }) {
       const nodes = Array.from(svg.querySelectorAll<SVGGElement>(".markmap-node"));
       if (!nodes.length) return;
       nodes.forEach((node) => node.classList.remove("markmap-node-active"));
-      nodes[index % nodes.length].classList.add("markmap-node-active");
+      const current = nodes[index % nodes.length];
+      current.classList.add("markmap-node-active");
+      setActiveNode(`${index % nodes.length + 1} / ${nodes.length}：${current.textContent || ""}`);
       index += 1;
     };
     mmRef.current?.fit?.();
     highlightNext();
-    const timer = window.setInterval(highlightNext, 1050);
+    const timer = window.setInterval(highlightNext, 4000);
     return () => {
       window.clearInterval(timer);
       svg.querySelectorAll(".markmap-node-active").forEach((node) => node.classList.remove("markmap-node-active"));
@@ -227,13 +235,15 @@ export default function Markmap({ markdown }: { markdown: string }) {
         </div>
         <div className="flex items-center gap-1.5">
           <button
+            disabled={!ready}
             onClick={() => setTouring((value) => !value)}
             aria-pressed={touring}
             className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${touring ? "border-cyan-300 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-white text-slate-600 hover:border-cyan-200 hover:text-cyan-700"}`}
           >
-            {touring ? "停止逐级讲解" : "逐级讲解"}
+            {touring ? "停止逐个查看" : "逐个查看"}
           </button>
           <button
+            disabled={!ready}
             onClick={() => mmRef.current?.fit?.()}
             className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-emerald-200 hover:text-emerald-700"
           >
@@ -247,6 +257,8 @@ export default function Markmap({ markdown }: { markdown: string }) {
           </button>
         </div>
       </div>
+      {!ready && <p role="status" className="p-2 text-xs text-slate-500">正在加载导图…</p>}
+      {touring && <p role="status" className="rounded bg-emerald-50 p-2 text-sm text-emerald-900">{activeNode}</p>}
       <svg
         ref={ref}
         className={`markmap-canvas w-full rounded-md bg-slate-50/60 transition-all ${tall ? "h-[32rem]" : "h-80"} [&_circle]:!stroke-[2px]`}

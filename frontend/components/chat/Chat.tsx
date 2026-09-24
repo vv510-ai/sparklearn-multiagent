@@ -144,6 +144,13 @@ export default function Chat({
     citations: [],
   })));
   const [input, setInput] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const field = inputRef.current;
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${Math.min(160, Math.max(44, field.scrollHeight))}px`;
+  }, [input]);
   const [busy, setBusy] = useState(false);
   const [queuedHint, setQueuedHint] = useState("");
   const [recording, setRecording] = useState(false);
@@ -562,6 +569,10 @@ export default function Chat({
                   <ResourceCard
                     key={r.id}
                     r={r}
+                    onRenamed={saved => {
+                      setMsgs(items => items.map(item => ({ ...item, resources: item.resources.map(resource => resource.id === saved.id ? saved : resource) })));
+                      onEvent?.({ type: "resource", resource: saved });
+                    }}
                     onQuizEvaluated={onQuizEvaluated}
                     interactionBusy={busy}
                     onAudioQuestion={(prompt, display, action) => send(
@@ -643,6 +654,7 @@ export default function Chat({
             {transcribing ? <LoaderCircle size={19} className="animate-spin" /> : <Mic size={19} />}
           </button>
           <textarea
+            ref={inputRef}
             id="learning-chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -655,7 +667,7 @@ export default function Chat({
             rows={1}
             aria-label="学习目标输入"
             placeholder="输入问题、你的答案，或者告诉小知哪里没懂…"
-            className="min-w-0 max-h-28 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-sm text-[#182119] outline-none placeholder:text-[#65766D]"
+            className="min-w-0 max-h-40 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-sm text-[#182119] outline-none placeholder:text-[#65766D]"
           />
           {busy ? (
             <button

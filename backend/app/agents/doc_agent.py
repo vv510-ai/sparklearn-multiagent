@@ -817,8 +817,13 @@ async def _gen_one(
     fallback = False
     remediation_rag_fallback = False
     demo_fallback = (is_demo() and resolve(prompt_call.prompt) is None)
-    source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks and not supplement)
-    if source_scope_missing:
+    conversation_only = kind == "doc" and prompt_template == "conversation_notes" and bool(conversation.strip()) and not chunks
+    source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks and not supplement and not conversation_only)
+    if conversation_only:
+        fallback = True
+        md = _conversation_fallback_doc(name, conversation, [])
+        md = "> 对话摘记：以下只记录本次交流，尚未用课程资料核验；不代表知识已经掌握。\n\n" + md
+    elif source_scope_missing:
         fallback = True
         md = (
             f"# {name}·一图看懂未生成\n\n"
@@ -907,7 +912,9 @@ async def _gen_one(
     # Citation bounds are deterministic and independent of the semantic judge.
     citation_check = grounding_check_local(md, [c["text"] for c in chunks], allow_supplement=True)
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
-    if source_scope_missing:
+    if conversation_only:
+        ground = {"grounded": True, "unsupported": [], "verification": "conversation_excerpt", "verdict": "仅摘录已保存对话，未核验课程事实。"}
+    elif source_scope_missing:
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
     elif not fallback and not citation_check.get("accepted"):
         ground = citation_check

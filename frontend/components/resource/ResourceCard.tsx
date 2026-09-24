@@ -1,7 +1,8 @@
 /** @jsxImportSource react */
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { downloadMarkdown } from "@/lib/assessment";
 import { voiceLabel } from "@/lib/media";
 import Markdown from "@/components/chat/Markdown";
 import SourceEvidence from "@/components/chat/SourceEvidence";
@@ -73,6 +74,7 @@ function resourceIssue(r: ResourceItem): string {
 
 function resourcePreview(r: ResourceItem): string {
   const payload = (r.payload || {}) as Record<string, unknown>;
+  if (payload.generation_mode === "unavailable") return "内容尚未生成，请查看原因并调整资料后重试。";
   const markdown = payload.markdown;
   const markmap = payload.markmap;
   const questions = payload.questions;
@@ -117,6 +119,7 @@ export default function ResourceCard({
   onQuizEvaluated,
   onAudioQuestion,
   onOpenMistakes,
+  onRenamed,
   interactionBusy = false,
 }: {
   r: ResourceItem;
@@ -129,9 +132,26 @@ export default function ResourceCard({
     action: "rephrase" | "example" | "quiz" | "question",
   ) => Promise<boolean>;
   onOpenMistakes?: () => void;
+  onRenamed?: (resource: ResourceItem) => void;
   interactionBusy?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [title, setTitle] = useState(r.title);
+  const [titleDraft, setTitleDraft] = useState(r.title);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [titleError, setTitleError] = useState("");
+  useEffect(() => { setTitle(r.title); setTitleDraft(r.title); }, [r.id, r.title]);
+  async function saveTitle() {
+    if (savingTitle || !titleDraft.trim()) return;
+    setSavingTitle(true); setTitleError("");
+    try {
+      const saved = await apiPost<ResourceItem>(`/resources/${r.id}/rename`, { user_id: USER_ID, title: titleDraft.trim() });
+      setTitle(saved.title); setTitleDraft(saved.title); setEditingTitle(false);
+      onRenamed?.(saved);
+    } catch (e) { setTitleError(e instanceof Error ? e.message : "名称未保存，请重试。"); }
+    finally { setSavingTitle(false); }
+  }
   const citeBase = `${r.id}-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const payload = r.payload || {};
   const interactiveAudio = isInteractiveAudioResource(r);
@@ -181,7 +201,7 @@ export default function ResourceCard({
             <span className="text-[11px] font-semibold text-[#8B958D]">{meta.label}</span>
             {versionCount > 1 && <Badge variant="neutral">{versionCount} 个版本</Badge>}
           </span>
-          <span className="block truncate text-base font-bold text-[#182119]">{r.title}</span>
+          <span className="block truncate text-base font-bold text-[#182119]">{title}</span>
           {preview && <span className="mt-1 block truncate text-xs leading-5 text-[#57635A]">{preview}</span>}
           <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#8B958D]">
             <span>{kpName(r.kp)}</span>
@@ -197,12 +217,22 @@ export default function ResourceCard({
       </button>
 
       {open && (
-        <div className="border-t border-[#E5E9E3] bg-white px-4 py-4">
+        <div className="select-text border-t border-[#E5E9E3] bg-white px-4 py-4">
+          <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+            <span>已自动保存至资料归档</span>
+            {editingTitle ? <form className="flex flex-wrap gap-2" onSubmit={event => { event.preventDefault(); void saveTitle(); }}>
+              <input aria-label="资料名称" value={titleDraft} maxLength={120} disabled={savingTitle} onChange={e => setTitleDraft(e.target.value)} className="min-w-0 rounded border border-slate-300 px-2 py-1" />
+              <button type="submit" disabled={savingTitle || !titleDraft.trim()}>{savingTitle ? "保存中…" : "保存名称"}</button>
+              <button type="button" disabled={savingTitle} onClick={() => { setEditingTitle(false); setTitleDraft(title); setTitleError(""); }}>取消</button>
+            </form> : <button type="button" onClick={() => setEditingTitle(true)}>重命名</button>}
+            {payload.markdown && <button type="button" onClick={() => downloadMarkdown(title, payload.markdown!)}>导出笔记</button>}
+          </div>
+          {titleError && <p role="alert" className="mb-3 text-xs text-red-700">{titleError}</p>}
           {meta.hint && payload.generation_mode !== "unavailable" && (
             <p className="mb-3 rounded-[10px] border border-[#E5E9E3] bg-[#FBFCFA] px-3 py-2 text-xs leading-5 text-[#57635A]">{supplemented ? "资料优先，允许补充解释与例子；补充部分未经资料逐项核验。" : meta.hint}</p>
           )}
 
-          {isText && (audioPath || narration || audioState || payload.cover_url) && (
+          {isText && payload.generation_mode !== "unavailable" && (audioPath || narration || audioState || payload.cover_url) && (
             <div className="mb-4 grid gap-3 rounded-[12px] border border-[#D2DAD2] bg-[#F0F6F2] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div className="min-w-0">
                 <div className="text-[11px] font-bold tracking-[0.14em] text-[#0F6B50]">
