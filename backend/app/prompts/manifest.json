@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.24.17",
+  "version": "2026.09.24.18",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -171,6 +171,18 @@
     "image.one_page_image_repair": {
       "file": "image/one-page-image-repair.md",
       "description": "依据成图检查问题进行一次有界重生成"
+    },
+    "doc.one_page_scope": {
+      "description": "从当前请求解析通用课程或章节主题，指代时回溯对话",
+      "file": "doc/one-page-scope.md"
+    },
+    "doc.one_page_topic_check": {
+      "description": "语义核对一图底稿，允许简称和课程概览",
+      "file": "doc/one-page-topic-check.md"
+    },
+    "doc.one_page_topic_repair": {
+      "description": "按明确主题偏差修正底稿一次",
+      "file": "doc/one-page-topic-repair.md"
     }
   }
 }

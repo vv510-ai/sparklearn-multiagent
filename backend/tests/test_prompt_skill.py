@@ -58,7 +58,7 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "persona": "循序渐进",
         "context": "资料片段",
         "content": "示例主题的课程知识正文",
-        "observation": "{}", "issues": "[]",
+        "previous_topic": "旧课程", "observation": "{}", "issues": "[]",
         "conversation": "学习者：我想学",
         "question": "这是什么？",
         "cognitive_style": "视觉型",
@@ -212,3 +212,13 @@ def test_visual_capabilities_keep_the_same_learning_order():
 def test_unknown_capability_is_rejected():
     with pytest.raises(ValueError, match="unsupported learning prompt capability"):
         invoke_learning_prompt("unknown.tool")
+
+
+def test_one_page_does_not_inherit_stale_course_facts(monkeypatch):
+    from app.services import course_learning_service
+    monkeypatch.setattr(course_learning_service, "context_summary", lambda: {
+        "course":"大学英语六级", "exam_reference":{"parts":[{"name":"听力","weight":35}]},
+        "textbook":{"title":"六级讲义"}, "goal":"准备课程考试", "adaptations":["简明解释"]})
+    call=invoke_learning_prompt("doc.one_page",topic="有机化学",goal="整体框架",persona="入门",conversation="",context="")
+    assert "大学英语六级" not in call.prompt and "听力" not in call.prompt
+    assert "准备课程考试" in call.prompt and "简明解释" in call.prompt

@@ -60,9 +60,10 @@ for (const scenario of [
   if (!scenario.supported) {
     expect(resource?.payload.generation_mode).toBe("unavailable");
     expect(resource?.payload.one_page_visual).toBeUndefined();
-    expect(summary).toContain("未生成");
-    await page.getByText("当前资料中未找到与这次问题相关的内容，尚未开始生成图片。", { exact: true }).scrollIntoViewIfNeeded();
-    await expect(page.getByText("当前资料中未找到与这次问题相关的内容，尚未开始生成图片。", { exact: true })).toBeVisible();
+    expect(summary).toMatch(/未生成|尚未调用小云雀/);
+    const reason = page.getByText(/当前资料中未找到与这次问题相关的内容，尚未开始生成图片。|知识底稿经修正仍未通过本次主题核对，尚未调用小云雀。|当前可用资料没有回答本次问题，尚未调用小云雀。/).last();
+    await reason.scrollIntoViewIfNeeded();
+    await expect(reason).toBeVisible();
     await expect(page.getByText("知识图暂不可用 · 资料摘录", { exact: true })).toHaveCount(0);
     await expect(page.getByText("根据课程资料整理，先看结论与结构，再沿着例子理解。", { exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("one-page-blocked.png"), fullPage: true });

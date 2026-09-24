@@ -41,6 +41,14 @@ def _learner_summary(resources: dict, flags: list, prompt_template: str = "") ->
                    or (resource.get("payload") or {}).get("blocked_reason")]
     if unavailable:
         if len(unavailable) == len(resources):
+            if prompt_template == "one_page":
+                reasons = {(r.get("payload") or {}).get("blocked_reason") for r in unavailable}
+                if "topic_missing" in reasons:
+                    return "请说明要画的课程或章节，或先选择相关资料；本次尚未调用小云雀。"
+                if "topic_mismatch" in reasons:
+                    return "知识内容未通过本次主题核对，本次尚未调用小云雀。请查看卡片中的原因后重试。"
+                if "generation_failed" in reasons:
+                    return "知识底稿生成失败，本次尚未调用小云雀。请查看卡片中的具体原因后重试。"
             if any((resource.get("payload") or {}).get("blocked_reason") == "generation_failed" for resource in unavailable):
                 return "这次没有生成可用的学习内容：生成失败，且没有可展示的相关资料。请重试或检查模型连接。"
             if prompt_template == "one_page":

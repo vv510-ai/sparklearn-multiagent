@@ -23,6 +23,7 @@ from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
 from ..services.one_page_image import generate_one_page
+from ..services.one_page_topic import check_draft
 from ..services.knowledge_map_layout import map_plan
 from ..services.topic_scope import focus_chunks_on_topic, topic_terms
 from ..services.learning_context import supplemental_context
@@ -761,6 +762,7 @@ async def _gen_one(
     skip_multimodal: bool = False,
     required_retrieval_terms: list[str] | None = None,
     source_policy: str = "",
+    one_page_scope: dict | None = None,
 ) -> dict:
     name = topic_name or resolve_topic([kp])[1]
     label, capability = _STYLE.get(kind, _STYLE["doc"])
@@ -783,9 +785,17 @@ async def _gen_one(
         required_terms=required_retrieval_terms,
         user_id=user_id,
     )
-    chunks = focus_chunks_on_topic(chunks, kp, name)
+    # Infographics can use equivalent names or multiple chapters. Literal topic
+    # clipping loses valid source paragraphs; semantic checks below judge the
+    # final draft, including any source-excerpt fallback. Retrieval still enforces
+    # account/notebook/selected-source ownership.
+    if prompt_template != "one_page" or is_demo():
+        chunks = focus_chunks_on_topic(chunks, kp, name)
     if supplement:
-        chunks.extend(supplemental_context(goal))
+        extra = supplemental_context(goal)
+        if prompt_template == "one_page" and one_page_scope is not None and not one_page_scope.get("use_course_reference"):
+            extra = [chunk for chunk in extra if chunk.get("source_type") != "exam_reference"]
+        chunks.extend(extra)
     ctx, citations = build_context(chunks)
     if kind in _STRUCTURED_KINDS:
         return await _gen_structured_resource(
@@ -835,11 +845,18 @@ async def _gen_one(
     prompt = prompt_call.prompt
     flags = []
     fallback = False
+    topic_review = {}
+    topic_rejected = False
+    topic_missing = bool((one_page_scope or {}).get("missing"))
     remediation_rag_fallback = False
     demo_fallback = (is_demo() and resolve(prompt_call.prompt) is None)
     conversation_only = kind == "doc" and prompt_template == "conversation_notes" and bool(conversation.strip()) and not chunks
     source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks and not supplement and not conversation_only)
-    if conversation_only:
+    if topic_missing:
+        fallback = True
+        md = "# 一图看懂·缺少主题\n\n请说明要画的课程或章节，或先选择相关资料。"
+        flags.append({"agent": "doc", "kind": kind, "type": "topic_missing"})
+    elif conversation_only:
         fallback = True
         md = _conversation_fallback_doc(name, conversation, [])
         md = "> 对话摘记：以下只记录本次交流，尚未用课程资料核验；不代表知识已经掌握。\n\n" + md
@@ -911,7 +928,39 @@ async def _gen_one(
     if kind != "code" and not notes_template:
         md = without_source_code(md, keep_mermaid=True)
 
-    if (kind == "doc" and not fallback and not source_scope_missing
+    if kind == "doc" and prompt_template == "one_page" and not fallback:
+        # Literal course-name matching rejects aliases and chapter overviews.
+        # Judge the request semantically; checker outages are uncertainty, not drift.
+        topic_review = await check_draft(name, goal, conversation, md, complete=llm_complete)
+        if topic_review["status"] == "mismatch":
+            topic_review["repair_attempted"] = True
+            repair_call = invoke_learning_prompt("doc.one_page_topic_repair", base_request=prompt,
+                draft=md, issues=topic_review["reason"])
+            try:
+                repaired = await asyncio.wait_for(llm_complete(repair_call.prompt, system=repair_call.system,
+                    role="reasoner", temperature=0, max_tokens=3200, reasoning_mode="disabled",
+                    allow_mock_fallback=False), timeout=_DOC_TIMEOUT_S)
+                if str(repaired or "").strip():
+                    repaired = await _fit_one_page(name, repaired, prompt, layout_repair)
+                    checked = await check_draft(name, goal, conversation, repaired, complete=llm_complete)
+                    topic_review = {**checked, "repair_attempted": True, "initial_status": "mismatch"}
+                    # An uncertain repair cannot clear a previously confirmed mismatch.
+                    if checked["status"] == "matched":
+                        md = repaired
+                    else:
+                        topic_rejected = True
+                else:
+                    topic_rejected = True
+            except Exception:
+                topic_rejected = True
+        if topic_rejected:
+            fallback = True
+            flags.append({"agent": "doc", "kind": kind, "type": "topic_drift",
+                          "detail": "知识底稿经一次修正仍未通过主题核对，尚未调用小云雀。"})
+        elif topic_review["status"] == "uncertain":
+            flags.append({"agent": "doc", "kind": kind, "type": "topic_check_unavailable"})
+
+    if (kind == "doc" and prompt_template != "one_page" and not fallback and not source_scope_missing
             and not _content_on_topic(md, name, kp)):
         fallback = True
         remediation_rag_fallback = prompt_template == "remediation"
@@ -976,14 +1025,18 @@ async def _gen_one(
         fallback = True
         md = _rag_fallback_doc(name, chunks, kind)
         ground = {"grounded": bool(chunks), "unsupported": [], "verdict": "无效引用正文已拒绝，仅保留可用资料"}
-    unavailable = source_scope_missing or (fallback and not chunks and not demo_fallback
+    unavailable = topic_missing or topic_rejected or source_scope_missing or (fallback and not chunks and not demo_fallback
                                            and not (prompt_template == "conversation_notes" and conversation.strip()))
-    if unavailable and not source_scope_missing:
-        md = f"# {name}·未生成\n\n本次讲解未能生成可用正文，也没有可展示的相关资料。请重试，或选择相关资料后再生成。"
+    if topic_rejected:
+        md = f"# {name}·一图看懂未生成\n\n知识底稿经修正仍未通过本次主题核对，尚未调用小云雀。请确认当前问题与所选资料相关后重试。"
+    elif unavailable and not source_scope_missing and not topic_missing:
+        md = (f"# {name}·未生成\n\n知识底稿生成失败，尚未调用小云雀。请查看生成详情后重试。"
+              if prompt_template == "one_page" else
+              f"# {name}·未生成\n\n本次讲解未能生成可用正文，也没有可展示的相关资料。请重试，或选择相关资料后再生成。")
     one_page = kind == "doc" and prompt_template == "one_page"
     content_status = "supplemented" if supplement and chunks and not fallback else "general_knowledge" if not chunks else "checked"
     unsupported_durations = _unsupported_one_page_durations(md, chunks) if one_page and chunks and not supplement else []
-    if one_page and chunks and (fallback or not (ground.get("grounded") or ground.get("accepted")) or "```" in md or unsupported_durations):
+    if one_page and not unavailable and chunks and (fallback or not (ground.get("grounded") or ground.get("accepted")) or "```" in md or unsupported_durations):
         flags.append({"agent": "doc", "kind": kind, "type": "one_page_source_excerpt",
                       "detail": "扩写未通过检查，改为本次检索资料的原文摘录",
                       "rejected_check": ground, "unsupported_durations": unsupported_durations})
@@ -996,6 +1049,15 @@ async def _gen_one(
         fallback = True
         content_status = "source_excerpt"
         ground = {"grounded": True, "unsupported": [], "verdict": "直接引用本次检索片段，未采用未通过检查的扩写"}
+        if not demo_fallback:
+            topic_review = await check_draft(name, goal, conversation, md, complete=llm_complete)
+            if topic_review["status"] == "mismatch":
+                topic_rejected = unavailable = True
+                flags.append({"agent": "doc", "kind": kind, "type": "topic_drift",
+                              "detail": "可用资料摘录未回答本次主题，尚未调用小云雀。"})
+                md = f"# {name}·一图看懂未生成\n\n当前可用资料没有回答本次问题，尚未调用小云雀。请选择相关资料或允许通用知识补充后重试。"
+            elif topic_review["status"] == "uncertain":
+                flags.append({"agent": "doc", "kind": kind, "type": "topic_check_unavailable"})
     # 防幻觉第二层:内容安全过滤(本地词表 + 讯飞审核挂接)
     safety = safety_filter(md)
     if not unavailable and not ground.get("grounded", True) and not ground.get("accepted", False):
@@ -1011,7 +1073,7 @@ async def _gen_one(
     payload = {
         "markdown": md,
         "generation_mode": "unavailable" if unavailable else "demo" if demo_fallback else "source_guide" if fallback else "model",
-        "blocked_reason": "source_scope_empty" if source_scope_missing else "generation_failed" if unavailable else "",
+        "blocked_reason": "topic_missing" if topic_missing else "topic_mismatch" if topic_rejected else "source_scope_empty" if source_scope_missing else "generation_failed" if unavailable else "",
         "grounded": ground.get("grounded", True),
         "template": prompt_template,
         "reusable_note": prompt_template == "conversation_notes",
@@ -1021,6 +1083,11 @@ async def _gen_one(
         "source_policy": "supplement" if supplement else "strict",
         "source_evidence": cite_used,
     }
+    if prompt_template == "one_page":
+        payload["topic_verification"] = topic_review
+        payload["image_attempted"] = False
+        payload["failure_stage"] = ("content_topic" if topic_rejected or topic_missing else
+            "source_scope" if source_scope_missing else "content_generation" if unavailable else "")
     payload["verification"] = ground.get("verification", "source_excerpt" if fallback and chunks else "unverified")
     payload["generation_details"] = generation_details(flags, mode=payload["generation_mode"], source_empty=source_scope_missing)
     if notes_template or supplement:
@@ -1035,12 +1102,18 @@ async def _gen_one(
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
         payload["one_page_visual"].update(await generate_one_page(name, _one_page_parts(md),
             content_status=content_status, trace_id=trace_id, skip_generation=skip_multimodal))
+        payload["image_attempted"] = any(page.get("attempts") for page in payload["one_page_visual"]["pages"])
+        if not all(page.get("image_status") == "ready" for page in payload["one_page_visual"]["pages"]):
+            payload["failure_stage"] = "image_generation" if payload["image_attempted"] else "image_preparation"
         for page in payload["one_page_visual"]["pages"]:
             if page.get("image_status") != "ready":
                 flags.append({"agent": "doc", "kind": kind, "type": "image_degraded", "detail": page.get("image_error", "图片未生成")})
             elif page.get("verification", {}).get("status") != "passed":
                 flags.append({"agent": "doc", "kind": kind, "type": "image_review", "detail": "成图仍需核对",
                               "issues": page["verification"]["issues"]})
+    if one_page:
+        # Include media-stage failures added after constructing the text payload.
+        payload["generation_details"] = generation_details(flags, mode=payload["generation_mode"], source_empty=source_scope_missing)
     if interactive_audio:
         md = re.sub(
             r"口播脚本\s*[（(][^）)\n]*[）)]",
@@ -1125,6 +1198,9 @@ async def run(state: dict) -> dict:
         state.get("learning_goal"),
         state.get("topic_label"),
     )
+    scope = state.get("one_page_scope") if state.get("prompt_template") == "one_page" else None
+    if scope:
+        kp, topic_name, custom_topic = scope["kp"], scope["topic"], scope["kp"] == "custom_topic"
     requested = state.get("kinds") or []
     kinds = [k for k in requested if k in _STYLE]
     if requested and not kinds:
@@ -1161,6 +1237,7 @@ async def run(state: dict) -> dict:
             skip_multimodal=skip_multimodal,
             required_retrieval_terms=required_retrieval_terms,
             source_policy=str(state.get("source_policy") or ""),
+            one_page_scope=scope,
         )
         resources[out["resource"]["id"]] = out["resource"]
         flags += out["flags"]

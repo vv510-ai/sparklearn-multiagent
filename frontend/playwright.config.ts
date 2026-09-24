@@ -19,7 +19,7 @@ mkdirSync(runDir, { recursive: true });
 
 export default defineConfig({
   testDir: "./e2e",
-  testIgnore: process.env.PLAYWRIGHT_REAL_MODE === "1" ? [] : ["**/feedback-live.spec.ts"],
+  testIgnore: process.env.PLAYWRIGHT_REAL_MODE === "1" ? [] : ["**/feedback-live.spec.ts", "**/one-page-general-live.spec.ts"],
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,

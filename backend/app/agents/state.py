@@ -22,6 +22,7 @@ class LearningState(TypedDict, total=False):
     conversation: list[dict]                           # 持久化会话快照，不参与并行追加
     learning_goal: str
     topic_label: str                                 # 当前笔记本主题；支持课外自定义主题
+    one_page_scope: dict                            # Planner is the only writer
     custom_topic: bool
     knowledge_points: list[str]
     kinds: list[str]                                   # 期望生成的资源类型

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from ..services.knowledge_graph import all_kp_ids, infer_kp_id, resolve_topic
+from ..config import is_demo
+from ..llm.spark_client import llm_complete
+from ..services.one_page_topic import resolve_scope
 from .emitter import agent_end, agent_start
 
 def _kp_from_goal(goal: str, kp_ids: list[str]) -> str | None:
@@ -19,6 +22,13 @@ async def run(state: dict) -> dict:
         str(goal),
         str(state.get("topic_label") or ""),
     )
+
+    one_page_scope = None
+    if state.get("prompt_template") == "one_page":
+        one_page_scope = await resolve_scope(str(goal), state.get("conversation") or [],
+            str(state.get("topic_label") or ""), complete=llm_complete, demo=is_demo())
+        target_kp, topic_name = one_page_scope["kp"], one_page_scope["topic"]
+        is_custom = target_kp == "custom_topic"
 
     plan: dict = {
         "resources": [
@@ -56,4 +66,5 @@ async def run(state: dict) -> dict:
         "knowledge_points": [kp0],
         "topic_label": topic_name,
         "custom_topic": is_custom,
+        **({"one_page_scope": one_page_scope} if one_page_scope else {}),
     }
