@@ -12,6 +12,7 @@ class ChatRequest(BaseModel):
     session_id: str = Field(default="s1")
     notebook_id: str = ""
     message: str
+    image_base64: Optional[str] = None
     source_policy: Literal["auto", "strict", "supplement"] = "auto"
     topic_label: str = ""
     source_ids: list[str] = Field(default_factory=list)

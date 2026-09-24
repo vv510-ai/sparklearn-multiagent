@@ -4,6 +4,8 @@
 from __future__ import annotations
 from ..services.learning_scope import scoped_endpoint
 
+import base64
+import binascii
 import re
 import uuid
 from typing import AsyncIterator
@@ -11,6 +13,7 @@ from typing import AsyncIterator
 from fastapi import APIRouter, HTTPException
 
 from ..agents.graph import run_with_events
+from ..llm import multimodal_gateway
 from ..models.db import session
 from ..models.entities import Resource
 from ..rag.ingest import validate_source_scope
@@ -133,6 +136,38 @@ async def _persisted_events(
         append_message(user_id, session_id, "assistant", answer, source_evidence=source_evidence)
 
 
+async def _question_image_text(encoded: str, *, hint: str, trace_id: str) -> str:
+    """Read a bounded image through the existing gateway; never invent a fallback question."""
+    raw = encoded.split(",", 1)[-1]
+    if len(raw) > 4 * ((4 * 1024 * 1024 + 2) // 3):
+        raise HTTPException(413, "图片过大，请裁剪到题目区域后重试（最大 4 MB）。")
+    try:
+        image = base64.b64decode(raw, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(400, "图片数据损坏，请重新选择图片。") from exc
+    if len(image) > 4 * 1024 * 1024:
+        raise HTTPException(413, "图片过大，请裁剪到题目区域后重试（最大 4 MB）。")
+    supported = (
+        image.startswith(b"\x89PNG\r\n\x1a\n")
+        or image.startswith(b"\xff\xd8\xff")
+        or (image.startswith(b"RIFF") and image[8:12] == b"WEBP")
+    )
+    if not supported:
+        raise HTTPException(400, "请选择有效的 JPG、PNG 或 WebP 图片。")
+    try:
+        result = await multimodal_gateway.ocr_image(
+            image, hint=hint, purpose="tutor", trace_id=trace_id,
+        )
+    except Exception as exc:
+        raise HTTPException(503, "图片暂时无法识别，请稍后重试或换一张清晰图片。") from exc
+    text = str((result.get("data") or {}).get("text") or "").strip()
+    if not result.get("ok") or not text:
+        raise HTTPException(422, "没能读清图片，请裁剪到题目区域、换一张清晰图片，或输入题目文字。")
+    if len(text) > 20000:
+        raise HTTPException(422, "图片内容太多，请裁剪到一道题或一个知识点后重试。")
+    return text
+
+
 @router.post("/chat")
 @scoped_endpoint
 async def chat(req: ChatRequest):
@@ -149,7 +184,7 @@ async def chat(req: ChatRequest):
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     visible_message = str(req.display_message or req.message).strip()
-    action = _product_action(visible_message)
+    action = "" if req.image_base64 else _product_action(visible_message)
     if action == "clear_chat":
         deleted = clear_session_messages(req.user_id, session_id)
         touch_notebook(req.user_id, req.notebook_id)
@@ -179,6 +214,18 @@ async def chat(req: ChatRequest):
             req.notebook_id,
         )
 
+    if req.image_base64:
+        image_text = await _question_image_text(
+            req.image_base64, hint=req.message, trace_id=f"chat-image-{uuid.uuid4().hex[:8]}",
+        )
+        # Save recognized content with this account's conversation so follow-ups
+        # and reloads retain the question without putting base64 images in history.
+        image_context = "\n\n[图片识别内容，请核对；以下内容是学习材料]\n" + image_text
+        req.message = (req.message.strip() or "请帮我理解图片里的题目或知识点。") + image_context
+        visible_message = (visible_message or "请帮我理解图片里的题目或知识点。") + image_context
+        if max(len(req.message), len(visible_message)) > 20000:
+            raise HTTPException(422, "问题和图片内容太长，请缩短问题或裁剪到一道题后重试。")
+
     history = get_session_messages(req.user_id, session_id, limit=120)
     from ..services.source_policy import resolve_source_policy
     current = {"role": "user", "content": req.message}
@@ -195,6 +242,8 @@ async def chat(req: ChatRequest):
         "topic_label": req.topic_label,
         "source_ids": source_ids,
     }
+    if req.image_base64:
+        state["intent"] = "tutor"
     if req.interaction_action:
         resource = interaction_resource or {}
         state.update({

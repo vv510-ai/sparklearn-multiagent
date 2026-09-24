@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUp, BookOpen, BookPlus, Check, ChevronDown, Copy, FileText, FileUp, Gauge, LoaderCircle, Maximize2, Mic, NotebookPen, PanelRightOpen, Play, Plus, Route, Square } from "lucide-react";
+import { ArrowRight, ArrowUp, BookOpen, BookPlus, Check, ChevronDown, Copy, FileText, FileUp, Gauge, ImagePlus, LoaderCircle, Maximize2, Mic, NotebookPen, PanelRightOpen, Play, Plus, Route, Square, X } from "lucide-react";
 import { USER_ID, apiPost, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent, SourceEvidence as Evidence } from "@/lib/types";
 import AnswerChoices from "./AnswerChoices";
@@ -22,6 +22,7 @@ interface Msg {
   evidence?: Evidence[];
   streaming?: boolean;
   progress?: string;
+  image?: { name: string; dataUrl: string };
 }
 
 interface VoiceRecorder {
@@ -146,6 +147,11 @@ export default function Chat({
     citations: [],
   })));
   const [input, setInput] = useState("");
+  const [questionImage, setQuestionImage] = useState<{ name: string; dataUrl: string } | null>(null);
+  const [imageError, setImageError] = useState("");
+  const [readingImage, setReadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageReadId = useRef(0);
   const [busy, setBusy] = useState(false);
   const [queuedHint, setQueuedHint] = useState("");
   const [recording, setRecording] = useState(false);
@@ -186,6 +192,10 @@ export default function Chat({
   useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
 
   useEffect(() => {
+    imageReadId.current += 1;
+    setQuestionImage(null);
+    setImageError("");
+    setReadingImage(false);
     setInput(readStudyDraft(draftKey, (value): value is string => typeof value === "string") || "");
     setRestoredDraft(draftKey);
   }, [draftKey]);
@@ -207,6 +217,38 @@ export default function Chat({
       window.visualViewport?.removeEventListener("resize", resize);
     };
   }, [input, expanded]);
+
+  const selectImage = (file?: File) => {
+    if (!file || busy || readingImage) return;
+    setImageError("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setImageError("请选择 JPG、PNG 或 WebP 图片；其他格式请先转换。");
+      return;
+    }
+    if (!file.size || file.size > 4 * 1024 * 1024) {
+      setImageError("请选择不超过 4 MB 的图片，可先裁剪到题目区域。");
+      return;
+    }
+    const id = ++imageReadId.current;
+    setReadingImage(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (!mountedRef.current || id !== imageReadId.current) return;
+      setQuestionImage({ name: file.name || "粘贴的图片", dataUrl: String(reader.result) });
+      setReadingImage(false);
+      inputRef.current?.focus();
+    };
+    reader.onerror = () => {
+      if (!mountedRef.current || id !== imageReadId.current) return;
+      setReadingImage(false);
+      setImageError("图片读取失败，请重新选择。");
+    };
+    reader.readAsDataURL(file);
+  };
+  const pasteImage = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(event.clipboardData.files).find(item => item.type.startsWith("image/"));
+    if (file) { event.preventDefault(); selectImage(file); }
+  };
 
   useEffect(() => {
     onSessionReady?.(sessionRef.current);
@@ -299,6 +341,7 @@ export default function Chat({
       directRequest?: { path: string; body: Record<string, unknown>; display: string },
       displayText?: string,
       captureLearningTurn = true,
+      image?: { name: string; dataUrl: string },
     ): Promise<boolean> => {
       const q = text.trim();
       if (!q) return Promise.resolve(false);
@@ -313,9 +356,9 @@ export default function Chat({
       setBusy(true);
       setMsgs((m) => [
         ...m,
-        { role: "user", text: displayText?.trim() || q, resources: [], citations: [] },
+        { role: "user", text: displayText?.trim() || q, resources: [], citations: [], image },
         { role: "assistant", text: "", resources: [], citations: [], streaming: true,
-          progress: directRequest ? "正在准备本次学习内容…" : "正在理解你的问题…" },
+          progress: image ? "正在识别图片中的题目和知识点…" : directRequest ? "正在准备本次学习内容…" : "正在理解你的问题…" },
       ]);
 
       const patchLast = (fn: (a: Msg) => Msg) =>
@@ -353,6 +396,7 @@ export default function Chat({
             source_ids: sourceIds,
             source_policy: sourcePolicy,
             display_message: displayText?.trim() || q,
+            ...(image ? { image_base64: image.dataUrl } : {}),
           },
           (ev) => {
             if (settled || !mountedRef.current) return;
@@ -419,6 +463,14 @@ export default function Chat({
     },
     [busy, notebookId, onEvent, onLearningTurn, sourceIds, sourcePolicy, topic, updateGuidance],
   );
+
+  const sendComposer = async () => {
+    if (readingImage || recording || transcribing) return;
+    const image = questionImage;
+    const text = input.trim() || (image ? "请帮我理解图片里的题目或知识点，说明思路；看不清的地方请先问我。" : "");
+    const completed = await send(text, undefined, undefined, true, image || undefined);
+    if (completed && image) setQuestionImage(current => current === image ? null : current);
+  };
 
   useEffect(() => {
     const key = seed?.trim() || "";
@@ -489,6 +541,7 @@ export default function Chat({
           m.role === "user" ? (
             <div key={i} className="flex justify-end">
               <div className="chat-user-message">
+                {m.image && <img className="chat-question-image" src={m.image.dataUrl} alt={`提问图片：${m.image.name}`} />}
                 {m.text}
               </div>
             </div>
@@ -569,24 +622,36 @@ export default function Chat({
       <div className="notebook-chat-footer shrink-0 border-t border-[#E1E4EC] p-4">
         <label htmlFor="learning-chat-input" className="sr-only">和小知对话</label>
         <div className="notebook-composer relative">
+          <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp" aria-label="选择错题或知识点图片" hidden
+            onChange={event => { selectImage(event.target.files?.[0]); event.target.value = ""; }} />
+          {questionImage && <div className="composer-image-preview">
+            <img src={questionImage.dataUrl} alt="待发送的题目图片" />
+            <div><strong>{questionImage.name}</strong><span>{busy ? "正在结合图片回答…" : "可以直接发送，也可以写下哪里没看懂"}</span></div>
+            <button type="button" className="study-icon" disabled={busy} aria-label="移除图片" onClick={() => { setQuestionImage(null); setImageError(""); }}><X size={18} /></button>
+          </div>}
+          {readingImage && <p role="status" className="composer-image-hint">正在读取图片…</p>}
+          {imageError && <p role="alert" className="composer-image-error">{imageError}</p>}
           <textarea
             ref={inputRef}
             id="learning-chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={pasteImage}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && !window.matchMedia("(pointer: coarse)").matches) {
                 e.preventDefault();
-                void send(input);
+                void sendComposer();
               }
             }}
             rows={2}
             aria-label="学习目标输入"
-            placeholder="继续提问，或写下你的理解…"
+            placeholder={questionImage ? "这张图里，哪里没看懂？（选填）" : "写下问题，或粘贴错题、知识点图片…"}
             className="study-chat-input"
           />
           <div className="composer-toolbar">
+          <button type="button" className="composer-image-button" disabled={busy || readingImage} onClick={() => imageInputRef.current?.click()} title="上传错题或知识点图片（JPG、PNG、WebP，最大 4 MB）"><ImagePlus size={19} /><span>上传图片</span></button>
           <AdaptiveMenu className="composer-options" label="对话选项" icon={<Plus size={22} />} guide="studio-nav" expandedAt={100000}>
+            <button type="button" disabled={busy || readingImage} onClick={() => imageInputRef.current?.click()}><ImagePlus size={18} />上传错题 / 知识点图片</button>
             <button type="button" onClick={onOpenSources}><BookOpen size={18} />学习来源</button>
             <button type="button" onClick={onUploadClick}><FileUp size={18} />添加学习资料</button>
             <button type="button" onClick={onOpenStudio}><PanelRightOpen size={18} />学习工坊</button>
@@ -627,8 +692,8 @@ export default function Chat({
             </button>
           ) : (
             <button
-              onClick={() => send(input)}
-              disabled={!input.trim()}
+              onClick={() => void sendComposer()}
+              disabled={(!input.trim() && !questionImage) || readingImage || recording || transcribing}
               className="chat-send grid h-10 w-10 shrink-0 place-items-center rounded-full text-white transition disabled:cursor-not-allowed disabled:bg-[#E1E3E8] disabled:text-[#9AA0AD]"
               aria-label="发送"
               title="发送"
@@ -647,12 +712,13 @@ export default function Chat({
         )}
       </div>
       <StudyDialog open={expanded} title="编辑消息" onClose={() => setExpanded(false)} className="composer-dialog"
-        footer={<button type="button" className="study-primary" disabled={busy || !input.trim()} onClick={() => { setExpanded(false); void send(input); }}><ArrowRight size={18} />发送</button>}>
+        footer={<button type="button" className="study-primary" disabled={busy || (!input.trim() && !questionImage) || readingImage || recording || transcribing} onClick={() => { setExpanded(false); void sendComposer(); }}><ArrowRight size={18} />发送</button>}>
+        {questionImage && <p className="composer-image-hint">随消息发送图片：{questionImage.name}</p>}
         {msgs.filter(message => message.role === "assistant" && message.text).length > 0 && <details className="composer-context">
           <summary>查看上一条回复</summary>
           <Markdown text={msgs.filter(message => message.role === "assistant" && message.text).at(-1)!.text} />
         </details>}
-        <textarea aria-label="展开的消息编辑器" autoFocus value={input} onChange={event => setInput(event.target.value)} placeholder="写下你的问题、答案或思路…" />
+        <textarea aria-label="展开的消息编辑器" autoFocus value={input} onChange={event => setInput(event.target.value)} onPaste={pasteImage} placeholder="写下你的问题、答案或思路…" />
       </StudyDialog>
     </div>
   );
