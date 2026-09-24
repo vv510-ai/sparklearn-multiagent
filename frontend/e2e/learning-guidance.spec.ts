@@ -89,10 +89,11 @@ test("功能直接展示、成功问答触发建议、明确选择后才生成�
   await expect(suggestion).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("guidance-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "学习工坊", exact: true }).click();
+  await page.getByLabel("对话选项", { exact: true }).click();
+  await page.locator(".composer-options").getByRole("button", { name: "学习工坊", exact: true }).click();
   const mobileStudio = page.locator(".notebook-mobile-sheet");
   await expect(mobileStudio.locator(".studio-tile")).toHaveCount(11);
-  await mobileStudio.getByRole("button", { name: "关闭", exact: true }).click();
+  await page.getByRole("dialog", { name: "学习工坊", exact: true }).getByRole("button", { name: "返回学习", exact: true }).click();
   await suggestion.getByRole("button", { name: "生成框架导图", exact: true }).click();
   await expect.poll(() => requests.length).toBe(1);
   expect(requests[0]).toMatchObject({ prompt_template: "framework", artifact_scope: "conversation", notebook_id: notebook.id, session_id: notebook.session_id, kinds: ["mindmap"] });

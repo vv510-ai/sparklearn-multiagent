@@ -186,7 +186,7 @@ export default function ResourceCard({
   }
 
   return (
-    <Panel className="animate-rise overflow-hidden transition duration-200 hover:border-[#C8D1C9]">
+    <Panel className="learning-resource-card animate-rise overflow-hidden transition duration-200 hover:border-[#C8D1C9]">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
@@ -217,7 +217,7 @@ export default function ResourceCard({
       </button>
 
       {open && (
-        <div className="select-text border-t border-[#E5E9E3] bg-white px-4 py-4">
+        <div className="learning-resource-body select-text border-t border-[#E5E9E3] bg-white px-4 py-4">
           <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
             <span>已自动保存至资料归档</span>
             {editingTitle ? <form className="flex flex-wrap gap-2" onSubmit={event => { event.preventDefault(); void saveTitle(); }}>
@@ -288,7 +288,7 @@ export default function ResourceCard({
           ) : r.kind === "mindmap" && payload.markmap ? (
             <Markmap markdown={payload.markmap} />
           ) : r.kind === "quiz" && payload.questions ? (
-            <QuizPlayer resourceId={r.id} questions={payload.questions} onEvaluated={onQuizEvaluated} onOpenMistakes={onOpenMistakes} />
+            <QuizPlayer key={r.id} resourceId={r.id} questions={payload.questions} onEvaluated={onQuizEvaluated} onOpenMistakes={onOpenMistakes} />
           ) : r.kind === "flashcards" && payload.flashcards ? (
             <FlashcardsBlock artifact={payload.flashcards} />
           ) : r.kind === "infographic" && payload.infographic ? (

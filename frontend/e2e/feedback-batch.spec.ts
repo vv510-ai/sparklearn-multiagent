@@ -74,9 +74,10 @@ test("课程隔离、听力暂停恢复、改名持久化与移动阅读", async
   await input.fill("请一步步解释词汇的语境含义。\n请保留例句中的不确定性。\n第三行问题。\n第四行问题。");
   expect((await input.boundingBox())!.height).toBeGreaterThan(80);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole("navigation", { name: "移动端学习工作台导航" }).getByRole("button").first().click();
-  await expect(page.locator(".notebook-mobile-sheet")).toBeVisible();
-  expect(await page.locator(".notebook-mobile-sheet").evaluate(el => {
+  await page.getByRole("button", { name: "学习来源", exact: true }).click();
+  const sourceDrawer = page.getByRole("dialog", { name: "学习来源", exact: true });
+  await expect(sourceDrawer).toBeVisible();
+  expect(await sourceDrawer.evaluate(el => {
     const style = getComputedStyle(el);
     return style.backgroundImage.includes("rgb(247, 250, 253)") || /^rgb\(/.test(style.backgroundColor);
   })).toBe(true);

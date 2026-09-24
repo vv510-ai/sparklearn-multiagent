@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 // UI fixture only; real-model content acceptance is a separate production run.
 test("多选先组合再提交，回答依据在刷新后保持", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.addLocatorHandler(page.getByRole("button", { name: "跳过引导", exact: true }), b => b.click());
   await page.emulateMedia({ reducedMotion: "reduce" });
   // This case isolates chat controls; first-time onboarding has a separate real-model test.
@@ -12,10 +13,13 @@ test("多选先组合再提交，回答依据在刷新后保持", async ({ page 
   expect((await page.request.post(`/api/notebooks/${book.id}/learning/prepare`, { data: { title: "数据结构与算法", course_key: "ds_algo" } })).ok()).toBe(true);
   await page.goto("/");
   await page.getByRole("combobox", { name: "切换科目书本" }).selectOption(book.id);
+  await page.getByLabel("对话选项", { exact: true }).click();
   await page.getByRole("combobox", { name: "回答依据" }).selectOption("strict");
   await page.reload();
   await page.getByRole("combobox", { name: "切换科目书本" }).selectOption(book.id);
+  await page.getByLabel("对话选项", { exact: true }).click();
   await expect(page.getByRole("combobox", { name: "回答依据" })).toHaveValue("strict");
+  await page.getByLabel("对话选项", { exact: true }).press("Escape");
   const requests: { message: string; display_message: string; source_policy: string }[] = [];
   const question = "**多选理解检查**\n\n按整数加法判断。\n\n以下哪些等式成立？\nA. $1+1=2$\nB. $2+2=4$\nC. $1+1=3$";
   await page.route("**/api/chat", async route => {

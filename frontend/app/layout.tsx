@@ -6,6 +6,7 @@ import "./learning-upgrade.css";
 import "./learning-intake.css";
 import "driver.js/dist/driver.css";
 import "./learning-guide.css";
+import "./responsive-workspace.css";
 
 export const metadata: Metadata = {
   title: "知行循证 LearnLoop · 让学习发生，有据可循",

@@ -33,7 +33,7 @@ test("首次登录动态指引、关闭记忆、主动重看和全部功能可�
   await expect(page.getByRole("button", { name: "模型设置", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /全部工具/ })).toHaveCount(0);
   await expect(page.locator(".studio-tile")).toHaveCount(11);
-  await expect(page.locator(".studio-view")).toHaveCount(6);
+  await expect(page.locator(".studio-view")).toHaveCount(5);
   await page.getByRole("region", { name: "小知的下一步建议" }).getByRole("button", { name: "开始提问", exact: true }).click();
   await expect(page.getByLabel("学习目标输入")).toBeFocused();
   await page.getByRole("button", { name: "关闭下一步建议", exact: true }).click();
@@ -71,10 +71,11 @@ test("手机引导定位导航、无横向溢出，学习功能直接展示", as
     await page.screenshot({ path: info.outputPath(`guide-mobile-${step + 1}.png`), fullPage: true });
     await popover.getByRole("button", { name: step === 2 ? "开始学习" : "下一步", exact: true }).click();
   }
-  await page.getByRole("button", { name: "学习工坊", exact: true }).click();
+  await page.getByLabel("对话选项", { exact: true }).click();
+  await page.locator(".composer-options").getByRole("button", { name: "学习工坊", exact: true }).click();
   const sheet = page.locator(".notebook-mobile-sheet");
   await expect(sheet.locator(".studio-tile")).toHaveCount(11);
-  await expect(sheet.locator(".studio-view")).toHaveCount(6);
+  await expect(sheet.locator(".studio-view")).toHaveCount(5);
   await expect(sheet.getByRole("button", { name: /全部工具/ })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("workspace-mobile.png"), fullPage: true });

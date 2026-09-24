@@ -3,6 +3,7 @@ import { completeIntake, registerLearner } from "./intake-helpers";
 import type { SparkEvent } from "../lib/types";
 
 test("生成时立即反馈并展示真实阶段，完成、停止和失败都清除等待状态", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.addLocatorHandler(page.getByRole("button", { name: "跳过引导", exact: true }), async b => { await b.click(); });
   await registerLearner(page, "generation-progress");
   await completeIntake(page);

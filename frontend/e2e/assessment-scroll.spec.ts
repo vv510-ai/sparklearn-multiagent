@@ -1,6 +1,12 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { completeIntake, registerLearner } from "./intake-helpers";
 
+async function openAssessment(page: Page) {
+  const button = page.getByRole("button", { name: "打开起点测评", exact: true });
+  if (!await button.isVisible()) await page.getByLabel("学习菜单", { exact: true }).click();
+  await button.click();
+}
+
 async function expectCurrentQuestionInView(page: Page, info: TestInfo, step: string) {
   // Read geometry without Playwright scrolling the target into view for us.
   const position = await page.locator(".entry-panel").evaluate((panel) => {
@@ -56,7 +62,7 @@ for (const viewport of [
     const current = await page.locator(".assessment-stem").innerText();
     await page.getByRole("button", { name: "暂停，稍后继续", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "学习目标输入", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
+    await openAssessment(page);
     await expect(page.locator(".assessment-stem")).toHaveText(current);
     await expect(page.locator(".entry-panel")).toHaveAttribute("aria-busy", "false");
     await expectCurrentQuestionInView(page, info, "resume");
@@ -83,13 +89,22 @@ test("手机：往返测评保留对话面板的阅读位置", async ({ page }, 
   await completeIntake(page);
   await page.getByRole("button", { name: "暂停，稍后继续", exact: true }).click();
   await page.getByRole("button", { name: "跳过引导", exact: true }).click();
+  // A compact welcome screen may fit; use a real message component with long content.
+  const answer = "栈遵循后进先出：最后放入的元素最先取出。\n\n".repeat(30);
+  await page.route("**/api/chat", route => route.fulfill({ contentType: "text/event-stream",
+    body: [{ type: "token", delta: answer }, { type: "done" }].map(event => `data: ${JSON.stringify(event)}\n\n`).join("") }));
+  await page.getByLabel("学习目标输入", { exact: true }).fill("阅读位置验收");
+  await page.getByRole("button", { name: "发送", exact: true }).click();
+  await expect(page.getByLabel("小知回答").last().locator("p")).toHaveCount(30);
+  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await page.unroute("**/api/chat");
   const chat = page.locator(".notebook-chat-scroll");
   const before = await chat.evaluate(panel => {
     panel.scrollTop = (panel.scrollHeight - panel.clientHeight) / 2;
     return panel.scrollTop;
   });
   expect(before, "使用实际可滚动的对话面板验证恢复行为").toBeGreaterThan(50);
-  await page.getByRole("button", { name: "打开起点测评", exact: true }).click();
+  await openAssessment(page);
   await expect(page.locator(".entry-quiz .assessment-stem")).toBeVisible();
   await page.getByRole("button", { name: "暂停，稍后继续", exact: true }).click();
   await expect(chat).toBeVisible();
