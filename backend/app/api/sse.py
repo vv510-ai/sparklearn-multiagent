@@ -10,10 +10,21 @@ HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no",
            "Connection": "keep-alive"}
 
 
-async def _wrap(gen: AsyncIterator[dict]):
-    async for ev in gen:
-        yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+async def _wrap(gen: AsyncIterator[dict], release_id: str = ""):
+    try:
+        async for ev in gen:
+            from ..services.course_library import is_withdrawn, blocked_payload, WITHDRAWN
+            if (release_id and is_withdrawn(release_id)) or blocked_payload(ev):
+                yield f"data: {json.dumps({'type': 'error', 'detail': WITHDRAWN}, ensure_ascii=False)}\n\n"
+                break
+            yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+    finally:
+        close = getattr(gen, "aclose", None)
+        if close:
+            await close()
 
 
 def sse_response(gen: AsyncIterator[dict]) -> StreamingResponse:
-    return StreamingResponse(_wrap(gen), media_type="text/event-stream", headers=HEADERS)
+    from ..services.learning_scope import current_space
+    release_id = str((current_space() or {}).get("course", {}).get("course_release_id") or "")
+    return StreamingResponse(_wrap(gen, release_id), media_type="text/event-stream", headers=HEADERS)

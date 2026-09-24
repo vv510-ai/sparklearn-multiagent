@@ -31,7 +31,7 @@ def catalogue() -> list[dict]:
 
 
 def public_course(course: dict) -> dict:
-    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference", "quality_review", "preparation_timings")} | {
+    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "course_release_id", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference", "quality_review", "preparation_timings")} | {
         "outline": [{"id": n["id"], "name": n["name"], "objective": n.get("desc", "")}
                     for n in course.get("graph", {}).get("nodes", [])],
         "question_count": len(course.get("bank", [])),
@@ -411,7 +411,7 @@ def context_summary() -> dict | None:
         space = {"notebook_id": "", "profile": profile, "course": {"title": "数据结构与算法", "sources": []}}
     profile, course = space["profile"], space["course"]
     survey = profile.get("learning_intake") or {}
-    return {"course": course["title"], "course_revision": course.get("revision"), "notebook_id": space["notebook_id"],
+    return {"course": course["title"], "course_release_id": course.get("course_release_id", ""), "course_revision": course.get("revision"), "notebook_id": space["notebook_id"],
         "goal": survey.get("goal", profile.get("goal")), "goals": survey.get("goals", []),
         "stage": survey.get("stage"), "prior_experience": survey.get("prior_experience"),
         "daily_minutes": survey.get("daily_minutes"), "study_days": survey.get("study_days", []),

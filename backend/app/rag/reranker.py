@@ -117,6 +117,9 @@ def _normalize_scores(values: list[float]) -> list[float]:
 def _local_semantic_scores(query: str, docs: list[dict]) -> tuple[list[float], str] | None:
     """Re-encode candidate evidence with metadata for a genuine second-stage rank."""
 
+    if any(doc.get("course_release_id") for doc in docs):
+        # Public release vectors are built at publication, not on student queries.
+        return None
     try:
         backend = str(embedding_status().get("backend") or "")
         if backend.startswith("hash"):

@@ -35,6 +35,7 @@ _initialized_engine = None
 _init_lock = Lock()
 
 TENANT_TABLES = (
+    "course_studies",
     "learning_spaces",
     "model_preferences",
     "assessment_sessions",
@@ -96,6 +97,9 @@ def _ensure_conversation_evidence(engine) -> None:
         if "source_evidence" not in {col["name"] for col in inspect(conn).get_columns("conversation_messages")}:
             qualifier = "IF NOT EXISTS " if conn.dialect.name == "postgresql" else ""
             conn.execute(text(f"ALTER TABLE conversation_messages ADD COLUMN {qualifier}source_evidence JSON"))
+        if "course_release_id" not in {col["name"] for col in inspect(conn).get_columns("conversation_messages")}:
+            qualifier = "IF NOT EXISTS " if conn.dialect.name == "postgresql" else ""
+            conn.execute(text(f"ALTER TABLE conversation_messages ADD COLUMN {qualifier}course_release_id VARCHAR(96)"))
 
 
 def _apply_postgres_tenant_security(engine) -> None:

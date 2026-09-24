@@ -4,6 +4,7 @@ from __future__ import annotations
 from ..models.db import session
 from ..models.entities import Resource
 from .knowledge_graph import canonical_kp_id
+from .course_library import provenance
 
 
 _GENERIC_QUERY_BIGRAMS = {
@@ -39,6 +40,17 @@ def recent_note_chunks(
     ranked: list[tuple[float, Resource, str]] = []
     for recency, row in enumerate(rows):
         payload = row.payload if isinstance(row.payload, dict) else {}
+        from .course_library import blocked_payload
+        if blocked_payload(payload):
+            continue
+        # Course-derived notes are reusable only within that exact release.
+        # This also keeps unquoted context from carrying withdrawn material into
+        # an unrelated course's answer when the model omits a citation.
+        from .learning_scope import current_space
+        current_release = str((current_space() or {}).get("course", {}).get("course_release_id") or "")
+        origins = {x["course_release_id"] for x in provenance(payload)}
+        if origins and origins != {current_release}:
+            continue
         if not payload.get("reusable_note"):
             continue
         row_kp = canonical_kp_id(row.kp)
@@ -59,6 +71,7 @@ def recent_note_chunks(
     return [
         {
             "text": markdown[:2200],
+            "provenance": provenance(row.payload),
             "source": "我的学习笔记",
             "chapter": row.title,
             "page": 1,

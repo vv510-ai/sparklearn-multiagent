@@ -45,6 +45,7 @@ export default function OnboardingGate({ user, onComplete, onSkip, onLogout }: {
           <small>你可以调整节奏、暂停测评，或随时换一种帮助方式。</small>
         </section>
         <section className="onboarding-card" aria-label="学习起点引导">
+          <a href="/library" className="intake-primary" style={{ display: "block", marginBottom: 18, textAlign: "center", textDecoration: "none" }}>没有资料也能学：打开课程目录 →</a>
           {started ? <><LearningIntake initial={{ intro_practiced: practiced }} draftKey={draftKey} onCancel={() => setStarted(false)} onSubmit={onComplete} /><button type="button" className="onboarding-skip" disabled={busy} onClick={() => void skip()}>先进入，稍后继续</button>{error && <p role="alert">{error}</p>}</> : <div className="onboarding-welcome">
             <p className="intake-eyebrow"><Sparkles size={17} /> 欢迎来到知行循证</p>
             <h2>先找到适合你的第一步</h2>

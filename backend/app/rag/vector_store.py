@@ -25,6 +25,8 @@ class MemoryStore:
     """numpy 余弦检索 + JSON 持久化;适合课程级知识库(千级 chunk)演示。"""
 
     def __init__(self) -> None:
+        from .library_index import index_identity
+        self.identity = index_identity()
         self._lock = threading.RLock()
         self.meta: list[dict] = []
         self.mat: np.ndarray | None = None
@@ -35,7 +37,7 @@ class MemoryStore:
         if _PERSIST.exists():
             try:
                 data = json.loads(_PERSIST.read_text(encoding="utf-8"))
-                if data.get("dim") == embedding_dim():
+                if data.get("dim") == embedding_dim() and data.get("identity") == self.identity:
                     self.meta = data["meta"]
                     self.mat = np.asarray(data["vectors"], dtype=np.float32)
                     log.info("内存向量库载入 %d chunks", len(self.meta))
@@ -45,7 +47,7 @@ class MemoryStore:
     def _save(self, meta: list[dict], mat: np.ndarray) -> None:
         temporary = _PERSIST.with_name(f"{_PERSIST.name}.{uuid.uuid4().hex}.tmp")
         try:
-            temporary.write_text(json.dumps({"dim": embedding_dim(), "meta": meta,
+            temporary.write_text(json.dumps({"dim": embedding_dim(), "identity": self.identity, "meta": meta,
                 "vectors": mat.tolist()}, ensure_ascii=False), encoding="utf-8")
             temporary.replace(_PERSIST)
         finally:
@@ -60,7 +62,14 @@ class MemoryStore:
             raise ValueError("vector metadata length mismatch")
         with self._lock:
             # Persist first. A failed disk write leaves readers on the old snapshot.
-            self._save(chunks, vectors)
+            from .library_index import index_identity
+            previous_identity = self.identity
+            self.identity = index_identity()
+            try:
+                self._save(chunks, vectors)
+            except Exception:
+                self.identity = previous_identity
+                raise
             self._snapshot = (list(chunks), vectors)
             self.meta, self.mat = self._snapshot
 

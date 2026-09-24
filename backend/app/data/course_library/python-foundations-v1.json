@@ -1,0 +1,839 @@
+{
+  "schema_version": 1,
+  "course_id": "python_foundations",
+  "release_id": "python-foundations-2026-09-v1",
+  "title": "Python 零基础入门",
+  "description": "10 课，从运行第一段程序到完成学习记录统计。",
+  "audience": "第一次系统学习编程的大学生与自学者",
+  "prerequisites": "会使用电脑；准备可运行 Python 3 的环境。",
+  "scope": "运行、变量、条件、循环、容器、函数、模块、文本文件、异常与综合任务。",
+  "not_covered": "面向对象、网络开发、数据库、数据分析及学校特定考试范围。",
+  "status_label": "10 课内容已备齐 · 开放试学",
+  "review": {
+    "method": "来源逐节核对、代码示例与新题执行验证；AI 辅助审查",
+    "human_review": false,
+    "note": "未经过教学专家审定或真实学习效果验证，不作课程认证或成绩承诺。"
+  },
+  "rights": {
+    "public_distribution": true,
+    "basis": "Python PSF-2.0 / 示例另有 0BSD；本站原创导学与题目",
+    "license_notice": "PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2\n\n \n\n```python\n1. This LICENSE AGREEMENT is between the Python Software Foundation (\"PSF\"), and\n   the Individual or Organization (\"Licensee\") accessing and otherwise using this\n   software (\"Python\") in source or binary form and its associated documentation.\n\n2. Subject to the terms and conditions of this License Agreement, PSF hereby\n   grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,\n   analyze, test, perform and/or display publicly, prepare derivative works,\n   distribute, and otherwise use Python alone or in any derivative\n   version, provided, however, that PSF's License Agreement and PSF's notice of\n   copyright, i.e., \"Copyright © 2001 Python Software Foundation; All Rights\n   Reserved\" are retained in Python alone or in any derivative version\n   prepared by Licensee.\n\n3. In the event Licensee prepares a derivative work that is based on or\n   incorporates Python or any part thereof, and wants to make the\n   derivative work available to others as provided herein, then Licensee hereby\n   agrees to include in any such work a brief summary of the changes made to Python.\n\n4. PSF is making Python available to Licensee on an \"AS IS\" basis.\n   PSF MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED.  BY WAY OF\n   EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND DISCLAIMS ANY REPRESENTATION OR\n   WARRANTY OF MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE\n   USE OF PYTHON WILL NOT INFRINGE ANY THIRD PARTY RIGHTS.\n\n5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON\n   FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS A RESULT OF\n   MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON, OR ANY DERIVATIVE\n   THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.\n\n6. This License Agreement will automatically terminate upon a material breach of\n   its terms and conditions.\n\n7. Nothing in this License Agreement shall be deemed to create any relationship\n   of agency, partnership, or joint venture between PSF and Licensee.  This License\n   Agreement does not grant permission to use PSF trademarks or trade name in a\n   trademark sense to endorse or promote products or services of Licensee, or any\n   third party.\n\n8. By copying, installing or otherwise using Python, Licensee agrees\n   to be bound by the terms and conditions of this License Agreement.\n\n```\n\nZERO-CLAUSE BSD LICENSE FOR CODE IN THE PYTHON DOCUMENTATION\n\n \n\n```python\nPermission to use, copy, modify, and/or distribute this software for any\npurpose with or without fee is hereby granted.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH\nREGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY\nAND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,\nINDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM\nLOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR\nOTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR\nPERFORMANCE OF THIS SOFTWARE.\n\n```\n"
+  },
+  "textbook": {
+    "id": "python-foundations-official-3.14",
+    "title": "Python 官方教程",
+    "version": "3.14.7",
+    "url": "https://docs.python.org/zh-cn/3.14/tutorial/",
+    "license": "PSF-2.0; code examples additionally 0BSD",
+    "license_url": "https://docs.python.org/zh-cn/3.14/license.html",
+    "copyright": "Copyright (c) 2001 Python Software Foundation. All Rights Reserved.",
+    "retrieved_at": "2026-09-24T16:38:40.750741+00:00",
+    "adaptation": "Selected complete sections converted from HTML to plain text/Markdown; navigation and header links removed. Teaching notes and questions are independently authored.",
+    "scope_note": "内置所列 18 个官方教程小节，配合本站 10 课入门导学；不覆盖整本官方教程。",
+    "sections": [
+      {
+        "id": "numbers",
+        "title": "3.1.1. 数字",
+        "text": "3.1.1. 数字\n\n解释器被作为一台简单的计算器：你可以键入一个表达式让它给出结果值。表达式语法很直观：运算符 +, -, * 和 / 可被用来执行算术运算；圆括号 (()) 可被用来进行分组。例如: \n\n```python\n>>> 2 + 2\n4\n>>> 50 - 5*6\n20\n>>> (50 - 5*6) / 4\n5.0\n>>> 8 / 5  # 除法运算总是返回一个浮点数\n1.6\n\n```\n\n整数 (如 2、4、20) 的类型是 int，带小数部分 (如 5.0、1.6) 的类型是 float。 本教程后半部分将介绍更多数字类型。 \n\n除法运算 (/) 总是返回浮点数。如果要做 floor division 得到一个整数结果你可以使用 // 运算符；要计算余数你可以使用 %: \n\n```python\n>>> 17 / 3  # 经典除法运算返回一个浮点数\n5.666666666666667\n>>>\n>>> 17 // 3  # 向下取整除法运算会丢弃小数部分\n5\n>>> 17 % 3  # % 运算返回相除的余数\n2\n>>> 5 * 3 + 2  # 向下取整的商 * 除数 + 余数\n17\n\n```\n\nPython 用 ** 运算符计算乘方 [1]： \n\n```python\n>>> 5 ** 2  # 5 的平方\n25\n>>> 2 ** 7  # 2 的 7 次方\n128\n\n```\n\n等号 (=) 用于给变量赋值。 赋值后，下一个交互提示符的位置不显示任何结果： \n\n```python\n>>> width = 20\n>>> height = 5 * 9\n>>> width * height\n900\n\n```\n\n如果变量未定义（即，未赋值），使用该变量会提示错误： \n\n```python\n>>> n  # 试图访问一个未定义的变量\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nNameError: name 'n' is not defined\n\n```\n\nPython 全面支持浮点数；混合类型运算数的运算会把整数转换为浮点数： \n\n```python\n>>> 4 * 3.75 - 1\n14.0\n\n```\n\n交互模式下，上次输出的表达式会赋给变量 _。把 Python 当作计算器时，用该变量实现下一步计算更简单，例如： \n\n```python\n>>> tax = 12.5 / 100\n>>> price = 100.50\n>>> price * tax\n12.5625\n>>> price + _\n113.0625\n>>> round(_, 2)\n113.06\n\n```\n\n最好把该变量当作只读类型。不要为它显式赋值，否则会创建一个同名独立局部变量，该变量会用它的魔法行为屏蔽内置变量。 \n\n除了 int 和 float，Python 还支持其他数字类型，例如 Decimal 或 Fraction。 Python 还内置支持 复数，后缀 j 或 J 用于表示虚数 (例如 3+5j)。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#numbers",
+        "kps": [
+          "foundation_start",
+          "foundation_values"
+        ],
+        "sha256": "e775c1980f98980d8f0b8abcf461990340e16154b69f68b51840b478d4174db3"
+      },
+      {
+        "id": "text",
+        "title": "3.1.2. 文本",
+        "text": "3.1.2. 文本\n\n除了数字 Python 还可以操作文本（由 str 类型表示，称为\"字符串\"）。这包括字符 \"!\", 单词 \"rabbit\", 名称 \"Paris\", 句子 \"Got your back.\" 等等 \"Yay! :)\"。 它们可以用成对的单引号 ('...') 或双引号 (\"...\") 来标示，结果完全相同 [2]。 \n\n```python\n>>> 'spam eggs'  # 单引号\n'spam eggs'\n>>> \"Paris rabbit got your back :)! Yay!\"  # 双引号\n'Paris rabbit got your back :)! Yay!'\n>>> '1975'  # 引号中的数字也是字符串\n'1975'\n\n```\n\n要标示引号本身，我们需要对它进行“转义”，即在前面加一个 \\。或者，我们也可以使用不同类型的引号: \n\n```python\n>>> 'doesn\\'t'  # 使用 \\' 来转义单引号...\n\"doesn't\"\n>>> \"doesn't\"  # ...或者改用双引号\n\"doesn't\"\n>>> '\"Yes,\" they said.'\n'\"Yes,\" they said.'\n>>> \"\\\"Yes,\\\" they said.\"\n'\"Yes,\" they said.'\n>>> '\"Isn\\'t,\" they said.'\n'\"Isn\\'t,\" they said.'\n\n```\n\n在 Python shell 中，字符串定义和输出字符串看起来可能不同。 print() 函数会略去标示用的引号，并打印经过转义的特殊字符，产生更为易读的输出: \n\n```python\n>>> s = 'First line.\\nSecond line.'  # \\n 表示换行符\n>>> s  # 不用 print()，特殊字符将包括在字符串中\n'First line.\\nSecond line.'\n>>> print(s)  # 用 print()，特殊字符会被转写，因此 \\n 将产生一个新行\nFirst line.\nSecond line.\n\n```\n\n如果不希望前置 \\ 的字符转义成特殊字符，可以使用 原始字符串，在引号前添加 r 即可： \n\n```python\n>>> print('C:\\this\\name')  # 这里 \\t 表示制表符，\\n 表示换行符\nC:      his\name\n>>> print(r'C:\\this\\name')  # 请注意引号前的 r\nC:\\this\\name\n\n```\n\n原始字符串还有一个微妙的限制：一个原始字符串不能以奇数个 \\ 字符结束；请参阅 此 FAQ 条目 了解更多信息及绕过的办法。 \n\n字符串字面值可以跨越多行。 一种做法是使用三重引号: \"\"\"...\"\"\" 或 '''...'''。 行结束符会自动包括在字符串中，但可以通过在行尾添加 \\ 来避免此行为。在下面的例子中，开头的换行符将不会被包括: \n\n```python\n>>> print(\"\"\"\\\n... Usage: thingy [OPTIONS]\n...      -h                        Display this usage message\n...      -H hostname               Hostname to connect to\n... \"\"\")\nUsage: thingy [OPTIONS]\n     -h                        Display this usage message\n     -H hostname               Hostname to connect to\n\n>>>\n\n```\n\n字符串可以用 + 合并（粘到一起），也可以用 * 重复： \n\n```python\n>>> # 3 乘以 'un'，再加 'ium'\n>>> 3 * 'un' + 'ium'\n'unununium'\n\n```\n\n相邻的两个或多个 字符串字面值 （引号标注的字符）会自动合并： \n\n```python\n>>> 'Py' 'thon'\n'Python'\n\n```\n\n拼接分隔开的长字符串时，这个功能特别实用： \n\n```python\n>>> text = ('Put several strings within parentheses '\n...         'to have them joined together.')\n>>> text\n'Put several strings within parentheses to have them joined together.'\n\n```\n\n这项功能只能用于两个字面值，不能用于变量或表达式： \n\n```python\n>>> prefix = 'Py'\n>>> prefix 'thon'  # 不能拼接变量和字符串字面值\n  File \"<stdin>\", line 1\n    prefix 'thon'\n           ^^^^^^\nSyntaxError: invalid syntax\n>>> ('un' * 3) 'ium'\n  File \"<stdin>\", line 1\n    ('un' * 3) 'ium'\n               ^^^^^\nSyntaxError: invalid syntax\n\n```\n\n合并多个变量，或合并变量与字面值，要用 +： \n\n```python\n>>> prefix + 'thon'\n'Python'\n\n```\n\n字符串支持 索引 （下标访问），第一个字符的索引是 0。单字符没有专用的类型，就是长度为一的字符串： \n\n```python\n>>> word = 'Python'\n>>> word[0]  # 0 号位的字符\n'P'\n>>> word[5]  # 5 号位的字符\n'n'\n\n```\n\n索引还支持负数，用负数索引时，从右边开始计数： \n\n```python\n>>> word[-1]  # 最后一个字符\n'n'\n>>> word[-2]  # 倒数第二个字符\n'o'\n>>> word[-6]\n'P'\n\n```\n\n注意，-0 和 0 一样，因此，负数索引从 -1 开始。 \n\n除了索引操作，还支持 切片。索引用来获取单个字符，而 切片 允许你获取子字符串: \n\n```python\n>>> word[0:2]  # 从 0 号位 (含) 到 2 号位 (不含) 的字符\n'Py'\n>>> word[2:5]  # 从 2 号位 (含) 到 5 号位 (不含) 的字符\n'tho'\n\n```\n\n切片索引的默认值很有用；省略开始索引时，默认值为 0，省略结束索引时，默认为到字符串的结尾： \n\n```python\n>>> word[:2]   # 从开头到 2 号位 (不含) 的字符\n'Py'\n>>> word[4:]   # 从 4 号位 (含) 到末尾\n'on'\n>>> word[-2:]  # 从倒数第二个 (含) 到末尾\n'on'\n\n```\n\n注意，输出结果包含切片开始，但不包含切片结束。因此，s[:i] + s[i:] 总是等于 s： \n\n```python\n>>> word[:2] + word[2:]\n'Python'\n>>> word[:4] + word[4:]\n'Python'\n\n```\n\n还可以这样理解切片，索引指向的是字符 之间 ，第一个字符的左侧标为 0，最后一个字符的右侧标为 n ，n 是字符串长度。例如： \n\n```python\n +---+---+---+---+---+---+\n | P | y | t | h | o | n |\n +---+---+---+---+---+---+\n 0   1   2   3   4   5   6\n-6  -5  -4  -3  -2  -1\n\n```\n\n第一行数字是字符串中索引 0...6 的位置，第二行数字是对应的负数索引位置。i 到 j 的切片由 i 和 j 之间所有对应的字符组成。 \n\n对于使用非负索引的切片，如果两个索引都不越界，切片长度就是起止索引之差。例如， word[1:3] 的长度是 2。 \n\n索引越界会报错： \n\n```python\n>>> word[42]  # word 只有 6 个字符\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nIndexError: string index out of range\n\n```\n\n但是，切片会自动处理越界索引： \n\n```python\n>>> word[4:42]\n'on'\n>>> word[42:]\n''\n\n```\n\nPython 字符串不能修改，是 immutable 的。因此，为字符串中某个索引位置赋值会报错： \n\n```python\n>>> word[0] = 'J'\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nTypeError: 'str' object does not support item assignment\n>>> word[2:] = 'py'\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nTypeError: 'str' object does not support item assignment\n\n```\n\n要生成不同的字符串，应新建一个字符串： \n\n```python\n>>> 'J' + word[1:]\n'Jython'\n>>> word[:2] + 'py'\n'Pypy'\n\n```\n\n内置函数 len() 返回字符串的长度： \n\n```python\n>>> s = 'supercalifragilisticexpialidocious'\n>>> len(s)\n34\n\n```\n\n参见  \n\nText Sequence Type --- str\n\n字符串是 序列类型 ，支持序列类型的各种操作。  \n\nString Methods\n\n字符串支持很多变形与查找方法。  \n\nf-字符串\n\n内嵌表达式的字符串字面值。  \n\nFormat string syntax\n\n使用 str.format() 格式化字符串。  \n\nprintf-style String Formatting\n\n这里详述了用 % 运算符格式化字符串的操作。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#text",
+        "kps": [
+          "foundation_values"
+        ],
+        "sha256": "50d6cbdc6c917f2824807694dd3e12425fae7d0797b5afb4e7f29ea05b5db6e2"
+      },
+      {
+        "id": "lists",
+        "title": "3.1.3. 列表",
+        "text": "3.1.3. 列表\n\nPython 支持多种 复合 数据类型，可将不同值组合在一起。最常用的 列表 ，是用方括号标注，逗号分隔的一组值。列表 可以包含不同类型的元素，但一般情况下，各个元素的类型相同： \n\n```python\n>>> squares = [1, 4, 9, 16, 25]\n>>> squares\n[1, 4, 9, 16, 25]\n\n```\n\n和字符串（及其他内置 sequence 类型）一样，列表也支持索引和切片： \n\n```python\n>>> squares[0]  # 索引操作将返回条目\n1\n>>> squares[-1]\n25\n>>> squares[-3:]  # 切片操作将返回一个新列表\n[9, 16, 25]\n\n```\n\n列表还支持合并操作： \n\n```python\n>>> squares + [36, 49, 64, 81, 100]\n[1, 4, 9, 16, 25, 36, 49, 64, 81, 100]\n\n```\n\n与 immutable 字符串不同, 列表是 mutable 类型，其内容可以改变： \n\n```python\n>>> cubes = [1, 8, 27, 65, 125]  # 这里有点问题\n>>> 4 ** 3  # 4 的立方是 64，不是 65！\n64\n>>> cubes[3] = 64  # 替换错误的值\n>>> cubes\n[1, 8, 27, 64, 125]\n\n```\n\n你也可以通过使用 list.append() 方法，在列表末尾添加新条目（我们将在后文看到有关方法的更多介绍）: \n\n```python\n>>> cubes.append(216)  # 添加 6 的立方\n>>> cubes.append(7 ** 3)  # 和 7 的立方\n>>> cubes\n[1, 8, 27, 64, 125, 216, 343]\n\n```\n\nPython 中的简单赋值绝不会复制数据。 当你将一个列表赋值给一个变量时，该变量将引用 现有的列表。你通过一个变量对列表所做的任何更改都会被引用它的所有其他变量看到。: \n\n```python\n>>> rgb = [\"Red\", \"Green\", \"Blue\"]\n>>> rgba = rgb\n>>> id(rgb) == id(rgba)  # 它们指向同一个对象\nTrue\n>>> rgba.append(\"Alph\")\n>>> rgb\n[\"Red\", \"Green\", \"Blue\", \"Alph\"]\n\n```\n\n切片操作返回包含请求元素的新列表。以下切片操作会返回列表的 浅拷贝： \n\n```python\n>>> correct_rgba = rgba[:]\n>>> correct_rgba[-1] = \"Alpha\"\n>>> correct_rgba\n[\"Red\", \"Green\", \"Blue\", \"Alpha\"]\n>>> rgba\n[\"Red\", \"Green\", \"Blue\", \"Alph\"]\n\n```\n\n为切片赋值可以改变列表大小，甚至清空整个列表： \n\n```python\n>>> letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g']\n>>> letters\n['a', 'b', 'c', 'd', 'e', 'f', 'g']\n>>> # 替换一些值\n>>> letters[2:5] = ['C', 'D', 'E']\n>>> letters\n['a', 'b', 'C', 'D', 'E', 'f', 'g']\n>>> # 现在移除它们\n>>> letters[2:5] = []\n>>> letters\n['a', 'b', 'f', 'g']\n>>> # 通过用一个空列表替代所有元素来清空列表\n>>> letters[:] = []\n>>> letters\n[]\n\n```\n\n内置函数 len() 也支持列表： \n\n```python\n>>> letters = ['a', 'b', 'c', 'd']\n>>> len(letters)\n4\n\n```\n\n还可以嵌套列表（创建包含其他列表的列表），例如： \n\n```python\n>>> a = ['a', 'b', 'c']\n>>> n = [1, 2, 3]\n>>> x = [a, n]\n>>> x\n[['a', 'b', 'c'], [1, 2, 3]]\n>>> x[0]\n['a', 'b', 'c']\n>>> x[0][1]\n'b'\n\n```",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#lists",
+        "kps": [
+          "foundation_containers",
+          "foundation_project"
+        ],
+        "sha256": "a0d17b02479efc9ba567d110710ef09acacebfea4d1f4023d95d8944a89c16db"
+      },
+      {
+        "id": "first-steps-towards-programming",
+        "title": "3.2. 走向编程的第一步",
+        "text": "3.2. 走向编程的第一步\n\n当然，我们还能用 Python 完成比二加二更复杂的任务。 例如，我们可以像下面这样写出 斐波那契数列 初始部分的子序列: \n\n```python\n>>> # 斐波那契数列：\n>>> # 前两项之和即下一项的值\n>>> a, b = 0, 1\n>>> while a < 10:\n...     print(a)\n...     a, b = b, a+b\n...\n0\n1\n1\n2\n3\n5\n8\n\n```\n\n本例引入了几个新功能。  \n\n第一行中的 多重赋值 ：变量 a 和 b 同时获得新值 0 和 1 。最后一行又用了一次多重赋值，体现了，等号右边的所有表达式的值，都是在这一语句对任何变量赋新值之前求出来的——求值顺序为从左到右。 \n\nwhile 循环只要条件 (这里是 a < 10) 为真就会一直执行。 Python 和 C 一样，任何非零整数都为真，零为假。 这个条件也可以是字符串或列表类型的值，事实上，任何序列都可以：长度非零就为真，空序列则为假。 示例中的判断只是最简单的比较。比较运算符的写法和 C 语言一样: < (小于)、 > (大于)、 == (等于)、 <= (小于等于)、 >= (大于等于) 及 != (不等于)。 \n\n循环体 是 缩进的 ：缩进是 Python 组织语句的方式。在交互式命令行里，得为每个缩进的行输入空格（或制表符）。使用文本编辑器可以实现更复杂的输入方式；所有像样的文本编辑器都支持自动缩进。交互式输入复合语句时，要在最后输入空白行表示完成（因为解析器不知道哪一行代码是代码块的最后一行）。注意，同一块语句的每一行的缩进相同。 \n\nprint() 函数输出给定参数的值。 除了可以以单一的表达式作为参数（比如，前面的计算器的例子），它还能处理多个参数，包括浮点数与字符串。 它输出的字符串不带引号，且各参数项之间会插入一个空格，这样可以实现更好的格式化操作，就像这样: \n\n```python\n>>> i = 256*256\n>>> print('The value of i is', i)\nThe value of i is 65536\n\n```\n\n关键字参数 end 可以取消输出后面的换行, 或用另一个字符串结尾： \n\n```python\n>>> a, b = 0, 1\n>>> while a < 1000:\n...     print(a, end=',')\n...     a, b = b, a+b\n...\n0,1,1,2,3,5,8,13,21,34,55,89,144,233,377,610,987,\n\n```\n\n备注   [1] \n\n** 比 - 的优先级更高, 所以 -3**2 会被解释成 -(3**2) ，因此，结果是 -9。要避免这个问题，并且得到 9, 可以用 (-3)**2。   [2] \n\n与其他语言不同，特殊字符如 \\n 在单引号 ('...') 和双引号 (\"...\") 里的意义一样。 这两种引号唯一的区别是，不需要在单引号里转义双引号 \" (但此时必须把单引号转义成 \\')，反之亦然。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/introduction.html#first-steps-towards-programming",
+        "kps": [
+          "foundation_loops"
+        ],
+        "sha256": "4080ce741aee7bf92298711bc84f52f8378a87cfe1f74f9ebfa5dab33714af07"
+      },
+      {
+        "id": "if-statements",
+        "title": "4.1. if 语句",
+        "text": "4.1. if 语句\n\n最让人耳熟能详的语句应当是 if 语句： \n\n```python\n>>> x = int(input(\"Please enter an integer: \"))\nPlease enter an integer: 42\n>>> if x < 0:\n...     x = 0\n...     print('Negative changed to zero')\n... elif x == 0:\n...     print('Zero')\n... elif x == 1:\n...     print('Single')\n... else:\n...     print('More')\n...\nMore\n\n```\n\n可有零个或多个 elif 部分，else 部分也是可选的。关键字 'elif' 是 'else if' 的缩写，用于避免过多的缩进。if ... elif ... elif ... 序列可以当作其它语言中 switch 或 case 语句的替代品。 \n\n如果是把一个值与多个常量进行比较，或者检查特定类型或属性，match 语句更有用。详见 match 语句。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#if-statements",
+        "kps": [
+          "foundation_branches"
+        ],
+        "sha256": "629da5e985a735659433b90277ac9cc61c38f323960306ef08d6e6da83dff0cc"
+      },
+      {
+        "id": "for-statements",
+        "title": "4.2. for 语句",
+        "text": "4.2. for 语句\n\nPython 的 for 语句与 C 或 Pascal 中的不同。Python 的 for 语句不迭代算术递增数值（如 Pascal），或是给予用户定义迭代步骤和结束条件的能力（如 C），而是在列表或字符串等任意序列的元素上迭代，按它们在序列中出现的顺序。 例如（这不是有意要暗指什么）： \n\n```python\n>>> # 度量一些字符串：\n>>> words = ['cat', 'window', 'defenestrate']\n>>> for w in words:\n...     print(w, len(w))\n...\ncat 3\nwindow 6\ndefenestrate 12\n\n```\n\n很难正确地在迭代多项集的同时修改多项集的内容。更简单的方法是迭代多项集的副本或者创建新的多项集： \n\n```python\n# 创建示例多项集\nusers = {'Hans': 'active', 'Éléonore': 'inactive', '景太郎': 'active'}\n\n# 策略：迭代一个副本\nfor user, status in users.copy().items():\n    if status == 'inactive':\n        del users[user]\n\n# 策略：创建一个新多项集\nactive_users = {}\nfor user, status in users.items():\n    if status == 'active':\n        active_users[user] = status\n\n```",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#for-statements",
+        "kps": [
+          "foundation_loops",
+          "foundation_project"
+        ],
+        "sha256": "0e12e9183ec40f994b7b280b51123e4df64aab762280754a3980a7916944880b"
+      },
+      {
+        "id": "the-range-function",
+        "title": "4.3. range() 函数",
+        "text": "4.3. range() 函数\n\n内置函数 range() 用于生成等差数列： \n\n```python\n>>> for i in range(5):\n...     print(i)\n...\n0\n1\n2\n3\n4\n\n```\n\n生成的序列绝不会包括给定的终止值；range(10) 生成 10 个值——长度为 10 的序列的所有合法索引。range 可以不从 0 开始，且可以按给定的步长递增（即使是负数步长）： \n\n```python\n>>> list(range(5, 10))\n[5, 6, 7, 8, 9]\n\n>>> list(range(0, 10, 3))\n[0, 3, 6, 9]\n\n>>> list(range(-10, -100, -30))\n[-10, -40, -70]\n\n```\n\n要按索引迭代序列，可以组合使用 range() 和 len()： \n\n```python\n>>> a = ['Mary', 'had', 'a', 'little', 'lamb']\n>>> for i in range(len(a)):\n...     print(i, a[i])\n...\n0 Mary\n1 had\n2 a\n3 little\n4 lamb\n\n```\n\n不过大多数情况下 enumerate() 函数很方便，详见 循环的技巧。 \n\n如果直接打印一个 range 会发生意想不到的事情： \n\n```python\n>>> range(10)\nrange(0, 10)\n\n```\n\nrange() 返回的对象在很多方面和列表的行为一样，但其实它和列表不一样。该对象只有在被迭代时才一个一个地返回所期望的列表项，并没有真正生成过一个含有全部项的列表，从而节省了空间。 \n\nWe say such an object is iterable, that is, suitable as a target for functions and constructs that expect something from which they can obtain successive items until the supply is exhausted. We have seen that the for statement is such a construct, while an example of a function that takes an iterable is sum(): \n\n```python\n>>> sum(range(4))  # 0 + 1 + 2 + 3\n6\n\n```\n\n后续我们会看到更多返回可迭代对象并以可迭代对象作为参数的函数。 在 数据结构 一章中，我们将讨论 list() 的更多细节。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#the-range-function",
+        "kps": [
+          "foundation_loops"
+        ],
+        "sha256": "051d6f90ae708c24b97a17a0833b17d25a2fa35af39d5b3088f6b7cf7bb2e2f5"
+      },
+      {
+        "id": "defining-functions",
+        "title": "4.8. 定义函数",
+        "text": "4.8. 定义函数\n\n下列代码创建一个可以输出限定数值内的斐波那契数列函数： \n\n```python\n>>> def fib(n):    # 打印小于 n 的斐波那契数列\n...     \"\"\"Print a Fibonacci series less than n.\"\"\"\n...     a, b = 0, 1\n...     while a < n:\n...         print(a, end=' ')\n...         a, b = b, a+b\n...     print()\n...\n>>> # 现在调用我们刚定义的函数：\n>>> fib(2000)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 987 1597\n\n```\n\n定义 函数使用关键字 def，后跟函数名与括号内的形参列表。函数语句从下一行开始，并且必须缩进。 \n\n函数内的第一条语句是字符串时，该字符串就是文档字符串，也称为 docstring，详见 文档字符串。利用文档字符串可以自动生成在线文档或打印版文档，还可以让开发者在浏览代码时直接查阅文档；Python 开发者最好养成在代码中加入文档字符串的好习惯。 \n\n函数在 执行 时使用函数局部变量符号表，所有函数变量赋值都存在局部符号表中；引用变量时，首先，在局部符号表里查找变量，然后，是外层函数局部符号表，再是全局符号表，最后是内置名称符号表。因此，尽管可以引用全局变量和外层函数的变量，但最好不要在函数内直接赋值（除非是 global 语句定义的全局变量，或 nonlocal 语句定义的外层函数变量）。 \n\n在调用函数时会将实际参数（实参）引入到被调用函数的局部符号表中；因此，实参是使用 按值调用 来传递的（其中的 值 始终是对象的 引用 而不是对象的值）。 [1] 当一个函数调用另外一个函数时，会为该调用创建一个新的局部符号表。 \n\n函数定义在当前符号表中把函数名与函数对象关联在一起。解释器把函数名指向的对象作为用户自定义函数。还可以使用其他名称指向同一个函数对象，并访问该函数： \n\n```python\n>>> fib\n<function fib at 10042ed0>\n>>> f = fib\n>>> f(100)\n0 1 1 2 3 5 8 13 21 34 55 89\n\n```\n\n如果你用过其他语言，你可能会认为 fib 不是函数而是一个过程，因为它没有返回值。 事实上，即使没有 return 语句的函数也有返回值，尽管这个值可能相当无聊。 这个值被称为 None (是一个内置名称)。 通常解释器会屏蔽单独的返回值 None。 如果你确有需要可以使用 print() 查看它: \n\n```python\n>>> fib(0)\n>>> print(fib(0))\nNone\n\n```\n\n编写不直接输出斐波那契数列运算结果，而是返回运算结果列表的函数也非常简单： \n\n```python\n>>> def fib2(n):  # 返回斐波那契数组直到 n\n...     \"\"\"Return a list containing the Fibonacci series up to n.\"\"\"\n...     result = []\n...     a, b = 0, 1\n...     while a < n:\n...         result.append(a)    # 见下\n...         a, b = b, a+b\n...     return result\n...\n>>> f100 = fib2(100)    # 调用它\n>>> f100                # 输出结果\n[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]\n\n```\n\n本例也新引入了一些 Python 功能：  \n\nreturn 语句返回函数的值。return 语句不带表达式参数时，返回 None。函数执行完毕退出也返回 None。 \n\n语句 result.append(a) 调用了列表对象 result 的 方法。 方法是‘从属于’对象的函数，其名称为 obj.methodname，其中 obj 是某个对象（可以是一个表达式），methodname 是由对象的类型定义的方法名称。 不同的类型定义了不同的方法。 不同的类型的方法可以使用相同的名称而不会产生歧义。 （使用 类 可以定义自己的对象类型和方法，参见 类。） 在示例中显示的方法 append() 是由列表对象定义的；它会在列表的末尾添加一个新元素。 在本例中它等同于 result = result + [a]，但效率更高。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#defining-functions",
+        "kps": [
+          "foundation_functions",
+          "foundation_project"
+        ],
+        "sha256": "bbd1826e9379d96c789667bae544c169d7e70008cf7a72c2a2e740353b758454"
+      },
+      {
+        "id": "default-argument-values",
+        "title": "4.9.1. 默认值参数",
+        "text": "4.9.1. 默认值参数\n\n为参数指定默认值是非常有用的方式。调用函数时，可以使用比定义时更少的参数，例如： \n\n```python\ndef ask_ok(prompt, retries=4, reminder='Please try again!'):\n    while True:\n        reply = input(prompt)\n        if reply in {'y', 'ye', 'yes'}:\n            return True\n        if reply in {'n', 'no', 'nop', 'nope'}:\n            return False\n        retries = retries - 1\n        if retries < 0:\n            raise ValueError('invalid user response')\n        print(reminder)\n\n```\n\n该函数可以用以下方式调用：  \n\n只给出必选实参：ask_ok('Do you really want to quit?') \n\n给出一个可选实参：ask_ok('OK to overwrite the file?', 2) \n\n给出所有实参：ask_ok('OK to overwrite the file?', 2, 'Come on, only yes or no!')  \n\n本例还使用了关键字 in ，用于确认序列中是否包含某个值。 \n\n默认值在 定义 作用域里的函数定义中求值，所以： \n\n```python\ni = 5\n\ndef f(arg=i):\n    print(arg)\n\ni = 6\nf()\n\n```\n\n上例输出的是 5。 \n\n重要警告： 默认值只计算一次。默认值为列表、字典或类实例等可变对象时，会产生与该规则不同的结果。例如，下面的函数会累积后续调用时传递的参数： \n\n```python\ndef f(a, L=[]):\n    L.append(a)\n    return L\n\nprint(f(1))\nprint(f(2))\nprint(f(3))\n\n```\n\n输出结果如下： \n\n```python\n[1]\n[1, 2]\n[1, 2, 3]\n\n```\n\n不想在后续调用之间共享默认值时，应以如下方式编写函数： \n\n```python\ndef f(a, L=None):\n    if L is None:\n        L = []\n    L.append(a)\n    return L\n\n```",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/controlflow.html#default-argument-values",
+        "kps": [
+          "foundation_functions"
+        ],
+        "sha256": "f33081d35f09b2406b2e065516b11698f4dae5cffc3442a41aa7079aa11fc8f3"
+      },
+      {
+        "id": "more-on-conditions",
+        "title": "5.7. 深入条件控制",
+        "text": "5.7. 深入条件控制\n\nwhile 和 if 条件句不只可以进行比较，还可以使用任意运算符。 \n\n比较运算符 in 和 not in 用于执行确定一个值是否存在（或不存在）于某个容器中的成员检测。 运算符 is 和 is not 用于比较两个对象是否是同一个对象。 所有比较运算符的优先级都一样，且低于任何数值运算符。 \n\n比较操作支持链式操作。例如，a < b == c 校验 a 是否小于 b，且 b 是否等于 c。 \n\n比较操作可以用布尔运算符 and 和 or 组合，并且，比较操作（或其他布尔运算）的结果都可以用 not 取反。这些操作符的优先级低于比较操作符；not 的优先级最高， or 的优先级最低，因此，A and not B or C 等价于 (A and (not B)) or C。与其他运算符操作一样，此处也可以用圆括号表示想要的组合。 \n\n布尔运算符 and 和 or 是所谓的 短路 运算符：其参数从左至右求值，一旦可以确定结果，求值就会停止。例如，如果 A 和 C 为真，B 为假，那么 A and B and C 不会对 C 求值。用作普通值而不是布尔值时，短路运算符的返回值通常是最后一个求了值的参数。 \n\n还可以把比较运算或其它布尔表达式的结果赋值给变量，例如： \n\n```python\n>>> string1, string2, string3 = '', 'Trondheim', 'Hammer Dance'\n>>> non_null = string1 or string2 or string3\n>>> non_null\n'Trondheim'\n\n```\n\n注意，Python 与 C 不同，在表达式内部赋值必须显式使用 海象运算符 :=。 这避免了 C 程序中常见的问题：要在表达式中写 == 时，却写成了 =。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/datastructures.html#more-on-conditions",
+        "kps": [
+          "foundation_branches"
+        ],
+        "sha256": "127b3a389be0a4276a4b3b92adab65f03ef4cc825398a3ea740bf6381c7b7bf3"
+      },
+      {
+        "id": "invoking-the-interpreter",
+        "title": "2.1. 唤出解释器",
+        "text": "2.1. 唤出解释器\n\n在可用的机器上 Python 解释器通常被安装为 /usr/local/bin/python3.14；将 /usr/local/bin 加入你的 Unix shell 搜索路径就可以通过键入以下命令来启动它： \n\n```python\npython3.14\n\n```\n\n这样，就可以在 shell 中运行 Python 了 [1] 。因为可以选择安装目录，解释器也有可能安装在别的位置；如果还不明白，就去问问身边的 Python 大神或系统管理员。（例如，常见备选路径还有 /usr/local/python。） \n\n在 Windows 机器上当你从 Microsoft Store 安装 Python 之后，python3.14 命令将可使用。 如果你安装了 py.exe 启动器，你将可以使用 py 命令。 请参阅 Python 安装管理器 了解其他启动 Python 的方式。 \n\n在主提示符中，输入文件结束符 (Unix 里是 Control-D，Windows 里是 Control-Z)，就会退出解释器，退出状态码为 0。 如果不能退出，还可以输入这个命令: quit()。 \n\n在大多数系统上解释器的行编辑特性包括交互式编辑、历史替换和代码补全等。 检测命令行编辑是否受支持的最快速的方式是在 Python 提示符下键入一个单词，然后按左方向键 (或 Control-b)。 如果光标移动了，说明你可进行命令行编辑；请参阅附录 交互式编辑和编辑历史 了解相关功能键的介绍。 如果没有任何反应，或者显示 ^[[D 或 ^B 之类的字符序列，则说明命令行编辑不可用；你只能使用退格键删除当前行的字符。 \n\n解释器的操作方式类似 Unix Shell：用与 tty 设备关联的标准输入调用时，可以交互式地读取和执行命令；以文件名参数，或标准输入文件调用时，则读取并执行文件中的 脚本。 \n\n另一种启动解释器的方式是 python -c command [arg] ...，这将执行 command 中的语句，相当于 shell 的 -c 选项。 由于 Python 语句经常包含空格或其他会被 shell 特殊对待的字符，通常建议用引号将整个 command 括起来。 \n\nPython 模块也可以当作脚本使用。输入：python -m module [arg] ...，会执行 module 的源文件，这跟在命令行把路径写全了一样。 \n\n在交互模式下运行脚本文件，只要在脚本名称参数前，加上选项 -i 就可以了。 \n\n命令行的所有选项详见 命令行与环境。  2.1.1. 传入参数\n\n解释器读取命令行参数，把脚本名与其他参数转化为字符串列表存到 sys 模块的 argv 变量里。执行 import sys，可以导入这个模块，并访问该列表。该列表最少有一个元素；未给定输入参数时，sys.argv[0] 是空字符串。给定脚本名是 '-' （标准输入）时，sys.argv[0] 是 '-'。使用 -c command 时，sys.argv[0] 是 '-c'。如果使用选项 -m module，sys.argv[0] 就是包含目录的模块全名。解释器不处理 -c command 或 -m module 之后的选项，而是直接留在 sys.argv 中由命令或模块来处理。   2.1.2. 交互模式\n\n在终端输入并执行指令时，解释器在 交互模式 中运行。在这种模式中，会显示 主提示符，提示输入下一条指令，主提示符通常用三个大于号 (>>>) 表示；输入连续行时，显示 次要提示符，默认是三个点 (...)。 进入解释器时，首先显示欢迎信息、版本信息、版权声明，然后才是提示符： \n\n```python\n$ python3.14\nPython 3.14 (default, April 4 2024, 09:25:04)\n[GCC 10.2.0] on linux\nType \"help\", \"copyright\", \"credits\" or \"license\" for more information.\n>>>\n\n```\n\n输入多行结构的语句时，要用连续行。以 if 为例： \n\n```python\n>>> the_world_is_flat = True\n>>> if the_world_is_flat:\n...     print(\"Be careful not to fall off!\")\n...\nBe careful not to fall off!\n\n```\n\n交互模式的内容详见 交互模式。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/interpreter.html#invoking-the-interpreter",
+        "sha256": "ee867f3f9bdbcef3c72f809d9e3ebb132c5e72e08ac43338493113a9d06c94db",
+        "kps": [
+          "foundation_start"
+        ]
+      },
+      {
+        "id": "dictionaries",
+        "title": "5.5. 字典",
+        "text": "5.5. 字典\n\n另一个常用的 Python 内置数据类型是 字典 (参见 Mapping Types --- dict)。 字典在其他编程语言中可能称为“联合内存”或“联合数组”。 与以连续整数为索引的序列不同，字典是以 键 来索引的，键可以是任何不可变类型；字符串和数字总是可以作为键。 元组在其仅包含字符串、数字或元组时也可以作为键；如果一个元组直接或间接地包含了任何可变对象，则不可以用作键。 你不能使用列表作为键，因为列表可使用索引赋值、切片赋值或 append() 和 extend() 等方法进行原地修改。 \n\n可以把字典理解为 键值对 的集合，但字典的键必须是唯一的。花括号 {} 用于创建空字典。另一种初始化字典的方式是，在花括号里输入逗号分隔的键值对，这也是字典的输出方式。 \n\n字典的主要操作是通过键来存储值并根据给定的键来提取值。 通过 del 也可以删除键值对。 如果你使用已存在的键进行存储，则与该键相关联的旧值将丢失。 \n\n通过下标操作 (d[key]) 提取不存在的键的值会引发 KeyError。 要避免在试图访问可能不存在的键时遇到这种错误，可改用 get() 方法，它会在字典不存在某个键时返回 None (或指定的默认值)。 \n\n对字典执行 list(d) 操作，返回该字典中所有键的列表，按插入次序排列 (如需排序，请使用 sorted(d))。 检查字典里是否存在某个键，使用关键字 in。 \n\n以下是一些字典的简单示例： \n\n```python\n>>> tel = {'jack': 4098, 'sape': 4139}\n>>> tel['guido'] = 4127\n>>> tel\n{'jack': 4098, 'sape': 4139, 'guido': 4127}\n>>> tel['jack']\n4098\n>>> tel['irv']\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nKeyError: 'irv'\n>>> print(tel.get('irv'))\nNone\n>>> del tel['sape']\n>>> tel['irv'] = 4127\n>>> tel\n{'jack': 4098, 'guido': 4127, 'irv': 4127}\n>>> list(tel)\n['jack', 'guido', 'irv']\n>>> sorted(tel)\n['guido', 'irv', 'jack']\n>>> 'guido' in tel\nTrue\n>>> 'jack' not in tel\nFalse\n\n```\n\ndict() 构造函数可以直接用键值对序列创建字典： \n\n```python\n>>> dict([('sape', 4139), ('guido', 4127), ('jack', 4098)])\n{'sape': 4139, 'guido': 4127, 'jack': 4098}\n\n```\n\n字典推导式可以用任意键值表达式创建字典： \n\n```python\n>>> {x: x**2 for x in (2, 4, 6)}\n{2: 4, 4: 16, 6: 36}\n\n```\n\n关键字是比较简单的字符串时，直接用关键字参数指定键值对更便捷： \n\n```python\n>>> dict(sape=4139, guido=4127, jack=4098)\n{'sape': 4139, 'guido': 4127, 'jack': 4098}\n\n```",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/datastructures.html#dictionaries",
+        "sha256": "26486676445d2eb44be09bb9e714774ac7c093113e6650246d87f9e4be3ad58f",
+        "kps": [
+          "foundation_containers"
+        ]
+      },
+      {
+        "id": "tuples-and-sequences",
+        "title": "5.3. 元组和序列",
+        "text": "5.3. 元组和序列\n\n列表和字符串有很多共性，例如，索引和切片操作。 这两种数据类型是 序列 (参见 Sequence Types --- list, tuple, range)。 随着 Python 语言的发展，其他的序列类型也被加入其中。 本节介绍另一种标准序列类型: 元组。 \n\n元组由多个用逗号隔开的值组成，例如： \n\n```python\n>>> t = 12345, 54321, 'hello!'\n>>> t[0]\n12345\n>>> t\n(12345, 54321, 'hello!')\n>>> # 元组可以嵌套：\n>>> u = t, (1, 2, 3, 4, 5)\n>>> u\n((12345, 54321, 'hello!'), (1, 2, 3, 4, 5))\n>>> # 元组是不可变对象：\n>>> t[0] = 88888\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nTypeError: 'tuple' object does not support item assignment\n>>> # 但它们可以包含可变对象：\n>>> v = ([1, 2, 3], [3, 2, 1])\n>>> v\n([1, 2, 3], [3, 2, 1])\n\n```\n\n输出时，元组都要由圆括号标注，这样才能正确地解释嵌套元组。输入时，圆括号可有可无，不过经常是必须的（如果元组是更大的表达式的一部分）。不允许为元组中的单个元素赋值，当然，可以创建含列表等可变对象的元组。 \n\n虽然，元组与列表很像，但使用场景不同，用途也不同。元组是 immutable （不可变的），一般可包含异质元素序列，通过解包（见本节下文）或索引访问（如果是 namedtuples，可以属性访问）。列表是 mutable （可变的），列表元素一般为同质类型，可迭代访问。 \n\n构造 0 个或 1 个元素的元组比较特殊：为了适应这种情况，对句法有一些额外的改变。用一对空圆括号就可以创建空元组；只有一个元素的元组可以通过在这个元素后添加逗号来构建（圆括号里只有一个值的话不够明确）。丑陋，但是有效。例如： \n\n```python\n>>> empty = ()\n>>> singleton = 'hello',    # <-- 注意末尾的逗号\n>>> len(empty)\n0\n>>> len(singleton)\n1\n>>> singleton\n('hello',)\n\n```\n\n语句 t = 12345, 54321, 'hello!' 是 元组打包 的例子：值 12345, 54321 和 'hello!' 一起被打包进元组。逆操作也可以： \n\n```python\n>>> x, y, z = t\n\n```\n\n称之为 序列解包 也是妥妥的，适用于右侧的任何序列。序列解包时，左侧变量与右侧序列元素的数量应相等。注意，多重赋值其实只是元组打包和序列解包的组合。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/datastructures.html#tuples-and-sequences",
+        "sha256": "b36f38e264008cd86900973d3e25631a62bc8beb643d28705dd1dafa947ef3f8",
+        "kps": [
+          "foundation_containers"
+        ]
+      },
+      {
+        "id": "sets",
+        "title": "5.4. 集合",
+        "text": "5.4. 集合\n\nPython 还包括一个表示 集合 的数据类型。 集合是由不重复元素组成的无序多项集。 基本用法包括成员检测和消除重复元素。 集合对象还支持合集、交集、差集和对称差集等数学运算。 \n\n创建集合用花括号或 set() 函数。注意，创建空集合只能用 set()，不能用 {}，{} 创建的是空字典，下一小节介绍数据结构：字典。 \n\n由于集合是无序的，在迭代或打印它们时可能会以不符合你预期的顺序输出元素。 \n\n以下是一些简单的示例 \n\n```python\n>>> basket = {'apple', 'orange', 'apple', 'pear', 'orange', 'banana'}\n>>> print(basket)                      # 显示重复项已被移除\n{'orange', 'banana', 'pear', 'apple'}\n>>> 'orange' in basket                 # 快速成员检测\nTrue\n>>> 'crabgrass' in basket\nFalse\n\n>>> # 演示针对两个单词中独有的字母进行集合运算\n>>>\n>>> a = set('abracadabra')\n>>> b = set('alacazam')\n>>> a                                  # a 中独有的字母\n{'a', 'r', 'b', 'c', 'd'}\n>>> a - b                              # 存在于 a 中但不存在于 b 中的字母\n{'r', 'd', 'b'}\n>>> a | b                              # 存在于 a 或 b 中或两者中皆有的字母\n{'a', 'c', 'r', 'd', 'b', 'm', 'z', 'l'}\n>>> a & b                              # 同时存在于 a 和 b 中的字母\n{'a', 'c'}\n>>> a ^ b                              # 存在于 a 或 b 中但非两者中皆有的字母\n{'r', 'd', 'b', 'm', 'z', 'l'}\n\n```\n\n与 列表推导式 类似，集合也支持推导式： \n\n```python\n>>> a = {x for x in 'abracadabra' if x not in 'abc'}\n>>> a\n{'r', 'd'}\n\n```",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/datastructures.html#sets",
+        "sha256": "569ed57573fe8a50ebadfb1ca8ffe974eaf2aa87cc7ade4a7254978d50f063e5",
+        "kps": [
+          "foundation_containers"
+        ]
+      },
+      {
+        "id": "modules",
+        "title": "6. 模块",
+        "text": "6. 模块\n\n退出 Python 解释器后，再次进入时，之前在 Python 解释器中定义的函数和变量就丢失了。因此，编写较长程序时，最好用文本编辑器代替解释器，执行文件中的输入内容，这就是编写 脚本 。随着程序越来越长，为了方便维护，最好把脚本拆分成多个文件。编写脚本还有一个好处，不同程序调用同一个函数时，不用把函数定义复制到各个程序。 \n\n为实现这些需求，Python 把各种定义存入一个文件，在脚本或解释器的交互式实例中使用。这个文件就是 模块 ；模块中的定义可以 导入 到其他模块或 主 模块（在顶层和计算器模式下，执行脚本中可访问的变量集）。 \n\n模块是包含 Python 定义和语句的文件。其文件名是模块名加后缀名 .py 。在模块内部，通过全局变量 __name__ 可以获取模块名（即字符串）。例如，用文本编辑器在当前目录下创建 fibo.py 文件，输入以下内容： \n\n```python\n# 斐波那契数列模块\n\ndef fib(n):\n    \"\"\"Write Fibonacci series up to n.\"\"\"\n    a, b = 0, 1\n    while a < n:\n        print(a, end=' ')\n        a, b = b, a+b\n    print()\n\ndef fib2(n):\n    \"\"\"Return Fibonacci series up to n.\"\"\"\n    result = []\n    a, b = 0, 1\n    while a < n:\n        result.append(a)\n        a, b = b, a+b\n    return result\n\n```\n\n现在，进入 Python 解释器，用以下命令导入该模块： \n\n```python\n>>> import fibo\n\n```\n\n此操作不会直接把 fibo 中定义的函数名称添加到当前 namespace 中（请参阅 Python 作用域和命名空间 了解详情）；它只是将模块名称 fibo 添加到那里。 使用该模块名称你可以访问其中的函数: \n\n```python\n>>> fibo.fib(1000)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 987\n>>> fibo.fib2(100)\n[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89]\n>>> fibo.__name__\n'fibo'\n\n```\n\n如果经常使用某个函数，可以把它赋值给局部变量： \n\n```python\n>>> fib = fibo.fib\n>>> fib(500)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377\n\n```\n\n   6.1. 模块详解\n\n模块包含可执行语句及函数定义。这些语句用于初始化模块，且仅在 import 语句 第一次 遇到模块名时执行。[1] (文件作为脚本运行时，也会执行这些语句。) \n\n每个模块都有它自己的私有符号表，该表被定义在该模块里的所有函数当作全局符号表使用。 因此，一个模块的作者可以在模块内放心使用全局变量，而不必担心它们会和模块使用者的全局变量发生意外冲突。 另一方面，如果您知道自己在做什么，您可以使用与引用模块函数相同的语法去访问一个模块的全局变量，即 modname.itemname。 \n\n模块可以导入其他模块。 根据惯例可以将所有 import 语句都放在模块（或者也可以说是脚本）的开头但这并非强制要求。 如果被放置于一个模块的最高层级，则被导入的模块名称会被添加到该模块的全局命名空间。 \n\n还有一种 import 语句的变化形式可以将来自某个模块的名称直接导入到导入方模块的命名空间中。 例如: \n\n```python\n>>> from fibo import fib, fib2\n>>> fib(500)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377\n\n```\n\n这条语句不会将所导入的模块的名称引入到局部命名空间中（因此在本示例中，fibo 将是未定义的名称）。 \n\n还有一种变体可以导入模块内定义的所有名称： \n\n```python\n>>> from fibo import *\n>>> fib(500)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377\n\n```\n\n这种方式会导入所有不以下划线 (_) 开头的名称。 大多数情况下，不要用这个功能，这种方式向解释器导入了一批未知的名称，可能会覆盖已经定义的名称。 \n\n注意，一般情况下，不建议从模块或包内导入 *，因为，这项操作经常让代码变得难以理解。不过，为了在交互式会话中少打几个字，这么用也没问题。 \n\n模块名后使用 as 时，直接把 as 后的名称与导入模块绑定。 \n\n```python\n>>> import fibo as fib\n>>> fib.fib(500)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377\n\n```\n\n与 import fibo 一样，这种方式也可以有效地导入模块，唯一的区别是，导入的名称是 fib。 \n\nfrom 中也可以使用这种方式，效果类似： \n\n```python\n>>> from fibo import fib as fibonacci\n>>> fibonacci(500)\n0 1 1 2 3 5 8 13 21 34 55 89 144 233 377\n\n```\n\n备注 \n\n为了保证运行效率，每次解释器会话只导入一次模块。如果更改了模块内容，必须重启解释器；仅交互测试一个模块时，也可以使用 importlib.reload()，例如 import importlib; importlib.reload(modulename)。   6.1.1. 以脚本方式执行模块\n\n可以用以下方式运行 Python 模块： \n\n```python\npython fibo.py <arguments>\n\n```\n\n这项操作将执行模块里的代码，和导入模块一样，但会把 __name__ 赋值为 \"__main__\"。 也就是把下列代码添加到模块末尾： \n\n```python\nif __name__ == \"__main__\":\n    import sys\n    fib(int(sys.argv[1]))\n\n```\n\n这个文件既能被用作脚本，又能被用作一个可供导入的模块，因为解析命令行参数的那两行代码只有在模块作为“main”文件执行时才会运行： \n\n```python\n$ python fibo.py 50\n0 1 1 2 3 5 8 13 21 34\n\n```\n\n当这个模块被导入到其它模块时，那两行代码不运行： \n\n```python\n>>> import fibo\n>>>\n\n```\n\n这常用于为模块提供一个便捷的用户接口，或用于测试（把模块作为执行测试套件的脚本运行）。   6.1.2. 模块搜索路径\n\n当导入一个名为 spam 的模块时，解释器首先会搜索具有该名称的内置模块。 这些模块的名称在 sys.builtin_module_names 中列出。 如果未找到，它将在变量 sys.path 所给出的目录列表中搜索名为 spam.py 的文件。 sys.path 是从这些位置初始化的:  \n\n被命令行直接运行的脚本所在的目录（或未指定文件时的当前目录）。 \n\nPYTHONPATH （目录列表，与 shell 变量 PATH 的语法一样）。 \n\n依赖于安装的默认值（按照惯例包括一个 site-packages 目录，由 site 模块处理）。  \n\n更多细节请参阅 sys.path 模块搜索路径的初始化。  \n\n备注 \n\n在支持符号链接的文件系统中，“被命令行直接运行的脚本所在的目录”是符号链接最终指向的目录。换句话说，符号链接所在的目录并 没有 被添加至模块搜索路径。  \n\n初始化后，Python 程序可以更改 sys.path。脚本所在的目录先于标准库所在的路径被搜索。这意味着，脚本所在的目录如果有和标准库同名的文件，那么加载的是该目录里的，而不是标准库的。这一般是一个错误，除非这样的替换是你有意为之。详见 标准模块。   6.1.3. “已编译的” Python 文件\n\n为了快速加载模块，Python 把模块的编译版本缓存在 __pycache__ 目录中，文件名为 module.version.pyc，version 对编译文件格式进行编码，一般是 Python 的版本号。例如，CPython 的 3.3 发行版中，spam.py 的编译版本缓存为 __pycache__/spam.cpython-33.pyc。这种命名惯例让不同 Python 版本编译的模块可以共存。 \n\nPython 对比编译版与源码的修改日期，查看编译版是否已过期，是否要重新编译。此进程完全是自动的。此外，编译模块与平台无关，因此，可在不同架构的系统之间共享相同的库。 \n\nPython 在两种情况下不检查缓存。一，从命令行直接载入的模块，每次都会重新编译，且不储存编译结果；二，没有源模块，就不会检查缓存。为了让一个库能以隐藏源代码的形式分发（通过将所有源代码变为编译后的版本），编译后的模块必须放在源目录而非缓存目录中，并且源目录绝不能包含同名的未编译的源模块。 \n\n给专业人士的一些小建议：  \n\n在 Python 命令中使用 -O 或 -OO 开关，可以减小编译模块的大小。-O 去除断言语句，-OO 去除断言语句和 __doc__ 字符串。有些程序可能依赖于这些内容，因此，没有十足的把握，不要使用这两个选项。“优化过的”模块带有 opt- 标签，并且文件通常会小一些。将来的发行版或许会改进优化的效果。 \n\n从 .pyc 文件读取的程序不比从 .py 读取的执行速度快，.pyc 文件只是加载速度更快。 \n\ncompileall 模块可以为一个目录下的所有模块创建 .pyc 文件。 \n\n本过程的细节及决策流程图，详见 PEP 3147。     6.2. 标准模块\n\nPython 自带一个标准模块的库，它在 Python 库参考（此处以下称为\"库参考\" ）里另外描述。 一些模块是内嵌到解释器里面的， 它们给一些虽并非语言核心但却内嵌的操作提供接口，要么是为了效率，要么是给操作系统基础操作例如系统调用提供接口。 这些模块集是一个配置选项， 并且还依赖于底层的操作系统。 例如，winreg 模块只在 Windows 系统上提供。一个特别值得注意的模块 sys，它被内嵌到每一个 Python 解释器中。sys.ps1 和 sys.ps2 变量定义了一些字符，它们可以用作主提示符和辅助提示符: \n\n```python\n>>> import sys\n>>> sys.ps1\n'>>> '\n>>> sys.ps2\n'... '\n>>> sys.ps1 = 'C> '\nC> print('Yuck!')\nYuck!\nC>\n\n```\n\n只有解释器用于交互模式时，才定义这两个变量。 \n\n变量 sys.path 是字符串列表，用于确定解释器的模块搜索路径。该变量以环境变量 PYTHONPATH 提取的默认路径进行初始化，如未设置 PYTHONPATH，则使用内置的默认路径。可以用标准列表操作修改该变量： \n\n```python\n>>> import sys\n>>> sys.path.append('/ufs/guido/lib/python')\n\n```\n\n    6.3. dir() 函数\n\n内置函数 dir() 用于查找模块定义的名称。返回结果是经过排序的字符串列表： \n\n```python\n>>> import fibo, sys\n>>> dir(fibo)\n['__name__', 'fib', 'fib2']\n>>> dir(sys)\n['__breakpointhook__', '__displayhook__', '__doc__', '__excepthook__',\n '__interactivehook__', '__loader__', '__name__', '__package__', '__spec__',\n '__stderr__', '__stdin__', '__stdout__', '__unraisablehook__',\n '_clear_type_cache', '_current_frames', '_debugmallocstats', '_framework',\n '_getframe', '_git', '_home', '_xoptions', 'abiflags', 'addaudithook',\n 'api_version', 'argv', 'audit', 'base_exec_prefix', 'base_prefix',\n 'breakpointhook', 'builtin_module_names', 'byteorder', 'call_tracing',\n 'callstats', 'copyright', 'displayhook', 'dont_write_bytecode', 'exc_info',\n 'excepthook', 'exec_prefix', 'executable', 'exit', 'flags', 'float_info',\n 'float_repr_style', 'get_asyncgen_hooks', 'get_coroutine_origin_tracking_depth',\n 'getallocatedblocks', 'getdefaultencoding', 'getdlopenflags',\n 'getfilesystemencodeerrors', 'getfilesystemencoding', 'getprofile',\n 'getrecursionlimit', 'getrefcount', 'getsizeof', 'getswitchinterval',\n 'gettrace', 'hash_info', 'hexversion', 'implementation', 'int_info',\n 'intern', 'is_finalizing', 'last_traceback', 'last_type', 'last_value',\n 'maxsize', 'maxunicode', 'meta_path', 'modules', 'path', 'path_hooks',\n 'path_importer_cache', 'platform', 'prefix', 'ps1', 'ps2', 'pycache_prefix',\n 'set_asyncgen_hooks', 'set_coroutine_origin_tracking_depth', 'setdlopenflags',\n 'setprofile', 'setrecursionlimit', 'setswitchinterval', 'settrace', 'stderr',\n 'stdin', 'stdout', 'thread_info', 'unraisablehook', 'version', 'version_info',\n 'warnoptions']\n\n```\n\n没有参数时，dir() 列出当前已定义的名称： \n\n```python\n>>> a = [1, 2, 3, 4, 5]\n>>> import fibo\n>>> fib = fibo.fib\n>>> dir()\n['__builtins__', '__name__', 'a', 'fib', 'fibo', 'sys']\n\n```\n\n注意它列出所有类型的名称：变量，模块，函数，……。 \n\ndir() 不会列出内置函数和变量的名称。这些内容的定义在标准模块 builtins 中： \n\n```python\n>>> import builtins\n>>> dir(builtins)\n['ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',\n 'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',\n 'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',\n 'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning',\n 'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception', 'False',\n 'FileExistsError', 'FileNotFoundError', 'FloatingPointError',\n 'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError',\n 'ImportWarning', 'IndentationError', 'IndexError', 'InterruptedError',\n 'IsADirectoryError', 'KeyError', 'KeyboardInterrupt', 'LookupError',\n 'MemoryError', 'NameError', 'None', 'NotADirectoryError', 'NotImplemented',\n 'NotImplementedError', 'OSError', 'OverflowError',\n 'PendingDeprecationWarning', 'PermissionError', 'ProcessLookupError',\n 'ReferenceError', 'ResourceWarning', 'RuntimeError', 'RuntimeWarning',\n 'StopIteration', 'SyntaxError', 'SyntaxWarning', 'SystemError',\n 'SystemExit', 'TabError', 'TimeoutError', 'True', 'TypeError',\n 'UnboundLocalError', 'UnicodeDecodeError', 'UnicodeEncodeError',\n 'UnicodeError', 'UnicodeTranslateError', 'UnicodeWarning', 'UserWarning',\n 'ValueError', 'Warning', 'ZeroDivisionError', '_', '__build_class__',\n '__debug__', '__doc__', '__import__', '__name__', '__package__', 'abs',\n 'all', 'any', 'ascii', 'bin', 'bool', 'bytearray', 'bytes', 'callable',\n 'chr', 'classmethod', 'compile', 'complex', 'copyright', 'credits',\n 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'exec', 'exit',\n 'filter', 'float', 'format', 'frozenset', 'getattr', 'globals', 'hasattr',\n 'hash', 'help', 'hex', 'id', 'input', 'int', 'isinstance', 'issubclass',\n 'iter', 'len', 'license', 'list', 'locals', 'map', 'max', 'memoryview',\n 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print', 'property',\n 'quit', 'range', 'repr', 'reversed', 'round', 'set', 'setattr', 'slice',\n 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple', 'type', 'vars',\n 'zip']\n\n```\n\n    6.4. 包\n\n包是通过使用“带点号模块名”来构造 Python 模块命名空间的一种方式。 例如，模块名 A.B 表示名为 A 的包中名为 B 的子模块。 就像使用模块可以让不同模块的作者不必担心彼此的全局变量名一样，使用带点号模块名也可以让 NumPy 或 Pillow 等多模块包的作者也不必担心彼此的模块名冲突。 \n\n假设要为统一处理声音文件与声音数据设计一个模块集（“包”）。声音文件的格式很多 (通常以扩展名来识别，例如 .wav，.aiff，.au)，因此，为了不同文件格式之间的转换，需要创建和维护一个不断增长的模块集合。 为了实现对声音数据的不同处理（例如混声、添加回声、均衡器功能、创造人工立体声效果），还要编写无穷无尽的模块流。 你的包可能的架构是这样的（展示为多层级的文件系统形式）： \n\n```python\nsound/                          最高层级的包\n      __init__.py               初始化 sound 包\n      formats/                  用于文件格式转换的子包\n              __init__.py\n              wavread.py\n              wavwrite.py\n              aiffread.py\n              aiffwrite.py\n              auread.py\n              auwrite.py\n              ...\n      effects/                  用于音效的子包\n              __init__.py\n              echo.py\n              surround.py\n              reverse.py\n              ...\n      filters/                  用于过滤器的子包\n              __init__.py\n              equalizer.py\n              vocoder.py\n              karaoke.py\n              ...\n\n```\n\n导入包时，Python 搜索 sys.path 里的目录，查找包的子目录。 \n\n需要有 __init__.py 文件才能让 Python 将包含该文件的目录当作包来处理（除非使用 namespace package，这是一个相对高级的特性）。 这可以防止重名的目录如 string 在无意中屏蔽后继出现在模块搜索路径中的有效模块。 在最简单的情况下，__init__.py 可以只是一个空文件，但它也可以执行包的初始化代码或设置 __all__ 变量，这将在稍后详细描述。 \n\n还可以从包中导入单个模块，例如： \n\n```python\nimport sound.effects.echo\n\n```\n\n这将加载子模块 sound.effects.echo。 它必须通过其全名来引用。 \n\n```python\nsound.effects.echo.echofilter(input, output, delay=0.7, atten=4)\n\n```\n\n另一种导入子模块的方法是 ： \n\n```python\nfrom sound.effects import echo\n\n```\n\n这也会加载子模块 echo，并使其不必加包前缀，因此可按如下方式使用: \n\n```python\necho.echofilter(input, output, delay=0.7, atten=4)\n\n```\n\nImport 语句的另一种变体是直接导入所需的函数或变量： \n\n```python\nfrom sound.effects.echo import echofilter\n\n```\n\n同样，这将加载子模块 echo，但这使其函数 echofilter() 直接可用: \n\n```python\nechofilter(input, output, delay=0.7, atten=4)\n\n```\n\n注意，使用 from package import item 时，item 可以是包的子模块（或子包），也可以是包中定义的函数、类或变量等其他名称。import 语句首先测试包中是否定义了 item；如果未在包中定义，则假定 item 是模块，并尝试加载。如果找不到 item，则触发 ImportError 异常。 \n\n相反，使用 import item.subitem.subsubitem 句法时，除最后一项外，每个 item 都必须是包；最后一项可以是模块或包，但不能是上一项中定义的类、函数或变量。  6.4.1. 从包中导入 *\n\n使用 from sound.effects import * 时会发生什么？你可能希望它会查找并导入包的所有子模块，但事实并非如此。因为这将花费很长的时间，并且可能会产生你不想要的副作用，如果这种副作用被你设计为只有在导入某个特定的子模块时才应该发生。 \n\n唯一的解决办法是提供包的显式索引。import 语句使用如下惯例：如果包的 __init__.py 代码定义了列表 __all__，运行 from package import * 时，它就是被导入的模块名列表。发布包的新版本时，包的作者应更新此列表。如果包的作者认为没有必要在包中执行导入 * 操作，也可以不提供此列表。例如，sound/effects/__init__.py 文件可以包含以下代码： \n\n```python\n__all__ = [\"echo\", \"surround\", \"reverse\"]\n\n```\n\n这意味着 from sound.effects import * 将导入 sound.effects 包的三个命名子模块。 \n\n请注意子模块可能会受到本地定义名称的影响。 例如，如果你在 sound/effects/__init__.py 文件中添加了一个 reverse 函数，from sound.effects import * 将只导入 echo 和 surround 这两个子模块，但 不会 导入 reverse 子模块，因为它被本地定义的 reverse 函数所遮挡: \n\n```python\n__all__ = [\n    \"echo\",      # 指向 'echo.py' 文件\n    \"surround\",  # 指向 'surround.py' 文件\n    \"reverse\",   # !!! 现在指向 'reverse' 函数 !!!\n]\n\ndef reverse(msg: str):  # <-- 此名称将覆盖 'reverse.py' 子模块\n    return msg[::-1]    #     针对 'from sound.effects import *' 的情况\n\n```\n\n如果没有定义 __all__，from sound.effects import * 语句 不会 把包 sound.effects 中的所有子模块都导入到当前命名空间；它只是确保包 sound.effects 已被导入（可能还会运行 __init__.py 中的任何初始化代码），然后再导入包中定义的任何名称。 这包括由 __init__.py 定义的任何名称（以及显式加载的子模块）。 它还包括先前 import 语句显式加载的包里的任何子模块。 请看以下代码: \n\n```python\nimport sound.effects.echo\nimport sound.effects.surround\nfrom sound.effects import *\n\n```\n\n在本例中，echo 和 surround 模块被导入到当前命名空间，因为在执行 from...import 语句时它们已在 sound.effects 包中定义了。 （当定义了 __all__ 时也是如此）。 \n\n虽然，可以把模块设计为用 import * 时只导出遵循指定模式的名称，但仍不提倡在生产代码中使用这种做法。 \n\n记住，使用 from package import specific_submodule 没有任何问题！ 实际上，除了导入模块使用不同包的同名子模块之外，这种方式是推荐用法。   6.4.2. 相对导入\n\n当包由多个子包构成（如示例中的 sound 包）时，可以使用绝对导入来引用同级包的子模块。 例如，如果 sound.filters.vocoder 模块需要使用 sound.effects 包中的 echo 模块，它可以使用 from sound.effects import echo。 \n\n你还可以编写相对导入代码，即使用 from module import name 形式的 import 语句。 这些导入使用前导点号来表示相对导入所涉及的当前包和上级包。 例如对于 surround 模块，可以使用: \n\n```python\nfrom . import echo\nfrom .. import formats\nfrom ..filters import equalizer\n\n```\n\n需要注意的是，相对导入是基于当前模块所属包的名称进行的。由于主模块（即直接运行的脚本）没有所属包，因此那些打算作为 Python 应用程序主模块使用的模块，必须始终使用绝对导入。 \n\n备注   [1] \n\n实际上函数定义也是被执行的语句；模块级函数定义的执行会将函数名称添加到模块的全局命名空间。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/modules.html#modules",
+        "sha256": "7cd8864178f9a91b03cbbf57ca9838ff0dfb82025e73f31198575443e50edc55",
+        "kps": [
+          "foundation_modules"
+        ]
+      },
+      {
+        "id": "reading-and-writing-files",
+        "title": "7.2. 读写文件",
+        "text": "7.2. 读写文件\n\nopen() 返回一个 file object ，最常使用的是两个位置参数和一个关键字参数：open(filename, mode, encoding=None) \n\n```python\n>>> f = open('workfile', 'w', encoding=\"utf-8\")\n\n```\n\n第一个实参是文件名字符串。第二个实参是包含描述文件使用方式字符的字符串。mode 的值包括 'r' ，表示文件只能读取；'w' 表示只能写入（现有同名文件会被覆盖）；'a' 表示打开文件并追加内容，任何写入的数据会自动添加到文件末尾。'r+' 表示打开文件进行读写。mode 实参是可选的，省略时的默认值为 'r'。 \n\n通常情况下，文件是以 text mode 打开的，也就是说，你从文件中读写字符串，这些字符串是以特定的 encoding 编码的。如果没有指定 encoding ，默认的是与平台有关的（见 open() ）。因为 UTF-8 是现代事实上的标准，除非你知道你需要使用一个不同的编码，否则建议使用 encoding=\"utf-8\" 。在模式后面加上一个 'b' ，可以用 binary mode 打开文件。二进制模式的数据是以 bytes 对象的形式读写的。在二进制模式下打开文件时，你不能指定 encoding 。 \n\n在文本模式下读取文件时，默认把平台特定的行结束符 (Unix 上为 \\n, Windows 上为 \\r\\n) 转换为 \\n。 在文本模式下写入数据时，默认把 \\n 转换回平台特定结束符。 这种操作方式在后台修改文件数据对文本文件来说没有问题，但会破坏 JPEG 或 EXE 等二进制文件中的数据。 注意，在读写此类文件时，一定要使用二进制模式。 \n\n在处理文件对象时，最好使用 with 关键字。优点是，子句体结束后，文件会正确关闭，即便触发异常也可以。而且，使用 with 相比等效的 try-finally 代码块要简短得多： \n\n```python\n>>> with open('workfile', encoding=\"utf-8\") as f:\n...     read_data = f.read()\n\n>>> # 我们可以检测文件是否已被自动关闭。\n>>> f.closed\nTrue\n\n```\n\n如果没有使用 with 关键字，则应调用 f.close() 关闭文件，即可释放文件占用的系统资源。  \n\n警告 \n\n调用 f.write() 时，未使用 with 关键字，或未调用 f.close()，即使程序正常退出，也**可能** 导致 f.write() 的参数没有完全写入磁盘。  \n\n通过 with 语句，或调用 f.close() 关闭文件对象后，再次使用该文件对象将会失败。 \n\n```python\n>>> f.close()\n>>> f.read()\nTraceback (most recent call last):\n  File \"<stdin>\", line 1, in <module>\nValueError: I/O operation on closed file.\n\n```\n\n   7.2.1. 文件对象的方法\n\n本节下文中的例子假定已创建 f 文件对象。 \n\nf.read(size) 可用于读取文件内容，它会读取一些数据，并返回字符串（文本模式），或字节串对象（在二进制模式下）。 size 是可选的数值参数。省略 size 或 size 为负数时，读取并返回整个文件的内容；文件大小是内存的两倍时，会出现问题。size 取其他值时，读取并返回最多 size 个字符（文本模式）或 size 个字节（二进制模式）。如已到达文件末尾，f.read() 返回空字符串 ('')。 \n\n```python\n>>> f.read()\n'This is the entire file.\\n'\n>>> f.read()\n''\n\n```\n\nf.readline() 从文件中读取单行数据；字符串末尾保留换行符 (\\n)，只有在文件不以换行符结尾时，文件的最后一行才会省略换行符。 这种方式让返回值清晰明确；只要 f.readline() 返回空字符串，就表示已经到达了文件末尾，空行使用 '\\n' 表示，该字符串只包含一个换行符。 \n\n```python\n>>> f.readline()\n'This is the first line of the file.\\n'\n>>> f.readline()\n'Second line of the file\\n'\n>>> f.readline()\n''\n\n```\n\n从文件中读取多行时，可以用循环遍历整个文件对象。这种操作能高效利用内存，快速，且代码简单： \n\n```python\n>>> for line in f:\n...     print(line, end='')\n...\nThis is the first line of the file.\nSecond line of the file\n\n```\n\n如需以列表形式读取文件中的所有行，可以用 list(f) 或 f.readlines()。 \n\nf.write(string) 把 string 的内容写入文件，并返回写入的字符数。 \n\n```python\n>>> f.write('This is a test\\n')\n15\n\n```\n\n写入其他类型的对象前，要先把它们转化为字符串（文本模式）或字节对象（二进制模式）： \n\n```python\n>>> value = ('the answer', 42)\n>>> s = str(value)  # 将元组转换为字符串\n>>> f.write(s)\n18\n\n```\n\nf.tell() 返回整数，给出文件对象在文件中的当前位置，表示为二进制模式下时从文件开始的字节数，以及文本模式下的意义不明的数字。 \n\nf.seek(offset, whence) 可以改变文件对象的位置。通过向参考点添加 offset 计算位置；参考点由 whence 参数指定。 whence 值为 0 时，表示从文件开头计算，1 表示使用当前文件位置，2 表示使用文件末尾作为参考点。省略 whence 时，其默认值为 0，即使用文件开头作为参考点。 \n\n```python\n>>> f = open('workfile', 'rb+')\n>>> f.write(b'0123456789abcdef')\n16\n>>> f.seek(5)      # 定位到文件中的第 6 个字节\n5\n>>> f.read(1)\nb'5'\n>>> f.seek(-3, 2)  # 定位到倒数第 3 个字节\n13\n>>> f.read(1)\nb'd'\n\n```\n\n在文本文件（模式字符串未使用 b 时打开的文件）中，只允许相对于文件开头搜索（使用 seek(0, 2) 搜索到文件末尾是个例外），唯一有效的 offset 值是能从 f.tell() 中返回的，或 0。其他 offset 值都会产生未定义的行为。 \n\n文件对象还有一些额外的方法，如使用频率较低的 isatty() 和 truncate() 等；有关文件对象的完整指南请查阅标准库参考。   7.2.2. 使用 json 保存结构化数据\n\n字符串可以很容易地写入文件或从文件中读取。 数字则更麻烦一些，因为 read() 方法只返回字符串，而字符串必须传给 int() 这样的函数，它接受 '123' 这样的字符串并返回其数值 123。 当你想要保存嵌套列表和字典等更复杂的数据类型时，手动执行解析和序列化操作将会变得非常复杂。 \n\nPython 允许你使用流行的数据交换格式 JSON (JavaScript Object Notation)，而不是让用户持续编写和调试代码来将复杂的数据类型存入文件中。 标准库模块 json 可以接受带有层级结构的 Python 数据，并将其转换为字符串表示形式；这个过程称为 serializing。 根据字符串表示形式重建数据则称为 deserializing。 在序列化和反序列化之间，用于代表对象的字符串可以存储在文件或数据库中，或者通过网络连接发送到远端主机。  \n\n备注 \n\nJSON 格式通常用于现代应用程序的数据交换。程序员早已对它耳熟能详，可谓是交互操作的不二之选。  \n\n只需一行简单的代码即可查看某个对象的 JSON 字符串表现形式： \n\n```python\n>>> import json\n>>> x = [1, 'simple', 'list']\n>>> json.dumps(x)\n'[1, \"simple\", \"list\"]'\n\n```\n\ndumps() 函数还有一个变体， dump() ，它只将对象序列化为 text file 。因此，如果 f 是 text file 对象，可以这样做： \n\n```python\njson.dump(x, f)\n\n```\n\n要再次解码对象，如果 f 是已打开、供读取的 binary file 或 text file 对象： \n\n```python\nx = json.load(f)\n\n```\n\n备注 \n\nJSON 文件必须以 UTF-8 编码。当打开 JSON 文件作为一个 text file 用于读写时，使用 encoding=\"utf-8\" 。  \n\n这种简单的序列化技术可以处理列表和字典，但在 JSON 中序列化任意类的实例，则需要付出额外努力。json 模块的参考包含对此的解释。  \n\n参见 \n\npickle - 封存模块 \n\n与 JSON 不同，pickle 是一种允许对复杂 Python 对象进行序列化的协议。因此，它为 Python 所特有，不能用于与其他语言编写的应用程序通信。默认情况下它也是不安全的：如果反序列化的数据是由手段高明的攻击者精心设计的，这种不受信任来源的 pickle 数据可以执行任意代码。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/inputoutput.html#reading-and-writing-files",
+        "sha256": "4ba8c68ae3278477f4055ac814dc2ea587a3619b354c3e559cf34e0383a8f4ca",
+        "kps": [
+          "foundation_files",
+          "foundation_project"
+        ]
+      },
+      {
+        "id": "handling-exceptions",
+        "title": "8.3. 异常的处理",
+        "text": "8.3. 异常的处理\n\n可以编写程序处理选定的异常。下例会要求用户一直输入内容，直到输入有效的整数，但允许用户中断程序（使用 Control-C 或操作系统支持的其他操作）；注意，用户中断程序会触发 KeyboardInterrupt 异常。 \n\n```python\n>>> while True:\n...     try:\n...         x = int(input(\"Please enter a number: \"))\n...         break\n...     except ValueError:\n...         print(\"Oops!  That was no valid number.  Try again...\")\n...\n\n```\n\ntry 语句的工作原理如下：  \n\n首先，执行 try 子句 （try 和 except 关键字之间的（多行）语句）。 \n\n如果没有触发异常，则跳过 except 子句，try 语句执行完毕。 \n\n如果在执行 try 子句时发生了异常，则跳过该子句中剩下的部分。如果异常的类型与 except 关键字后指定的异常相匹配，则会执行 except 子句，然后跳到 try/except 代码块之后继续执行。 \n\n如果发生的异常与 except 子句 中指定的异常不匹配，则它会被传递到外层的 try 语句中；如果没有找到处理器，则它是一个 未处理异常 且执行将停止并输出一条错误消息。  \n\n一条 try 语句可以有多个 except 子句，以便为不同的异常指定处理器。 但最多只有一个处理器会被执行。 处理器只处理对应 try 子句 中发生的异常，而不处理同一 same try 子句内其他处理器中的异常。 一个 except 子句 可以指定多个异常，例如: \n\n```python\n... except RuntimeError, TypeError, NameError:\n...     pass\n\n```\n\n一个 except 子句中的类匹配的异常将是该类本身的实例或其所派生的类的实例（但反过来则不可以 --- 列出派生类的 except 子句 不会匹配其基类的实例）。例如，下面的代码将依次打印 B, C, D: \n\n```python\nclass B(Exception):\n    pass\n\nclass C(B):\n    pass\n\nclass D(C):\n    pass\n\nfor cls in [B, C, D]:\n    try:\n        raise cls()\n    except D:\n        print(\"D\")\n    except C:\n        print(\"C\")\n    except B:\n        print(\"B\")\n\n```\n\n请注意如果颠倒 except 子句 的顺序（把 except B 放在最前），则会输出 B, B, B --- 即触发了第一个匹配的 except 子句。 \n\n发生异常时，它可能具有关联值，即异常 参数 。是否需要参数，以及参数的类型取决于异常的类型。 \n\nexcept 子句 可能会在异常名称后面指定一个变量。这个变量将被绑定到异常实例，该实例通常会有一个存储参数的 args 属性。 为了方便起见，内置异常类型定义了 __str__() 来打印所有参数而不必显式地访问 .args。 \n\n```python\n>>> try:\n...     raise Exception('spam', 'eggs')\n... except Exception as inst:\n...     print(type(inst))    # 异常的类型\n...     print(inst.args)     # 参数保存在 .args 中\n...     print(inst)          # __str__ 允许 args 被直接打印，\n...                          # 但可能在异常子类中被覆盖\n...     x, y = inst.args     # 解包 args\n...     print('x =', x)\n...     print('y =', y)\n...\n<class 'Exception'>\n('spam', 'eggs')\n('spam', 'eggs')\nx = spam\ny = eggs\n\n```\n\n未处理异常的 __str__() 输出会被打印为该异常消息的最后部分 ('detail')。 \n\nBaseException 是所有异常的共同基类。它的一个子类，Exception，是所有非致命异常的基类。不是 Exception 的子类的异常通常不被处理，因为它们被用来指示程序应该终止。它们包括由 sys.exit() 引发的 SystemExit，以及当用户希望中断程序时引发的 KeyboardInterrupt。 \n\nException 可以被用作通配符，捕获（几乎）一切。然而，好的做法是，尽可能具体地说明我们打算处理的异常类型，并允许任何意外的异常传播下去。 \n\n处理 Exception 最常见的模式是打印或记录异常，然后重新提出（允许调用者也处理异常）: \n\n```python\nimport sys\n\ntry:\n    f = open('myfile.txt')\n    s = f.readline()\n    i = int(s.strip())\nexcept OSError as err:\n    print(\"OS error:\", err)\nexcept ValueError:\n    print(\"Could not convert data to an integer.\")\nexcept Exception as err:\n    print(f\"Unexpected {err=}, {type(err)=}\")\n    raise\n\n```\n\ntry ... except 语句具有可选的 else 子句，该子句如果存在，它必须放在所有 except 子句 之后。它适用于 try 子句 没有引发异常但又必须要执行的代码。例如: \n\n```python\nfor arg in sys.argv[1:]:\n    try:\n        f = open(arg, 'r')\n    except OSError:\n        print('cannot open', arg)\n    else:\n        print(arg, 'has', len(f.readlines()), 'lines')\n        f.close()\n\n```\n\n使用 else 子句比向 try 子句添加额外的代码要好，可以避免意外捕获非 try ... except 语句保护的代码触发的异常。 \n\n异常处理程序不仅会处理在 try 子句 中立刻发生的异常，还会处理在 try 子句 中调用（包括间接调用）的函数。例如: \n\n```python\n>>> def this_fails():\n...     x = 1/0\n...\n>>> try:\n...     this_fails()\n... except ZeroDivisionError as err:\n...     print('Handling run-time error:', err)\n...\nHandling run-time error: division by zero\n\n```",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/errors.html#handling-exceptions",
+        "sha256": "a442d8b5a172f1fdeaee8564dd35ffee6252ed40b081ae1b0baa6fbc53a1e70c",
+        "kps": [
+          "foundation_errors",
+          "foundation_project"
+        ]
+      },
+      {
+        "id": "syntax-errors",
+        "title": "8.1. 语法错误",
+        "text": "8.1. 语法错误\n\n语法错误又称解析错误，是学习 Python 时最常见的错误： \n\n```python\n>>> while True print('Hello world')\n  File \"<stdin>\", line 1\n    while True print('Hello world')\n               ^^^^^\nSyntaxError: invalid syntax\n\n```\n\n解析器会重复出错的行并显示指向检测到错误的位置的小箭头。请注意这并不一定是需要被修复的位置。在这个例子中，错误在 print() 上被检测到，原因则是在它之前缺少一个冒号 (':')。 \n\n将会打印文件名 (在我们的例子中为 <stdin>) 和行号以便你在输入是来自文件时能知道要去哪里查看。",
+        "url": "https://docs.python.org/zh-cn/3.14/tutorial/errors.html#syntax-errors",
+        "sha256": "42e314489a21d5f3df2b4d98c88cbf7e8ab39fe721aea001bed907ecbbec6993",
+        "kps": [
+          "foundation_errors"
+        ]
+      }
+    ],
+    "course": "python_foundations"
+  },
+  "lessons": [
+    {
+      "id": "start",
+      "title": "运行第一个程序",
+      "objective": "能区分代码与输出，运行并修改一段 Python 程序",
+      "source_sections": [
+        "invoking-the-interpreter",
+        "numbers"
+      ],
+      "markdown": "程序是一组按顺序执行的指令。把代码交给 Python 解释器，解释器才会计算并产生输出。编辑器里写下代码，与真正运行它，是两件事。\n\n### 先完成一次运行\n安装 Python 3 后，在终端输入 `python --version`（部分系统使用 `python3` 或 Windows 的 `py`）。看到版本号后，建立 `hello.py`，把下面的代码保存进去，再运行 `python hello.py`。命令名要与刚才成功的命令一致。使用已有在线 Python 环境也可以，先确认支持 Python 3；不要输入个人敏感信息。\n\n### 看清输入和输出\n`print(...)` 把括号里的值显示出来。引号表示字符串，也就是文字；没有引号的 `2 + 3` 是计算。交互环境里的 `>>>` 是提示符，复制到 .py 文件时不需要它。报错时先看最后一行，再核对引号、括号和拼写。",
+      "example": {
+        "code": "print('Hello, Python')\nprint(2 + 3)",
+        "output": "Hello, Python\n5"
+      },
+      "task": "自己写一个程序，分两行显示你的课程代号和 7 乘 4 的结果。把代号换成另一段文字后再次运行，说明哪一行输出发生了变化。",
+      "criteria": [
+        "有两个 print 调用",
+        "文字使用引号，乘法作为表达式计算",
+        "记录两次真实运行结果，并说明区别"
+      ],
+      "questions": [
+        {
+          "id": "start-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "print('3 + 4')\nprint(3 + 4)",
+          "options": [
+            "3 + 4\n7",
+            "7\n7",
+            "3 + 4\n3 + 4",
+            "报错"
+          ],
+          "answer": 0,
+          "explanation": "带引号的内容原样输出；第二行先计算再输出。",
+          "expected": "3 + 4\n7",
+          "source_sections": [
+            "invoking-the-interpreter",
+            "numbers"
+          ]
+        },
+        {
+          "id": "start-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "print('Hi')\nprint(8 - 3)",
+          "options": [
+            "Hi 5",
+            "5\nHi",
+            "Hi\n8 - 3",
+            "Hi\n5"
+          ],
+          "answer": 3,
+          "explanation": "两个 print 按顺序各输出一行，8 - 3 的结果是 5。",
+          "expected": "Hi\n5",
+          "source_sections": [
+            "invoking-the-interpreter",
+            "numbers"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "values",
+      "title": "变量、类型与输入",
+      "objective": "能逐行追踪赋值，并正确转换数字文本",
+      "source_sections": [
+        "numbers",
+        "text"
+      ],
+      "markdown": "变量名可以指向一个值。执行赋值时先算右边，再把结果交给左边。以后修改另一个变量，并不会自动重算先前的结果。\n\n### 数字和文字不同\n`'12'` 是字符串，`12` 是整数。`'1' + '2'` 得到 `'12'`，而 `1 + 2` 得到 `3`。`input('提示')` 读到的也是字符串；确定输入是整数时可用 `int(...)` 转换。遇到非数字文字会报 ValueError，后面的异常课会处理它。\n\n### 运算时先问两个问题\n输入的类型是什么？输出需要什么类型？`/` 是除法，`//` 是向下取整的除法，`%` 是余数。不要把赋值号 `=` 当成判断相等的 `==`。",
+      "example": {
+        "code": "price = 6\nquantity_text = '3'\ncost = price * int(quantity_text)\nprice = 9\nprint(cost)",
+        "output": "18"
+      },
+      "task": "写一个两种文具的预算程序：数量先以字符串保存，转换后分别计算费用，再求总价。修改一个单价并重新运行，解释结果为什么改变。",
+      "criteria": [
+        "明确区分数量文本与数字",
+        "算出两项费用和总价",
+        "给出初次和修改后的真实输出"
+      ],
+      "questions": [
+        {
+          "id": "values-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "a = 5\nb = a + 4\na = 20\nprint(b)",
+          "options": [
+            "24",
+            "20",
+            "5",
+            "9"
+          ],
+          "answer": 3,
+          "explanation": "b 在赋值时得到 9，后来给 a 赋值不会重算 b。",
+          "expected": "9",
+          "source_sections": [
+            "numbers",
+            "text"
+          ]
+        },
+        {
+          "id": "values-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "text = '4'\nprint(text + '2')\nprint(int(text) + 2)",
+          "options": [
+            "42\n42",
+            "报错",
+            "42\n6",
+            "6\n6"
+          ],
+          "answer": 2,
+          "explanation": "第一行拼接字符串，第二行先把字符串转换为整数。",
+          "expected": "42\n6",
+          "source_sections": [
+            "numbers",
+            "text"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "branches",
+      "title": "条件与边界",
+      "objective": "能编写互斥分支，并检查临界值",
+      "source_sections": [
+        "if-statements",
+        "more-on-conditions"
+      ],
+      "markdown": "条件表达式产生 True 或 False。`if / elif / else` 从上向下检查，只执行第一个成立的分支。缩进表示某个分支包含哪些语句，建议每层使用四个空格。\n\n### 用边界检查规则\n“满 60 分通过”对应 `score >= 60`，所以 59、60、61 都值得检查。如果把 `> 60` 写错，恰好 60 的人就会被误判。多个独立的 if 会分别判断，与一个 if/elif 结构不同。\n\n### 条件组合\n`and` 要求两边都成立，`or` 只需至少一边成立，`not` 取反。先用白话说规则，再写条件。比较文字是否相等也使用 `==`。",
+      "example": {
+        "code": "score = 60\nif score >= 85:\n    result = '优秀'\nelif score >= 60:\n    result = '通过'\nelse:\n    result = '继续练习'\nprint(result)",
+        "output": "通过"
+      },
+      "task": "为借阅天数写一个提示：不超过 7 天显示“按时”，超过 7 天显示“请续借”。分别测试 6、7、8 天，再解释等号应放在哪个分支。",
+      "criteria": [
+        "7 天进入按时分支",
+        "三个测试结果与规则一致",
+        "缩进正确，并解释了临界值"
+      ],
+      "questions": [
+        {
+          "id": "branches-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "x = 8\nif x > 3:\n    print('A')\nelif x > 6:\n    print('B')",
+          "options": [
+            "A\nB",
+            "无输出",
+            "A",
+            "B"
+          ],
+          "answer": 2,
+          "explanation": "第一个条件成立后，整个结构不再执行 elif。",
+          "expected": "A",
+          "source_sections": [
+            "if-statements",
+            "more-on-conditions"
+          ]
+        },
+        {
+          "id": "branches-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "n = 7\nif n >= 7 and n < 10:\n    print('yes')\nelse:\n    print('no')",
+          "options": [
+            "报错",
+            "yes",
+            "no",
+            "yes\nno"
+          ],
+          "answer": 1,
+          "explanation": "7 同时满足大于等于 7 和小于 10。",
+          "expected": "yes",
+          "source_sections": [
+            "if-statements",
+            "more-on-conditions"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "loops",
+      "title": "循环与逐步追踪",
+      "objective": "能遍历列表、累加，并说明每轮状态",
+      "source_sections": [
+        "for-statements",
+        "the-range-function",
+        "first-steps-towards-programming"
+      ],
+      "markdown": "循环用相同规则处理多个元素。`for n in [2, 4, 6]` 会让 n 依次取这三个值；每一轮运行缩进的代码。`range(4)` 给出 0、1、2、3，不包含停止值。\n\n### 累加器放在哪里\n把 total = 0 放在循环前，只初始化一次。如果放到循环里面，每轮都把已有结果清空。检查程序时画两列：本轮元素、执行后 total。这样能把“看起来懂了”变成逐步核对。\n\n### 循环结束条件\n`while` 在条件为真时重复，循环内要让状态逐步靠近结束条件。例如倒计时需要减小计数；忘记更新可能一直运行。先用很小的输入测试。",
+      "example": {
+        "code": "total = 0\nfor cost in [2, 4, 6]:\n    total += cost\n    print(total)",
+        "output": "2\n6\n12"
+      },
+      "task": "统计 [3, 8, 5, 10] 中偶数的总和。自己组合条件和循环，先手写每轮的累计值，再运行核对。随后用空列表测试。",
+      "criteria": [
+        "只累加偶数",
+        "累加器初始化在循环前",
+        "原列表结果为 18，空列表结果为 0"
+      ],
+      "questions": [
+        {
+          "id": "loops-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "total = 0\nfor n in range(4):\n    total += n\nprint(total)",
+          "options": [
+            "3",
+            "6",
+            "10",
+            "4"
+          ],
+          "answer": 1,
+          "explanation": "遍历的是 0、1、2、3，它们的和是 6。",
+          "expected": "6",
+          "source_sections": [
+            "for-statements",
+            "the-range-function",
+            "first-steps-towards-programming"
+          ]
+        },
+        {
+          "id": "loops-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "n = 3\nwhile n > 0:\n    n -= 1\nprint(n)",
+          "options": [
+            "0",
+            "1",
+            "3",
+            "-1"
+          ],
+          "answer": 0,
+          "explanation": "n 到 0 时条件为假，循环停止。",
+          "expected": "0",
+          "source_sections": [
+            "for-statements",
+            "the-range-function",
+            "first-steps-towards-programming"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "containers",
+      "title": "列表、字典与可变对象",
+      "objective": "能按位置和按名称组织数据，识别列表别名",
+      "source_sections": [
+        "lists",
+        "dictionaries",
+        "tuples-and-sequences",
+        "sets"
+      ],
+      "markdown": "单个值不足以记录一组数据时，可以使用容器。列表保存有顺序的元素，索引从 0 开始；字典保存键和值的对应关系，例如课程名与分数。\n\n### 选择访问方式\n`scores[0]` 取列表第一项，`scores[-1]` 取最后一项。字典用 `record['数学']` 按键找值；键不存在会报错，可用 `record.get('数学', 0)` 设置缺失时的默认值。集合适合去重，不要依赖它的展示顺序。元组适合表达固定的一组位置，不能像列表那样原地改某个元素。\n\n### 两个名字可能指向同一个列表\n`b = a` 不会复制列表。通过 b 修改元素时，a 也能看到变化。需要新的浅层列表时可用 `a.copy()`；嵌套容器仍需理解内部对象是否共享。",
+      "example": {
+        "code": "record = {'数学': 80, '英语': 75}\nrecord['英语'] = 82\nprint(record['英语'])\nitems = [1, 2]\nalias = items\nalias.append(3)\nprint(items)",
+        "output": "82\n[1, 2, 3]"
+      },
+      "task": "用字典保存三门课程的分数，修改其中一门，输出它的新分数。再从 [2, 2, 5, 5, 8] 构造集合，输出不同元素的个数；不要假设集合的打印顺序。",
+      "criteria": [
+        "使用课程名作为字典键",
+        "修改和读取同一个键",
+        "去重后元素个数为 3"
+      ],
+      "questions": [
+        {
+          "id": "containers-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "a = [4, 5]\nb = a\nb.append(6)\nprint(a[-1])",
+          "options": [
+            "6",
+            "4",
+            "5",
+            "报错"
+          ],
+          "answer": 0,
+          "explanation": "a 与 b 指向同一个列表，append 后最后一项是 6。",
+          "expected": "6",
+          "source_sections": [
+            "lists",
+            "dictionaries",
+            "tuples-and-sequences",
+            "sets"
+          ]
+        },
+        {
+          "id": "containers-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "d = {'x': 2}\nprint(d.get('y', 0) + d['x'])",
+          "options": [
+            "0",
+            "报错",
+            "y2",
+            "2"
+          ],
+          "answer": 3,
+          "explanation": "缺失的 y 使用默认值 0，x 对应 2。",
+          "expected": "2",
+          "source_sections": [
+            "lists",
+            "dictionaries",
+            "tuples-and-sequences",
+            "sets"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "functions",
+      "title": "函数、参数与返回值",
+      "objective": "能把重复计算写成函数，并区分返回和打印",
+      "source_sections": [
+        "defining-functions",
+        "default-argument-values"
+      ],
+      "markdown": "函数为一段操作命名。定义函数时并不立即执行函数体；调用时，实参传给参数，再执行具体计算。`return` 把值交给调用者并结束本次执行。\n\n### print 和 return\nprint 是在屏幕显示内容，return 是把结果交还给调用处。需要后续参与计算的结果应返回。函数没有执行带值的 return 时，返回 None；它不是数字 0。\n\n### 默认参数\n未提供参数时可采用默认值，显式传参会覆盖本次默认值。可变对象作为默认值容易在多次调用间共享；先用数字、文字或 None 做默认值，避免无意积累状态。\n\n先写清函数输入和输出，再用两个普通输入及一个边界输入测试。",
+      "example": {
+        "code": "def cost(count, unit=6):\n    return count * unit\n\nprint(cost(3))\nprint(cost(3, 8))",
+        "output": "18\n24"
+      },
+      "task": "编写 sum_even(numbers)，返回列表中偶数的总和，函数内部不要打印。分别调用它处理 [2, 3, 4] 和 []，在调用处打印返回值。",
+      "criteria": [
+        "函数接收列表并使用 return",
+        "结果依次是 6 和 0",
+        "调用方可以继续使用返回值参与计算"
+      ],
+      "questions": [
+        {
+          "id": "functions-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "def twice(x):\n    return x * 2\nprint(twice(4) + 1)",
+          "options": [
+            "8",
+            "5",
+            "None",
+            "9"
+          ],
+          "answer": 3,
+          "explanation": "twice(4) 返回 8，调用处再加 1。",
+          "expected": "9",
+          "source_sections": [
+            "defining-functions",
+            "default-argument-values"
+          ]
+        },
+        {
+          "id": "functions-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "def greet():\n    print('hi')\nvalue = greet()\nprint(value)",
+          "options": [
+            "None",
+            "hi\nhi",
+            "hi\nNone",
+            "hi"
+          ],
+          "answer": 2,
+          "explanation": "函数先打印 hi，没有带值 return，所以 value 是 None。",
+          "expected": "hi\nNone",
+          "source_sections": [
+            "defining-functions",
+            "default-argument-values"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "modules",
+      "title": "模块与标准库",
+      "objective": "能导入标准库，并把函数放入另一个文件",
+      "source_sections": [
+        "modules"
+      ],
+      "markdown": "模块通常是一个 .py 文件，里面可以定义函数、变量等。把相关操作放到模块里，可让主程序更容易阅读和复用。\n\n### 先用自带的标准库\n`import math` 后，通过 `math.sqrt(...)` 使用平方根函数。这里的 math 来自 Python 标准库，不需要另外安装。第三方包和标准库不同，只有确实需要时再安装，并核对来源。\n\n### 拆成两个文件\n在 helpers.py 写 `def double(n): return n * 2`，在同目录 main.py 写 `from helpers import double`，再调用 double(5)。不要把自己的文件叫 math.py，否则可能遮住标准库。\n\n导入时模块顶层代码可能执行；把直接运行时才做的演示放在 `if __name__ == '__main__':` 下面，有助于避免导入就运行整段演示。",
+      "example": {
+        "code": "import math\nprint(math.isqrt(25))\nprint(math.ceil(2.3))",
+        "output": "5\n3"
+      },
+      "task": "把上一课的 sum_even 放到 helpers.py，再在 main.py 导入并调用。给 helpers.py 加一个只在直接运行时打印的测试，比较直接运行与导入的区别。",
+      "criteria": [
+        "主文件能导入并调用函数",
+        "文件名没有遮住使用的标准库",
+        "主入口条件下的测试在导入时不执行"
+      ],
+      "questions": [
+        {
+          "id": "modules-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "import math\nprint(math.isqrt(36) + 1)",
+          "options": [
+            "37",
+            "6.0",
+            "7",
+            "6"
+          ],
+          "answer": 2,
+          "explanation": "整数平方根为 6，之后加 1 得到 7。",
+          "expected": "7",
+          "source_sections": [
+            "modules"
+          ]
+        },
+        {
+          "id": "modules-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "from math import ceil\nprint(ceil(3.2))",
+          "options": [
+            "报错",
+            "4",
+            "3",
+            "3.2"
+          ],
+          "answer": 1,
+          "explanation": "ceil 返回不小于输入的最小整数。",
+          "expected": "4",
+          "source_sections": [
+            "modules"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "files",
+      "title": "读写文本与保存数据",
+      "objective": "能使用 with 读写自己的文本文件，说明覆盖与追加",
+      "source_sections": [
+        "reading-and-writing-files"
+      ],
+      "markdown": "程序结束后，内存里的变量不会自动变成文件。保存文本需要明确选择文件路径、打开模式和编码。\n\n### 从一个自己的练习文件开始\n`with open('notes.txt', 'w', encoding='utf-8') as f:` 会创建文件；同名文件已存在时，w 会清空旧内容，因此只对自己的练习文件使用它。需要保留旧内容并在末尾添加时使用 a。读取使用 r。with 会在离开代码块时关闭文件。\n\n### 文件里的数字是文本\n读取一行会得到字符串，通常需要去掉换行或空白，再根据目标转成数字。不同工作目录会改变相对路径对应的位置；找不到文件时先核对运行位置。\n\n下面用内存中的文本流演示相同的写入/读取方式，不会改动你的磁盘。真正保存时把 StringIO 换成上面的 open。",
+      "example": {
+        "code": "from io import StringIO\nwith StringIO() as f:\n    f.write('first\\nsecond\\n')\n    f.seek(0)\n    print(f.readline().strip())\n    print(f.readline().strip())",
+        "output": "first\nsecond"
+      },
+      "task": "在自己的练习目录创建 study_notes.txt，写入两条学习记录，再用读取模式逐行打印。另加一次追加写入，确认旧内容保留。提交代码与实际输出，不要使用重要文件测试 w 模式。",
+      "criteria": [
+        "明确使用 UTF-8 和 with",
+        "能够解释 w 与 a 的区别",
+        "实际读取结果包含追加前后的记录"
+      ],
+      "questions": [
+        {
+          "id": "files-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "from io import StringIO\nf = StringIO('a\\nb\\n')\nprint(len(f.readlines()))",
+          "options": [
+            "4",
+            "2",
+            "1",
+            "3"
+          ],
+          "answer": 1,
+          "explanation": "readlines 得到两行，末尾换行不会额外形成第三行。",
+          "expected": "2",
+          "source_sections": [
+            "reading-and-writing-files"
+          ]
+        },
+        {
+          "id": "files-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "from io import StringIO\nf = StringIO('12\\n')\nprint(int(f.readline().strip()) + 3)",
+          "options": [
+            "15",
+            "123",
+            "12",
+            "报错"
+          ],
+          "answer": 0,
+          "explanation": "先读取字符串、清理空白、转成整数，再加 3。",
+          "expected": "15",
+          "source_sections": [
+            "reading-and-writing-files"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "errors",
+      "title": "异常与定位问题",
+      "objective": "能区分语法错误与运行异常，处理可预期的错误",
+      "source_sections": [
+        "handling-exceptions",
+        "syntax-errors"
+      ],
+      "markdown": "报错是一条定位线索。SyntaxError 往往表示代码结构不能被解析，例如括号或冒号缺失；ValueError 等异常则可能在运行某条语句时出现。\n\n### 从最后一行开始读\n错误类型说明问题类别，调用栈里的文件名和行号帮助找到位置。先用最小输入复现，再修改一个原因；不要把所有报错都当成“软件坏了”。\n\n### 只处理预期的异常\n把可能失败的一小段转换放到 try 中，用 `except ValueError:` 处理非数字输入。不要用一个空的 except 把所有错误吞掉；意料之外的错误应继续暴露，便于修复。异常发生后，try 中尚未执行的语句不会继续执行。",
+      "example": {
+        "code": "raw = 'abc'\ntry:\n    value = int(raw)\n    print(value * 2)\nexcept ValueError:\n    print('请输入整数')",
+        "output": "请输入整数"
+      },
+      "task": "写一个将数量文本转换为整数的函数。合法输入返回整数，非数字输入返回 None。分别测试 '12'、'abc' 和 '0'，解释为什么 None 和 0 不能混为一谈。",
+      "criteria": [
+        "只捕获预期的 ValueError",
+        "三个输入分别得到 12、None、0",
+        "能够区分合法零值与转换失败"
+      ],
+      "questions": [
+        {
+          "id": "errors-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "try:\n    n = int('oops')\n    print('ok')\nexcept ValueError:\n    print('retry')",
+          "options": [
+            "retry",
+            "ok",
+            "ok\nretry",
+            "None"
+          ],
+          "answer": 0,
+          "explanation": "转换抛出 ValueError，跳过后面的 print('ok') 并进入处理分支。",
+          "expected": "retry",
+          "source_sections": [
+            "handling-exceptions",
+            "syntax-errors"
+          ]
+        },
+        {
+          "id": "errors-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "try:\n    print(int('0'))\nexcept ValueError:\n    print('bad')",
+          "options": [
+            "bad",
+            "None",
+            "0\nbad",
+            "0"
+          ],
+          "answer": 3,
+          "explanation": "'0' 是合法整数文本，转换成功，不执行 except。",
+          "expected": "0",
+          "source_sections": [
+            "handling-exceptions",
+            "syntax-errors"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    },
+    {
+      "id": "project",
+      "title": "综合任务：学习记录统计",
+      "objective": "能组合容器、条件、循环和函数，保存并解释学习记录",
+      "source_sections": [
+        "lists",
+        "for-statements",
+        "defining-functions",
+        "reading-and-writing-files",
+        "handling-exceptions"
+      ],
+      "markdown": "现在把前面的知识组合起来：记录每次学习的科目和分钟数，计算总时长，找出达到目标的记录，并保存到自己的文本文件。\n\n### 先拆任务，再写程序\n输入是什么？用列表保存多条记录，每条记录用字典表示。怎样检查？分钟数不能是负数；非法输入给出清楚提示。怎样计算？把汇总逻辑写进函数，通过 return 返回结果。怎样保存？用 UTF-8 文本，并说明文件模式会不会覆盖旧内容。\n\n### 分别验证各部分\n先用两条合法记录检查汇总，再试空列表、零分钟和非法文本。每次只增加一个功能。示例只演示内存中的统计，你的独立任务要补上输入检查和文件保存。\n\n完成这个任务说明你练习了本课程列出的基础，不代表已经学完面向对象、网络开发、数据分析或所有大学 Python 课程。",
+      "example": {
+        "code": "def total_minutes(records):\n    return sum(item['minutes'] for item in records)\n\nrecords = [{'subject': 'Python', 'minutes': 20}, {'subject': '英语', 'minutes': 15}]\nprint(total_minutes(records))",
+        "output": "35"
+      },
+      "task": "独立完成一个学习记录程序：至少三条科目/分钟记录；用函数汇总；列出不少于 20 分钟的记录；验证非法分钟文本；保存到自己的 study_log.txt 并读回。提交实现、测试输入输出和一个你修复过的问题。",
+      "criteria": [
+        "三条记录且字段清楚",
+        "汇总函数可被独立调用",
+        "条件筛选包含恰好 20 分钟",
+        "测试空列表、零值及非数字输入",
+        "文件读回与保存内容一致，并说明覆盖/追加选择"
+      ],
+      "questions": [
+        {
+          "id": "project-1",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "records = [{'minutes': 12}, {'minutes': 18}, {'minutes': 20}]\nprint(sum(r['minutes'] for r in records if r['minutes'] >= 18))",
+          "options": [
+            "50",
+            "20",
+            "30",
+            "38"
+          ],
+          "answer": 3,
+          "explanation": "符合条件的是 18 和 20，合计 38。",
+          "expected": "38",
+          "source_sections": [
+            "lists",
+            "for-statements",
+            "defining-functions",
+            "reading-and-writing-files",
+            "handling-exceptions"
+          ]
+        },
+        {
+          "id": "project-2",
+          "stem": "合上讲解，独立判断下面程序的输出。",
+          "code": "def total(values):\n    result = 0\n    for n in values:\n        if n > 0:\n            result += n\n    return result\nprint(total([0, -2, 7, 3]))",
+          "options": [
+            "7",
+            "0",
+            "10",
+            "8"
+          ],
+          "answer": 2,
+          "explanation": "只累加大于 0 的元素，7 + 3 = 10。",
+          "expected": "10",
+          "source_sections": [
+            "lists",
+            "for-statements",
+            "defining-functions",
+            "reading-and-writing-files",
+            "handling-exceptions"
+          ]
+        }
+      ],
+      "review_prompt": "隔一天用下一道新题回忆，再解释代码为何得到该结果。",
+      "authoring": "LearnLoop 原创，AI 辅助编写；已核对示例和来源，尚未经教学专家审定。"
+    }
+  ]
+}

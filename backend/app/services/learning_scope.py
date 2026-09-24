@@ -78,6 +78,10 @@ def course_scope(user_id: str, space_id: str = "", *, snapshot: dict | None = No
     else:
         row = ensure_space(user_id, space_id)
         course = copy.deepcopy(snapshot or row.course)
+        if course.get("course_release_id"):
+            from .course_library import is_withdrawn, WITHDRAWN
+            if is_withdrawn(course["course_release_id"]):
+                raise HTTPException(410, WITHDRAWN)
         token = _scope.set({"user_id": user_id, "notebook_id": space_id,
             "course": course, "graph": graph_index(course["graph"]), "profile": copy.deepcopy(row.data)})
     user_token = _scope_user.set(user_id)

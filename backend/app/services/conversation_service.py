@@ -5,7 +5,7 @@ from ..models.db import session
 from ..models.entities import ConversationMessage
 
 
-def append_message(user_id: str, session_id: str, role: str, content: str, *, source_evidence: list[dict] | None = None) -> None:
+def append_message(user_id: str, session_id: str, role: str, content: str, *, source_evidence: list[dict] | None = None, course_release_id: str | None = None) -> None:
     text = str(content or "").strip()
     if not text:
         return
@@ -17,6 +17,7 @@ def append_message(user_id: str, session_id: str, role: str, content: str, *, so
             role=safe_role,
             content=text[:20000],
             source_evidence=source_evidence or [],
+            course_release_id=_course_release_id() if course_release_id is None else course_release_id,
         ))
         s.commit()
 
@@ -49,7 +50,8 @@ def get_session_messages(user_id: str, session_id: str, *, limit: int = 120) -> 
             .all()
         )
     rows.reverse()
-    return [{"role": row.role, "content": row.content, "source_evidence": row.source_evidence or []} for row in rows]
+    from .course_library import public_message
+    return [public_message(row) for row in rows]
 
 
 def current_topic_messages(
@@ -90,3 +92,8 @@ def current_topic_messages(
             scoped.append(followup)
         return scoped
     return []
+
+
+def _course_release_id() -> str:
+    from .learning_scope import current_space
+    return str((current_space() or {}).get("course", {}).get("course_release_id") or "")

@@ -74,12 +74,16 @@ def asset_belongs_to_user(user_id: str, path: str) -> bool:
     legacy: tuple[str, object] | None = None
     with session() as db:
         owned = db.execute(
-            select(UserAsset.id).where(
+            select(UserAsset.resource_id).where(
                 UserAsset.user_id == user_id,
                 UserAsset.path == normalized,
             ),
         ).first()
         if owned:
+            resource = db.get(Resource, owned[0]) if owned[0] else None
+            from .course_library import blocked_payload
+            if resource and blocked_payload(resource.payload):
+                return False
             return restore_generated_asset(user_id, normalized)
 
         # One-release compatibility path for assets created before the registry.
@@ -87,6 +91,9 @@ def asset_belongs_to_user(user_id: str, path: str) -> bool:
             select(Resource.id, Resource.payload).where(Resource.user_id == user_id),
         ).all()
         for resource_id, payload in rows:
+            from .course_library import blocked_payload
+            if blocked_payload(payload):
+                continue
             if normalized in generated_asset_paths(payload):
                 legacy = (resource_id, payload)
                 break
@@ -100,18 +107,23 @@ def task_belongs_to_user(user_id: str, task_id: str) -> bool:
     legacy: tuple[str, object] | None = None
     with session() as db:
         owned = db.execute(
-            select(ExternalTask.id).where(
+            select(ExternalTask.resource_id).where(
                 ExternalTask.id == task_id,
                 ExternalTask.user_id == user_id,
             ),
         ).first()
         if owned:
-            return True
+            resource = db.get(Resource, owned[0]) if owned[0] else None
+            from .course_library import blocked_payload
+            return not (resource and blocked_payload(resource.payload))
 
         rows = db.execute(
             select(Resource.id, Resource.payload).where(Resource.user_id == user_id),
         ).all()
         for resource_id, payload in rows:
+            from .course_library import blocked_payload
+            if blocked_payload(payload):
+                continue
             if task_id in external_task_ids(payload):
                 legacy = (resource_id, payload)
                 break
@@ -131,12 +143,17 @@ def task_resource_id(user_id: str, task_id: str) -> str:
             ),
         ).first()
         if owned and owned[0]:
-            return str(owned[0])
+            resource = db.get(Resource, owned[0])
+            from .course_library import blocked_payload
+            return "" if resource and blocked_payload(resource.payload) else str(owned[0])
 
         rows = db.execute(
             select(Resource.id, Resource.payload).where(Resource.user_id == user_id),
         ).all()
         for resource_id, payload in rows:
+            from .course_library import blocked_payload
+            if blocked_payload(payload):
+                continue
             if task_id in external_task_ids(payload):
                 sync_resource_ownership(user_id, str(resource_id), payload)
                 return str(resource_id)

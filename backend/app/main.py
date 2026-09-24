@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .api import pilot
 from .api import settings as model_settings
-from .api import learning
+from .api import learning, library
 from .auth import bind_request_user, decode_access_token, reset_request_user
 from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
@@ -35,6 +35,12 @@ async def lifespan(app: FastAPI):
         print(f"[SparkLearn] 语料入库完成:{n} 个 chunk;demo_mode={is_demo()}")
     except Exception as exc:                       # 语料缺失不阻断启动
         print(f"[SparkLearn] 语料入库跳过:{exc}")
+    try:
+        from .services.course_library import bootstrap
+        bootstrap()
+    except Exception as exc:
+        import logging
+        logging.getLogger("sparklearn.library").exception("Course library publication failed: %s", exc)
     yield
 
 
@@ -92,7 +98,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 for r in (assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
-          tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router):
+          tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router):
     app.include_router(r)
 
 

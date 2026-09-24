@@ -89,6 +89,9 @@ def _interaction_resource(user_id: str, resource_id: str, notebook_id: str) -> d
         if not row or row.user_id != user_id:
             raise HTTPException(404, "互动讲解资源不存在")
         payload = dict(row.payload or {})
+        from ..services.course_library import blocked_payload, WITHDRAWN
+        if blocked_payload(payload):
+            raise HTTPException(410, WITHDRAWN)
         if row.kind != "doc" or payload.get("template") != "interactive_audio":
             raise HTTPException(400, "该资源不是可互动的讲解")
         resource_notebook = str(payload.get("notebook_id") or "")
@@ -108,6 +111,7 @@ async def _persisted_events(
     *,
     user_id: str,
     session_id: str,
+    course_release_id: str = "",
 ) -> AsyncIterator[dict]:
     answer_parts: list[str] = []
     resource_titles: list[str] = []
@@ -133,7 +137,7 @@ async def _persisted_events(
         answer = "".join(answer_parts).strip()
         if not answer and resource_titles:
             answer = summary_text or f"已整理学习资源：{'、'.join(resource_titles)}"
-        append_message(user_id, session_id, "assistant", answer, source_evidence=source_evidence)
+        append_message(user_id, session_id, "assistant", answer, source_evidence=source_evidence, course_release_id=course_release_id)
 
 
 async def _question_image_text(encoded: str, *, hint: str, trace_id: str) -> str:
@@ -253,9 +257,11 @@ async def chat(req: ChatRequest):
             "knowledge_points": [resource["kp"]] if resource.get("kp") else [],
             "topic_label": resource.get("title") or req.topic_label,
         })
+    from ..services.conversation_service import _course_release_id
     events = _persisted_events(
         run_with_events(state),
         user_id=req.user_id,
         session_id=session_id,
+        course_release_id=_course_release_id(),
     )
     return sse_response(events)

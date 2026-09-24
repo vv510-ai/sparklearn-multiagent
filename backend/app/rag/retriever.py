@@ -100,7 +100,12 @@ def retrieve(
     if (space and space["course"].get("textbook")
             and (not selected_sources or COURSE_SCOPE_ID in selected_sources)):
         from ..services.textbook_service import course_textbook_chunks
-        candidates = [dict(c) for c in course_textbook_chunks(space["course"]) if hit_matches_kp(c, kp)]
+        if space["course"].get("course_release_id"):
+            from .library_index import retrieve_release
+            hits.extend(retrieve_release(space["course"]["course_release_id"], query, kp, max(top_k, final_k)))
+            candidates = []
+        else:
+            candidates = [dict(c) for c in course_textbook_chunks(space["course"]) if hit_matches_kp(c, kp)]
         if candidates:
             vectors = embed_texts([c["text"] for c in candidates])
             scores = vectors @ embed_texts([query], domain="query")[0]

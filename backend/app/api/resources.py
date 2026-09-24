@@ -117,6 +117,11 @@ def _as_json(v, default):
 
 
 def _row_to_dict(r: Resource) -> dict:
+    from ..services.course_library import blocked_payload, WITHDRAWN
+    if blocked_payload(r.payload):
+        return {"id": r.id, "kind": "doc", "kp": r.kp, "title": "已停止提供的课程资源",
+                "payload": {"markdown": WITHDRAWN, "withdrawn": True, "notebook_id": (r.payload or {}).get("notebook_id")},
+                "citations": [], "created_at": r.created_at.isoformat() if r.created_at else None}
     return {"id": r.id, "kind": r.kind, "kp": r.kp, "title": r.title,
             "payload": _as_json(r.payload, {}),
             "citations": _as_json(r.citations, []),
@@ -183,6 +188,9 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         if resource.kind != "doc":
             raise HTTPException(400, "only document resources support audio narration")
         payload = dict(_as_json(resource.payload, {}))
+        from ..services.course_library import blocked_payload, WITHDRAWN
+        if blocked_payload(payload):
+            raise HTTPException(410, WITHDRAWN)
         if payload.get("generation_mode") == "unavailable" or payload.get("blocked_reason") == "source_scope_empty":
             raise HTTPException(409, "请先选择相关资料并重新生成讲解，再生成语音。")
         markdown = str(payload.get("markdown") or "").strip()
@@ -227,6 +235,8 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         if strict_super:
             payload["audio"]["strict_voice"] = True
 
+    if blocked_payload(payload):
+        raise HTTPException(410, WITHDRAWN)
     with session() as s:
         resource = s.get(Resource, rid)
         if not resource or resource.user_id != req.user_id:
@@ -250,6 +260,8 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
         "status": payload["audio"]["status"],
         "provider": payload["audio"]["provider"],
     })
+    if blocked_payload(payload):
+        raise HTTPException(410, WITHDRAWN)
     return {"resource": response_resource, "audio": payload["audio"], "reused": False}
 
 
@@ -263,6 +275,8 @@ async def video_task(task_id: str):
         task_id,
         trace_id=f"video-poll-{task_id[:12]}",
     )
+    if not task_belongs_to_user(user_id, task_id):
+        raise HTTPException(404, "task no longer available")
     if not resource_id:
         return state
 
@@ -291,6 +305,8 @@ async def ppt_task(task_id: str):
         raise HTTPException(404, "PPT task not found")
     resource_id = task_resource_id(user_id, task_id)
     state = await multimodal_gateway.ppt_poll(task_id, trace_id=f"ppt-poll-{task_id[:12]}")
+    if not task_belongs_to_user(user_id, task_id):
+        raise HTTPException(404, "task no longer available")
     if not resource_id:
         return state
 

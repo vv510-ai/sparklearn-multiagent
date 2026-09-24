@@ -100,6 +100,7 @@ class ConversationMessage(Base):
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     source_evidence: Mapped[list | None] = mapped_column(JSON, nullable=True, default=list)
+    course_release_id: Mapped[str | None] = mapped_column(String(96), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
 
 
@@ -256,4 +257,41 @@ class PilotObservation(Base):
     phase: Mapped[str] = mapped_column(String(16))
     knowledge_point: Mapped[str] = mapped_column(String(80))
     data: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class CourseRelease(Base):
+    """Public immutable content; activation and withdrawal are operator-only."""
+    __tablename__ = "course_releases"
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    course_id: Mapped[str] = mapped_column(String(64), index=True)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    data: Mapped[dict] = mapped_column(JSON)
+    index: Mapped[dict] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(24), default="published")
+    withdrawal_reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class CoursePublication(Base):
+    __tablename__ = "course_publications"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    release_id: Mapped[str] = mapped_column(String(96))
+
+
+class CourseStudy(Base):
+    __tablename__ = "course_studies"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    release_id: Mapped[str] = mapped_column(String(96), index=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class WithdrawnCourseSource(Base):
+    """Durable public-source tombstone, also checked by future releases."""
+    __tablename__ = "withdrawn_course_sources"
+    sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)

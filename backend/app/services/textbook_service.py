@@ -45,6 +45,10 @@ def python_chunks() -> tuple[dict, ...]:
 
 def course_textbook_chunks(course: dict) -> tuple[dict, ...]:
     """Use the learner's pinned source text, even after the platform book changes."""
+    if course.get("course_release_id"):
+        from .course_library import load_release
+        _, index = load_release(course["course_release_id"])
+        return tuple(index["chunks"])
     book = course["textbook"]
     evidence = {e["section_id"]: e for entries in course.get("evidence", {}).values() for e in entries}
     sections = []

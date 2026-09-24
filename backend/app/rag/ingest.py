@@ -127,7 +127,8 @@ def _current_manifest() -> dict[str, Any]:
             if p.is_file()
             and (p.suffix.lower() in SUPPORTED_UPLOAD or p.name.endswith(".meta.json"))
         )
-    return {"version": 4, "files": [_source_file_signature(p) for p in files]}
+    from .library_index import index_identity
+    return {"version": 5, "embedding_identity": index_identity(), "files": [_source_file_signature(p) for p in files]}
 
 
 def _manifest_matches(current: dict[str, Any]) -> bool:
@@ -554,7 +555,8 @@ def ingest_corpus(force: bool = False, diagnostics: dict | None = None) -> int:
         cache = {}
         if hasattr(store, "snapshot"):
             old_chunks, old_vectors = store.snapshot()
-            if old_vectors is not None:
+            from .library_index import index_identity
+            if old_vectors is not None and getattr(store, "identity", None) == index_identity():
                 cache = {(c.get("user_id", ""), c.get("source_id", ""), c["text"]): v
                     for c, v in zip(old_chunks, old_vectors)}
         keys = [(c.get("user_id", ""), c.get("source_id", ""), c["text"]) for c in all_chunks]

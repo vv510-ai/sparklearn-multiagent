@@ -121,10 +121,8 @@ def get_notebook(user_id: str, notebook_id: str, *, include_messages: bool = Fal
             message_count=len(message_rows),
         )
         if include_messages:
-            result["messages"] = [
-                {"role": message.role, "content": message.content, "source_evidence": message.source_evidence or []}
-                for message in message_rows
-            ]
+            from .course_library import public_message
+            result["messages"] = [public_message(message) for message in message_rows]
         return result
 
 
