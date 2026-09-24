@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.24.13",
+  "version": "2026.09.24.14",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -151,6 +151,14 @@
     "assessment.course_check": {
       "description": "独立逐项求解生成题库，防止资料缺失被当作错误选项",
       "file": "assessment/course-check.md"
+    },
+    "assessment.course_final_check": {
+      "description": "对实际最终题目解析独立检查资料范围、条件和重复",
+      "file": "assessment/course-final-check.md"
+    },
+    "doc.one_page_repair": {
+      "description": "对超出布局容量的一图看懂进行一次有界压缩",
+      "file": "doc/one-page-repair.md"
     }
   }
 }

@@ -23,6 +23,7 @@ from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
 from ..services.one_page_renderer import render_one_page
+from ..services.knowledge_map_layout import map_plan
 from ..services.topic_scope import focus_chunks_on_topic, topic_terms
 from ..services.learning_context import supplemental_context
 from .emitter import agent_end, agent_start, emit
@@ -179,6 +180,23 @@ def _normalize_structured(kind: str, value: object, name: str, chunks: list[dict
         "columns": columns or fallback["columns"],
         "rows": rows[:12] or fallback["rows"],
     }
+
+
+async def _fit_one_page(name: str, markdown: str, request: str) -> str:
+    """One bounded layout repair; final source checks still run on the result."""
+    if map_plan(name, markdown) is not None:
+        return markdown
+    call = invoke_learning_prompt("doc.one_page_repair", base_request=request, draft=markdown)
+    try:
+        compact = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, role="reasoner",
+            temperature=0, max_tokens=1800, reasoning_mode="disabled", allow_mock_fallback=False), timeout=25)
+        # Preserve every branch/request facet; never treat a reduced subset as success.
+        headings = lambda text: re.findall(r"(?m)^##\s+(.+)$", text)
+        if map_plan(name, compact) is not None and headings(compact) == headings(markdown):
+            return compact
+    except Exception:
+        pass  # Rendering will honestly retain the full text when repair fails.
+    return markdown
 
 
 def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
@@ -859,6 +877,9 @@ async def _gen_one(
             code = failure_code(exc)
             flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
                           "reason_code": code, "detail": MESSAGES[code]})
+
+    if kind == "doc" and prompt_template == "one_page" and not fallback:
+        md = await _fit_one_page(name, md, prompt)
 
     notes_template = kind == "doc" and prompt_template in {"", "complete_notes", "conversation_notes"}
     if kind != "code" and not notes_template:

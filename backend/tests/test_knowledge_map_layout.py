@@ -1,3 +1,4 @@
+import asyncio
 from xml.etree import ElementTree as ET
 
 from app.services import one_page_renderer as renderer
@@ -59,3 +60,33 @@ def test_dense_text_preserved_without_claiming_diagram(monkeypatch, tmp_path):
 def test_source_excerpt_never_becomes_a_verified_diagram(monkeypatch, tmp_path):
     monkeypatch.setattr(renderer,"GEN_DIR",tmp_path)
     assert renderer.render_one_page("来源",MAP,content_status="source_excerpt")["layout"] == "text_excerpt"
+
+
+def test_dense_generation_gets_one_bounded_repair_before_render(monkeypatch):
+    from app.agents import doc_agent
+    from app.services.knowledge_map_layout import map_plan
+    dense = MAP.replace("听力35%；阅读35%。", "保留必要的限定条件。" * 25)
+    calls = []
+    async def complete(prompt, **kwargs):
+        calls.append(prompt)
+        assert kwargs["allow_mock_fallback"] is False
+        return MAP
+    monkeypatch.setattr(doc_agent, "llm_complete", complete)
+    fixed = asyncio.run(doc_agent._fit_one_page("六级学习框架", dense, "用户要求考点、占分、方法和本站能力"))
+    assert fixed == MAP and map_plan("六级学习框架", fixed)
+    assert len(calls) == 1 and "必要的限定条件" in calls[0]
+    assert asyncio.run(doc_agent._fit_one_page("六级学习框架", MAP, "同要求")) == MAP
+    assert len(calls) == 1  # normal map never adds a call
+
+
+def test_map_repair_cannot_drop_a_requested_branch(monkeypatch):
+    from app.agents import doc_agent
+    dense = MAP.replace("听力35%；阅读35%。", "重要条件。" * 50)
+    async def complete(*args, **kwargs):
+        return MAP.replace("## 本站支持", "## 其他建议")
+    monkeypatch.setattr(doc_agent, "llm_complete", complete)
+    assert asyncio.run(doc_agent._fit_one_page("六级学习框架", dense, "原请求")) == dense
+    async def failed(*args, **kwargs):
+        raise TimeoutError()
+    monkeypatch.setattr(doc_agent, "llm_complete", failed)
+    assert asyncio.run(doc_agent._fit_one_page("六级学习框架", dense, "原请求")) == dense
