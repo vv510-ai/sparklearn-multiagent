@@ -141,7 +141,7 @@ def invoke_learning_prompt(capability: str, **values: Any) -> PromptCall:
     )
     from .services.course_learning_service import context_summary
     learning_context = context_summary()
-    if learning_context and not key.startswith("assessment."):
+    if learning_context and not key.startswith("assessment.") and key not in {"image.one_page_observe", "image.one_page_check"}:
         prompt += "\n\n" + _render(_read_prompt("shared/learner-context.md"),
             {"learning_context": json.dumps(learning_context, ensure_ascii=False)}, label="learning_context")
     return PromptCall(

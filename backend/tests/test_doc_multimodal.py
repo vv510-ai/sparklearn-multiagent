@@ -177,7 +177,7 @@ def test_doc_template_has_a_distinct_resource_label():
     assert doc_agent._doc_label("学习笔记", "error_confusion") == "易错易混"  # noqa: SLF001
 
 
-def test_one_page_does_not_depend_on_image_provider_availability(monkeypatch):
+def test_one_page_image_failure_keeps_text_without_svg_substitution(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
     result = asyncio.run(doc_agent._gen_one(  # noqa: SLF001
         "doc",
@@ -193,11 +193,11 @@ def test_one_page_does_not_depend_on_image_provider_availability(monkeypatch):
     assert visual["nodes"]
     assert visual["steps"] == []
     assert all(node["label"].startswith("资料摘录") for node in visual["nodes"])
-    assert visual["image_status"] == "ready"
-    assert visual["image_url"].endswith(".svg")
+    assert visual["image_status"] == "fallback"
+    assert not visual.get("image_url")
 
 
-def test_one_page_records_text_renderer_without_claiming_an_image_model(monkeypatch):
+def test_one_page_records_xiaoyunque_and_exposes_unfinished_check(monkeypatch):
     _install_doc_stubs(monkeypatch, audio_ok=False, image_ok=False)
     captured = {}
 
@@ -207,8 +207,7 @@ def test_one_page_records_text_renderer_without_claiming_an_image_model(monkeypa
             "ok": True,
             "data": {
                 "image_url": "/static/gen/one-page.png",
-                "provider": "openai",
-                "model": "gpt-image-2.5-sunburst",
+                "provider": "xiaoyunque",
             },
         }
 
@@ -224,12 +223,13 @@ def test_one_page_records_text_renderer_without_claiming_an_image_model(monkeypa
     ))
 
     visual = result["resource"]["payload"]["one_page_visual"]
-    assert visual["image_url"].endswith(".svg")
-    assert visual["provider"] == "text_layout"
-    assert visual["renderer"] == "svg-text-v1"
-    assert "model" not in visual
+    assert visual["image_url"].endswith(".png")
+    assert visual["provider"] == "xiaoyunque"
+    assert visual["renderer"] == "xiaoyunque-infographic-v1"
     assert visual["image_status"] == "ready"
-    assert captured == {}
+    assert visual["verification"]["status"] == "unverified"
+    assert captured["preferred_provider"] == "xiaoyunque"
+    assert captured["allow_provider_fallback"] is False
 
 
 def test_one_page_strips_model_returned_source_code(monkeypatch):

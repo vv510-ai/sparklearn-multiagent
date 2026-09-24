@@ -73,47 +73,38 @@ for (const scenario of [
   expect(resource?.payload.source_evidence.length).toBeGreaterThan(0);
   expect(resource.citations.every((c: string) => c.includes("cet6-guide-v1"))).toBe(true);
   {
-    expect(resource.payload.one_page_visual.image_status).toBe("ready");
-    expect(["svg-text-v1", "svg-map-v2"]).toContain(resource.payload.one_page_visual.renderer);
-    expect(resource.payload.one_page_visual.markdown_sha256).toBe(createHash("sha256").update(resource.payload.markdown).digest("hex"));
-    if (process.env.PLAYWRIGHT_BASE_URL) expect(["model", "source_guide"]).toContain(resource.payload.generation_mode);
-    const pages = resource.payload.one_page_visual.pages || [resource.payload.one_page_visual];
-    expect(pages.every((p: { image_status: string }) => p.image_status === "ready")).toBe(true);
+    const visual = resource.payload.one_page_visual;
+    expect(visual.renderer).toBe("xiaoyunque-infographic-v1");
+    if (!process.env.PLAYWRIGHT_BASE_URL) {
+      expect(visual.image_status).toBe("fallback");
+      await expect(page.getByText("一图看懂图片未生成", { exact: true }).first()).toBeVisible();
+      return;
+    }
+    expect(["model", "source_guide"]).toContain(resource.payload.generation_mode);
+    const pages = visual.pages || [visual];
     const images = page.getByRole("img", { name: /^一图看懂/ });
+    expect(pages.every((p: { image_status: string }) => p.image_status === "ready")).toBe(true);
     await expect(images).toHaveCount(pages.length);
     for (let index = 0; index < pages.length; index++) {
+      const item = pages[index];
+      expect(item.provider).toBe("xiaoyunque");
+      expect(["passed", "failed", "unverified"]).toContain(item.verification.status);
+      expect(item.generation_attempts).toBeLessThanOrEqual(2);
       const image = images.nth(index);
       await expect(image).toBeVisible();
       await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(500);
-      await image.evaluate(async el => { await (el as HTMLImageElement).decode(); await new Promise(requestAnimationFrame); });
+      await image.evaluate(async el => { await (el as HTMLImageElement).decode(); });
       await image.screenshot({ path: info.outputPath(`one-page-image-${index + 1}.png`), animations: "disabled" });
-      const original = await page.context().newPage();
-      await original.setViewportSize({ width: 1600, height: 920 });
-      const url = new URL(`/api${pages[index].image_url}`, page.url()).href;
-      const svgResponse = await original.goto(url);
-      expect(svgResponse?.status()).toBe(200);
-      expect(svgResponse?.headers()["content-type"]).toContain("image/svg+xml");
-      const text = await original.locator('text[data-content="true"]').allTextContents();
-      expect(createHash("sha256").update(text.join("")).digest("hex")).toBe(pages[index].text_sha256);
-      // Real font metrics must fit the card, not just estimated character counts.
-      const overflow = await original.locator('text[data-content="true"]').evaluateAll(nodes => nodes.filter(node => {
-        const box = (node as SVGGraphicsElement).getBBox();
-        if (node.hasAttribute("data-bound-left")) return box.x < Number(node.getAttribute("data-bound-left")) - 1
-          || box.y < Number(node.getAttribute("data-bound-top")) - 1
-          || box.x + box.width > Number(node.getAttribute("data-bound-right")) + 1
-          || box.y + box.height > Number(node.getAttribute("data-bound-bottom")) + 1;
-        const columnRight = box.x < 800 ? 785 : 1540;
-        const rowBottom = box.y < 480 ? 469 : 807;
-        return box.x + box.width > columnRight - 15 || box.y + box.height > rowBottom - 10;
-      }).map(node => node.textContent));
-      expect(overflow).toEqual([]);
-      await writeFile(info.outputPath(`one-page-${index + 1}.svg`), await svgResponse!.text());
-      await original.screenshot({ path: info.outputPath(`one-page-original-${index + 1}.png`), animations: "disabled" });
-      await original.close();
-    }
-    if (resource.payload.one_page_visual.content_status === "source_excerpt") {
-      await expect(page.getByText("本次扩写未通过核对，以下仅展示相关资料原文摘录，未覆盖整份资料。").first()).toBeVisible();
-      expect(summary).toMatch(/文字摘要|资料摘录/);
+      const downloaded = await page.request.get(`/api${item.image_url}`);
+      expect(downloaded.status()).toBe(200);
+      expect(downloaded.headers()["content-type"]).toMatch(/image\/(png|jpeg|webp)/);
+      const bytes = await downloaded.body();
+      await writeFile(info.outputPath(`one-page-original-${index + 1}.png`), bytes);
+      if (item.verification.image_sha256) expect(createHash("sha256").update(bytes).digest("hex")).toBe(item.verification.image_sha256);
+      if (item.verification.status !== "passed") {
+        expect(item.verification.issues.length).toBeGreaterThan(0);
+        expect(summary).toContain("未确认");
+      }
     }
     const outsider = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
     try {

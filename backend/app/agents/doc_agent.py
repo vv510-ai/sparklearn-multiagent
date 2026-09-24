@@ -22,7 +22,7 @@ from ..safety.grounding import grounding_check, grounding_check_local
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
-from ..services.one_page_renderer import render_one_page
+from ..services.one_page_image import generate_one_page
 from ..services.knowledge_map_layout import map_plan
 from ..services.topic_scope import focus_chunks_on_topic, topic_terms
 from ..services.learning_context import supplemental_context
@@ -988,7 +988,7 @@ async def _gen_one(
                       "detail": "扩写未通过检查，改为本次检索资料的原文摘录",
                       "rejected_check": ground, "unsupported_durations": unsupported_durations})
         # Keep complete retrieved paragraphs, including negations and examples.
-        # No summarizer, image model, truncation, or generic learning tips here.
+        # Do not summarize or truncate the text fallback before the image stage.
         md = f"# {name}\n\n" + "\n\n".join(
             f"## 资料片段 {index}\n" + "\n".join(f"> {line}" for line in str(chunk['text']).splitlines()) + f"\n[^{index}]"
             for index, chunk in enumerate(chunks, 1)
@@ -1033,11 +1033,14 @@ async def _gen_one(
         payload["layout_repair"] = layout_repair
         payload["grounded"] = bool(chunks) and bool(ground.get("grounded"))
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
-        try:
-            payload["one_page_visual"].update(render_one_page(name, md, content_status=content_status))
-        except Exception as exc:  # Keep source text accessible if local rendering fails.
-            payload["one_page_visual"].update(image_status="fallback", image_error=str(exc)[:240])
-            flags.append({"agent": "doc", "kind": kind, "type": "image_degraded", "detail": "知识图排版失败，已保留正文"})
+        payload["one_page_visual"].update(await generate_one_page(name, _one_page_parts(md),
+            content_status=content_status, trace_id=trace_id, skip_generation=skip_multimodal))
+        for page in payload["one_page_visual"]["pages"]:
+            if page.get("image_status") != "ready":
+                flags.append({"agent": "doc", "kind": kind, "type": "image_degraded", "detail": page.get("image_error", "图片未生成")})
+            elif page.get("verification", {}).get("status") != "passed":
+                flags.append({"agent": "doc", "kind": kind, "type": "image_review", "detail": "成图仍需核对",
+                              "issues": page["verification"]["issues"]})
     if interactive_audio:
         md = re.sub(
             r"口播脚本\s*[（(][^）)\n]*[）)]",

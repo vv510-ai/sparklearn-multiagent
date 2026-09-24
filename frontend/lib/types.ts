@@ -3,6 +3,29 @@ export type AgentId =
   | "profile" | "orchestrator" | "planner" | "path"
   | "doc" | "mindmap" | "quiz" | "media" | "tutor" | "eval";
 
+export interface OnePageVisualData {
+  title?: string;
+  image_url?: string;
+  provider?: string;
+  model?: string;
+  renderer?: string;
+  layout?: "knowledge_map" | "text_excerpt";
+  relation_count?: number;
+  content_status?: string;
+  image_status?: string;
+  image_error?: string;
+  center?: string;
+  nodes?: { label: string; text: string }[];
+  steps?: string[];
+  pages?: OnePageVisualData[];
+  generation_attempts?: number;
+  verification?: {
+    status: "passed" | "failed" | "unverified";
+    checks?: { text: string; formulas: string; relations: string };
+    issues: string[];
+  };
+}
+
 export interface SourceEvidence {
   index: number;
   citation: string;
@@ -105,22 +128,7 @@ export interface ResourceItem {
       columns?: string[];
       rows?: string[][];
     };
-    one_page_visual?: {
-      layout?: "knowledge_map" | "text_excerpt";
-      relation_count?: number;
-      pages?: { title: string; image_url?: string; provider?: string; model?: string; renderer?: string; layout?: "knowledge_map" | "text_excerpt"; relation_count?: number; content_status?: string; image_status?: string; image_error?: string; center?: string; nodes?: { label: string; text: string }[]; steps?: string[] }[];
-      renderer?: string;
-      content_status?: string;
-      model?: string;
-      title?: string;
-      center?: string;
-      nodes?: { label: string; text: string }[];
-      steps?: string[];
-      image_url?: string;
-      provider?: string;
-      image_status?: "ready" | "fallback" | string;
-      image_error?: string;
-    };
+    one_page_visual?: OnePageVisualData;
     difficulty?: number;
     script?: { title?: string; narration?: string; scenes?: { t: string; visual: string; caption?: string }[]; video_prompt?: string; target_seconds?: number; video_clip_seconds?: number };
     video?: {
