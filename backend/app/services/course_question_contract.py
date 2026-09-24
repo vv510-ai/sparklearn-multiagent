@@ -8,7 +8,7 @@ import json
 import random
 import re
 
-CONTRACT_VERSION = "course-quality-2026-09-24-v3"
+CONTRACT_VERSION = "course-quality-2026-09-24-v4"
 
 
 def position_dependent(text: str) -> bool:

@@ -242,11 +242,11 @@ test("旧测评恢复信息不能覆盖最后主动选择的课程和草稿", as
   await expect(page.getByLabel("学习目标输入")).toHaveValue("后来这门课的未发送答案");
 });
 
-test("触屏设备回车换行，不误发未写完的答案", async ({ browser }) => {
+test("触屏设备回车换行，不误发未写完的答案", async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   try {
     const page = await context.newPage();
-    const base = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:13000";
+    const base = baseURL!;
     await page.goto(base, { waitUntil: "domcontentloaded" });
     const email = `responsive-touch-${Date.now()}@example.test`;
     await context.request.post(`${base}/api/auth/register`, { data: { email, password: "Responsive-Acceptance-2026!", name: "触屏验收" } });

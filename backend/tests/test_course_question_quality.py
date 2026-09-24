@@ -195,3 +195,12 @@ def test_all_multiple_draft_rejected_without_changing_answers():
         service.validate_draft({"topics": [topic]}, "角色", [])
     assert caught.value.code == "question_mix"
     assert topic == original
+
+
+def test_preparation_timing_does_not_store_prompts_or_answers(monkeypatch):
+    install(monkeypatch, result([True, True, False, False]))
+    progress = {"stage": "", "attempt": 1, "stages": []}
+    asyncio.run(service.review_course_questions(course(), [], False, progress))
+    assert [stage["stage"] for stage in progress["stages"]] == ["solve", "final_review"]
+    assert all(set(stage) == {"stage", "attempt", "elapsed_ms"} for stage in progress["stages"])
+    assert all(stage["elapsed_ms"] >= 0 for stage in progress["stages"])

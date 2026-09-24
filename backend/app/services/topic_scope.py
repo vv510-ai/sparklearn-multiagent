@@ -120,8 +120,11 @@ def focus_chunks_on_topic(chunks: list[dict], kp: str | None, topic_name: str) -
         # Preserve all explicitly mentioned subjects in a compound question.
         if (space and chunk.get("source_type") == "textbook"
                 and chunk.get("source_id") == space["course"].get("textbook", {}).get("id")
-                and (whole_course or _metadata_kps(chunk) & requested)):
-            focused_chunks.append(copied)
+                and (whole_course or requested)):
+            # A tagged course section is authoritative. A passing mention of
+            # vocabulary in a listening lesson must not broaden a vocab note.
+            if whole_course or _metadata_kps(chunk) & requested:
+                focused_chunks.append(copied)
             continue
         copied["text"] = _focused_text(
             str(chunk.get("text") or ""),

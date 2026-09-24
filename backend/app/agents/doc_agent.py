@@ -182,10 +182,14 @@ def _normalize_structured(kind: str, value: object, name: str, chunks: list[dict
     }
 
 
-async def _fit_one_page(name: str, markdown: str, request: str) -> str:
+async def _fit_one_page(name: str, markdown: str, request: str, telemetry: dict | None = None) -> str:
     """One bounded layout repair; final source checks still run on the result."""
     if map_plan(name, markdown) is not None:
+        if telemetry is not None:
+            telemetry.update(attempted=False, fitted=True)
         return markdown
+    if telemetry is not None:
+        telemetry.update(attempted=True, fitted=False)
     call = invoke_learning_prompt("doc.one_page_repair", base_request=request, draft=markdown)
     try:
         compact = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, role="reasoner",
@@ -193,8 +197,14 @@ async def _fit_one_page(name: str, markdown: str, request: str) -> str:
         # Preserve every branch/request facet; never treat a reduced subset as success.
         headings = lambda text: re.findall(r"(?m)^##\s+(.+)$", text)
         if map_plan(name, compact) is not None and headings(compact) == headings(markdown):
+            if telemetry is not None:
+                telemetry.update(fitted=True)
             return compact
+        if telemetry is not None:
+            telemetry["reason"] = "capacity_or_branch_change"
     except Exception:
+        if telemetry is not None:
+            telemetry["reason"] = "repair_unavailable"
         pass  # Rendering will honestly retain the full text when repair fails.
     return markdown
 
@@ -299,6 +309,16 @@ def _content_on_topic(value: object, topic_name: str, kp: str) -> bool:
     if kp and kp != "custom_topic":
         allowed.add(kp)
     observed = set(infer_kp_ids(raw))
+    from ..services.learning_scope import current_space
+    space = current_space()
+    course_name = str(((space or {}).get("course") or {}).get("title") or "")
+    whole_course = (kp == "custom_topic" and topic_name and
+        re.sub(r"\s+", "", str(topic_name)).casefold() == re.sub(r"\s+", "", course_name).casefold())
+    # A whole-course overview may use an abbreviated title. Require multiple
+    # actual course concepts; a single-topic request retains its narrow guard.
+    course_ids = set(((space or {}).get("graph") or {}).get("nodes") or {})
+    if whole_course and len(observed & course_ids) >= 2 and not observed - course_ids:
+        return True
     if kp != "custom_topic" and observed - allowed:
         return False
     # A natural question is not a phrase the answer must repeat verbatim.
@@ -883,8 +903,9 @@ async def _gen_one(
             flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
                           "reason_code": code, "detail": MESSAGES[code]})
 
+    layout_repair = {}
     if kind == "doc" and prompt_template == "one_page" and not fallback:
-        md = await _fit_one_page(name, md, prompt)
+        md = await _fit_one_page(name, md, prompt, layout_repair)
 
     notes_template = kind == "doc" and prompt_template in {"", "complete_notes", "conversation_notes"}
     if kind != "code" and not notes_template:
@@ -1009,6 +1030,7 @@ async def _gen_one(
             if chunks else "本次没有可用的资料片段；内容依据可用对话或通用知识，不代表已核验课程原文。"
         )
     if one_page and not unavailable:
+        payload["layout_repair"] = layout_repair
         payload["grounded"] = bool(chunks) and bool(ground.get("grounded"))
         payload["one_page_visual"] = _one_page_visual(name, chunks, md)
         try:
