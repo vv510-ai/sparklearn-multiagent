@@ -31,7 +31,7 @@ def catalogue() -> list[dict]:
 
 
 def public_course(course: dict) -> dict:
-    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference", "quality_review")} | {
+    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference", "quality_review", "preparation_timings")} | {
         "outline": [{"id": n["id"], "name": n["name"], "objective": n.get("desc", "")}
                     for n in course.get("graph", {}).get("nodes", [])],
         "question_count": len(course.get("bank", [])),
@@ -179,7 +179,19 @@ def _retain_reviewed(course: dict, rows: list[dict], issues: list[dict], allow_p
     return bank, rows
 
 
-async def review_course_questions(course: dict, chunks: list[dict], allow_partial: bool = False) -> None:
+async def _timed_complete(progress: dict | None, stage: str, *args, **kwargs):
+    started = time.monotonic()
+    if progress is not None:
+        progress["stage"] = stage
+    try:
+        return await llm_complete(*args, **kwargs)
+    finally:
+        if progress is not None:
+            progress["stages"].append({"stage": stage, "attempt": progress["attempt"],
+                "elapsed_ms": round((time.monotonic()-started)*1000)})
+
+
+async def review_course_questions(course: dict, chunks: list[dict], allow_partial: bool = False, progress: dict | None = None) -> None:
     """Independently solve without showing generated keys; still fallible model review."""
     bank = course["bank"]
     questions = [{**{k: q[k] for k in ("id", "stem", "type", "options")},
@@ -188,7 +200,7 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
     context = json.dumps({"title": course["title"], "materials": list(statements.values())}, ensure_ascii=False)
     call = invoke_learning_prompt("assessment.course_check", context=context,
         draft=json.dumps(questions, ensure_ascii=False))
-    raw = await llm_complete(call.prompt, system=call.system, role="reasoner", temperature=0,
+    raw = await _timed_complete(progress, "solve", call.prompt, system=call.system, role="reasoner", temperature=0,
         max_tokens=6000, json_mode=True, json_object=True, reasoning_mode="disabled", allow_mock_fallback=False)
     result = parse_json(raw)
     rows = result.get("questions") if isinstance(result, dict) else None
@@ -232,9 +244,9 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
         "evidence_ids": q.get("evidence_ids", []), "reasons": row["options"]} for q,row in zip(bank,rows)]
     audit_call = invoke_learning_prompt("assessment.course_final_check", context=context,
         draft=json.dumps(finals, ensure_ascii=False))
-    audited = parse_json(await llm_complete(audit_call.prompt, system=audit_call.system, role="reasoner",
+    audited = parse_json(await _timed_complete(progress, "final_review", audit_call.prompt, system=audit_call.system, role="reasoner",
         temperature=0, max_tokens=4000, json_mode=True, json_object=True,
-        reasoning_mode="enabled", allow_mock_fallback=False))
+        reasoning_mode="disabled", allow_mock_fallback=False))
     audits = audited.get("questions") if isinstance(audited, dict) else None
     if (not isinstance(audits, list) or len(audits) != len(bank)
             or any(not isinstance(row, dict) for row in audits)
@@ -268,10 +280,12 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
 
 async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
     """Repair once after validation; transport policy stays gateway-owned."""
+    progress = {"stage": "generate", "attempt": 1, "stages": []}
     async def generate():
         call = prompt
         for attempt in range(2):
-            raw = await llm_complete(call.prompt, system=call.system, role="reasoner",
+            progress["attempt"] = attempt + 1
+            raw = await _timed_complete(progress, "generate" if not attempt else "repair", call.prompt, system=call.system, role="reasoner",
                 temperature=0.2, max_tokens=6500, json_mode=True, json_object=True,
                 reasoning_mode="disabled", allow_mock_fallback=False)
             try:
@@ -286,11 +300,12 @@ async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
                             for field in ("options", "answer", "explain"):
                                 original[field] = reordered[field]
                     raw = json.dumps(parsed, ensure_ascii=False)
-                await review_course_questions(course, chunks, bool(attempt))
+                await review_course_questions(course, chunks, bool(attempt), progress)
                 if course.get("omitted_topic_count"):
                     course["preparation_note"] = (
                         f"本次先准备了 {len(course['graph']['nodes'])} 个通过检查的起点知识点；"
                         f"另有 {course['omitted_topic_count']} 个未通过检查，未纳入本次范围。请核对下方知识点。")
+                course["preparation_timings"] = copy.deepcopy(progress["stages"])
                 return course
             except (ValueError, TypeError, KeyError) as exc:
                 log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, exc.code if isinstance(exc, DraftValidationError) else "json_or_format")
@@ -299,7 +314,12 @@ async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
                 call = invoke_learning_prompt("assessment.course_repair", base_request=prompt.prompt,
                     draft=raw, validation_issue=exc.repair_issue if isinstance(exc, DraftValidationError) else "JSON 或字段格式不正确，请按 schema 重写")
         raise ValueError("未取得可核对题目")
-    return await asyncio.wait_for(generate(), timeout=110)
+    try:
+        return await asyncio.wait_for(generate(), timeout=110)
+    except Exception as exc:
+        exc.learning_stage = progress["stage"]
+        exc.learning_timings = copy.deepcopy(progress["stages"])
+        raise
 
 
 async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str, source_ids: list[str], survey: dict) -> dict:
@@ -344,6 +364,8 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
                 + "原资料和选择已保留，可缩小学习主题后重试。", headers={
                     "X-Learning-Failure": code,
                     "X-Learning-Validation": exc.code if isinstance(exc, DraftValidationError) else "",
+                    "X-Learning-Stage": getattr(exc, "learning_stage", ""),
+                    "X-Learning-Timings": json.dumps(getattr(exc, "learning_timings", []), separators=(",", ":")),
                 }) from None
         log.info("Course preparation completed elapsed_ms=%d topics=%d", (time.monotonic() - started) * 1000, len(course["graph"]["nodes"]))
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,

@@ -90,3 +90,16 @@ def test_map_repair_cannot_drop_a_requested_branch(monkeypatch):
         raise TimeoutError()
     monkeypatch.setattr(doc_agent, "llm_complete", failed)
     assert asyncio.run(doc_agent._fit_one_page("六级学习框架", dense, "原请求")) == dense
+
+
+def test_abbreviated_whole_course_overview_keeps_real_course_concepts():
+    from app.agents import doc_agent
+    from app.services.learning_scope import _scope, graph_index
+    token = _scope.set({"course": {"title": "大学英语六级（CET-6）", "kind": "cet6"}, "graph": graph_index({"nodes": [
+        {"id": "cet6_listening", "name": "听力信息提取"}, {"id": "cet6_reading", "name": "仔细阅读与推断"}], "edges": []})})
+    try:
+        assert doc_agent._content_on_topic("# 六级备考\n听力信息提取：先读题。仔细阅读与推断：定位证据。", "大学英语六级（CET-6）", "custom_topic")
+        assert not doc_agent._content_on_topic("# 其他课程\n生产者与消费者。", "大学英语六级（CET-6）", "custom_topic")
+        assert not doc_agent._content_on_topic("听力信息提取：先读题。", "仔细阅读与推断", "cet6_reading")
+    finally:
+        _scope.reset(token)
