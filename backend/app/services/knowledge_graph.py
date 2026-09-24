@@ -42,6 +42,9 @@ _STANDALONE_GRAPH_RE = re.compile(
     re.IGNORECASE,
 )
 
+_STUDY_START_RE = re.compile(r"^(?:请)?带我开始[‘“\"「『](?P<topic>[^’”\"」』]+)[’”\"」』]的(?:第一项|下一项|第\d+项)学习任务")
+_STUDY_PLANNING_RE = re.compile(r"^(?:请问|请|我)?(?:今天|接下来|现在|本次)(?:要|应该|该)?(?:学(?:习)?什么(?!是)|完成什么|做什么|有什么学习任务)")
+
 _TOPIC_INTRO_PATTERNS = (
     re.compile(r"^(?:请|能否|可以)?(?:先)?(?:给我)?(?:分步骤|分步|逐步|详细|简单|通俗地)?(?:解释|介绍|讲解|讲讲|说说|教我|学习|了解)(?:一下)?\s*(?P<topic>[^，,。！？?\n]+)", re.IGNORECASE),
     re.compile(r"^(?:什么是|何为)\s*(?P<topic>[^，。！？?\n]+)", re.IGNORECASE),
@@ -165,6 +168,9 @@ _TOPIC_SUFFIXES = (
 def clean_topic_label(value: str | None) -> str:
     """Extract a short notebook topic without silently mapping it to a course KP."""
     raw = " ".join(str(value or "").strip().split())
+    start = _STUDY_START_RE.match(raw)
+    if start:
+        raw = start.group("topic")
     marker = _TOPIC_MARKER_RE.search(raw)
     if marker:
         raw = marker.group(1).strip()
@@ -173,7 +179,9 @@ def clean_topic_label(value: str | None) -> str:
     instruction = _TOPIC_INTRO_PATTERNS[0].match(raw)
     if instruction:
         # Keep the subject, not a later request about teaching style or output.
-        raw = instruction.group("topic").strip()
+        first = instruction.group("topic").strip()
+        additional_concepts = set(infer_kp_ids(raw)) - set(infer_kp_ids(first))
+        raw = raw[instruction.start("topic"):].strip() if additional_concepts else first
     changed = True
     while changed and raw:
         changed = False
@@ -223,7 +231,7 @@ def explicit_topic_label(question: str | None) -> str | None:
     """Extract a self-contained topic while rejecting help and pronoun-only turns."""
     text = " ".join(str(question or "").strip().split())
     probe = re.sub(r"^(?:请问|我想问一下|能问一下)\s*", "", text).strip()
-    if not probe or _PRODUCT_HELP_RE.search(probe) or _CONTEXT_DEPENDENT_TOPIC_RE.match(probe):
+    if not probe or _PRODUCT_HELP_RE.search(probe) or _CONTEXT_DEPENDENT_TOPIC_RE.match(probe) or _STUDY_PLANNING_RE.match(probe):
         return None
     for pattern in _TOPIC_INTRO_PATTERNS:
         match = pattern.search(probe)
@@ -285,6 +293,8 @@ def resolve_conversation_topic(
         if recent_label:
             return resolve_topic([], recent_label, "")
 
+    if _STUDY_PLANNING_RE.match(current):
+        return resolve_topic(knowledge_points, topic_label or (space["course"].get("title") if space else "") or "当前课程", topic_label)
     return resolve_topic(knowledge_points, current, topic_label)
 
 

@@ -23,6 +23,7 @@ from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
 from ..services.one_page_renderer import render_one_page
+from ..services.knowledge_map_layout import map_plan
 from ..services.topic_scope import focus_chunks_on_topic, topic_terms
 from ..services.learning_context import supplemental_context
 from .emitter import agent_end, agent_start, emit
@@ -179,6 +180,23 @@ def _normalize_structured(kind: str, value: object, name: str, chunks: list[dict
         "columns": columns or fallback["columns"],
         "rows": rows[:12] or fallback["rows"],
     }
+
+
+async def _fit_one_page(name: str, markdown: str, request: str) -> str:
+    """One bounded layout repair; final source checks still run on the result."""
+    if map_plan(name, markdown) is not None:
+        return markdown
+    call = invoke_learning_prompt("doc.one_page_repair", base_request=request, draft=markdown)
+    try:
+        compact = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, role="reasoner",
+            temperature=0, max_tokens=1800, reasoning_mode="disabled", allow_mock_fallback=False), timeout=25)
+        # Preserve every branch/request facet; never treat a reduced subset as success.
+        headings = lambda text: re.findall(r"(?m)^##\s+(.+)$", text)
+        if map_plan(name, compact) is not None and headings(compact) == headings(markdown):
+            return compact
+    except Exception:
+        pass  # Rendering will honestly retain the full text when repair fails.
+    return markdown
 
 
 def _one_page_visual(name: str, chunks: list[dict], markdown: str) -> dict:
@@ -486,7 +504,7 @@ def _cover_prompt(name: str, *, source_bound: bool = False, custom_topic: bool =
     )
 
 
-def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound: bool) -> str:
+def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound: bool, conversation: str = "") -> str:
     scope = (
         "只允许使用下方所选资料与课程片段，不得补写资料外的事实。"
         if source_bound
@@ -494,12 +512,13 @@ def _ppt_query(name: str, goal: str, persona: str, context: str, *, source_bound
     )
     material = without_source_code(context).strip() or "（本次没有选定资料，请紧扣当前主题制作基础复习版。）"
     return (
-        f"请为学习者制作一份约 8—10 页的中文复习 PPT。\n"
+        f"请为学习者制作一份讲解完整、可独立复习的中文 PPT，通常约 8—12 页。\n"
         f"主题：{name}\n学习目标：{goal or f'复习{name}'}\n学习偏好：{persona}\n"
         f"约束：{scope} 不联网搜索；表达亲切、准确、适合学生复习；不展示源码、伪代码、函数定义、程序语句或系统实现信息，算法改写为白话步骤。\n"
-        "建议结构：封面→本次要会什么→核心概念→关键步骤→最小例子→易错点→三分钟回顾。\n"
+        "教学要求：明确目标、概念与条件、完整例题与推理、易混概念对照、独立自测和答案解析；详细讲解写入演讲者备注。\n"
+        f"最近学习对话（只用于保持学习焦点，不作为课程来源）：\n{without_source_code(conversation)}\n"
         f"可用学习资料：\n{material}"
-    )[:12000]
+    )
 
 
 async def _gen_ppt_resource(
@@ -513,6 +532,7 @@ async def _gen_ppt_resource(
     source_ids: list[str],
     trace_id: str,
     source_policy: str = "",
+    conversation: str = "",
 ) -> dict:
     source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks)
     flags: list[dict] = []
@@ -537,6 +557,7 @@ async def _gen_ppt_resource(
                 _persona(profile),
                 context,
                 source_bound=bool(chunks),
+                conversation=conversation,
             ),
             trace_id=trace_id,
             citations=ppt_citations,
@@ -770,6 +791,7 @@ async def _gen_one(
             source_ids=source_ids,
             trace_id=trace_id,
             source_policy=source_policy,
+            conversation=conversation,
         )
     if kind == "doc":
         prompt_call = render_learning_prompt_call(
@@ -795,8 +817,13 @@ async def _gen_one(
     fallback = False
     remediation_rag_fallback = False
     demo_fallback = (is_demo() and resolve(prompt_call.prompt) is None)
-    source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks and not supplement)
-    if source_scope_missing:
+    conversation_only = kind == "doc" and prompt_template == "conversation_notes" and bool(conversation.strip()) and not chunks
+    source_scope_missing = bool((source_ids or source_policy == "strict") and not chunks and not supplement and not conversation_only)
+    if conversation_only:
+        fallback = True
+        md = _conversation_fallback_doc(name, conversation, [])
+        md = "> 对话摘记：以下只记录本次交流，尚未用课程资料核验；不代表知识已经掌握。\n\n" + md
+    elif source_scope_missing:
         fallback = True
         md = (
             f"# {name}·一图看懂未生成\n\n"
@@ -856,6 +883,9 @@ async def _gen_one(
             flags.append({"agent": "doc", "kind": kind, "type": "llm_fallback",
                           "reason_code": code, "detail": MESSAGES[code]})
 
+    if kind == "doc" and prompt_template == "one_page" and not fallback:
+        md = await _fit_one_page(name, md, prompt)
+
     notes_template = kind == "doc" and prompt_template in {"", "complete_notes", "conversation_notes"}
     if kind != "code" and not notes_template:
         md = without_source_code(md, keep_mermaid=True)
@@ -882,7 +912,9 @@ async def _gen_one(
     # Citation bounds are deterministic and independent of the semantic judge.
     citation_check = grounding_check_local(md, [c["text"] for c in chunks], allow_supplement=True)
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
-    if source_scope_missing:
+    if conversation_only:
+        ground = {"grounded": True, "unsupported": [], "verification": "conversation_excerpt", "verdict": "仅摘录已保存对话，未核验课程事实。"}
+    elif source_scope_missing:
         ground = {"grounded": True, "unsupported": [], "verdict": "没有越过所选资料范围生成事实"}
     elif not fallback and not citation_check.get("accepted"):
         ground = citation_check

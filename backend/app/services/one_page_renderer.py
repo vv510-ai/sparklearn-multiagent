@@ -76,6 +76,10 @@ def _cards(markdown: str) -> list[list[tuple[str, bool]]]:
 
 
 def render_one_page(name: str, markdown: str, *, content_status: str) -> dict:
+    from .knowledge_map_layout import render_map
+    diagram = render_map(name, markdown, content_status, GEN_DIR)
+    if diagram:
+        return diagram
     cards = _cards(markdown)
     if not cards:
         raise ValueError("没有可排版的文字")
@@ -113,7 +117,7 @@ def render_one_page(name: str, markdown: str, *, content_status: str) -> dict:
             (GEN_DIR / filename).write_text("\n".join(parts), encoding="utf-8")
             pages.append({"title": title, "image_url": f"/static/gen/{filename}",
                           "image_status": "ready", "renderer": RENDERER, "provider": "text_layout",
-                          "content_status": content_status,
+                          "content_status": content_status, "layout": "text_excerpt",
                           "text_sha256": hashlib.sha256("".join(texts).encode()).hexdigest()})
     except Exception:
         for page in pages:

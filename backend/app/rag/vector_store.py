@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -23,9 +25,11 @@ class MemoryStore:
     """numpy 余弦检索 + JSON 持久化;适合课程级知识库(千级 chunk)演示。"""
 
     def __init__(self) -> None:
+        self._lock = threading.RLock()
         self.meta: list[dict] = []
         self.mat: np.ndarray | None = None
         self._load()
+        self._snapshot = (self.meta, self.mat)
 
     def _load(self) -> None:
         if _PERSIST.exists():
@@ -38,26 +42,50 @@ class MemoryStore:
             except Exception as e:  # noqa: BLE001
                 log.warning("向量库持久化文件损坏,忽略:%s", e)
 
+    def _save(self, meta: list[dict], mat: np.ndarray) -> None:
+        temporary = _PERSIST.with_name(f"{_PERSIST.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            temporary.write_text(json.dumps({"dim": embedding_dim(), "meta": meta,
+                "vectors": mat.tolist()}, ensure_ascii=False), encoding="utf-8")
+            temporary.replace(_PERSIST)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    def snapshot(self) -> tuple[list[dict], np.ndarray | None]:
+        # Readers capture one immutable snapshot reference; never wait for disk I/O.
+        return self._snapshot
+
+    def replace(self, chunks: list[dict], vectors: np.ndarray) -> None:
+        if len(chunks) != len(vectors):
+            raise ValueError("vector metadata length mismatch")
+        with self._lock:
+            # Persist first. A failed disk write leaves readers on the old snapshot.
+            self._save(chunks, vectors)
+            self._snapshot = (list(chunks), vectors)
+            self.meta, self.mat = self._snapshot
+
     def persist(self) -> None:
-        if self.mat is None:
-            return
-        _PERSIST.write_text(json.dumps(
-            {"dim": embedding_dim(), "meta": self.meta, "vectors": self.mat.tolist()},
-            ensure_ascii=False), encoding="utf-8")
+        with self._lock:
+            if self.mat is not None:
+                self._save(self.meta, self.mat)
 
     def upsert(self, chunks: list[dict], vectors: np.ndarray) -> None:
-        self.meta.extend(chunks)
-        self.mat = vectors if self.mat is None else np.vstack([self.mat, vectors])
-        self.persist()
+        with self._lock:
+            self.replace([*self.meta, *chunks], vectors if self.mat is None else np.vstack([self.mat, vectors]))
 
     def clear(self) -> None:
-        self.meta = []
-        self.mat = None
-        if _PERSIST.exists():
-            _PERSIST.unlink()
+        with self._lock:
+            _PERSIST.unlink(missing_ok=True)
+            self._snapshot = ([], None)
+            self.meta, self.mat = self._snapshot
 
     def count(self) -> int:
-        return len(self.meta)
+        return len(self.snapshot()[0])
+
+    def source_chunks(self, source_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        return [dict(chunk) for chunk in self.snapshot()[0]
+            if (source_id is None or chunk.get("source_id") == source_id)
+            and (user_id is None or chunk.get("user_id", "") == user_id)]
 
     def search(
         self,
@@ -68,11 +96,12 @@ class MemoryStore:
         source_ids: list[str] | None = None,
         include_builtin: bool = True,
     ) -> list[dict]:
-        if self.mat is None or not len(self.meta):
+        metadata, matrix = self.snapshot()
+        if matrix is None or not len(metadata):
             return []
         selected = {str(value) for value in (source_ids or []) if str(value)}
         allowed = []
-        for index, meta in enumerate(self.meta):
+        for index, meta in enumerate(metadata):
             owner = str(meta.get("user_id") or "")
             tenant_ok = (include_builtin and not owner) or (
                 user_id is not None and owner == str(user_id)
@@ -83,11 +112,11 @@ class MemoryStore:
         if not allowed:
             return []
         allowed_idx = np.asarray(allowed, dtype=np.int64)
-        scores = self.mat @ qvec  # 已归一化 → 余弦
+        scores = matrix @ qvec  # 已归一化 → 余弦
         scores = scores[allowed_idx]
         idx = np.argsort(-scores)[:top_k]
         return [
-            {**self.meta[int(allowed_idx[i])], "score": float(scores[i])}
+            {**metadata[int(allowed_idx[i])], "score": float(scores[i])}
             for i in idx
         ]
 
@@ -122,6 +151,15 @@ class MilvusStore:
             return self.mc.get_collection_stats(COLLECTION).get("row_count", self._n)
         except Exception:  # noqa: BLE001
             return self._n
+
+    def source_chunks(self, source_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        filters = []
+        if source_id is not None:
+            filters.append(f"source_id == {json.dumps(source_id)}")
+        if user_id is not None:
+            filters.append(f"user_id == {json.dumps(user_id)}")
+        return self.mc.query(collection_name=COLLECTION, filter=" and ".join(filters),
+            output_fields=["text", "source", "chapter", "page", "kp", "source_type", "url", "tags", "source_id", "user_id"])
 
     def search(
         self,

@@ -1,7 +1,10 @@
 """Knowledge source APIs for upload, indexing, and retrieval checks."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import logging
+import time
 import json
 import re
 import uuid
@@ -9,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 
 from ..config import UPLOAD_SOURCES_DIR
 from ..llm import multimodal_gateway
@@ -30,6 +33,8 @@ from ..services.object_storage import backup_source_files
 from ..services.profile_service import ensure_user
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
+_UPLOAD_LOCK = asyncio.Lock()
+log = logging.getLogger("sparklearn.upload")
 
 MAX_UPLOAD_BYTES = 30 * 1024 * 1024
 MAX_IMAGE_UPLOAD_BYTES = 4 * 1024 * 1024
@@ -50,7 +55,12 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _source_response(meta: dict[str, Any], chunk_count: int) -> dict[str, Any]:
@@ -127,7 +137,7 @@ def _duplicate_source(digest: str, user_id: str, notebook_id: str = "") -> dict[
             continue
         try:
             if source_sha256(stored, meta) == digest:
-                return meta
+                return {**meta, "_stored_path": str(stored)}
         except OSError:
             continue
     return None
@@ -135,6 +145,7 @@ def _duplicate_source(digest: str, user_id: str, notebook_id: str = "") -> dict[
 
 @router.post("/upload")
 async def upload_source(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     user_id: str = Form("demo_user"),
     notebook_id: str = Form(""),
@@ -158,10 +169,16 @@ async def upload_source(
     if not data:
         raise HTTPException(400, "文件内容为空")
 
+    async with _UPLOAD_LOCK:
+        return await _upload_received(data, filename, suffix, user_id, notebook_id, kp, title, background_tasks)
+
+
+async def _upload_received(data, filename, suffix, user_id, notebook_id, kp, title, background_tasks):
+    started = time.monotonic()
     UPLOAD_SOURCES_DIR.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(data).hexdigest()
     duplicate = _duplicate_source(digest, user_id, notebook_id)
-    if duplicate:
+    if duplicate and source_is_selectable(duplicate, int(duplicate.get("chunk_count") or 0)):
         touch_notebook(user_id, notebook_id)
         existing_chunks = chunks_for_source(str(duplicate.get("id") or ""), user_id=user_id)
         return {
@@ -177,36 +194,44 @@ async def upload_source(
                 for chunk in existing_chunks[:3]
             ],
         }
-    source_id = f"{user_id}_{uuid.uuid4().hex[:8]}_{_safe_stem(filename)}"
-    stored = UPLOAD_SOURCES_DIR / f"{source_id}{suffix}"
-    stored.write_bytes(data)
+    if duplicate:
+        meta = dict(duplicate)
+        stored = Path(meta.pop("_stored_path"))
+        meta_path = upload_meta_path(stored)
+        source_id = str(meta["id"])
+        meta.update(status="processing", status_detail="正在重新完成资料索引", active=True)
+        _write_json(meta_path, meta)
+    else:
+        source_id = f"{user_id}_{uuid.uuid4().hex[:8]}_{_safe_stem(filename)}"
+        stored = UPLOAD_SOURCES_DIR / f"{source_id}{suffix}"
+        stored.write_bytes(data)
 
-    meta = {
-        "id": source_id,
-        "user_id": user_id,
-        "notebook_id": notebook_id,
-        "title": (title or Path(filename).stem).strip(),
-        "filename": filename,
-        "kp": kp,
-        "source_type": (
-            "uploaded_image"
-            if suffix in IMAGE_UPLOAD_SUFFIXES
-            else "uploaded_pdf" if suffix == ".pdf"
-            else "uploaded_word" if suffix == ".docx"
-            else "uploaded_text"
-        ),
-        "bytes": len(data),
-        "sha256": digest,
-        "status": "processing",
-        "status_detail": "文件已接收，正在解析并建立索引",
-        "active": True,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    meta_path = upload_meta_path(stored)
-    _write_json(meta_path, meta)
+        meta = {
+            "id": source_id,
+            "user_id": user_id,
+            "notebook_id": notebook_id,
+            "title": (title or Path(filename).stem).strip(),
+            "filename": filename,
+            "kp": kp,
+            "source_type": (
+                "uploaded_image"
+                if suffix in IMAGE_UPLOAD_SUFFIXES
+                else "uploaded_pdf" if suffix == ".pdf"
+                else "uploaded_word" if suffix == ".docx"
+                else "uploaded_text"
+            ),
+            "bytes": len(data),
+            "sha256": digest,
+            "status": "processing",
+            "status_detail": "文件已接收，正在解析并建立索引",
+            "active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        meta_path = upload_meta_path(stored)
+        _write_json(meta_path, meta)
 
-    if suffix in IMAGE_UPLOAD_SUFFIXES:
+    if suffix in IMAGE_UPLOAD_SUFFIXES and not (meta.get("ocr") or {}).get("text"):
         ocr = await multimodal_gateway.ocr_image(
             data,
             hint="请完整转写这份课程讲义,保留标题、公式、代码和列表层级。",
@@ -235,39 +260,47 @@ async def upload_source(
             meta["degraded_reason"] = str(ocr.get("error") or "图片使用降级 OCR 引擎完成解析")
         _write_json(meta_path, meta)
 
-    try:
-        vector_count = ingest_corpus(force=True)
-        chunks = chunks_for_source(source_id)
-        if not chunks:
-            stored.unlink(missing_ok=True)
-            meta_path.unlink(missing_ok=True)
-            ingest_corpus(force=True)
-            detail = (
-                "PDF 中没有可提取的文字；扫描版 PDF 请先转为清晰图片上传，或使用带文本层的 PDF"
-                if suffix == ".pdf"
-                else "文件中没有读取到可建立索引的正文"
+    timings = {}
+    def finish_index():
+        try:
+            vector_count = ingest_corpus(force=True, diagnostics=timings)
+            chunks = chunks_for_source(source_id)
+            if not chunks:
+                stored.unlink(missing_ok=True)
+                meta_path.unlink(missing_ok=True)
+                detail = (
+                    "PDF 中没有可提取的文字；扫描版 PDF 请先转为清晰图片上传，或使用带文本层的 PDF"
+                    if suffix == ".pdf"
+                    else "文件中没有读取到可建立索引的正文"
+                )
+                raise HTTPException(400, detail)
+            meta["chunk_count"] = len(chunks)
+            meta["indexed_at"] = datetime.now(timezone.utc).isoformat()
+            meta["updated_at"] = meta["indexed_at"]
+            meta["status"] = "degraded" if meta.get("ocr", {}).get("degraded") else "indexed"
+            meta["status_detail"] = (
+                "索引已完成，但图片使用了降级 OCR，请核对引用片段"
+                if meta["status"] == "degraded"
+                else "索引已完成，可以参与回答和学习资源生成"
             )
-            raise HTTPException(400, detail)
-        meta["chunk_count"] = len(chunks)
-        meta["indexed_at"] = datetime.now(timezone.utc).isoformat()
-        meta["updated_at"] = meta["indexed_at"]
-        meta["status"] = "degraded" if meta.get("ocr", {}).get("degraded") else "indexed"
-        meta["status_detail"] = (
-            "索引已完成，但图片使用了降级 OCR，请核对引用片段"
-            if meta["status"] == "degraded"
-            else "索引已完成，可以参与回答和学习资源生成"
-        )
-        _write_json(meta_path, meta)
-    except HTTPException:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        stored.unlink(missing_ok=True)
-        meta_path.unlink(missing_ok=True)
-        ingest_corpus(force=True)
-        raise HTTPException(400, f"资料解析或索引失败：{exc}") from exc
+            _write_json(meta_path, meta)
+        except HTTPException:
+            raise
+        except Exception:  # Keep files after a possible index commit; retries reuse this source id.
+            meta.update(status="failed", status_detail="索引未能完成；原文件保留，重新上传同一文件可重试")
+            try:
+                _write_json(meta_path, meta)
+            except OSError:
+                log.warning("Upload recovery metadata could not be saved")
+            raise HTTPException(400, "资料索引未能完成，原文件和之前的资料均保留；重新上传同一文件可重试。") from None
 
-    backup_source_files(user_id, stored, meta_path)
+        return vector_count, chunks
+    vector_count, chunks = await asyncio.to_thread(finish_index)
+    # Optional remote backup must not hold up an already durably stored local upload.
+    background_tasks.add_task(backup_source_files, user_id, stored, meta_path)
     touch_notebook(user_id, notebook_id)
+    timings["total_ms"] = round((time.monotonic() - started) * 1000)
+    log.info("Upload completed bytes=%d chunks=%d total_ms=%d", len(data), len(chunks), timings["total_ms"])
 
     sample = [
         {
@@ -279,6 +312,7 @@ async def upload_source(
     return {
         "source": _source_response(meta, len(chunks)),
         "vector_count": vector_count,
+        "timings": timings,
         "sample": sample,
     }
 
@@ -311,8 +345,8 @@ async def search_knowledge(
     kp: str | None = None,
     limit: int = Query(5, ge=1, le=20),
 ):
-    ingest_corpus()
-    hits = retrieve(
+    await asyncio.to_thread(ingest_corpus)
+    hits = await asyncio.to_thread(retrieve,
         query,
         top_k=max(20, limit * 4),
         final_k=max(limit * 2, limit),

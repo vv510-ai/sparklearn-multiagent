@@ -2,9 +2,11 @@ export function withoutCodeBlocks(text: string, keepMermaid = false): string {
   const withoutHtmlCode = String(text || "").replace(/<pre\b[^>]*>[\s\S]*?<\/pre>/gi, "");
   const withoutFences = withoutHtmlCode.replace(
     /(```|~~~)([^\n]*)\n([\s\S]*?)\1/g,
-    (block, _fence: string, info: string) => {
+    (block, _fence: string, info: string, body: string) => {
       const language = info.trim().split(/\s+/, 1)[0]?.toLowerCase();
-      return keepMermaid && language === "mermaid" ? block : "";
+      if (keepMermaid && language === "mermaid") return block;
+      // Plain-text fences often contain worked steps, not executable code.
+      return !language || ["text", "txt", "plaintext"].includes(language) ? body : "";
     },
   );
   const codeLine = /^\s*(?:(?:async\s+def|def|class)\s+[A-Za-z_]\w*\s*(?:\(|:)|(?:import\s+[A-Za-z_]|from\s+[A-Za-z_.]+\s+import\b)|(?:return|yield|raise)\b|(?:if|elif|for|while|with)\s+.+:|(?:else|try)\s*:|[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+\([^)]*\))\s*(?:#.*)?$/i;

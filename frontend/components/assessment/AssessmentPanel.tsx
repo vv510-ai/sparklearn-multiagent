@@ -64,6 +64,8 @@ export default function AssessmentPanel({
   const studyHeading = useRef<HTMLHeadingElement>(null);
   const [confidence, setConfidence] = useState<number | null>(null);
   const started = useRef(Date.now());
+  const draftKey = data?.question && !setup ? `learnloop:assessment-draft:${data.id}:${data.question.id}` : "";
+  const [hydratedDraft, setHydratedDraft] = useState("");
   const questionHeading = useRef<HTMLHeadingElement>(null);
   const resultHeading = useRef<HTMLHeadingElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -89,13 +91,23 @@ export default function AssessmentPanel({
     void load();
   }, [notebookId]);
   useEffect(() => {
-    setChoice("");
-    setListened(false);
-    setChoices([]);
+    let draft: { choice?: string; choices?: string[]; listened?: boolean; confidence?: number | null; audio?: string } = {};
+    try { draft = JSON.parse(sessionStorage.getItem(draftKey) || "{}"); } catch { /* Drafts are optional. */ }
+    const options = data?.question?.options || [];
+    const valid = (value: unknown): value is string => typeof value === "string" && /^[A-Z]$/.test(value) && value.charCodeAt(0) - 65 < options.length;
+    setChoice(valid(draft?.choice) ? draft.choice : "");
+    setListened(draft?.listened === true && draft.audio === data?.question?.audio_url);
+    setChoices(Array.isArray(draft?.choices) ? draft.choices.filter(valid) : []);
     setStudyTask(null);
-    setConfidence(null);
+    setConfidence([0.25, 0.6, 0.9].includes(draft?.confidence as number) ? draft.confidence! : null);
+    setHydratedDraft(draftKey);
     started.current = Date.now();
-  }, [data?.question?.id, data?.status, setup]);
+  }, [draftKey, data?.status]);
+  useEffect(() => {
+    if (!draftKey || hydratedDraft !== draftKey) return;
+    try { sessionStorage.setItem(draftKey, JSON.stringify({ choice, choices, listened, confidence, audio: data?.question?.audio_url })); }
+    catch { /* A blocked storage API must not stop an assessment. */ }
+  }, [draftKey, hydratedDraft, choice, choices, listened, confidence, data?.question?.audio_url]);
   useLayoutEffect(() => {
     const container = panel.current;
     if (!container || loading) return;
@@ -138,6 +150,7 @@ export default function AssessmentPanel({
           elapsed_ms: Math.min(86_400_000, Date.now() - started.current),
         },
       );
+      try { sessionStorage.removeItem(draftKey); } catch { /* optional local draft */ }
       setData(response);
       if (response.status === "completed") onUpdated();
     } catch (e) {
@@ -331,6 +344,7 @@ export default function AssessmentPanel({
               </div>
             </fieldset></details>
             <p className="entry-answer-status" role="status">{data.question.type === "multiple" ? choices.length ? `已选择 ${choices.join("、")}，确认后提交。` : "尚未选择。点击上方选项可多选，也可以选择“这题还不会”。" : choice ? `已选择 ${choice}，确认后提交。` : "尚未选择。点击上方选项整行即可。"}</p>
+            {data.question.audio_url && <p role="status" className="entry-note">{listened ? "已完成本题听力，可以提交；暂停后会保留当前选择。" : "请先完整听一遍音频，提交按钮随后解锁。音频无法播放时，可重新加载或暂时跳过。"}</p>}
             <div className="entry-actions">
               <button
                 className="secondary-action"

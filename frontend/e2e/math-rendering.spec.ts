@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import Markdown from "../components/chat/Markdown";
 import MathText from "../components/chat/MathText";
+import AnswerChoices from "../components/chat/AnswerChoices";
 import AssessmentReview from "../components/assessment/AssessmentReview";
 import type { Assessment } from "../lib/assessment";
 
@@ -71,4 +72,13 @@ for (const width of [1440, 390]) test(`${width}px：长公式在自身区域滚�
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(await page.locator(".katex-display").evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath(`formulas-${width}.png`) });
+});
+
+
+test("对话快捷选项也渲染公式，纯文本围栏中的推导仍可见", async ({ page }) => {
+  await page.setContent(renderToStaticMarkup(React.createElement(AnswerChoices, {
+    text: "单选：哪个终止条件？\nA. $n = 0$\nB. $n-1$", disabled: false, onChoose: () => {},
+  })) + renderToStaticMarkup(React.createElement(Markdown, { text: "计算过程：\n```text\n3! → 3 × 2! → 3 × 2 × 1!\n```" })));
+  await expect(page.getByRole("group", { name: "点击选择答案" }).locator(".katex")).toHaveCount(2);
+  await expect(page.locator("body")).toContainText("3! → 3 × 2! → 3 × 2 × 1!");
 });

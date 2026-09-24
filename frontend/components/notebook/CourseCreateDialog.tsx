@@ -25,11 +25,12 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
   const [created, setCreated] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
+  const [catalogueError, setCatalogueError] = useState("");
   const loadCatalogue = () => {
-    setError("");
+    setCatalogueError("");
     void apiGet<{ items: CourseOption[] }>("/notebooks/learning/catalogue")
       .then(result => setCatalogue(result.items))
-      .catch(() => setError("课程列表暂时无法加载，请重试。"));
+      .catch(() => setCatalogueError("经典课程列表暂时无法加载；你仍可输入主题或上传课本创建课程。"));
   };
   useEffect(() => { dialog.current?.showModal(); loadCatalogue(); }, []);
   const choose = (key: NonNullable<typeof selection>, name: string) => {
@@ -88,7 +89,7 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
           <Icon size={22} aria-hidden="true" /><span><strong>{option.title}</strong><small>{option.description}</small></span><Check size={17} className="course-choice-check" aria-hidden="true" />
         </label>; })}
       </fieldset>
-      {catalogue.length === 0 && error && <button type="button" className="secondary-action" onClick={loadCatalogue}>重新加载课程</button>}
+      {catalogueError && <div role="status"><p className="course-create-hint">{catalogueError}</p><button type="button" disabled={busy} className="secondary-action" onClick={loadCatalogue}>重新加载课程</button></div>}
       <label className="course-create-title-field" htmlFor="new-book-title">课程名称或学习主题</label>
       <input id="new-book-title" className="course-create-input" maxLength={120} disabled={busy || created} value={title} onChange={e => setTitle(e.target.value)} placeholder="例如：大学英语阅读 / 线性代数 / 我的生物课本" />
       <div className="course-create-upload"><label><UploadCloud size={22} /><span><strong>{selection === "upload" ? "选择要学习的课本" : "已有课本？一起上传"}</strong><small>PDF、Word、文字或图片 · 最多 6 份{selection !== "upload" && " · 可选"}</small></span>

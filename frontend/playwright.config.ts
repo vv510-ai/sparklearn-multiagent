@@ -2,8 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 
-const backendPort = 18000;
-const frontendPort = 13000;
+const backendPort = Number(process.env.PLAYWRIGHT_BACKEND_PORT || 18000);
+const frontendPort = Number(process.env.PLAYWRIGHT_FRONTEND_PORT || 13000);
 const repoRoot = path.resolve(__dirname, "..");
 const backendDir = path.join(repoRoot, "backend");
 const externalBaseURL = process.env.PLAYWRIGHT_BASE_URL?.trim();
@@ -63,8 +63,8 @@ export default defineConfig({
     },
     {
       command: process.env.PLAYWRIGHT_PRODUCTION === "true"
-        ? "node node_modules/next/dist/bin/next start -p 13000"
-        : "npm run dev:e2e",
+        ? `node node_modules/next/dist/bin/next start -p ${frontendPort}`
+        : `node node_modules/next/dist/bin/next dev -p ${frontendPort}`,
       cwd: __dirname,
       url: `http://localhost:${frontendPort}`,
       reuseExistingServer: false,

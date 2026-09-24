@@ -46,3 +46,19 @@ test("同一资源隐藏与可见副本的引用锚点互不冲突", async ({ pa
   await expect(page.locator(href!)).toHaveAttribute("open", "");
   await expect(page.locator("div[hidden] details[open]")).toHaveCount(0);
 });
+
+
+test("模型自带数字脚注定义仍跳转到保存原文，命名脚注保持正常", async ({ page }) => {
+  await page.setContent(renderToStaticMarkup(React.createElement(React.Fragment, null,
+    React.createElement(Markdown, { text: "条件[^2]；再引用[^2]。补充[^note]。未知[^9]。\n\n[^2]: 模型自己写的来源标题\n[^9]: 不存在的来源\n[^note]: 普通补充说明",
+      citeBase: "defined", evidence }),
+    React.createElement(SourceEvidence, { citeBase: "defined", evidence }))));
+  const links = page.getByRole("link", { name: "查看引用 2 原文" });
+  await expect(links).toHaveCount(2);
+  await expect(links.first()).toHaveAttribute("href", "#defined-source-2");
+  await expect(page.locator("body")).not.toContainText("模型自己写的来源标题");
+  await expect(page.locator("body")).toContainText("9：原文未保存");
+  await expect(page.locator("body")).toContainText("普通补充说明");
+  await page.locator("#defined-source-2 summary").click();
+  await expect(page.locator("#defined-source-2")).toContainText("递归必须有终止条件");
+});

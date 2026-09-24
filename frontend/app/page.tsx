@@ -285,6 +285,24 @@ export default function Home() {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, clearSession);
   }, [clearSession]);
 
+  // Preferences are local to this account and course, including after reload.
+  useEffect(() => {
+    if (!authUser?.id) { setSourcePolicies({}); return; }
+    try {
+      const saved = JSON.parse(localStorage.getItem(`learnloop:source-policies:${authUser.id}`) || "{}");
+      setSourcePolicies(Object.fromEntries(Object.entries(saved).filter(([, value]) =>
+        value === "auto" || value === "strict" || value === "supplement")) as Record<string, "auto" | "strict" | "supplement">);
+    } catch { setSourcePolicies({}); }
+  }, [authUser?.id]);
+
+  const changeSourcePolicy = (value: "auto" | "strict" | "supplement") => {
+    if (!authUser?.id || !activeNotebook) return;
+    const next = { ...sourcePolicies, [activeNotebook.id]: value };
+    setSourcePolicies(next);
+    try { localStorage.setItem(`learnloop:source-policies:${authUser.id}`, JSON.stringify(next)); }
+    catch { setPanelError("回答依据已用于本次对话，但浏览器未能保存，刷新后请重新选择。"); }
+  };
+
   const running = useMemo(() => Object.values(trace).some((node) => node.status === "running"), [trace]);
   const finished = useMemo(() => Object.values(trace).some((node) => node.status === "done"), [trace]);
   const currentTopicTitle = useMemo(() => {
@@ -782,7 +800,7 @@ export default function Home() {
       setSelectedPathNode(event.path.next_kp || event.path.nodes[0]?.id || null);
     }
     if (event.type === "trace" && event.session_id) setSessionId(String(event.session_id));
-    if (event.type === "resource" && event.resource) setResources((items) => [event.resource!, ...items].slice(0, 30));
+    if (event.type === "resource" && event.resource) setResources((items) => [event.resource!, ...items.filter(item => item.id !== event.resource!.id)].slice(0, 30));
   }, []);
 
   const filteredResources = useMemo(() => {
@@ -879,7 +897,7 @@ export default function Home() {
     setActivePanel("chat"); setMobilePane(null);
     requestAnimationFrame(() => document.getElementById("learning-chat-input")?.focus());
   };
-  const studioPanel = <StudioPanel key={activeNotebook?.id || "welcome"} stage={studyStage} sourceCount={selectedSourceIds.length} hasNotebook={!!activeNotebook} coachKey={`learnloop:coach:v1:${authUser.id}:${activeNotebook?.id || "welcome"}`} onCoachAction={coachAction} onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
+  const studioPanel = <StudioPanel courseKind={activeCourse?.kind} courseTitle={activeCourse?.title || activeNotebook?.title} key={activeNotebook?.id || "welcome"} stage={studyStage} sourceCount={selectedSourceIds.length} hasNotebook={!!activeNotebook} coachKey={`learnloop:coach:v1:${authUser.id}:${activeNotebook?.id || "welcome"}`} onCoachAction={coachAction} onGenerate={startGenerate} onOpen={openPanel} disabled={Boolean(openingNotebookId)} />;
   const profilePace = asRecord(profile?.pace);
 
   return (
@@ -977,7 +995,7 @@ export default function Home() {
               onOpenStudio={() => setMobilePane("studio")}
               onBusyChange={setChatBusy}
               sourcePolicy={sourcePolicies[activeNotebook?.id || ""] || "auto"}
-              onSourcePolicyChange={(value) => setSourcePolicies(current => ({ ...current, [activeNotebook?.id || ""]: value }))}
+              onSourcePolicyChange={changeSourcePolicy}
               onUploadClick={() => activeNotebook ? sourceInputRef.current?.click() : setNewBookOpen(true)}
               onCreateNotebook={() => { setPanelError(""); setNewBookOpen(true); }}
               onSeedConsumed={() => { setSeed(undefined); setRequest(undefined); }}
@@ -1074,7 +1092,7 @@ export default function Home() {
                 </div>
                 {groupedResources.length ? (
                   <div className="space-y-3">
-                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} onOpenMistakes={() => openPanel("mistakes")} />)}
+                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} onRenamed={saved => setResources(items => items.map(item => item.id === saved.id ? saved : item))} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} onOpenMistakes={() => openPanel("mistakes")} />)}
                   </div>
                 ) : <div className="source-empty min-h-[220px]"><FolderOpen size={24} /><strong>这里还没有资料</strong><span>从右侧学习工坊生成一份内容。</span></div>}
               </div>

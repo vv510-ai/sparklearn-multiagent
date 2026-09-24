@@ -172,7 +172,13 @@ def test_native_deck_is_editable_and_schema_rejects_extra_data(tmp_path):
 def test_native_deck_resolves_citations_and_rejects_fabricated_ones(monkeypatch, tmp_path):
     from pptx import Presentation
     from app.services import native_ppt
-    spec={"title":"二叉树复习", "slides":[{"title":"中序遍历", "bullets":["左子树、根结点、右子树。[^1]"]} for _ in range(3)]}
+    notes = "中序遍历的顺序是先访问左子树，再访问根节点，最后访问右子树。判断一道遍历题时需要先确认树的结构，再按这个顺序逐个访问，不能把节点的数值大小当成遍历顺序。[^1]"
+    spec={"title":"二叉树复习", "slides":[
+        {"title":"中序遍历", "bullets":["左子树、根结点、右子树。[^1]"], "notes": notes},
+        {"title":"遍历例题", "layout":"example", "question":"根为2，左孩子为1，右孩子为3，中序访问顺序是什么？",
+         "bullets":["先访问左孩子1", "再访问根2与右孩子3"], "answer":"1、2、3", "notes": notes},
+        {"title":"独立自测", "layout":"practice", "question":"只有根节点2时，中序访问什么？", "answer":"只访问2，没有左右子树需要访问。", "notes": notes},
+    ]}
     async def complete(*args, **kwargs):
         assert kwargs["json_object"] and kwargs["reasoning_mode"] == "disabled"
         assert kwargs["allow_model_fallback"] is False
@@ -182,7 +188,7 @@ def test_native_deck_resolves_citations_and_rejects_fabricated_ones(monkeypatch,
     monkeypatch.setattr(native_ppt,"GEN_DIR",tmp_path)
     result=asyncio.run(native_ppt.create("按给定资料复习", citations=[{"index":1,"citation":"课程讲义 · 第6章 · 第1段"}]))
     deck=Presentation(tmp_path/Path(result["url"]).name)
-    assert result["content_pages"]==3 and result["reference_pages"]==1 and result["total_pages"]==4
+    assert result["content_pages"]==4 and result["reference_pages"]==1 and result["total_pages"]==5
     assert any("[^1] 课程讲义 · 第6章 · 第1段" in shape.text for shape in deck.slides[-1].shapes if shape.has_text_frame)
     spec["slides"][0]["bullets"]=["无法核验的内容。[^2]"]
     with pytest.raises(ValueError, match="without a supplied source"):

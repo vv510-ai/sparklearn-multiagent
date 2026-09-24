@@ -520,6 +520,10 @@ export default function Chat({
                   <ResourceCard
                     key={r.id}
                     r={r}
+                    onRenamed={saved => {
+                      setMsgs(items => items.map(item => ({ ...item, resources: item.resources.map(resource => resource.id === saved.id ? saved : resource) })));
+                      onEvent?.({ type: "resource", resource: saved });
+                    }}
                     onQuizEvaluated={onQuizEvaluated}
                     interactionBusy={busy}
                     onAudioQuestion={(prompt, display, action) => send(

@@ -129,7 +129,7 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
   const nodes = visual.nodes || [];
   const imageUrl = apiAssetUrl(visual.image_url);
   if (imageUrl) {
-    const textLayout = visual.renderer === "svg-text-v1";
+    const textLayout = ["svg-text-v1", "svg-map-v2"].includes(visual.renderer || "");
     const picture = <a href={imageUrl} target="_blank" rel="noreferrer" className="block bg-[#FAF9F6]" title="打开高清原图">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={imageUrl} alt={`一图看懂${visual.title || "当前主题"}`} className="aspect-video h-auto w-full object-contain" />
@@ -140,6 +140,7 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
           <div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-700">一图看懂</div><h3 className="mt-1 text-lg font-black text-slate-950">{visual.title || "知识图"}</h3></div>
         </div>
         {textLayout ? <>
+          {visual.layout === "text_excerpt" && <p role="note" className="border-b border-emerald-100 px-4 py-3 text-xs text-amber-900">关系图尚未生成；以下保留完整文字摘要，不代表知识关系图。</p>}
           {visual.content_status === "source_excerpt" && <p className="border-b border-emerald-100 px-4 py-3 text-xs leading-5 text-emerald-900">本次扩写未通过核对，以下仅展示相关资料原文摘录，未覆盖整份资料。</p>}
           {visual.content_status === "general_knowledge" && <p className="px-4 py-3 text-xs text-amber-800">以下为通用知识整理，未经课程资料核验。</p>}
           {visual.content_status === "supplemented" && <p className="px-4 py-3 text-xs text-amber-800">以下优先依据资料，并包含通用补充；补充部分未经资料逐项核验。</p>}

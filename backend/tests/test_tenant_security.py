@@ -18,6 +18,7 @@ def test_memory_vector_search_filters_tenant_before_ranking():
         [0.9, 0.0],
         [1.0, 0.0],
     ], dtype=np.float32)
+    store._snapshot = (store.meta, store.mat)
     query = np.asarray([1.0, 0.0], dtype=np.float32)
 
     alice = store.search(query, user_id="alice", top_k=10)

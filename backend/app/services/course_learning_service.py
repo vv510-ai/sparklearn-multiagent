@@ -7,16 +7,19 @@ import hashlib
 import json
 import logging
 import re
+import time
 
 from fastapi import HTTPException
 
 from ..data.course_packs import PACKS, build_pack
 from ..llm.spark_client import llm_complete, parse_json
+from ..llm.failures import failure_code, MESSAGES
 from ..models.db import session
 from ..models.entities import LearningSpace, AssessmentSession
 from ..prompt_templates import invoke_learning_prompt
 from ..rag.ingest import chunks_for_source, validate_source_scope, COURSE_SCOPE_ID
 from .learning_scope import ensure_space
+from .course_question_contract import CONTRACT_VERSION, balance_options, evidence_statements, evidence_valid, position_dependent
 
 log = logging.getLogger("sparklearn.course_learning")
 
@@ -28,7 +31,7 @@ def catalogue() -> list[dict]:
 
 
 def public_course(course: dict) -> dict:
-    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference")} | {
+    return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference", "quality_review")} | {
         "outline": [{"id": n["id"], "name": n["name"], "objective": n.get("desc", "")}
                     for n in course.get("graph", {}).get("nodes", [])],
         "question_count": len(course.get("bank", [])),
@@ -61,52 +64,68 @@ def material_snapshot(user_id: str, notebook_id: str, source_ids: list[str]) -> 
     return sources, sample
 
 
+class DraftValidationError(ValueError):
+    """Only application-authored messages may reach the learner."""
+    def __init__(self, code: str, message: str, *, repair_issue: str = ""):
+        self.code = code
+        self.repair_issue = repair_issue or message
+        super().__init__(message)
+
+
 def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
     topics = raw.get("topics") if isinstance(raw, dict) else None
-    if not isinstance(topics, list) or not 3 <= len(topics) <= 6:
-        raise ValueError("需要 3–6 个有资料依据的知识点")
+    if not isinstance(topics, list) or not 1 <= len(topics) <= 3:
+        raise DraftValidationError("topic_count", "需要 1–3 个有依据且互不重复的起点知识点")
     by_id = {c["evidence_id"]: c for c in chunks}
     nodes, bank, lessons, evidence, stems = [], [], {}, {}, set()
+    names: set[str] = set()
     for index, topic in enumerate(topics):
         if not isinstance(topic, dict):
-            raise ValueError("知识点格式无效")
+            raise DraftValidationError("topic_format", "知识点格式无效")
         kp = f"topic_{index+1}"
         name, objective = str(topic.get("name") or "").strip(), str(topic.get("objective") or "").strip()
         if not name or len(name) > 80 or not objective or not str(topic.get("lesson") or "").strip():
-            raise ValueError("知识点名称、目标和讲义不能为空")
+            raise DraftValidationError("topic_fields", "知识点名称、目标和讲义不能为空")
+        if name in names:
+            raise DraftValidationError("duplicate_topic", "知识点名称重复，请合并而不是凑数量")
+        names.add(name)
         cited = topic.get("chunk_ids") or []
-        quote = str(topic.get("quote") or "").strip()
-        if chunks and (not cited or any(k not in by_id for k in cited) or len(quote) < 8
-                       or not any(quote in by_id[k]["text"] for k in cited)):
-            raise ValueError("资料引用未能与原文对应")
+        if not isinstance(cited, list) or any(not isinstance(k, str) for k in cited):
+            raise DraftValidationError("citation_format", "资料片段编号应为字符串数组")
+        # Provenance is bound by validated IDs to our stored originals. Asking
+        # the model to recopy a quote creates a second, unreliable source of truth.
+        if (chunks and not cited) or any(k not in by_id for k in cited):
+            raise DraftValidationError("citation_mismatch", "引用片段编号未能与当前资料对应")
         evidence[kp] = [{"source": by_id[k]["source"], "source_id": by_id[k]["source_id"],
             "page": by_id[k].get("page"), "text": by_id[k]["text"],
             "location_kind": "页" if str(by_id[k].get("source_type", "")).endswith("pdf") else "片段"} for k in cited if k in by_id]
         questions = topic.get("questions") or []
         if not isinstance(questions, list) or len(questions) != 3 or any(not isinstance(q, dict) for q in questions):
-            raise ValueError("每个知识点需要三道不同题")
-        if not any(q.get("type") == "multiple" for q in questions):
-            raise ValueError("每个知识点需要至少一道多选辨析题")
+            raise DraftValidationError("question_count", "每个知识点需要三道不同题")
+        if sum(q.get("type") == "multiple" for q in questions) != 1 or sum(q.get("type") == "single" for q in questions) != 2:
+            raise DraftValidationError("question_mix", "每个知识点需要两道单选和一道多选；请重新设计题目，不能改答案凑题型")
         for qi, q in enumerate(questions):
             options, answer = q.get("options"), q.get("answer")
             stem = str(q.get("stem") or "").strip()
             if not stem or stem in stems or len(stem) > 1500 or not isinstance(options, list) or not 2 <= len(options) <= 5:
-                raise ValueError("题目重复或选项格式不完整")
+                raise DraftValidationError("stem_or_options", "题目重复或选项格式不完整")
             if any(not isinstance(o, str) or not o.strip() for o in options) or len(set(options)) != len(options):
-                raise ValueError("题目选项必须互不重复且非空")
+                raise DraftValidationError("duplicate_options", "题目选项必须互不重复且非空")
+            if any(position_dependent(text) for text in [stem, *options]):
+                raise DraftValidationError("position_dependent", "题干和选项不能依赖其他选项的位置或字母，请改为独立陈述")
             keys = answer if isinstance(answer, list) else [answer]
             if not keys or len(set(keys)) != len(keys) or any(k not in list("ABCDE"[:len(options)]) for k in keys):
-                raise ValueError("答案不在选项范围内")
-            if q.get("type") == "multiple" and (not isinstance(answer, list) or len(answer) < 2):
-                raise ValueError(f"知识点 {index+1} 第 {qi+1} 题：多选题需要至少两个正确选项，请重新设计选项，不能把错误选项加入答案")
+                raise DraftValidationError("answer_labels", "答案不在选项范围内")
+            if q.get("type") == "multiple" and (not isinstance(answer, list) or not 2 <= len(answer) < len(options)):
+                raise DraftValidationError("multiple_answer_count", f"知识点 {index+1} 第 {qi+1} 题：多选题需要至少两个正确选项和一个错误选项，请重新设计选项，不能把错误选项加入答案")
             if q.get("type") not in ("single", "multiple") or (q["type"] == "single" and not isinstance(answer, str)):
-                raise ValueError("题型和答案格式不一致")
+                raise DraftValidationError("question_type", "题型和答案格式不一致")
             explanation = str(q.get("explain") or "").strip()
             if len(explanation) < 8:
-                raise ValueError("题目缺少可核对的解释")
+                raise DraftValidationError("explanation", "题目缺少可核对的解释")
             stems.add(stem)
             bank.append({"id": f"{kp}-{qi+1}", "kp": kp, "stem": stem, "type": q["type"],
-                "options": options, "answer": answer, "explain": explanation, "difficulty": min(3, max(1, int(q.get("difficulty", 1)))),
+                "options": options, "answer": answer, "explain": explanation, "evidence_ids": list(cited), "difficulty": min(3, max(1, int(q.get("difficulty", 1)))),
                 "citations": [{k: v for k, v in item.items() if k != "text"} for item in evidence[kp]]})
         nodes.append({"id": kp, "name": name, "desc": objective[:240], "difficulty": 1, "chapter": name})
         lessons[kp] = str(topic["lesson"])[:5000]
@@ -115,22 +134,170 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
         "boundary": "模型生成的起点检查，答案及难度尚未经教研标定；只描述已测内容。发现题目有问题可以跳过，不据此判定整门课的能力。"}
 
 
+def validate_final_topics(raw: dict, title: str, chunks: list[dict]) -> dict:
+    """Last attempt only: keep whole valid topics, never repair a key by guessing."""
+    try:
+        return validate_draft(raw, title, chunks)
+    except (ValueError, TypeError, KeyError) as original:
+        topics = raw.get("topics") if isinstance(raw, dict) else None
+        if not isinstance(topics, list) or not 1 <= len(topics) <= 3:
+            raise original
+        selected = []
+        course = None
+        for topic in topics:
+            try:
+                candidate = validate_draft({"topics": [*selected, topic]}, title, chunks)
+            except (ValueError, TypeError, KeyError):
+                continue
+            selected.append(topic)
+            course = candidate
+        if course is None:
+            raise original
+        course["omitted_topic_count"] = len(topics) - len(selected)
+        return course
+
+
+def _retain_reviewed(course: dict, rows: list[dict], issues: list[dict], allow_partial: bool):
+    bank = course["bank"]
+    if issues:
+        bad_ids = {issue["id"] for issue in issues}
+        bad_kps = {q["kp"] for q in bank if q["id"] in bad_ids} if allow_partial else set()
+        retained = [q for q in bank if q["kp"] not in bad_kps] if allow_partial else []
+        if not retained:
+            raise DraftValidationError("answer_review", "题目答案、条件或资料支持未通过独立复核",
+                repair_issue="请重新设计以下不可靠题目，不能只改字母凑数：" + json.dumps(issues, ensure_ascii=False)[:5000])
+        # Keep reviewed IDs intact across every consumer and the assessment snapshot.
+        keep = {q["kp"] for q in retained}
+        course["bank"] = bank = retained
+        course["graph"]["nodes"] = [n for n in course["graph"]["nodes"] if n["id"] in keep]
+        course["graph"]["edges"] = [e for e in course["graph"]["edges"]
+            if e["from"] in keep and e["to"] in keep]
+        for field in ("lessons", "evidence"):
+            course[field] = {kp: value for kp, value in course[field].items() if kp in keep}
+        course["omitted_topic_count"] = course.get("omitted_topic_count", 0) + len(bad_kps)
+        rows = [row for row in rows if row["id"] in {q["id"] for q in bank}]
+    return bank, rows
+
+
+async def review_course_questions(course: dict, chunks: list[dict], allow_partial: bool = False) -> None:
+    """Independently solve without showing generated keys; still fallible model review."""
+    bank = course["bank"]
+    questions = [{**{k: q[k] for k in ("id", "stem", "type", "options")},
+        "evidence_ids": q.get("evidence_ids", [])} for q in bank]
+    statements = evidence_statements(chunks)
+    context = json.dumps({"title": course["title"], "materials": list(statements.values())}, ensure_ascii=False)
+    call = invoke_learning_prompt("assessment.course_check", context=context,
+        draft=json.dumps(questions, ensure_ascii=False))
+    raw = await llm_complete(call.prompt, system=call.system, role="reasoner", temperature=0,
+        max_tokens=6000, json_mode=True, json_object=True, reasoning_mode="disabled", allow_mock_fallback=False)
+    result = parse_json(raw)
+    rows = result.get("questions") if isinstance(result, dict) else None
+    if (not isinstance(rows, list) or len(rows) != len(bank)
+            or any(not isinstance(row, dict) for row in rows)
+            or [row.get("id") for row in rows] != [q["id"] for q in bank]):
+        raise DraftValidationError("review_incomplete", "题库独立复核没有覆盖全部题目")
+    issues = []
+    for q, row in zip(bank, rows):
+        labels = list("ABCDE"[:len(q["options"])])
+        options = row.get("options")
+        complete = (isinstance(options, list) and len(options) == len(labels)
+            and all(isinstance(o, dict) for o in options)
+            and [o.get("label") for o in options] == labels
+            and all(type(o.get("correct")) is bool and str(o.get("reason") or "").strip() for o in options))
+        if (not complete or type(row.get("conditions_sufficient")) is not bool
+                or type(row.get("supported")) is not bool
+                or type(row.get("scope_preserved")) is not bool
+                or not isinstance(row.get("unstated_assumptions"), list)
+                or not isinstance(row.get("redundancy"), list)
+                or not isinstance(row.get("evidence"), list)):
+            raise DraftValidationError("review_incomplete", "题库独立复核没有完成所有选项的明确判断")
+        solved = [o["label"] for o in options if o["correct"]]
+        expected = q["answer"] if isinstance(q["answer"], list) else [q["answer"]]
+        # A reviewer occasionally claims support while its own reason admits
+        # missing evidence. Reject that contradiction instead of trusting a flag.
+        source_gap = bool(chunks) and complete and any(re.search(
+            r"(?:资料|原文|材料|片段|文中).{0,8}(?:未提|没提|没有提|未说明|没有说明|未涉及|未出现|未给|未提供|未写)|(?:非|不在)资料(?:内容|范围)",
+            str(o["reason"])) for o in options)
+        if (not complete or source_gap or row.get("conditions_sufficient") is not True
+                or row.get("supported") is not True or set(solved) != set(expected)
+                or row["scope_preserved"] is not True or row["unstated_assumptions"]
+                or row["redundancy"] or not evidence_valid(row, q, chunks)):
+            # Review comments are repair data only, never serialized into HTTP errors.
+            issues.append({"id": q["id"], "original_key": expected, "review": row,
+                "source_gap": "复核理由承认资料缺失，必须更换无法据资料判定的选项" if source_gap else ""})
+    bank, rows = _retain_reviewed(course, rows, issues, allow_partial)
+    # Inspect the already-written reasons in a separate call. No solver approval
+    # flags are shown; the critic sees every source sentence in the allowed chunks.
+    finals = [{**{key: q[key] for key in ("id", "stem", "type", "options", "answer")},
+        "evidence_ids": q.get("evidence_ids", []), "reasons": row["options"]} for q,row in zip(bank,rows)]
+    audit_call = invoke_learning_prompt("assessment.course_final_check", context=context,
+        draft=json.dumps(finals, ensure_ascii=False))
+    audited = parse_json(await llm_complete(audit_call.prompt, system=audit_call.system, role="reasoner",
+        temperature=0, max_tokens=4000, json_mode=True, json_object=True,
+        reasoning_mode="enabled", allow_mock_fallback=False))
+    audits = audited.get("questions") if isinstance(audited, dict) else None
+    if (not isinstance(audits, list) or len(audits) != len(bank)
+            or any(not isinstance(row, dict) for row in audits)
+            or [row.get("id") for row in audits] != [q["id"] for q in bank]):
+        raise DraftValidationError("final_review_incomplete", "最终解析复核没有覆盖全部题目")
+    final_issues = []
+    for q, final, audit in zip(bank, finals, audits):
+        options = audit.get("options")
+        labels = list("ABCDE"[:len(q["options"])])
+        if (not isinstance(audit.get("issues"), list)
+                or any(not isinstance(item, str) or not item.strip() for item in audit["issues"])
+                or not isinstance(options, list) or len(options) != len(labels)
+                or any(not isinstance(o, dict) for o in options)
+                or [o.get("label") for o in options] != labels
+                or any(type(o.get("accepted")) is not bool or not isinstance(o.get("issues"), list)
+                    or any(not isinstance(item, str) or not item.strip() for item in o["issues"])
+                    or o["accepted"] != (not o["issues"]) for o in options)):
+            raise DraftValidationError("final_review_incomplete", "最终解析复核没有完成逐项明确判断")
+        if audit["issues"] or any(not o["accepted"] for o in options):
+            final_issues.append({"id": q["id"], "final_question": final, "final_review": audit})
+    bank, rows = _retain_reviewed(course, rows, final_issues, allow_partial)
+    # Never publish the draft's unchecked explanation after reviewing the keys.
+    # Reuse the reasons that actually supported the independent option judgments.
+    for q, row in zip(bank, rows):
+        q["review_evidence"] = [statements[key] for key in row["evidence"]]
+        q["explain"] = "\n".join(
+            f"{o['label']}（{'应选' if o['correct'] else '不选'}）：{str(o['reason']).strip()}"
+            for o in row["options"])
+    course["quality_review"] = {"verification": "model_review", "reviewed_questions": len(bank)}
+
+
 async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
     """Repair once after validation; transport policy stays gateway-owned."""
     async def generate():
         call = prompt
         for attempt in range(2):
             raw = await llm_complete(call.prompt, system=call.system, role="reasoner",
-                temperature=0.2, max_tokens=12000 if attempt else 9000, json_mode=True, json_object=True,
-                reasoning_mode="enabled" if attempt else "disabled", allow_mock_fallback=False)
+                temperature=0.2, max_tokens=6500, json_mode=True, json_object=True,
+                reasoning_mode="disabled", allow_mock_fallback=False)
             try:
-                return validate_draft(parse_json(raw), title, chunks)
+                parsed = parse_json(raw)
+                course = (validate_final_topics if attempt else validate_draft)(parsed, title, chunks)
+                balance_options(course)
+                if not attempt:
+                    # Repair input must use the same positions the reviewer saw.
+                    for topic, node in zip(parsed["topics"], course["graph"]["nodes"]):
+                        questions = [q for q in course["bank"] if q["kp"] == node["id"]]
+                        for original, reordered in zip(topic["questions"], questions):
+                            for field in ("options", "answer", "explain"):
+                                original[field] = reordered[field]
+                    raw = json.dumps(parsed, ensure_ascii=False)
+                await review_course_questions(course, chunks, bool(attempt))
+                if course.get("omitted_topic_count"):
+                    course["preparation_note"] = (
+                        f"本次先准备了 {len(course['graph']['nodes'])} 个通过检查的起点知识点；"
+                        f"另有 {course['omitted_topic_count']} 个未通过检查，未纳入本次范围。请核对下方知识点。")
+                return course
             except (ValueError, TypeError, KeyError) as exc:
-                log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, type(exc).__name__)
+                log.warning("Course draft validation rejected attempt %d (%s)", attempt + 1, exc.code if isinstance(exc, DraftValidationError) else "json_or_format")
                 if attempt:
                     raise
                 call = invoke_learning_prompt("assessment.course_repair", base_request=prompt.prompt,
-                    draft=raw, validation_issue=str(exc)[:240])
+                    draft=raw, validation_issue=exc.repair_issue if isinstance(exc, DraftValidationError) else "JSON 或字段格式不正确，请按 schema 重写")
         raise ValueError("未取得可核对题目")
     return await asyncio.wait_for(generate(), timeout=110)
 
@@ -140,7 +307,10 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
     survey = {**survey, "notebook_id": notebook_id, "course_key": course_key, "course_title": title, "source_ids": source_ids}
     sources, chunks = material_snapshot(user_id, notebook_id, source_ids)
     intake = {k: v for k, v in survey.items() if k not in ("course_revision", "target_kps")}
-    fingerprint = hashlib.sha256(json.dumps([title, course_key, sources, intake], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    fingerprint_input = [title, course_key, sources, intake]
+    if source_ids or (course_key != "ds_algo" and course_key not in PACKS):
+        fingerprint_input.append(CONTRACT_VERSION)
+    fingerprint = hashlib.sha256(json.dumps(fingerprint_input, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     with session() as db:
         row = db.get(LearningSpace, notebook_id)
         if row.course.get("request_fingerprint") == fingerprint:
@@ -159,13 +329,26 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
         course = build_pack(course_key)
     else:
         prompt = invoke_learning_prompt("assessment.course_draft", title=title,
-            survey=json.dumps(survey, ensure_ascii=False), context=json.dumps(chunks, ensure_ascii=False) if chunks else "未提供资料；仅根据明确主题生成初步检查")
+            survey=json.dumps(survey, ensure_ascii=False), context=json.dumps([
+                {"evidence_id": c["evidence_id"], "source": c["source"], "text": c["text"]}
+                for c in chunks], ensure_ascii=False) if chunks else "未提供资料；仅根据明确主题生成初步检查")
+        started = time.monotonic()
         try:
             course = await generate_valid_course(prompt, title, chunks)
         except Exception as exc:
-            raise HTTPException(422, "暂未生成可核对的课程题目，原资料和选择已保留。请重试或选用内置入门课程。") from exc
+            code = "invalid_draft" if isinstance(exc, (ValueError, TypeError, KeyError)) else failure_code(exc)
+            log.warning("Course preparation failed code=%s elapsed_ms=%d", code, (time.monotonic() - started) * 1000)
+            detail = "题目、题型或原文引用未通过检查，未保存这份题库。" if code == "invalid_draft" else MESSAGES[code]
+            raise HTTPException(422 if code == "invalid_draft" else 503,
+                detail + (f"原因：{exc}。" if isinstance(exc, DraftValidationError) else "")
+                + "原资料和选择已保留，可缩小学习主题后重试。", headers={
+                    "X-Learning-Failure": code,
+                    "X-Learning-Validation": exc.code if isinstance(exc, DraftValidationError) else "",
+                }) from None
+        log.info("Course preparation completed elapsed_ms=%d topics=%d", (time.monotonic() - started) * 1000, len(course["graph"]["nodes"]))
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,
-        coverage_note="基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))
+        coverage_note=("基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))
+            + course.get("preparation_note", ""))
     course["revision"] = hashlib.sha256(json.dumps(course, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
     with session() as db:
         row = db.query(LearningSpace).filter_by(notebook_id=notebook_id, user_id=user_id).with_for_update().one()
