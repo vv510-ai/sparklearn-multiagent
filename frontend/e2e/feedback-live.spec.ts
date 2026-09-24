@@ -26,7 +26,8 @@ test("生产固定样本：上传、问答续接、六级资料生成与归档",
   async function post(url: string, data: any) {
     try {
       const r = await request.post(url, { data, timeout: 240_000 });
-      expect(r.ok(), url + " " + r.status()).toBe(true); return r.json();
+      if (!r.ok()) throw Error(url + " HTTP " + r.status() + " " + safe(await r.text()));
+      return r.json();
     } catch (e) { throw Error(safe(e)); }
   }
   async function stream(url: string, data: any) {
@@ -103,7 +104,9 @@ test("生产固定样本：上传、问答续接、六级资料生成与归档",
       const r = await generate(cet, "quiz", "quiz", "词汇与语境");
       expect(r.payload.questions.length).toBeGreaterThanOrEqual(4);
       expect(r.payload.questions.some((q: any) => /概括「|二叉树|高级排序/.test(q.stem))).toBe(false);
-      expect(r.payload.questions.every((q: any) => q.options?.length >= 2)).toBe(true);
+      expect(r.payload.questions.every((q: any) => q.stem?.trim() && q.answer?.trim())).toBe(true);
+      expect(r.payload.questions.filter((q: any) => ["single", "multi"].includes(q.type))
+        .every((q: any) => q.options?.length >= 2)).toBe(true);
     });
     await check("六级闪卡有实际内容", async () => {
       const r = await generate(cet, "flashcards", "flashcards", "词汇与语境");
@@ -112,13 +115,14 @@ test("生产固定样本：上传、问答续接、六级资料生成与归档",
     });
     await check("对话笔记保持章节范围且改名后可读", async () => {
       const r = await generate(cet, "doc", "conversation_notes", "词汇与语境");
+      await post(`/api/resources/${r.id}/rename`, { user_id: "session_user", title: "词汇学习笔记：固定流程复核" });
+      const reread = (await get(`/api/resources?user_id=session_user&notebook_id=${cet.id}`)).items.find((x: any) => x.id === r.id);
+      expect(reread.title).toBe("词汇学习笔记：固定流程复核");
+      // Save/rename is independently observable even if the model degraded.
       expect(r.payload.generation_mode).toBe("model");
       expect(r.payload.markdown.length).toBeGreaterThan(400);
       expect(r.payload.source_evidence.length).toBeGreaterThan(0);
       expect(r.payload.source_evidence.every((x: any) => x.section_id === "vocabulary")).toBe(true);
-      await post(`/api/resources/${r.id}/rename`, { user_id: "session_user", title: "词汇学习笔记：固定流程复核" });
-      const reread = (await get(`/api/resources?user_id=session_user&notebook_id=${cet.id}`)).items.find((x: any) => x.id === r.id);
-      expect(reread.title).toBe("词汇学习笔记：固定流程复核");
     });
     await check("六级一图看懂生成且实际图像可读取", async () => {
       const r = await generate(cet, "doc", "one_page", "词汇与语境的记忆方法");
@@ -133,12 +137,20 @@ test("生产固定样本：上传、问答续接、六级资料生成与归档",
         await writeFile(info.outputPath(`live-one-page-${i + 1}.svg`), svg);
       }
     });
-    await check("原创 Word/PDF 上传后可问答并接续 B", async () => {
-      const eco = await book("生态学资料验收"); evidence.materialNotebook = eco.id;
-      const ids = [await upload(eco, "ecology.docx", /生产者/), await upload(eco, "ecology.pdf", /生产者/)];
+    let eco: any;
+    let ids: string[] = [];
+    await check("原创 Word/PDF 上传并索引", async () => {
+      eco = await book("生态学资料验收"); evidence.materialNotebook = eco.id;
+      ids = [await upload(eco, "ecology.docx", /生产者/), await upload(eco, "ecology.pdf", /生产者/)];
+    });
+    await check("上传资料可生成独立课程", async () => {
+      expect(ids).toHaveLength(2);
       evidence.materialCourse = await post(`/api/notebooks/${eco.id}/learning/prepare`, { title: "生态系统基础", course_key: "custom", source_ids: ids });
       expect(evidence.materialCourse.source_ids).toEqual(expect.arrayContaining(ids));
       expect(evidence.materialCourse.source_ids).toHaveLength(ids.length);
+    });
+    await check("上传资料问答可接续 B 并整理笔记", async () => {
+      expect(ids).toHaveLength(2);
       await stream("/api/chat", { user_id: "session_user", notebook_id: eco.id, session_id: eco.session_id, source_ids: ids, source_policy: "strict",
         message: "根据资料解释生产者、消费者、分解者。最后问我一道选择题：分解枯叶的真菌属于什么角色？A 生产者；B 分解者；C 消费者。先不要揭晓答案。" });
       evidence.materialReply = await stream("/api/chat", { user_id: "session_user", notebook_id: eco.id, session_id: eco.session_id,
@@ -164,7 +176,16 @@ test("生产固定样本：上传、问答续接、六级资料生成与归档",
       const card = page.locator("button[aria-expanded]").filter({ hasText: "词汇学习笔记：固定流程复核" });
       if (await card.getAttribute("aria-expanded") === "false") await card.click();
       await expect(card).toBeVisible();
-      await expect(page.locator(".prose-spark").filter({ hasText: "词汇" }).first()).toBeVisible();
+      const body = page.locator(".prose-spark").filter({ hasText: "词汇" }).first();
+      await expect(body).toBeVisible();
+      expect(await body.evaluate(el => getComputedStyle(el).userSelect)).not.toBe("none");
+      const selected = await body.evaluate(el => {
+        const range = document.createRange(); range.selectNodeContents(el);
+        const selection = getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+        return selection?.toString() || "";
+      });
+      expect(selected.length).toBeGreaterThan(400);
+      await page.evaluate(() => getSelection()?.removeAllRanges());
       await page.screenshot({ path: info.outputPath("live-notes.png"), fullPage: true });
     });
     evidence.healthAfter = await get("/api/health");
