@@ -114,7 +114,8 @@ def test_one_page_failure_boundaries(monkeypatch, outcome):
         assert "image_degraded" in payload["generation_details"]["reason_codes"]
 
 
-def test_selected_chapters_not_discarded_for_missing_course_name(monkeypatch):
+@pytest.mark.parametrize("plain_markers", [False, True])
+def test_selected_chapters_not_discarded_for_missing_course_name(monkeypatch, plain_markers):
     chunks = [{"text":"极限描述无限接近。", "citation":"讲义 p.1", "source_id":"fixture"},
               {"text":"导数描述瞬时变化率。", "citation":"讲义 p.2", "source_id":"fixture"}]
     monkeypatch.setattr(doc_agent,"retrieve",lambda *a, **kw:chunks)
@@ -123,7 +124,8 @@ def test_selected_chapters_not_discarded_for_missing_course_name(monkeypatch):
         if "CAPABILITY=doc.one_page_topic_check" in prompt:
             return json.dumps({"status":"matched","reason":"极限与导数属于高等数学"})
         assert all(c["text"] in prompt for c in chunks)
-        return "# 高数\n\n## 极限\n极限描述无限接近。[^1]\n\n## 导数\n导数描述瞬时变化率。[^2]"
+        draft = "# 高数\n\n## 极限\n极限描述无限接近。[^1]\n\n## 导数\n导数描述瞬时变化率。[^2]"
+        return draft.replace("[^", "[") if plain_markers else draft
     async def grounding(*a, **kw): return {"grounded":True,"accepted":True}
     monkeypatch.setattr(doc_agent,"llm_complete",model)
     monkeypatch.setattr(doc_agent,"grounding_check",grounding)
@@ -181,3 +183,22 @@ def test_scope_fallback_uses_tool_button_focus_without_truncating_it():
     goal="请根据最近的学习对话和所选资料自动识别内容焦点，生成一图看懂：" + "布局说明"*30 + "\n\n请以最近学习对话中的实际问题为准：选词有没有记忆点"
     scope=asyncio.run(resolve_scope(goal,[],"高等数学",complete=broken,demo=False))
     assert scope["topic"]=="选词有没有记忆点"
+
+
+def test_plain_citations_keep_invalid_numbers_for_rejection_and_leave_links_unchanged():
+    from app.rag.citation import normalize_reference_markers
+    from app.safety.grounding import grounding_check_local
+    text=normalize_reference_markers("定理。[1] 补充见资料[99]。 [2](https://example.test) a[1]")
+    assert "[^1]" in text and "[^99]" in text
+    assert "[2](https://example.test) a[1]" in text
+    check = grounding_check_local(text,["定理"],allow_supplement=True)
+    assert not check.get("accepted")
+    assert "99" in str(check["unsupported"])
+    no_sources=grounding_check_local(normalize_reference_markers("依据资料[99]"),[],allow_supplement=True)
+    assert not no_sources.get("accepted") and "99" in str(no_sources["unsupported"])
+
+
+@pytest.mark.parametrize("text", ["数组 `[1]` 是单元素列表", "a[1][2]", "[章节][1]", "[1][reference]", "[1][]", "列表是[1]。", "```python\na=[99]\n```", "[1]: https://example.test [99]"])
+def test_reference_normalization_preserves_non_citation_brackets(text):
+    from app.rag.citation import normalize_reference_markers
+    assert normalize_reference_markers(text)==text

@@ -16,7 +16,7 @@ from ..llm import multimodal_gateway
 from ..llm.spark_client import llm_complete, parse_json
 from ..llm.failures import failure_code, generation_details, MESSAGES
 from ..prompt_templates import invoke_learning_prompt, render_learning_prompt_call
-from ..rag.citation import build_context, used_indices
+from ..rag.citation import build_context, used_indices, normalize_reference_markers
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check, grounding_check_local
 from ..safety.guard import safety_filter
@@ -797,6 +797,8 @@ async def _gen_one(
             extra = [chunk for chunk in extra if chunk.get("source_type") != "exam_reference"]
         chunks.extend(extra)
     ctx, citations = build_context(chunks)
+    if prompt_template == "one_page":
+        ctx = re.sub(r"(?m)^\[(\d+)\] ", r"[^\1] ", ctx)
     if kind in _STRUCTURED_KINDS:
         return await _gen_structured_resource(
             kind=kind,
@@ -980,6 +982,8 @@ async def _gen_one(
         await emit({"type": "progress", "agent": "doc", "stage": "resource_check",
                     "text": "正在检查讲解内容与资料范围…"})
     # Citation bounds are deterministic and independent of the semantic judge.
+    if prompt_template == "one_page":
+        md = normalize_reference_markers(md)
     citation_check = grounding_check_local(md, [c["text"] for c in chunks], allow_supplement=True)
     # 防幻觉第一层:答案-证据一致性(X2 深度推理)
     if conversation_only:
