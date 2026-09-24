@@ -73,9 +73,9 @@ def render_map(name, markdown, content_status, directory):
         color = colors[index]
         parts.append(f'<rect x="{x}" y="{y}" width="530" height="218" rx="20" fill="white" stroke="{color}" stroke-width="2"/>')
         for i,line in enumerate(node["heading"]):
-            text_line(line,x+24,y+39+i*34,29,color,700,bounds=(x+18,y+12,x+512,y+206))
+            text_line(line,x+24,y+44+i*34,29,color,700,bounds=(x+18,y+12,x+512,y+206))
         for i,line in enumerate(node["rows"]):
-            text_line(line,x+24,y+43+len(node["heading"])*34+i*28,25,bounds=(x+18,y+12,x+512,y+206))
+            text_line(line,x+24,y+48+len(node["heading"])*34+i*28,25,bounds=(x+18,y+12,x+512,y+206))
     if steps:
         text_line(paths[0]["title"], 60, 892, 26, "#287257", 700)
         width, gap = (1800 - 40*(len(steps)-1))/len(steps), 40
@@ -83,7 +83,7 @@ def render_map(name, markdown, content_status, directory):
             x=60+i*(width+gap)
             parts.append(f'<rect x="{x}" y="910" width="{width}" height="105" rx="18" fill="#eff6f1" stroke="#9eb9ac"/>')
             for j,line in enumerate(_wrap(step,11)):
-                text_line(line,x+width/2,943+j*29,26,anchor="middle",bounds=(x+12,918,x+width-12,1011))
+                text_line(line,x+width/2,947+j*28,26,anchor="middle",bounds=(x+12,918,x+width-12,1011))
             if i:
                 parts.append(f'<path data-relation="learning-order" d="M{x-gap},962 L{x-5},962" fill="none" stroke="#71958a" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#branch)"/>')
     scope={"checked":"依据相关资料整理 · 出处与完整文字见笔记", "general_knowledge":"通用知识整理 · 未经课程资料核验", "supplemented":"资料优先，含通用补充 · 补充内容未经资料逐项核验"}[content_status]
