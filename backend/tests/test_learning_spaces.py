@@ -391,12 +391,19 @@ def test_last_attempt_keeps_reviewed_whole_topics_through_assessment(learner, mo
             "explain": "根据题目条件分别判断每个选项。"} for j in range(3)]} for i in range(3)]}
     # Full independent response, with one explicit rejected question in a whole topic.
     rows = [{"id": f"topic_{i+1}-{j+1}", "conditions_sufficient": True, "supported": i != bad_index or j != 0,
+        "scope_preserved": True, "unstated_assumptions": [], "redundancy": [], "evidence": ["s1c1:1"],
         "options": [{"label": label, "correct": label in (["A", "B"] if j == 2 else ["A"]),
             "reason": f"根据条件{i}判断{label}"} for label in "ABC"]} for i in range(3) for j in range(3)]
     calls = []
     async def model(prompt, **kwargs):
         calls.append(prompt)
-        return json.dumps(draft if len(calls) % 2 else {"questions": rows}, ensure_ascii=False)
+        if len(calls) % 2:
+            return json.dumps(draft, ensure_ascii=False)
+        presented = json.JSONDecoder().raw_decode(prompt.split("待核对题目：", 1)[1].lstrip())[0]
+        for row, q in zip(rows, presented):
+            row["options"] = [{"label": label, "correct": option in (["甲", "乙"] if q["type"] == "multiple" else ["甲"]),
+                "reason": f"根据条件判断{option}"} for label, option in zip("ABC", q["options"])]
+        return json.dumps({"questions": rows}, ensure_ascii=False)
     monkeypatch.setattr(service, "llm_complete", model)
     response = client.post(f"/api/notebooks/{book['id']}/learning/prepare", json={
         "title": "条件练习", "course_key": "custom", "source_ids": [source_id], "survey": survey})

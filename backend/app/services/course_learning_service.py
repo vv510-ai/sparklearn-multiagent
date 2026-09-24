@@ -19,6 +19,7 @@ from ..models.entities import LearningSpace, AssessmentSession
 from ..prompt_templates import invoke_learning_prompt
 from ..rag.ingest import chunks_for_source, validate_source_scope, COURSE_SCOPE_ID
 from .learning_scope import ensure_space
+from .course_question_contract import CONTRACT_VERSION, balance_options, evidence_statements, evidence_valid, position_dependent
 
 log = logging.getLogger("sparklearn.course_learning")
 
@@ -110,6 +111,8 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
                 raise DraftValidationError("stem_or_options", "题目重复或选项格式不完整")
             if any(not isinstance(o, str) or not o.strip() for o in options) or len(set(options)) != len(options):
                 raise DraftValidationError("duplicate_options", "题目选项必须互不重复且非空")
+            if any(position_dependent(text) for text in [stem, *options]):
+                raise DraftValidationError("position_dependent", "题干和选项不能依赖其他选项的位置或字母，请改为独立陈述")
             keys = answer if isinstance(answer, list) else [answer]
             if not keys or len(set(keys)) != len(keys) or any(k not in list("ABCDE"[:len(options)]) for k in keys):
                 raise DraftValidationError("answer_labels", "答案不在选项范围内")
@@ -159,12 +162,12 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
     bank = course["bank"]
     questions = [{**{k: q[k] for k in ("id", "stem", "type", "options")},
         "evidence_ids": q.get("evidence_ids", [])} for q in bank]
-    context = json.dumps({"title": course["title"], "materials": [
-        {"id": c["evidence_id"], "text": c["text"]} for c in chunks]}, ensure_ascii=False)
+    statements = evidence_statements(chunks)
+    context = json.dumps({"title": course["title"], "materials": list(statements.values())}, ensure_ascii=False)
     call = invoke_learning_prompt("assessment.course_check", context=context,
         draft=json.dumps(questions, ensure_ascii=False))
     raw = await llm_complete(call.prompt, system=call.system, role="reasoner", temperature=0,
-        max_tokens=4500, json_mode=True, json_object=True, reasoning_mode="disabled", allow_mock_fallback=False)
+        max_tokens=6000, json_mode=True, json_object=True, reasoning_mode="disabled", allow_mock_fallback=False)
     result = parse_json(raw)
     rows = result.get("questions") if isinstance(result, dict) else None
     if (not isinstance(rows, list) or len(rows) != len(bank)
@@ -180,7 +183,11 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
             and [o.get("label") for o in options] == labels
             and all(type(o.get("correct")) is bool and str(o.get("reason") or "").strip() for o in options))
         if (not complete or type(row.get("conditions_sufficient")) is not bool
-                or type(row.get("supported")) is not bool):
+                or type(row.get("supported")) is not bool
+                or type(row.get("scope_preserved")) is not bool
+                or not isinstance(row.get("unstated_assumptions"), list)
+                or not isinstance(row.get("redundancy"), list)
+                or not isinstance(row.get("evidence"), list)):
             raise DraftValidationError("review_incomplete", "题库独立复核没有完成所有选项的明确判断")
         solved = [o["label"] for o in options if o["correct"]]
         expected = q["answer"] if isinstance(q["answer"], list) else [q["answer"]]
@@ -190,7 +197,9 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
             r"(?:资料|原文|材料|片段|文中).{0,8}(?:未提|没提|没有提|未说明|没有说明|未涉及|未出现|未给|未提供|未写)|(?:非|不在)资料(?:内容|范围)",
             str(o["reason"])) for o in options)
         if (not complete or source_gap or row.get("conditions_sufficient") is not True
-                or row.get("supported") is not True or set(solved) != set(expected)):
+                or row.get("supported") is not True or set(solved) != set(expected)
+                or row["scope_preserved"] is not True or row["unstated_assumptions"]
+                or row["redundancy"] or not evidence_valid(row, q, chunks)):
             # Review comments are repair data only, never serialized into HTTP errors.
             issues.append({"id": q["id"], "original_key": expected, "review": row,
                 "source_gap": "复核理由承认资料缺失，必须更换无法据资料判定的选项" if source_gap else ""})
@@ -214,6 +223,7 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
     # Never publish the draft's unchecked explanation after reviewing the keys.
     # Reuse the reasons that actually supported the independent option judgments.
     for q, row in zip(bank, rows):
+        q["review_evidence"] = [statements[key] for key in row["evidence"]]
         q["explain"] = "\n".join(
             f"{o['label']}（{'应选' if o['correct'] else '不选'}）：{str(o['reason']).strip()}"
             for o in row["options"])
@@ -231,6 +241,15 @@ async def generate_valid_course(prompt, title: str, chunks: list[dict]) -> dict:
             try:
                 parsed = parse_json(raw)
                 course = (validate_final_topics if attempt else validate_draft)(parsed, title, chunks)
+                balance_options(course)
+                if not attempt:
+                    # Repair input must use the same positions the reviewer saw.
+                    for topic, node in zip(parsed["topics"], course["graph"]["nodes"]):
+                        questions = [q for q in course["bank"] if q["kp"] == node["id"]]
+                        for original, reordered in zip(topic["questions"], questions):
+                            for field in ("options", "answer", "explain"):
+                                original[field] = reordered[field]
+                    raw = json.dumps(parsed, ensure_ascii=False)
                 await review_course_questions(course, chunks, bool(attempt))
                 if course.get("omitted_topic_count"):
                     course["preparation_note"] = (
@@ -252,7 +271,10 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
     survey = {**survey, "notebook_id": notebook_id, "course_key": course_key, "course_title": title, "source_ids": source_ids}
     sources, chunks = material_snapshot(user_id, notebook_id, source_ids)
     intake = {k: v for k, v in survey.items() if k not in ("course_revision", "target_kps")}
-    fingerprint = hashlib.sha256(json.dumps([title, course_key, sources, intake], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    fingerprint_input = [title, course_key, sources, intake]
+    if source_ids or (course_key != "ds_algo" and course_key not in PACKS):
+        fingerprint_input.append(CONTRACT_VERSION)
+    fingerprint = hashlib.sha256(json.dumps(fingerprint_input, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
     with session() as db:
         row = db.get(LearningSpace, notebook_id)
         if row.course.get("request_fingerprint") == fingerprint:

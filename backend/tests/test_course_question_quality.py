@@ -14,7 +14,8 @@ def course():
 
 
 def result(truth, *, supported=True):
-    return {"questions": [{"id": "topic_1-1", "conditions_sufficient": True, "supported": supported,
+    return {"questions": [{"id": "topic_1-1", "conditions_sufficient": True, "supported": supported, "scope_preserved": True,
+        "unstated_assumptions": [], "redundancy": [], "evidence": [],
         "options": [{"label": label, "correct": correct, "reason": "独立判断题干目标与条件"}
             for label, correct in zip("ABCD", truth)]}]}
 
@@ -121,3 +122,25 @@ def test_last_attempt_still_rejects_cross_topic_duplicate_questions():
     saved = service.validate_final_topics({"topics": [topic, duplicate]}, "条件", [])
     assert len(saved["bank"]) == 3 and saved["omitted_topic_count"] == 1
     assert len({q["stem"] for q in saved["bank"]}) == 3
+
+
+@pytest.mark.parametrize("field,value", [("scope_preserved", False), ("unstated_assumptions", ["摄食必须是活物"]),
+    ("redundancy", ["B与D同义"]), ("evidence", [{"id": "unowned", "quote": "伪造原句"}])])
+def test_review_flags_and_invalid_evidence_cannot_pass(monkeypatch, field, value):
+    output = result([True, True, False, False])
+    output["questions"][0][field] = value
+    install(monkeypatch, output)
+    with pytest.raises(service.DraftValidationError):
+        asyncio.run(service.review_course_questions(course(), []))
+
+
+def test_evidence_statement_is_bound_to_question_scope(monkeypatch):
+    chunks = [{"evidence_id": "s1c1", "text": "呼吸与分解释放二氧化碳。"},
+        {"evidence_id": "s2c1", "text": "燃烧也释放二氧化碳。"}]
+    value = course()
+    value["bank"][0]["evidence_ids"] = ["s1c1"]
+    output = result([True, True, False, False])
+    output["questions"][0]["evidence"] = ["s2c1:1"]
+    install(monkeypatch, output)
+    with pytest.raises(service.DraftValidationError):
+        asyncio.run(service.review_course_questions(value, chunks))

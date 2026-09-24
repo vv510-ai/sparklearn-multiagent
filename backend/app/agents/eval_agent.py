@@ -57,8 +57,10 @@ def _learner_summary(resources: dict, flags: list, prompt_template: str = "") ->
         pages = [page for visual in visuals for page in (visual.get("pages") or [visual])]
         if pages and any(page.get("image_status") != "ready" for page in pages):
             return "部分图片未生成，已保留可用图片和文字内容。" if any(page.get("image_status") == "ready" for page in pages) else "图片未生成，已保留文字内容与出处，可先阅读文字版后重试。"
+        if any(visual.get("layout") == "text_excerpt" for visual in visuals):
+            return "关系图尚未生成，已保留完整文字摘要与出处。可打开卡片阅读。"
         if any(visual.get("content_status") == "source_excerpt" for visual in visuals):
-            return "已将相关资料原文排成知识图。本次扩写未通过核对，因此只展示资料摘录，可打开卡片查看出处。"
+            return "本次扩写未通过核对，已保留资料摘录与出处，关系图尚未生成。"
     text = _ARTIFACT_READY_TEXT.get(
         prompt_template,
         "学习内容已经准备好了，打开下面的卡片继续学习。",

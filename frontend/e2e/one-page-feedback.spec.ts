@@ -71,7 +71,7 @@ for (const scenario of [
   expect(resource.citations.every((c: string) => c.includes("cet6-guide-v1"))).toBe(true);
   {
     expect(resource.payload.one_page_visual.image_status).toBe("ready");
-    expect(resource.payload.one_page_visual.renderer).toBe("svg-text-v1");
+    expect(["svg-text-v1", "svg-map-v2"]).toContain(resource.payload.one_page_visual.renderer);
     expect(resource.payload.one_page_visual.markdown_sha256).toBe(createHash("sha256").update(resource.payload.markdown).digest("hex"));
     if (process.env.PLAYWRIGHT_BASE_URL) expect(["model", "source_guide"]).toContain(resource.payload.generation_mode);
     const pages = resource.payload.one_page_visual.pages || [resource.payload.one_page_visual];
@@ -95,6 +95,10 @@ for (const scenario of [
       // Real font metrics must fit the card, not just estimated character counts.
       const overflow = await original.locator('text[data-content="true"]').evaluateAll(nodes => nodes.filter(node => {
         const box = (node as SVGGraphicsElement).getBBox();
+        if (node.hasAttribute("data-bound-left")) return box.x < Number(node.getAttribute("data-bound-left")) - 1
+          || box.y < Number(node.getAttribute("data-bound-top")) - 1
+          || box.x + box.width > Number(node.getAttribute("data-bound-right")) + 1
+          || box.y + box.height > Number(node.getAttribute("data-bound-bottom")) + 1;
         const columnRight = box.x < 800 ? 785 : 1540;
         const rowBottom = box.y < 480 ? 469 : 807;
         return box.x + box.width > columnRight - 15 || box.y + box.height > rowBottom - 10;
@@ -106,7 +110,7 @@ for (const scenario of [
     }
     if (resource.payload.one_page_visual.content_status === "source_excerpt") {
       await expect(page.getByText("本次扩写未通过核对，以下仅展示相关资料原文摘录，未覆盖整份资料。").first()).toBeVisible();
-      expect(summary).toContain("只展示资料摘录");
+      expect(summary).toMatch(/文字摘要|资料摘录/);
     }
     const outsider = await page.context().browser()!.newContext({ baseURL: new URL(page.url()).origin });
     try {

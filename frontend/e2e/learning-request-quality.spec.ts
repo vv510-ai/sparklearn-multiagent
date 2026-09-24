@@ -34,6 +34,12 @@ test("复合六级请求保留考点占分方法并直接生成一图看懂", as
   expect(resource.payload.generation_mode).not.toBe("unavailable");
   expect(resource.payload.one_page_visual.image_status).toBe("ready");
   if (process.env.PLAYWRIGHT_BASE_URL) {
+    expect(resource.payload.one_page_visual.renderer).toBe("svg-map-v2");
+    expect(resource.payload.one_page_visual.layout).toBe("knowledge_map");
+    expect(resource.payload.one_page_visual.pages).toHaveLength(1);
+    expect(resource.payload.one_page_visual.relation_count).toBeGreaterThan(3);
+  }
+  if (process.env.PLAYWRIGHT_BASE_URL) {
     // Live checks require a real model response, never a demo/source excerpt.
     expect(resource.payload.generation_mode).toBe("model");
     const markdown = resource.payload.markdown;
@@ -54,6 +60,22 @@ test("复合六级请求保留考点占分方法并直接生成一图看懂", as
     await expect.poll(() => image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(500);
     await image.evaluate(async el => { await (el as HTMLImageElement).decode(); });
     await image.screenshot({ path: info.outputPath(`compound-image-${index + 1}.png`), animations: "disabled" });
+    const visualPage = resource.payload.one_page_visual.pages[index];
+    const svg = await page.context().newPage();
+    try {
+      const asset = new URL(`/api${visualPage.image_url}`, page.url()).href;
+      const opened = await svg.goto(asset);
+      expect(opened?.ok()).toBe(true);
+      const overflow = await svg.locator('text[data-content="true"]').evaluateAll(nodes => nodes.filter(node => {
+        const box = (node as SVGGraphicsElement).getBBox();
+        return box.x < Number(node.getAttribute("data-bound-left")) - 1
+          || box.y < Number(node.getAttribute("data-bound-top")) - 1
+          || box.x + box.width > Number(node.getAttribute("data-bound-right")) + 1
+          || box.y + box.height > Number(node.getAttribute("data-bound-bottom")) + 1;
+      }).map(node => node.textContent));
+      expect(overflow).toEqual([]);
+      await writeFile(info.outputPath(`compound-map-${index + 1}.svg`), await opened!.text());
+    } finally { await svg.close(); }
   }
   const summary = await page.locator('[aria-label="小知回答"]').last().innerText();
   await writeFile(info.outputPath("compound-request-evidence.json"), JSON.stringify({ request, resource, summary }, null, 2));
