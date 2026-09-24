@@ -19,8 +19,8 @@
   border-radius: 25px;
   border: 1px solid #ffffffcf;
   background: linear-gradient(120deg, #ffffffb3, #effaf775);
-  backdrop-filter: blur(24px) saturate(150%);
   -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
   box-shadow:
     inset 0 1px 0 #fff,
     inset 0 -1px 0 #6c99831a,
@@ -30,23 +30,17 @@
   border-radius: 23px;
   background: var(--learning-glass);
   border: 1px solid #ffffffd9;
-  backdrop-filter: blur(22px) saturate(130%);
   -webkit-backdrop-filter: blur(22px) saturate(130%);
+  backdrop-filter: blur(22px) saturate(130%);
   box-shadow:
     inset 0 1px 0 #fff,
     0 10px 35px #2b514e10;
 }
-.notebook-layout > section.notebook-column {
-  background: #f9fcfa;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-color: #ffffff;
-}
 .notebook-column-header {
   background: #ffffff4d;
   border-bottom-color: #bfd2c759;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   padding: 17px 18px;
 }
 .notebook-column-kicker,
@@ -65,8 +59,8 @@
   background: #fbfdfc;
   border-bottom: 1px solid var(--learning-line);
   padding: 22px 26px;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .notebook-content-heading h1 {
   color: #213c32;
@@ -82,8 +76,8 @@
   background: #fff;
   border-color: #dce6e1;
   color: #243b32;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   box-shadow: 0 3px 10px #264c3b05;
 }
 .notebook-app .studio-tile {
@@ -94,8 +88,8 @@
   box-shadow:
     inset 0 1px 0 #fff,
     0 2px 6px #22493106;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   transition:
     background 0.18s ease,
     box-shadow 0.18s ease;
@@ -1085,14 +1079,16 @@
   :is(
     .notebook-topbar,
     .notebook-column,
+    .notebook-chat-footer,
+    .notebook-composer,
     .notebook-home-button,
     .notebook-icon-button,
     .studio-view,
     .studio-tile
   ) {
   background: #f7faf8;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border-color: #b9cec0;
   box-shadow: none;
 }
@@ -1108,14 +1104,16 @@
     :is(
       .notebook-topbar,
       .notebook-column,
+      .notebook-chat-footer,
+      .notebook-composer,
       .notebook-home-button,
       .notebook-icon-button,
       .studio-view,
       .studio-tile
     ) {
     background: #f7faf8;
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     border-color: #829d8c;
     box-shadow: none;
   }
@@ -1152,9 +1150,9 @@
 }
 .notebook-app[data-transparency=reduced] .notebook-mobile-nav {
   background: #f7faf8;
-  backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .notebook-mobile-nav { background: #f7faf8; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .notebook-mobile-nav { background: #f7faf8; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }

@@ -30,7 +30,7 @@
 .chat-options .notebook-chat-actions { flex-direction: column; align-items: stretch; width: 100%; }
 .chat-options .notebook-chat-actions > * { min-height: 44px; font-size: 13px; border-radius: 8px; }
 .notebook-chat-footer { padding: 10px 16px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
-.notebook-chat-footer .notebook-composer { display: block; max-width: 880px; margin-inline: auto; padding: 8px; border-radius: 8px; background: #fff; box-shadow: none; }
+.notebook-chat-footer .notebook-composer { display: block; max-width: 880px; margin-inline: auto; padding: 8px; background: var(--learning-glass); }
 .study-chat-input { display: block; width: 100%; min-height: 56px; max-height: 160px; padding: 3px 6px; resize: none; border: 0; background: transparent; color: #203831; font-size: 16px; line-height: 25px; outline: none; overflow-y: auto; }
 .study-chat-input::placeholder { color: #68776f; }
 .composer-toolbar { display: flex; align-items: center; gap: 4px; }
@@ -132,23 +132,15 @@ html[data-study-keyboard="true"] .learning-context-strip { display: none; }
   .learning-context-strip { display: none; }
 }
 
-/* The learning surface stays quiet; sources and tools open only when needed. */
-.notebook-app { background: #fff; color: #263238; }
-.notebook-app::before { display: none; }
-.notebook-topbar { background: #fff; box-shadow: none; backdrop-filter: none; border-bottom: 1px solid #e5e8ec; }
-.notebook-layout { gap: 0; padding: 0; }
-.notebook-layout .notebook-column { border: 0; border-radius: 0; background: #fff; box-shadow: none; backdrop-filter: none; }
-.workspace-sources { border-right: 1px solid #e5e8ec; }
-.workspace-studio { border-left: 1px solid #e5e8ec; }
+/* Keep the shared glass theme; responsive rules only simplify workspace chrome. */
 .workspace-home { width: auto; min-width: 44px; gap: 8px; }
 .workspace-course { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; flex: 1; text-align: left; font-size: 17px; font-weight: 650; }
 .workspace-course span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-course svg { flex-shrink: 0; }
 .workspace-course:focus-visible { outline: 2px solid #167361; outline-offset: 1px; border-radius: 4px; }
-.notebook-chat-shell, .notebook-chat-scroll { background: #fff; }
 .notebook-chat-scroll { padding: 24px; }
 .notebook-chat-scroll > div { max-width: 760px; }
-.chat-source-context { display: flex; align-items: center; flex-shrink: 0; gap: 8px; width: 100%; min-height: 44px; padding: 8px 20px; border-bottom: 1px solid #e5e8ec; background: #fff; text-align: left; color: #326ec4; font-size: 14px; }
+.chat-source-context { display: flex; align-items: center; flex-shrink: 0; gap: 8px; width: 100%; min-height: 44px; padding: 8px 20px; border-bottom: 1px solid #e5e8ec; background: var(--learning-glass); text-align: left; color: #326ec4; font-size: 14px; }
 .chat-source-context:hover { background: #f8fafb; }
 .chat-source-context svg { flex-shrink: 0; }
 .chat-source-title { min-width: 0; flex: 1; color: #263238; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -156,7 +148,6 @@ html[data-study-keyboard="true"] .learning-context-strip { display: none; }
 .chat-user-message { max-width: 88%; padding: 12px 16px; border-radius: 8px; background: #f0f2f5; color: #263238; font-size: 16px; line-height: 26px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .chat-author { color: #176c58; font-size: 13px; font-weight: 650; }
 .chat-assistant-row { gap: 0; }
-.notebook-assistant-message { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; }
 .notebook-assistant-message .prose-spark { font-size: 16px; line-height: 1.65; color: #263238; }
 .notebook-assistant-message .prose-spark h1, .notebook-assistant-message .prose-spark h2 { font-size: 21px; line-height: 1.45; letter-spacing: 0; }
 .notebook-assistant-message .prose-spark h3 { font-size: 18px; line-height: 1.5; letter-spacing: 0; }
@@ -172,7 +163,7 @@ html[data-study-keyboard="true"] .learning-context-strip { display: none; }
 .chat-source-evidence details { margin-bottom: 4px; }
 .chat-source-evidence summary { width: fit-content; max-width: 100%; padding-block: 10px; color: #326ec4; font-size: 13px; line-height: 22px; overflow-wrap: anywhere; }
 .chat-source-evidence details[open] { border-left: 2px solid #dbe6f5; padding-left: 12px; }
-.notebook-chat-footer { border: 0; background: #fff; backdrop-filter: none; box-shadow: none; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); }
+.notebook-chat-footer { border: 0; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); }
 .notebook-chat-footer .notebook-composer { max-width: 760px; border-color: #ccd4dd; padding: 8px; }
 .study-chat-input { min-height: 56px; color: #263238; }
 .study-chat-input::placeholder { color: #6b7280; }
@@ -186,8 +177,8 @@ html[data-study-keyboard="true"] .learning-context-strip { display: none; }
 .chat-policy-setting select { width: 100%; min-height: 44px; padding: 8px; border: 1px solid #d5dce3; border-radius: 6px; background: #fff; color: #263238; font-size: 14px; }
 .workspace-drawer { width: min(420px, 100%); margin-right: 0; top: var(--study-viewport-top, 0px); height: var(--study-viewport-height, 100dvh); border-radius: 0; }
 .workspace-drawer .study-dialog-body { padding: 0; overflow: hidden; }
-.workspace-drawer .notebook-mobile-sheet { height: 100%; padding: 0; border: 0; background: #fff; box-shadow: none; backdrop-filter: none; }
-.workspace-drawer .notebook-column { border: 0; border-radius: 0; background: #fff; box-shadow: none; }
+.workspace-drawer .notebook-mobile-sheet { height: 100%; padding: 0; border: 0; box-shadow: none; }
+.workspace-drawer .notebook-column { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .workspace-drawer .notebook-column-header > div:first-child { display: none; }
 .workspace-drawer .notebook-column-header { padding-top: 12px; }
 .learning-welcome { max-width: 520px; padding-block: 40px 24px; }
@@ -208,7 +199,7 @@ html[data-study-keyboard="true"] .learning-context-strip { display: none; }
   .notebook-chat-scroll { padding: 24px 16px; }
   .chat-source-context { padding-inline: 16px; }
   .notebook-chat-footer { padding: 8px 12px max(10px, env(safe-area-inset-bottom)); }
-  .notebook-chat-footer .notebook-composer { padding: 8px; }
+  .notebook-chat-footer .notebook-composer { padding: 8px; border-radius: 8px; }
   .workspace-drawer { width: 100%; }
 }
 @media (min-width: 1400px) {
