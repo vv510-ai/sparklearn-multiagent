@@ -25,6 +25,9 @@ def install(monkeypatch, output):
     async def complete(prompt, **kwargs):
         calls.append(prompt)
         assert kwargs["allow_mock_fallback"] is False
+        if "最终题目与逐项理由：" in prompt:
+            return json.dumps({"questions": [{"id": row["id"], "issues": [], "options": [
+                {"label": o["label"], "accepted": True, "issues": []} for o in row["options"]]} for row in output["questions"]]})
         return json.dumps(output, ensure_ascii=False)
     monkeypatch.setattr(service, "llm_complete", complete)
     return calls
@@ -144,3 +147,51 @@ def test_evidence_statement_is_bound_to_question_scope(monkeypatch):
     install(monkeypatch, output)
     with pytest.raises(service.DraftValidationError):
         asyncio.run(service.review_course_questions(value, chunks))
+
+
+@pytest.mark.parametrize("damage", ["scope", "missing", "label", "unknown", "contradiction"])
+def test_final_explanation_audit_is_required_after_solver_approval(monkeypatch, damage):
+    value = course()
+    value["bank"][0]["evidence_ids"] = ["s1c1"]
+    chunks = [{"evidence_id": "s1c1", "text": "绿色植物通过光合作用获得能量。某些生产者有其他能量来源。"}]
+    solved = result([True, True, False, False])
+    solved["questions"][0]["evidence"] = ["s1c1:1"]
+    solved["questions"][0]["options"][0]["reason"] = "生产者只能通过光合作用获得能量"
+    checked = {"questions": [{"id": "topic_1-1", "issues": [], "options": [
+        {"label": label, "accepted": True, "issues": []} for label in "ABCD"]}]}
+    option = checked["questions"][0]["options"][0]
+    if damage == "scope":
+        option.update(accepted=False, issues=["把绿色植物的方式扩大为全部生产者且增加只能"])
+    elif damage == "missing":
+        checked["questions"] = []
+    elif damage == "label":
+        option["label"] = "X"
+    elif damage == "unknown":
+        option["accepted"] = None
+    else:
+        option["issues"] = ["有未解决的反例"]
+    calls = []
+    async def complete(prompt, **kwargs):
+        calls.append(prompt)
+        assert kwargs["allow_mock_fallback"] is False
+        return json.dumps(solved if len(calls) == 1 else checked, ensure_ascii=False)
+    monkeypatch.setattr(service, "llm_complete", complete)
+    with pytest.raises(service.DraftValidationError) as caught:
+        asyncio.run(service.review_course_questions(value, chunks))
+    assert len(calls) == 2
+    assert "生产者只能通过光合作用获得能量" in calls[1]
+    assert "某些生产者有其他能量来源" in calls[1]  # full allowed source, not solver-selected sentences
+    assert '"scope_preserved"' not in calls[1]
+    if damage == "scope":
+        assert "生产者只能通过光合作用获得能量" in caught.value.repair_issue
+
+
+def test_all_multiple_draft_rejected_without_changing_answers():
+    topic = {"name": "角色", "objective": "区分角色", "lesson": "按获取有机物方式区分。", "questions": [
+        {"stem": f"角色{i}", "type": "multiple", "options": ["甲", "乙", "丙"], "answer": ["A", "B"],
+        "explain": "按题目提供的条件分别作出判断。"} for i in range(3)]}
+    original = copy.deepcopy(topic)
+    with pytest.raises(service.DraftValidationError) as caught:
+        service.validate_draft({"topics": [topic]}, "角色", [])
+    assert caught.value.code == "question_mix"
+    assert topic == original

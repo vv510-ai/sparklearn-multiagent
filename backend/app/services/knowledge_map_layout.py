@@ -7,10 +7,8 @@ import uuid
 from xml.sax.saxutils import escape
 
 
-def render_map(name, markdown, content_status, directory):
+def map_plan(name, markdown):
     from .one_page_renderer import _plain, _width, _wrap
-    if content_status == "source_excerpt":
-        return None  # Never reorganize rejected content into an authoritative diagram.
     title, intro, groups = name, [], []
     for raw in markdown.splitlines():
         if not raw.strip():
@@ -41,6 +39,15 @@ def render_map(name, markdown, content_status, directory):
         steps = [s.strip() for line in paths[0]["lines"] for s in line.split("→") if s.strip()]
         if not 2 <= len(steps) <= 5 or any(len(_wrap(s, 11)) > 3 for s in steps):
             return None
+    return {"title": title, "intro": intro, "nodes": nodes, "paths": paths, "steps": steps}
+
+
+def render_map(name, markdown, content_status, directory):
+    from .one_page_renderer import _wrap
+    plan = map_plan(name, markdown) if content_status != "source_excerpt" else None
+    if plan is None:
+        return None
+    title, intro, nodes, paths, steps = (plan[k] for k in ("title", "intro", "nodes", "paths", "steps"))
     parts = ['<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">',
         f'<title>{escape(title)} · 主题关系与学习路径</title>',
         '<defs><marker id="branch" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="none" stroke="#71958a" stroke-width="1.5"/></marker></defs>',

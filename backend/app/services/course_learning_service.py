@@ -102,8 +102,8 @@ def validate_draft(raw: dict, title: str, chunks: list[dict]) -> dict:
         questions = topic.get("questions") or []
         if not isinstance(questions, list) or len(questions) != 3 or any(not isinstance(q, dict) for q in questions):
             raise DraftValidationError("question_count", "每个知识点需要三道不同题")
-        if not any(q.get("type") == "multiple" for q in questions):
-            raise DraftValidationError("missing_multiple", "每个知识点需要至少一道多选辨析题")
+        if sum(q.get("type") == "multiple" for q in questions) != 1 or sum(q.get("type") == "single" for q in questions) != 2:
+            raise DraftValidationError("question_mix", "每个知识点需要两道单选和一道多选；请重新设计题目，不能改答案凑题型")
         for qi, q in enumerate(questions):
             options, answer = q.get("options"), q.get("answer")
             stem = str(q.get("stem") or "").strip()
@@ -157,6 +157,28 @@ def validate_final_topics(raw: dict, title: str, chunks: list[dict]) -> dict:
         return course
 
 
+def _retain_reviewed(course: dict, rows: list[dict], issues: list[dict], allow_partial: bool):
+    bank = course["bank"]
+    if issues:
+        bad_ids = {issue["id"] for issue in issues}
+        bad_kps = {q["kp"] for q in bank if q["id"] in bad_ids} if allow_partial else set()
+        retained = [q for q in bank if q["kp"] not in bad_kps] if allow_partial else []
+        if not retained:
+            raise DraftValidationError("answer_review", "题目答案、条件或资料支持未通过独立复核",
+                repair_issue="请重新设计以下不可靠题目，不能只改字母凑数：" + json.dumps(issues, ensure_ascii=False)[:5000])
+        # Keep reviewed IDs intact across every consumer and the assessment snapshot.
+        keep = {q["kp"] for q in retained}
+        course["bank"] = bank = retained
+        course["graph"]["nodes"] = [n for n in course["graph"]["nodes"] if n["id"] in keep]
+        course["graph"]["edges"] = [e for e in course["graph"]["edges"]
+            if e["from"] in keep and e["to"] in keep]
+        for field in ("lessons", "evidence"):
+            course[field] = {kp: value for kp, value in course[field].items() if kp in keep}
+        course["omitted_topic_count"] = course.get("omitted_topic_count", 0) + len(bad_kps)
+        rows = [row for row in rows if row["id"] in {q["id"] for q in bank}]
+    return bank, rows
+
+
 async def review_course_questions(course: dict, chunks: list[dict], allow_partial: bool = False) -> None:
     """Independently solve without showing generated keys; still fallible model review."""
     bank = course["bank"]
@@ -203,23 +225,37 @@ async def review_course_questions(course: dict, chunks: list[dict], allow_partia
             # Review comments are repair data only, never serialized into HTTP errors.
             issues.append({"id": q["id"], "original_key": expected, "review": row,
                 "source_gap": "复核理由承认资料缺失，必须更换无法据资料判定的选项" if source_gap else ""})
-    if issues:
-        bad_ids = {issue["id"] for issue in issues}
-        bad_kps = {q["kp"] for q in bank if q["id"] in bad_ids} if allow_partial else set()
-        retained = [q for q in bank if q["kp"] not in bad_kps] if allow_partial else []
-        if not retained:
-            raise DraftValidationError("answer_review", "题目答案、条件或资料支持未通过独立复核",
-                repair_issue="请重新设计以下不可靠题目，不能只改字母凑数：" + json.dumps(issues, ensure_ascii=False)[:5000])
-        # Keep reviewed IDs intact across every consumer and the assessment snapshot.
-        keep = {q["kp"] for q in retained}
-        course["bank"] = bank = retained
-        course["graph"]["nodes"] = [n for n in course["graph"]["nodes"] if n["id"] in keep]
-        course["graph"]["edges"] = [e for e in course["graph"]["edges"]
-            if e["from"] in keep and e["to"] in keep]
-        for field in ("lessons", "evidence"):
-            course[field] = {kp: value for kp, value in course[field].items() if kp in keep}
-        course["omitted_topic_count"] = course.get("omitted_topic_count", 0) + len(bad_kps)
-        rows = [row for row in rows if row["id"] in {q["id"] for q in bank}]
+    bank, rows = _retain_reviewed(course, rows, issues, allow_partial)
+    # Inspect the already-written reasons in a separate call. No solver approval
+    # flags are shown; the critic sees every source sentence in the allowed chunks.
+    finals = [{**{key: q[key] for key in ("id", "stem", "type", "options", "answer")},
+        "evidence_ids": q.get("evidence_ids", []), "reasons": row["options"]} for q,row in zip(bank,rows)]
+    audit_call = invoke_learning_prompt("assessment.course_final_check", context=context,
+        draft=json.dumps(finals, ensure_ascii=False))
+    audited = parse_json(await llm_complete(audit_call.prompt, system=audit_call.system, role="reasoner",
+        temperature=0, max_tokens=4000, json_mode=True, json_object=True,
+        reasoning_mode="enabled", allow_mock_fallback=False))
+    audits = audited.get("questions") if isinstance(audited, dict) else None
+    if (not isinstance(audits, list) or len(audits) != len(bank)
+            or any(not isinstance(row, dict) for row in audits)
+            or [row.get("id") for row in audits] != [q["id"] for q in bank]):
+        raise DraftValidationError("final_review_incomplete", "最终解析复核没有覆盖全部题目")
+    final_issues = []
+    for q, final, audit in zip(bank, finals, audits):
+        options = audit.get("options")
+        labels = list("ABCDE"[:len(q["options"])])
+        if (not isinstance(audit.get("issues"), list)
+                or any(not isinstance(item, str) or not item.strip() for item in audit["issues"])
+                or not isinstance(options, list) or len(options) != len(labels)
+                or any(not isinstance(o, dict) for o in options)
+                or [o.get("label") for o in options] != labels
+                or any(type(o.get("accepted")) is not bool or not isinstance(o.get("issues"), list)
+                    or any(not isinstance(item, str) or not item.strip() for item in o["issues"])
+                    or o["accepted"] != (not o["issues"]) for o in options)):
+            raise DraftValidationError("final_review_incomplete", "最终解析复核没有完成逐项明确判断")
+        if audit["issues"] or any(not o["accepted"] for o in options):
+            final_issues.append({"id": q["id"], "final_question": final, "final_review": audit})
+    bank, rows = _retain_reviewed(course, rows, final_issues, allow_partial)
     # Never publish the draft's unchecked explanation after reviewing the keys.
     # Reuse the reasons that actually supported the independent option judgments.
     for q, row in zip(bank, rows):

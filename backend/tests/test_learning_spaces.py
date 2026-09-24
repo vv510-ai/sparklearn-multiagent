@@ -375,7 +375,8 @@ def test_source_text_is_bound_by_ids_not_model_recopied_quotes():
 
 
 @pytest.mark.parametrize("bad_index", [0, 1])
-def test_last_attempt_keeps_reviewed_whole_topics_through_assessment(learner, monkeypatch, bad_index):
+@pytest.mark.parametrize("bad_stage", ["solver", "final"])
+def test_last_attempt_keeps_reviewed_whole_topics_through_assessment(learner, monkeypatch, bad_index, bad_stage):
     from app.services import course_learning_service as service
     from app.models.entities import LearningSpace
     client, user = learner
@@ -390,14 +391,19 @@ def test_last_attempt_keeps_reviewed_whole_topics_through_assessment(learner, mo
             "options": ["甲", "乙", "丙"], "answer": ["A", "B"] if j == 2 else "A",
             "explain": "根据题目条件分别判断每个选项。"} for j in range(3)]} for i in range(3)]}
     # Full independent response, with one explicit rejected question in a whole topic.
-    rows = [{"id": f"topic_{i+1}-{j+1}", "conditions_sufficient": True, "supported": i != bad_index or j != 0,
+    rows = [{"id": f"topic_{i+1}-{j+1}", "conditions_sufficient": True, "supported": bad_stage != "solver" or i != bad_index or j != 0,
         "scope_preserved": True, "unstated_assumptions": [], "redundancy": [], "evidence": ["s1c1:1"],
         "options": [{"label": label, "correct": label in (["A", "B"] if j == 2 else ["A"]),
             "reason": f"根据条件{i}判断{label}"} for label in "ABC"]} for i in range(3) for j in range(3)]
     calls = []
     async def model(prompt, **kwargs):
         calls.append(prompt)
-        if len(calls) % 2:
+        if "最终题目与逐项理由：" in prompt:
+            finals = json.JSONDecoder().raw_decode(prompt.split("最终题目与逐项理由：", 1)[1].lstrip())[0]
+            return json.dumps({"questions": [{"id": q["id"],
+                "issues": ["新增资料未给的排他性限定"] if bad_stage == "final" and q["id"] == f"topic_{bad_index+1}-1" else [],
+                "options": [{"label": label, "accepted": True, "issues": []} for label in "ABC"]} for q in finals]})
+        if "待核对题目：" not in prompt:
             return json.dumps(draft, ensure_ascii=False)
         presented = json.JSONDecoder().raw_decode(prompt.split("待核对题目：", 1)[1].lstrip())[0]
         for row, q in zip(rows, presented):
@@ -410,7 +416,7 @@ def test_last_attempt_keeps_reviewed_whole_topics_through_assessment(learner, mo
     assert response.status_code == 200, response.text
     public = response.json()
     keep = {f"topic_{i+1}" for i in range(3) if i != bad_index}
-    assert len(calls) == 4
+    assert len(calls) == (5 if bad_stage == "solver" else 6)
     assert {n["id"] for n in public["outline"]} == keep
     assert public["question_count"] == public["quality_review"]["reviewed_questions"] == 6
     assert "未覆盖全文" in public["coverage_note"] and "另有 1 个未通过检查" in public["coverage_note"]

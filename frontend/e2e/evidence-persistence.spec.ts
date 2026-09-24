@@ -100,6 +100,7 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   await writeFile(info.outputPath("actual-question-review.json"), JSON.stringify({ questions, report: assessment.report }, null, 2));
   const singles = new Set(questions.filter(q => q.type === "single").map(q => q.id));
   const singleKeys = assessment.report.explanations.filter((q: { id: string }) => singles.has(q.id)).map((q: { answer: string }) => q.answer.charAt(0));
-  if (singleKeys.length >= 2) expect(new Set(singleKeys).size).toBeGreaterThan(1);
+  expect(singleKeys.length).toBe(questions.length / 3 * 2);
+  expect(new Set(singleKeys).size).toBeGreaterThan(1);
 
 });
