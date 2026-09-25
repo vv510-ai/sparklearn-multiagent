@@ -1,0 +1,663 @@
+{
+  "schema_version": 1,
+  "kind": "english_scenes",
+  "kp_prefix": "english_scene_",
+  "emoji": "🎧",
+  "course_id": "english-scenes",
+  "release_id": "english-scenes-v1",
+  "title": "英语生活场景 · 三课试学",
+  "description": "从校园里的三段日常对话开始：先听，再逐句理解，最后换个情境自己表达。",
+  "audience": "有基础英语词汇，想练习日常交流的大学生",
+  "prerequisites": "无需上传视频或教材；准备能播放声音的设备即可",
+  "scope": "3 个原创场景，含合成音频、逐句复听、表达拆解、迁移任务和隔日新题。",
+  "not_covered": "完整大学英语课程、四六级考纲、真人发音示范、口语评分与影视剧内容。",
+  "status_label": "原创场景试点 · 3 课",
+  "review": {
+    "method": "原创内容逐项核对、语言用法参考链接、音频与文本哈希及句级定位检查",
+    "note": "本站原创试点，合成语音；尚未经英语教师审校或学习效果验证。播放与自查不计入能力分数。"
+  },
+  "rights": {
+    "public_distribution": true,
+    "license_notice": "本站 AI 辅助编写的原创对话、中文解释与练习。音频由 Piper / LJSpeech medium 离线合成；声音模型作者标示 public domain，许可来源另列。未使用影视台词、音乐或演员录音。语法参考仅提供官方链接，不收录对方网页、视频或练习全文。",
+    "audio": {
+      "engine": "piper-tts 1.4.2 (GPL-3.0)",
+      "model": "Bryce Beattie LJSpeech medium",
+      "model_sha256": "6f52a751e2349abe7a76735eb09dc1875298c77ea2342ffd2fef79ff81b87f22",
+      "config_sha256": "01699b1f64aec09d359efd73aed94453d83a3fe6031de1f570bbb1df46d995d2",
+      "model_license": "public domain (model author's statement)",
+      "license_url": "https://brycebeattie.com/files/tts/",
+      "dataset_license_url": "https://keithito.com/LJ-Speech-Dataset/",
+      "distribution": "Only synthesized original-content WAV is shipped; build runtime and weights are not distributed with the website."
+    }
+  },
+  "textbook": {
+    "id": "english-scenes-original-guide",
+    "title": "LearnLoop 原创英语生活场景导学",
+    "course": "英语生活场景",
+    "version": "1.0",
+    "source_kind": "platform_original",
+    "license": "本站原创学习材料；供本平台学习使用",
+    "sections": [
+      {
+        "id": "invitation-guide",
+        "title": "同学邀约 · 原创对话与导学",
+        "url": "/api/library/releases/english-scenes-v1/sections/invitation-guide",
+        "text": "周四下课后，Maya 想约 Alex 周五一起复习。他们需要找到双方都有空的时间。先听一遍，留意最终约定。\n\nMaya: Would you like to study together at the library on Friday afternoon?\n周五下午你想一起去图书馆复习吗？\nAlex: I'd love to, but I have a lab until four. What time were you thinking?\n我很想去，不过实验课要到四点。你原本想几点？\nMaya: I was thinking three, but we could meet a little later.\n我原本想三点，不过我们可以稍晚一点见。\nAlex: Would four thirty work for you? That would give me time to get there.\n四点半你方便吗？那样我就来得及赶过去。\nMaya: That works for me. Let's meet by the library entrance.\n我可以。我们在图书馆入口见吧。\nAlex: Great. Should I bring my notes from last week's lecture?\n好。我要带上周的课堂笔记吗？\nMaya: Yes, please. I'll bring the practice questions, and we can compare our answers.\n好呀。我会带练习题，我们可以核对答案。\nAlex: Perfect. See you at four thirty on Friday, by the entrance.\n太好了。周五四点半入口见。\n\n### 先听意图，再看表达\n邀请不只是一句问话：要说明活动，再协调时间，最后确认地点。\n\n**Would you like to …?** 后面接动作。**I'd love to, but …** 表示有意愿但有障碍。**Would … work for you?** 用来确认安排是否合适。\n\n听到多个时间时，不要只记第一个：三点是最初提议，四点是实验结束，四点半才是双方确认的见面时间。",
+        "sha256": "2b0556293055727607e05c9d6c2fa25f2655f8fb91df11804d44457c743c4f0e",
+        "kps": [
+          "english_scene_invitation"
+        ]
+      },
+      {
+        "id": "cafe-guide",
+        "title": "咖啡店点单 · 原创对话与导学",
+        "url": "/api/library/releases/english-scenes-v1/sections/cafe-guide",
+        "text": "Maya 在校园咖啡店点饮料。她想要燕麦奶，但店员提供了另一种选择。先听懂她最终买了什么。\n\nMaya: Hi. Could I have a small iced latte with oat milk, please?\n你好，请给我一杯小杯冰拿铁，换成燕麦奶。\nAlex: I'm sorry, we're out of oat milk today. We have soy milk or regular milk.\n抱歉，今天燕麦奶用完了。我们有豆奶或普通牛奶。\nMaya: Soy milk is fine. Is there an extra charge for that?\n豆奶可以。换豆奶需要加钱吗？\nAlex: No extra charge. Would you like anything to eat with your drink?\n不用加钱。你想配点吃的吗？\nMaya: No, thank you. Just the latte, to go, please.\n不用，谢谢。只要拿铁，请打包。\nAlex: Sure. That's one small iced latte with soy milk, to go.\n好的，一杯小杯冰豆奶拿铁，打包。\nMaya: That's right. Could you tell me where I should pick it up?\n没错。请问我在哪里取饮料？\nAlex: At the counter by the window. We'll call your name when it's ready.\n在窗边的柜台。做好后我们会叫你的名字。\n\n### 把订单说完整\n**Could I have …, please?** 可以礼貌点单。**with …** 补充配料；**to go** 表示带走。**We're out of …** 表示当前没有这种商品。\n\n这段对话最初要的是燕麦奶，最终确认的是豆奶；不要把第一句请求误当成最终订单。例子中的价格规则只适用于这段虚构对话，现实中需要向店员确认。",
+        "sha256": "901fa780178dbb103f58a39e529092e79a7aa0c1af73fb69c9e40253305dc248",
+        "kps": [
+          "english_scene_cafe"
+        ]
+      },
+      {
+        "id": "roommates-guide",
+        "title": "室友协商 · 原创对话与导学",
+        "url": "/api/library/releases/english-scenes-v1/sections/roommates-guide",
+        "text": "Maya 明早有考试，室友 Alex 正在和小组通话。两人要协调安静时间，不把请求变成指责。\n\nMaya: Hey, could we talk about the noise for a minute? I have an exam tomorrow morning.\n嘿，我们能聊一下声音的问题吗？我明天上午有考试。\nAlex: Sure. Is my call too loud? We're working on a group project.\n可以。我的通话声音太大了吗？我们正在做小组项目。\nMaya: A little. Could you use headphones? I'm trying to review my notes.\n有一点。你可以用耳机吗？我正想复习笔记。\nAlex: Of course. I still need to speak, though. We should finish in about twenty minutes.\n当然可以。不过我还需要说话。我们大概二十分钟后结束。\nMaya: Thanks. Could we keep the room quiet after ten tonight?\n谢谢。今晚十点之后，我们能让房间安静下来吗？\nAlex: Yes. If the call runs late, I'll move to the common room.\n可以。如果通话延迟结束，我会去公共休息室。\nMaya: That would really help. I'll use headphones when you're studying, too.\n那会很有帮助。你学习的时候我也会戴耳机。\nAlex: Sounds fair. Good luck with your exam tomorrow.\n这样很公平。祝你明天考试顺利。\n\n### 请求要具体，安排要可执行\n**Could you + 动词原形 …?** 可以请求对方调整行为。**Could we …?** 可以协商共同安排。礼貌也取决于语气和情境，不是加 could 就自动合适。\n\n戴耳机只能减少外放声音，不能消除通话者说话的声音。对话因此又约定了十点后的安静时间，以及通话延迟时去公共休息室的办法。",
+        "sha256": "3e72853619a100868b58fd522f0b5f67bb7f7e8ff15491cc32fccd88fe80e609",
+        "kps": [
+          "english_scene_roommates"
+        ]
+      }
+    ]
+  },
+  "lessons": [
+    {
+      "id": "invitation",
+      "title": "同学邀约",
+      "objective": "发出邀请；时间冲突时提出替代安排，并确认地点。",
+      "markdown": "### 先听意图，再看表达\n邀请不只是一句问话：要说明活动，再协调时间，最后确认地点。\n\n**Would you like to …?** 后面接动作。**I'd love to, but …** 表示有意愿但有障碍。**Would … work for you?** 用来确认安排是否合适。\n\n听到多个时间时，不要只记第一个：三点是最初提议，四点是实验结束，四点半才是双方确认的见面时间。",
+      "example": {
+        "code": "",
+        "output": ""
+      },
+      "task": "换个情境：邀请同学周六上午去校园摄影展；对方十点前有课。用英语写 3–5 句，提出一个可行时间并确认见面地点。不要照抄图书馆对话。",
+      "criteria": [
+        "说清楚摄影展这个活动",
+        "安排在十点之后，并询问对方是否方便",
+        "确认具体见面地点"
+      ],
+      "work_reference": "Would you like to visit the campus photo exhibition on Saturday? We could meet at ten thirty, after your class. Would that work for you? Let's meet outside the student center.",
+      "review_prompt": "隔日回到本课，用新题检查能否把表达用在不同场合。",
+      "authoring": "本站 AI 辅助编写的原创场景与练习；非影视台词、非考试真题，尚未经英语教师审校。",
+      "source_sections": [
+        "invitation-guide"
+      ],
+      "scene": {
+        "context": "周四下课后，Maya 想约 Alex 周五一起复习。他们需要找到双方都有空的时间。先听一遍，留意最终约定。",
+        "lines": [
+          {
+            "id": "invitation-1",
+            "speaker": "Maya",
+            "text": "Would you like to study together at the library on Friday afternoon?",
+            "translation": "周五下午你想一起去图书馆复习吗？"
+          },
+          {
+            "id": "invitation-2",
+            "speaker": "Alex",
+            "text": "I'd love to, but I have a lab until four. What time were you thinking?",
+            "translation": "我很想去，不过实验课要到四点。你原本想几点？"
+          },
+          {
+            "id": "invitation-3",
+            "speaker": "Maya",
+            "text": "I was thinking three, but we could meet a little later.",
+            "translation": "我原本想三点，不过我们可以稍晚一点见。"
+          },
+          {
+            "id": "invitation-4",
+            "speaker": "Alex",
+            "text": "Would four thirty work for you? That would give me time to get there.",
+            "translation": "四点半你方便吗？那样我就来得及赶过去。"
+          },
+          {
+            "id": "invitation-5",
+            "speaker": "Maya",
+            "text": "That works for me. Let's meet by the library entrance.",
+            "translation": "我可以。我们在图书馆入口见吧。"
+          },
+          {
+            "id": "invitation-6",
+            "speaker": "Alex",
+            "text": "Great. Should I bring my notes from last week's lecture?",
+            "translation": "好。我要带上周的课堂笔记吗？"
+          },
+          {
+            "id": "invitation-7",
+            "speaker": "Maya",
+            "text": "Yes, please. I'll bring the practice questions, and we can compare our answers.",
+            "translation": "好呀。我会带练习题，我们可以核对答案。"
+          },
+          {
+            "id": "invitation-8",
+            "speaker": "Alex",
+            "text": "Perfect. See you at four thirty on Friday, by the entrance.",
+            "translation": "太好了。周五四点半入口见。"
+          }
+        ],
+        "steps": [
+          {
+            "id": "1",
+            "title": "发出邀请",
+            "parts": [
+              "Would you like",
+              "to study together",
+              "on Friday afternoon?"
+            ],
+            "explanation": "would like 后接 to + 动词原形。这里是在邀请对方参与活动。"
+          },
+          {
+            "id": "2",
+            "title": "友好地说明冲突",
+            "parts": [
+              "I'd love to,",
+              "but I have a lab",
+              "until four."
+            ],
+            "explanation": "先表达意愿，再说明时间冲突；不是已经接受原定时间。"
+          },
+          {
+            "id": "3",
+            "title": "换成你自己的安排",
+            "parts": [
+              "Would",
+              "Saturday morning",
+              "work for you?"
+            ],
+            "explanation": "替换中间的时间，再问对方是否方便。work 在这里表示安排可行。"
+          }
+        ],
+        "references": [
+          {
+            "title": "British Council：邀请与请求的情态动词用法",
+            "url": "https://learnenglishteens.britishcouncil.org/grammar/b1-b2-grammar/can-could-would-invitations-offers-requests-permission"
+          }
+        ],
+        "alignment": "句级定位；不提供逐词时间对齐",
+        "audio": {
+          "file": "english-scenes-v1/invitation.wav",
+          "sha256": "9e50f009bc7207114bfa33d8ea86503c5f8a16e50170cee96fda5c67f6fd52f3",
+          "transcript_sha256": "0a8126d3bfbe27e1e94a5529bd89c65c227ece4445fac0ddd0e89494ebe068fb",
+          "duration": 34.98920634920635,
+          "cues": [
+            {
+              "line_id": "invitation-1",
+              "start": 0.0,
+              "end": 3.877732426303855
+            },
+            {
+              "line_id": "invitation-2",
+              "start": 4.177732426303855,
+              "end": 8.25283446712018
+            },
+            {
+              "line_id": "invitation-3",
+              "start": 8.552834467120181,
+              "end": 11.954557823129251
+            },
+            {
+              "line_id": "invitation-4",
+              "start": 12.254557823129252,
+              "end": 16.19034013605442
+            },
+            {
+              "line_id": "invitation-5",
+              "start": 16.49034013605442,
+              "end": 20.101043083900226
+            },
+            {
+              "line_id": "invitation-6",
+              "start": 20.401043083900227,
+              "end": 23.988526077097507
+            },
+            {
+              "line_id": "invitation-7",
+              "start": 24.288526077097504,
+              "end": 30.13995464852608
+            },
+            {
+              "line_id": "invitation-8",
+              "start": 30.439954648526076,
+              "end": 34.68920634920635
+            }
+          ],
+          "voices": [
+            "Piper LJSpeech medium"
+          ],
+          "notice": "单人美式合成朗读；用角色名区分对话，不是真人发音示范。"
+        }
+      },
+      "questions": [
+        {
+          "id": "invitation-q1",
+          "stem": "同学邀请你周一两点讨论报告，但你三点前有课。哪一句既说明冲突又提出可行安排？",
+          "code": "",
+          "options": [
+            "I'd love to, but I have class until three. Would three thirty work?",
+            "Yes, two o'clock is perfect. I have class then.",
+            "I'd love to. See you yesterday.",
+            "The report has three pages."
+          ],
+          "answer": 0,
+          "expected": "I'd love to, but I have class until three. Would three thirty work?",
+          "explanation": "先说明三点前有课，再提议三点半，既回应邀请又推动协商。"
+        },
+        {
+          "id": "invitation-q2",
+          "stem": "隔日换题：你们原本约十点。对方说 'I have class until eleven. Could we meet at eleven thirty?' 你回答 'That works for me.' 最终约在几点？",
+          "code": "",
+          "options": [
+            "十点",
+            "十一点",
+            "十一点半",
+            "没有确定"
+          ],
+          "answer": 2,
+          "expected": "十一点半",
+          "explanation": "That works for me 接受的是对方刚提出的十一点半。"
+        }
+      ]
+    },
+    {
+      "id": "cafe",
+      "title": "咖啡店点单",
+      "objective": "说明饮品、大小和冷热；缺货时确认替代选择，复述订单。",
+      "markdown": "### 把订单说完整\n**Could I have …, please?** 可以礼貌点单。**with …** 补充配料；**to go** 表示带走。**We're out of …** 表示当前没有这种商品。\n\n这段对话最初要的是燕麦奶，最终确认的是豆奶；不要把第一句请求误当成最终订单。例子中的价格规则只适用于这段虚构对话，现实中需要向店员确认。",
+      "example": {
+        "code": "",
+        "output": ""
+      },
+      "task": "换个情境：你想买大杯热红茶，不加糖，带走。店员说只有绿茶。写 3–5 句英语，确认替代饮品是否含咖啡因，再说明你是否接受，并复述最终要求。",
+      "criteria": [
+        "明确大杯、热饮、不加糖、带走",
+        "询问替代饮品是否含咖啡因",
+        "表达接受或拒绝并确认自己的选择"
+      ],
+      "work_reference": "Could I have a large hot black tea with no sugar, to go, please? Does the green tea contain caffeine? Green tea is fine for me. So that's a large hot green tea, no sugar, to go. Thank you.",
+      "review_prompt": "隔日回到本课，用新题检查能否把表达用在不同场合。",
+      "authoring": "本站 AI 辅助编写的原创场景与练习；非影视台词、非考试真题，尚未经英语教师审校。",
+      "source_sections": [
+        "cafe-guide"
+      ],
+      "scene": {
+        "context": "Maya 在校园咖啡店点饮料。她想要燕麦奶，但店员提供了另一种选择。先听懂她最终买了什么。",
+        "lines": [
+          {
+            "id": "cafe-1",
+            "speaker": "Maya",
+            "text": "Hi. Could I have a small iced latte with oat milk, please?",
+            "translation": "你好，请给我一杯小杯冰拿铁，换成燕麦奶。"
+          },
+          {
+            "id": "cafe-2",
+            "speaker": "Alex",
+            "text": "I'm sorry, we're out of oat milk today. We have soy milk or regular milk.",
+            "translation": "抱歉，今天燕麦奶用完了。我们有豆奶或普通牛奶。"
+          },
+          {
+            "id": "cafe-3",
+            "speaker": "Maya",
+            "text": "Soy milk is fine. Is there an extra charge for that?",
+            "translation": "豆奶可以。换豆奶需要加钱吗？"
+          },
+          {
+            "id": "cafe-4",
+            "speaker": "Alex",
+            "text": "No extra charge. Would you like anything to eat with your drink?",
+            "translation": "不用加钱。你想配点吃的吗？"
+          },
+          {
+            "id": "cafe-5",
+            "speaker": "Maya",
+            "text": "No, thank you. Just the latte, to go, please.",
+            "translation": "不用，谢谢。只要拿铁，请打包。"
+          },
+          {
+            "id": "cafe-6",
+            "speaker": "Alex",
+            "text": "Sure. That's one small iced latte with soy milk, to go.",
+            "translation": "好的，一杯小杯冰豆奶拿铁，打包。"
+          },
+          {
+            "id": "cafe-7",
+            "speaker": "Maya",
+            "text": "That's right. Could you tell me where I should pick it up?",
+            "translation": "没错。请问我在哪里取饮料？"
+          },
+          {
+            "id": "cafe-8",
+            "speaker": "Alex",
+            "text": "At the counter by the window. We'll call your name when it's ready.",
+            "translation": "在窗边的柜台。做好后我们会叫你的名字。"
+          }
+        ],
+        "steps": [
+          {
+            "id": "1",
+            "title": "礼貌提出需求",
+            "parts": [
+              "Could I have",
+              "a small iced latte",
+              "please?"
+            ],
+            "explanation": "Could I have …? 是点单时的请求，不是在问过去的能力。"
+          },
+          {
+            "id": "2",
+            "title": "补充具体要求",
+            "parts": [
+              "a small iced latte",
+              "with soy milk",
+              "to go"
+            ],
+            "explanation": "大小、冷热、配料和是否带走是不同信息；听复述时逐项核对。"
+          },
+          {
+            "id": "3",
+            "title": "迁移到新订单",
+            "parts": [
+              "Could I have",
+              "a large hot tea",
+              "to go, please?"
+            ],
+            "explanation": "替换饮品时也要同步修改大小和冷热，不能只换一个词。"
+          }
+        ],
+        "references": [
+          {
+            "title": "British Council：邀请与请求的情态动词用法",
+            "url": "https://learnenglishteens.britishcouncil.org/grammar/b1-b2-grammar/can-could-would-invitations-offers-requests-permission"
+          }
+        ],
+        "alignment": "句级定位；不提供逐词时间对齐",
+        "audio": {
+          "file": "english-scenes-v1/cafe.wav",
+          "sha256": "7eb81e92126496731b29439e287a478073e518aebe7abad06b6a8bf8d13e5db9",
+          "transcript_sha256": "60e4be0de7f23b687a9c5ed733b6d692e066bc591f4f7f5870c73e76774af82e",
+          "duration": 33.31736961451247,
+          "cues": [
+            {
+              "line_id": "cafe-1",
+              "start": 0.0,
+              "end": 4.063492063492063
+            },
+            {
+              "line_id": "cafe-2",
+              "start": 4.363492063492063,
+              "end": 9.611201814058957
+            },
+            {
+              "line_id": "cafe-3",
+              "start": 9.911201814058957,
+              "end": 13.545124716553287
+            },
+            {
+              "line_id": "cafe-4",
+              "start": 13.845124716553288,
+              "end": 17.71124716553288
+            },
+            {
+              "line_id": "cafe-5",
+              "start": 18.01124716553288,
+              "end": 21.633560090702947
+            },
+            {
+              "line_id": "cafe-6",
+              "start": 21.933560090702947,
+              "end": 26.06671201814059
+            },
+            {
+              "line_id": "cafe-7",
+              "start": 26.36671201814059,
+              "end": 29.176326530612243
+            },
+            {
+              "line_id": "cafe-8",
+              "start": 29.476326530612244,
+              "end": 33.017369614512475
+            }
+          ],
+          "voices": [
+            "Piper LJSpeech medium"
+          ],
+          "notice": "单人美式合成朗读；用角色名区分对话，不是真人发音示范。"
+        }
+      },
+      "questions": [
+        {
+          "id": "cafe-q1",
+          "stem": "你想确认替代牛奶会不会加钱。哪一句直接询问这件事？",
+          "code": "",
+          "options": [
+            "Where should I pick it up?",
+            "Could I have it to go?",
+            "Is there an extra charge for that?",
+            "Would you like a drink?"
+          ],
+          "answer": 2,
+          "expected": "Is there an extra charge for that?",
+          "explanation": "extra charge 指额外费用；另外三项分别问取餐、打包或邀请喝饮料。"
+        },
+        {
+          "id": "cafe-q2",
+          "stem": "隔日换题：顾客说 'A large hot tea, please.' 店员问 'For here?' 顾客回答 'To go, please.' 最终要求是什么？",
+          "code": "",
+          "options": [
+            "小杯冰茶，店内",
+            "大杯热茶，带走",
+            "大杯冰茶，带走",
+            "小杯热茶，店内"
+          ],
+          "answer": 1,
+          "expected": "大杯热茶，带走",
+          "explanation": "large / hot / to go 分别提供大小、冷热与带走的信息。"
+        }
+      ]
+    },
+    {
+      "id": "roommates",
+      "title": "室友协商",
+      "objective": "说清具体影响，礼貌请求调整，再协商双方可执行的安排。",
+      "markdown": "### 请求要具体，安排要可执行\n**Could you + 动词原形 …?** 可以请求对方调整行为。**Could we …?** 可以协商共同安排。礼貌也取决于语气和情境，不是加 could 就自动合适。\n\n戴耳机只能减少外放声音，不能消除通话者说话的声音。对话因此又约定了十点后的安静时间，以及通话延迟时去公共休息室的办法。",
+      "example": {
+        "code": "",
+        "output": ""
+      },
+      "task": "换个情境：室友常在公共书桌上放餐盒，你今晚需要用桌子准备演示。写 3–5 句英语：说明影响，请对方做一个具体动作，提出以后双方可以遵守的安排。",
+      "criteria": [
+        "说明今晚需要桌子准备演示",
+        "礼貌请求收走餐盒或清理桌面",
+        "提出双方都能执行的日常安排"
+      ],
+      "work_reference": "Could you clear the food containers from the shared desk, please? I need to prepare my presentation there tonight. Could we both clear the desk after each meal? That would make it easier for us to study.",
+      "review_prompt": "隔日回到本课，用新题检查能否把表达用在不同场合。",
+      "authoring": "本站 AI 辅助编写的原创场景与练习；非影视台词、非考试真题，尚未经英语教师审校。",
+      "source_sections": [
+        "roommates-guide"
+      ],
+      "scene": {
+        "context": "Maya 明早有考试，室友 Alex 正在和小组通话。两人要协调安静时间，不把请求变成指责。",
+        "lines": [
+          {
+            "id": "roommates-1",
+            "speaker": "Maya",
+            "text": "Hey, could we talk about the noise for a minute? I have an exam tomorrow morning.",
+            "translation": "嘿，我们能聊一下声音的问题吗？我明天上午有考试。"
+          },
+          {
+            "id": "roommates-2",
+            "speaker": "Alex",
+            "text": "Sure. Is my call too loud? We're working on a group project.",
+            "translation": "可以。我的通话声音太大了吗？我们正在做小组项目。"
+          },
+          {
+            "id": "roommates-3",
+            "speaker": "Maya",
+            "text": "A little. Could you use headphones? I'm trying to review my notes.",
+            "translation": "有一点。你可以用耳机吗？我正想复习笔记。"
+          },
+          {
+            "id": "roommates-4",
+            "speaker": "Alex",
+            "text": "Of course. I still need to speak, though. We should finish in about twenty minutes.",
+            "translation": "当然可以。不过我还需要说话。我们大概二十分钟后结束。"
+          },
+          {
+            "id": "roommates-5",
+            "speaker": "Maya",
+            "text": "Thanks. Could we keep the room quiet after ten tonight?",
+            "translation": "谢谢。今晚十点之后，我们能让房间安静下来吗？"
+          },
+          {
+            "id": "roommates-6",
+            "speaker": "Alex",
+            "text": "Yes. If the call runs late, I'll move to the common room.",
+            "translation": "可以。如果通话延迟结束，我会去公共休息室。"
+          },
+          {
+            "id": "roommates-7",
+            "speaker": "Maya",
+            "text": "That would really help. I'll use headphones when you're studying, too.",
+            "translation": "那会很有帮助。你学习的时候我也会戴耳机。"
+          },
+          {
+            "id": "roommates-8",
+            "speaker": "Alex",
+            "text": "Sounds fair. Good luck with your exam tomorrow.",
+            "translation": "这样很公平。祝你明天考试顺利。"
+          }
+        ],
+        "steps": [
+          {
+            "id": "1",
+            "title": "提出具体请求",
+            "parts": [
+              "Could you",
+              "use headphones",
+              "please?"
+            ],
+            "explanation": "Could you + 动词原形，请对方做一个具体动作。语气也会影响礼貌程度。"
+          },
+          {
+            "id": "2",
+            "title": "补充理由",
+            "parts": [
+              "I'm trying",
+              "to review",
+              "my notes."
+            ],
+            "explanation": "说明自己正在做什么，让对方理解影响；避免一上来评价对方的人品。"
+          },
+          {
+            "id": "3",
+            "title": "形成双方约定",
+            "parts": [
+              "Could we",
+              "keep the room quiet",
+              "after ten?"
+            ],
+            "explanation": "you 换成 we，协商双方共同遵守的安排；时间要具体。"
+          }
+        ],
+        "references": [
+          {
+            "title": "British Council：邀请与请求的情态动词用法",
+            "url": "https://learnenglishteens.britishcouncil.org/grammar/b1-b2-grammar/can-could-would-invitations-offers-requests-permission"
+          }
+        ],
+        "alignment": "句级定位；不提供逐词时间对齐",
+        "audio": {
+          "file": "english-scenes-v1/roommates.wav",
+          "sha256": "9036d867fc6d42abd3858bd2457d5292b726fd550c8815d6aaf41a0c8186b123",
+          "transcript_sha256": "b9ffb4592496fdbb53d61a9fdc8eba567ed3c7e00be897deb954bf9486ec9ee5",
+          "duration": 35.99927437641723,
+          "cues": [
+            {
+              "line_id": "roommates-1",
+              "start": 0.0,
+              "end": 4.574331065759637
+            },
+            {
+              "line_id": "roommates-2",
+              "start": 4.8743310657596375,
+              "end": 9.053922902494332
+            },
+            {
+              "line_id": "roommates-3",
+              "start": 9.35392290249433,
+              "end": 13.649614512471656
+            },
+            {
+              "line_id": "roommates-4",
+              "start": 13.949614512471655,
+              "end": 18.965124716553287
+            },
+            {
+              "line_id": "roommates-5",
+              "start": 19.265124716553288,
+              "end": 23.13124716553288
+            },
+            {
+              "line_id": "roommates-6",
+              "start": 23.43124716553288,
+              "end": 27.52956916099773
+            },
+            {
+              "line_id": "roommates-7",
+              "start": 27.829569160997732,
+              "end": 32.38068027210884
+            },
+            {
+              "line_id": "roommates-8",
+              "start": 32.680680272108845,
+              "end": 35.699274376417236
+            }
+          ],
+          "voices": [
+            "Piper LJSpeech medium"
+          ],
+          "notice": "单人美式合成朗读；用角色名区分对话，不是真人发音示范。"
+        }
+      },
+      "questions": [
+        {
+          "id": "roommates-q1",
+          "stem": "你需要室友把外放音乐调小，哪一句最清楚地提出具体请求？",
+          "code": "",
+          "options": [
+            "You are always a bad roommate.",
+            "Could you turn the music down? I need to study.",
+            "The music was interesting yesterday.",
+            "I own some headphones."
+          ],
+          "answer": 1,
+          "expected": "Could you turn the music down? I need to study.",
+          "explanation": "turn the music down 是可执行的动作，后半句解释需要；不是泛泛指责。"
+        },
+        {
+          "id": "roommates-q2",
+          "stem": "隔日换题：室友说 'I can move my call to the common room after nine.' 你回答 'Thanks, that would help.' 你们确认的安排是哪项？",
+          "code": "",
+          "options": [
+            "九点前取消所有通话",
+            "你搬到公共休息室",
+            "室友九点后转移通话地点",
+            "整晚都在卧室通话"
+          ],
+          "answer": 2,
+          "expected": "室友九点后转移通话地点",
+          "explanation": "主语 I 指室友，after nine 是时间边界，move my call 指转移通话地点。"
+        }
+      ]
+    }
+  ]
+}

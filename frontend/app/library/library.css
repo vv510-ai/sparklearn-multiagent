@@ -80,3 +80,20 @@
  .library-lesson h1 { font-size:25px; }
  .library-lesson pre { font-size:13px; }
 }
+
+.scene-listening { margin:28px 0; }
+.scene-controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:16px 0; }
+.scene-controls .library-check { margin:0; }
+.english-scene select { min-height:44px; max-width:100%; border:1px solid #bacbbf; border-radius:8px; padding:8px 10px; background:white; color:#203a32; }
+.scene-current-line { padding:22px; background:#f1f6ee; border-radius:12px; min-height:165px; }
+.scene-current-line .scene-english { font-family:Arial,sans-serif; font-size:22px; line-height:1.65; }
+.scene-animation { padding:24px 0; border-top:1px solid #dfe6dc; }
+.scene-parts { display:flex; flex-wrap:wrap; gap:8px; font-family:Arial,sans-serif; font-size:22px; line-height:1.6; margin:18px 0; }
+.scene-parts span { padding:6px 10px; border-radius:7px; background:#e7f1e2; border-bottom:2px solid #578668; animation:scene-part-in .25s ease-out both; }
+.scene-parts span:nth-child(2) { background:#edf1f9; border-color:#708ab1; }
+.scene-parts span:nth-child(3) { background:#fbf3e6; border-color:#aa8a58; }
+.scene-transcript-line { padding:12px 0; }
+.scene-transcript-line p { margin:6px 0; }
+@keyframes scene-part-in { from {opacity:0;transform:translateY(4px)} to {opacity:1;transform:translateY(0)} }
+@media(prefers-reduced-motion:reduce) { .scene-parts span { animation:none; } }
+@media(max-width:760px) { .scene-current-line { padding:17px; } .scene-current-line .scene-english,.scene-parts { font-size:20px; } }

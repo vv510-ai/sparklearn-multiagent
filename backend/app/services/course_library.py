@@ -19,6 +19,7 @@ from ..models.entities import CoursePublication, CourseRelease, CourseStudy, Lea
 from .profile_service import default_profile, ensure_user
 
 BUNDLE_PATH = Path(__file__).resolve().parents[1] / "data/course_library/python-foundations-v1.json"
+ENGLISH_BUNDLE_PATH = BUNDLE_PATH.with_name("english-scenes-v1.json")
 WITHDRAWN = "该版本的部分材料已停止提供，相关内容暂不可查看；已有作答记录保留。"
 
 
@@ -31,6 +32,8 @@ def validate_bundle(bundle: dict) -> None:
         raise ValueError("Course has no public distribution basis")
     if not bundle.get("rights", {}).get("license_notice") or not bundle.get("review", {}).get("method"):
         raise ValueError("License or review record missing")
+    if bundle.get("kind") == "english_scenes" and not all(bundle.get("rights", {}).get("audio", {}).get(key) for key in ("license_url", "model_license", "model_sha256")):
+        raise ValueError("Audio distribution basis missing")
     book = bundle["textbook"]
     sections = {s["id"]: s for s in book["sections"]}
     if len(sections) != len(book["sections"]) or not sections:
@@ -38,13 +41,20 @@ def validate_bundle(bundle: dict) -> None:
     for section in sections.values():
         if hashlib.sha256(section["text"].encode()).hexdigest() != section["sha256"]:
             raise ValueError("Source text hash mismatch")
-        if not section["url"].startswith("https://docs.python.org/"):
+        if book.get("source_kind") == "platform_original":
+            expected = f"/api/library/releases/{bundle['release_id']}/sections/{section['id']}"
+            if bundle.get("kind") != "english_scenes" or section["url"] != expected:
+                raise ValueError("Invalid original source provenance")
+        elif not section["url"].startswith("https://docs.python.org/"):
             raise ValueError("Unverified official source")
     lesson_ids, question_ids = set(), set()
     for lesson in bundle["lessons"]:
         if lesson["id"] in lesson_ids:
             raise ValueError("Duplicate objective")
         lesson_ids.add(lesson["id"])
+        if bundle.get("kind") == "english_scenes":
+            from .english_scene_library import validate_scene
+            validate_scene(lesson)
         for key in ("objective", "markdown", "example", "task", "criteria", "review_prompt", "questions", "source_sections"):
             if not lesson.get(key):
                 raise ValueError("Incomplete objective: " + key)
@@ -100,8 +110,13 @@ def publish(bundle: dict, *, activate: bool = True) -> str:
 
 
 def bootstrap() -> None:
+    for path in (BUNDLE_PATH, ENGLISH_BUNDLE_PATH):
+        _bootstrap_bundle(path)
+
+
+def _bootstrap_bundle(path: Path) -> None:
     from ..rag.library_index import index_identity
-    bundle = json.loads(BUNDLE_PATH.read_text(encoding="utf-8"))
+    bundle = json.loads(path.read_text(encoding="utf-8"))
     with session() as db:
         row = db.get(CourseRelease, bundle["release_id"])
         pointer = db.get(CoursePublication, bundle["course_id"])
@@ -198,7 +213,8 @@ def catalogue(user_id: str) -> dict:
         items.append({k: bundle[k] for k in ("course_id", "release_id", "title", "description", "audience",
             "prerequisites", "scope", "not_covered", "status_label", "review")} | {
             "outline": [{"id": l["id"], "title": l["title"], "objective": l["objective"]} for l in bundle["lessons"]],
-            "source": {"title": bundle["textbook"]["title"], "version": bundle["textbook"]["version"],
+            "kind": bundle.get("kind", "python_foundations"),
+            "source": {"kind": bundle["textbook"].get("source_kind", "official"), "title": bundle["textbook"]["title"], "version": bundle["textbook"]["version"],
                        "section_count": len(bundle["textbook"]["sections"]), "license": bundle["textbook"]["license"]}})
     return {"items": items, "studies": [{"id": s.id, "release_id": s.release_id, "notebook_id": s.notebook_id,
             "last_lesson": s.data.get("last_lesson"), "withdrawn": is_withdrawn(s.release_id)} for s in studies],
@@ -214,9 +230,9 @@ def course_snapshot(bundle: dict) -> dict:
     public_book = {k: copy.deepcopy(v) for k, v in book.items() if k != "sections"}
     public_book["sha256"] = digest(book)
     public_book["sections"] = [{k: v for k, v in s.items() if k != "text"} for s in book["sections"]]
-    nodes = [{"id": "foundation_" + l["id"], "name": l["title"], "desc": l["objective"],
+    nodes = [{"id": bundle.get("kp_prefix", "foundation_") + l["id"], "name": l["title"], "desc": l["objective"],
               "chapter": l["title"], "difficulty": 1} for l in bundle["lessons"]]
-    return {"title": bundle["title"], "kind": "python_foundations", "revision": digest(bundle)[:16],
+    return {"title": bundle["title"], "kind": bundle.get("kind", "python_foundations"), "revision": digest(bundle)[:16],
             "course_release_id": bundle["release_id"], "source_ids": [], "sources": [],
             "textbook": public_book, "bank": [], "lessons": {}, "evidence": {},
             "coverage_note": bundle["scope"] + "未覆盖：" + bundle["not_covered"],
@@ -235,7 +251,7 @@ def enroll(user_id: str, release_id: str) -> dict:
             nb = "nb_" + uuid.uuid4().hex
             data = default_profile()
             data.update(knowledge_mastery={}, learning_topic=bundle["title"])
-            db.add(Notebook(id=nb, user_id=user_id, title=bundle["title"], emoji="🐍",
+            db.add(Notebook(id=nb, user_id=user_id, title=bundle["title"], emoji=bundle.get("emoji", "🐍"),
                             session_id="book-" + uuid.uuid4().hex[:16]))
             db.flush()
             db.add(LearningSpace(notebook_id=nb, user_id=user_id, data=data, course=course_snapshot(bundle), path={}, version=1))
@@ -275,7 +291,7 @@ def state(user_id: str, study_id: str) -> dict:
                 attempt.pop("answer_text", None)
         return result
     bundle, _ = load_release(row.release_id)
-    result.update(withdrawn=False, title=bundle["title"], review=bundle["review"],
+    result.update(withdrawn=False, kind=bundle.get("kind", "python_foundations"), title=bundle["title"], review=bundle["review"],
         outline=[{"id": l["id"], "title": l["title"], "objective": l["objective"]} for l in bundle["lessons"]])
     return result
 
@@ -293,12 +309,18 @@ def lesson(user_id: str, study_id: str, lesson_id: str) -> dict:
     due = progress.get("next_due_at")
     ready = not due or now >= dt.datetime.fromisoformat(due)
     question = selected["questions"][index] if index < len(selected["questions"]) and ready else None
-    return {k: copy.deepcopy(selected[k]) for k in ("id", "title", "objective", "markdown", "example", "task", "criteria", "review_prompt", "authoring")} | {
+    extra = {}
+    if bundle.get("kind") == "english_scenes":
+        from .english_scene_library import public_scene
+        extra["scene"] = public_scene(selected["scene"], bundle["release_id"], lesson_id)
+        if progress.get("work", {}).get("reference_viewed"):
+            extra["work_reference"] = selected["work_reference"]
+    return extra | {k: copy.deepcopy(selected[k]) for k in ("id", "title", "objective", "markdown", "example", "task", "criteria", "review_prompt", "authoring")} | {
         "release_id": bundle["release_id"], "revision": current["revision"], "progress": progress,
         "question": {k: question[k] for k in ("id", "stem", "code", "options")} if question else None,
         "practice_status": "active" if question else "scheduled" if index < len(selected["questions"]) else "exhausted",
         "sources": [{k: copy.deepcopy(s[k]) for k in ("id", "title", "url", "text", "sha256")}
-                    | {"version": bundle["textbook"]["version"], "source_type": "official"}
+                    | {"version": bundle["textbook"]["version"], "source_type": bundle["textbook"].get("source_kind", "official")}
                     for s in bundle["textbook"]["sections"] if s["id"] in selected["source_sections"]],
         "license": bundle["textbook"]["license"], "license_notice": bundle["rights"]["license_notice"]}
 
@@ -341,9 +363,32 @@ def update_progress(user_id: str, study_id: str, lesson_id: str, req: dict) -> d
         elif req["action"] == "read":
             progress["read"] = True
         elif req["action"] == "work":
+            if not req.get("work", "").strip():
+                raise HTTPException(422, "请先写下你的回应")
+            viewed = progress.get("work", {}).get("reference_viewed", False)
             progress["work"] = {"text": req.get("work", ""), "self_checked": req.get("self_checked", []),
-                "assisted": bool(req.get("assisted")), "status": "self_reported",
-                "notice": "这是你提交的代码和自查记录，服务器没有运行它，也未据此判定掌握。"}
+                "assisted": bool(req.get("assisted")) or viewed or progress.get("work", {}).get("assisted", False), "reference_viewed": viewed, "status": "self_reported",
+                "notice": ("回应与自查已保存；" + ("已查看参考示例，后续修改记为参考后作答。" if viewed else "尚未查看参考示例。") + "没有口语评分，不据此判定掌握。") if selected.get("scene") else
+                          "这是你提交的代码和自查记录，服务器没有运行它，也未据此判定掌握。"}
+        elif req["action"] == "reveal_work":
+            if not selected.get("scene") or not progress.get("work", {}).get("text", "").strip():
+                raise HTTPException(422, "先保存自己的回应，再查看参考示例")
+            progress["work"].update(reference_viewed=True, assisted=True,
+                notice="已查看参考示例，后续修改记为参考后作答；没有口语评分，不据此判定掌握。")
+        elif req["action"] == "listen":
+            audio = selected.get("scene", {}).get("audio", {})
+            if not audio or req.get("audio_sha256") != audio["sha256"]:
+                raise HTTPException(422, "音频版本与当前课程不符")
+            from .english_scene_library import media_file
+            try:
+                media_file(audio)
+            except ValueError:
+                raise HTTPException(503, "音频暂不可用，可继续文字学习")
+            progress["listening"] = {"status": "client_reported", "audio_sha256": audio["sha256"],
+                "reported_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "notice": "浏览器报告完整播放；不代表听懂、跟读或掌握。"}
+        else:
+            raise HTTPException(422, "未知学习记录类型")
         data["last_lesson"] = lesson_id
         changed = db.query(CourseStudy).filter_by(id=row.id, user_id=user_id, revision=req["revision"]).update(
             {"data": data, "revision": req["revision"] + 1}, synchronize_session=False)

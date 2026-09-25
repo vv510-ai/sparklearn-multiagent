@@ -9,7 +9,7 @@ test("无上传进入十课课程，练习、代码和阅读记录可恢复", as
   await page.getByRole("link", { name: "没有资料也能学：打开课程目录 →" }).click();
   await expect(page.getByRole("heading", { name: "选一门课，直接开始学。" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Python 零基础入门" })).toBeVisible();
-  await page.getByRole("button", { name: "开始第一课" }).click();
+  await page.locator(".library-course-card").filter({ has: page.getByRole("heading", { name: "Python 零基础入门" }) }).getByRole("button", { name: "开始第一课" }).click();
   await expect(page.getByRole("heading", { name: "运行第一个程序" })).toBeVisible();
   await expect(page.getByRole("region", { name: "本课新题练习" })).toBeVisible();
   await page.getByText("查看本课依据：Python 官方教程", { exact: true }).click();
@@ -53,7 +53,7 @@ test("无上传进入十课课程，练习、代码和阅读记录可恢复", as
     expect(process.env.ACCEPTANCE_EXPECTED_COMMIT).toMatch(/^[0-9a-f]{40}$/);
     const user = await (await page.request.get("/api/auth/me")).json();
     const catalog = await (await page.request.get("/api/library")).json();
-    const current = catalog.studies.find((x: { release_id: string }) => x.release_id === catalog.items[0].release_id);
+    const current = catalog.studies.find((x: { release_id: string }) => x.release_id === catalog.items.find((x: { course_id: string }) => x.course_id === "python_foundations").release_id);
     const response = await page.request.post("/api/chat", { timeout: 180_000, data: {
       user_id: user.id, notebook_id: current.notebook_id, source_policy: "strict",
       message: "请依据本课 Python 官方教程说明：函数没有 return 时返回什么？给一个简短例子，并引用教材。",

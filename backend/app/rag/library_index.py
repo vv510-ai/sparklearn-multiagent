@@ -83,7 +83,7 @@ def chunks_for_book(book: dict, release_id: str) -> list[dict]:
             part = text[start:end]
             if part.strip():
                 result.append({"text": part, "source": book["title"], "source_id": book["id"],
-                    "source_type": "textbook", "course": book["course"], "course_release_id": release_id,
+                    "source_type": book.get("source_kind", "textbook"), "course": book["course"], "course_release_id": release_id,
                     "section_id": section["id"], "chapter": section["title"], "kp": ",".join(section["kps"]),
                     "page": len(result) + 1, "location_kind": "章节", "start_char": start, "end_char": end,
                     "version": book["version"], "url": section["url"], "tags": [section["title"], *section["kps"]],
