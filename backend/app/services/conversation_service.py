@@ -24,7 +24,9 @@ def append_message(user_id: str, session_id: str, role: str, content: str, *, so
 
 def clear_session_messages(user_id: str, session_id: str) -> int:
     """Delete only the authenticated user's current notebook conversation."""
-    with session() as s:
+    from .generation_jobs import transaction, cancel_in_session
+    with transaction() as s:
+        cancel_in_session(s, user_id, session_id)
         deleted = (
             s.query(ConversationMessage)
             .filter(

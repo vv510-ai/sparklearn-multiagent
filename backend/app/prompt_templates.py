@@ -9,6 +9,7 @@ long-running development process.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -45,6 +46,7 @@ class PromptCall:
             "name": "sparklearn.learning_prompt",
             "capability": self.capability,
             "version": self.version,
+            "sha256": hashlib.sha256((self.system + "\0" + self.prompt).encode()).hexdigest(),
         }
 
 

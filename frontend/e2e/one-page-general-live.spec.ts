@@ -55,12 +55,12 @@ for (const sample of cases) test(`真实小云雀：${sample.id} 跨课程生成
   await page.getByLabel("学习目标输入", { exact: true }).fill(sample.question);
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page.locator('[aria-label="小知回答"]').last()).toBeVisible();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 360_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 360_000 });
   if (sample.button) {
     const response = page.waitForResponse(r => r.url().endsWith("/api/resources/generate") && r.request().method() === "POST", { timeout: 180_000 });
     await page.getByRole("button", { name: /^一图看懂/ }).click();
     expect((await response).status()).toBe(200);
-    await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 360_000 });
+    await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 360_000 });
   }
   const saved = await (await page.request.get(`/api/resources?user_id=session_user&notebook_id=${book.id}`)).json();
   const resource = saved.items.find((r: any) => r.payload.template === "one_page");

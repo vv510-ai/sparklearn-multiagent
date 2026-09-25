@@ -35,6 +35,7 @@ _initialized_engine = None
 _init_lock = Lock()
 
 TENANT_TABLES = (
+    "generation_jobs", "generation_events", "generation_effects",
     "course_studies",
     "learning_spaces",
     "model_preferences",

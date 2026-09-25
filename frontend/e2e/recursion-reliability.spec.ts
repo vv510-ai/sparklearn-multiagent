@@ -48,7 +48,7 @@ test("已有课程上传递归资料并核对理解检查题", async ({ page }, 
   const result = await response;
   const request = result.request().postDataJSON();
   expect(result.status()).toBe(200);
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   const answer = page.locator('[aria-label="小知回答"]').last();
   await expect(answer).toContainText("未逐项核验");
   await expect(answer.getByRole("link", { name: /查看引用/ }).first()).toBeVisible();

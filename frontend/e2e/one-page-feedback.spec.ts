@@ -35,7 +35,7 @@ for (const scenario of [
   await page.getByLabel("学习目标输入", { exact: true }).fill(question);
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page.locator('[aria-label="小知回答"]').last()).toBeVisible();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   console.log("one-page: chat finished");
   const response = page.waitForResponse(r => r.url().endsWith("/api/resources/generate") && r.request().method() === "POST", { timeout: 180_000 });
   await page.getByRole("button", { name: /^一图看懂/ }).click();
@@ -43,7 +43,7 @@ for (const scenario of [
   console.log("one-page: generation response received");
   expect(result.status()).toBe(200);
   const request = result.request().postDataJSON();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 240_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 240_000 });
   // Read the persisted result; Chromium can discard a completed SSE response body.
   const saved = await (await page.request.get(`/api/resources?${new URLSearchParams({ user_id: "session_user", notebook_id: request.notebook_id })}`)).json();
   const resource = saved.items.find((item: { payload: { template: string } }) => item.payload.template === "one_page");
@@ -53,7 +53,7 @@ for (const scenario of [
     request, resource, summary,
     chat: await page.locator('[aria-label="小知回答"]').allTextContents(),
   }, null, 2));
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   const card = page.getByRole("button", { name: new RegExp(resource.title) }).first();
   if (await card.getAttribute("aria-expanded") === "false") await card.click();
   await page.screenshot({ path: info.outputPath("one-page-result.png"), fullPage: true });

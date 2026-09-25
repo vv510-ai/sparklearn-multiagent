@@ -17,6 +17,9 @@ class LearningState(TypedDict, total=False):
     user_id: str
     session_id: str
     notebook_id: str
+    job_id: str
+    run_id: str
+    course_snapshot: dict  # Immutable input captured at submission
     # 输入
     messages: Annotated[list[dict], operator.add]      # [{role, content}]
     conversation: list[dict]                           # 持久化会话快照，不参与并行追加

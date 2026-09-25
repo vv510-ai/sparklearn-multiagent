@@ -43,7 +43,7 @@ test("课程信息栏出现后，聊天输入与发送仍完整可见", async ({
   await page.getByRole("button", { name: "发送", exact: true }).click();
   expect((await request).status()).toBe(200);
   await expect(page.locator('[aria-label="小知回答"]').last()).toBeVisible();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   expect((await page.locator('[aria-label="小知回答"]').last().innerText()).length).toBeGreaterThan(40);
   await expect(input).toBeInViewport({ ratio: 1, timeout: 5000 });
   await page.screenshot({ path: info.outputPath("chat-reply-desktop.png"), fullPage: true });
@@ -53,7 +53,7 @@ test("课程信息栏出现后，聊天输入与发送仍完整可见", async ({
   await input.fill(followup);
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(input).toHaveValue("");
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   const state = await currentAssessment(page);
   const book = await (await page.request.get(`/api/notebooks/${state.notebook_id}?user_id=session_user`)).json();
   expect(book.messages.filter((m: { role: string }) => m.role === "user").map((m: { content: string }) => m.content)).toEqual(expect.arrayContaining([question, followup]));
@@ -125,7 +125,7 @@ test("新手能试答、暂停续答，并清楚区分正式作答和答案复�
   expect(payload.notebook_id).toBe(state.notebook_id);
   expect(payload.message).toContain(initial.question.stem);
   expect(payload.message).toContain("我的回答：B.");
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   await expect(page.locator('[aria-label="小知回答"]').last()).toBeVisible();
   await expect(page.getByRole("textbox", { name: "学习目标输入", exact: true })).toBeInViewport({ ratio: 1, timeout: 5000 });
   expect((await currentAssessment(page)).report).toEqual(state.report);

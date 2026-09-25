@@ -1,6 +1,6 @@
 # SparkLearn Trace 调试手册
 
-这份文档说明如何使用 `backend/runs/{session_id}/` 里的中间产物定位问题。
+这份文档说明如何使用 `backend/runs/{run_id}/` 里的中间产物定位问题。
 
 ## 1. Trace 是什么
 
@@ -15,15 +15,15 @@ POST /api/tutor
 输出目录：
 
 ```text
-backend/runs/{session_id}/
+backend/runs/{run_id}/
 ```
 
-`session_id` 来自请求状态。资源生成接口会自动生成一个随机 session id；聊天接口可以由前端传入。
-前端资源页会在本次生成区显示 `TRACE {session_id}` 与完整 `run_dir`，可以直接按这个编号打开对应目录。
+`run_id` 每次执行随机生成，原 `session_id` 仍记录在请求和摘要中用于关联对话；重试与同一对话的下一轮各自保留目录，不覆盖历史。
+前端资源页会在本次生成区显示 `TRACE {run_id}` 与完整 `run_dir`，可以直接按这个编号打开对应目录。
 也可以点击资源页里的“查看报告”，它会读取：
 
 ```text
-GET /api/debug/runs/{session_id}
+GET /api/debug/runs/{run_id}
 ```
 
 ## 2. 最先看哪个文件
@@ -173,8 +173,8 @@ payload.cover_url
 
 ```text
 POST /api/eval/submit 的返回
-backend/runs/{session_id}/profile.output.json
-backend/runs/{session_id}/state.summary.json
+backend/runs/{run_id}/profile.output.json
+backend/runs/{run_id}/state.summary.json
 ```
 
 同时查数据库：

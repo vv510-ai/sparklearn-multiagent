@@ -55,7 +55,7 @@ test("图片可选择、预览、移除，识别失败后保留图片和问题�
   await page.unroute("**/api/chat");
   // Exercise the real local API/gateway in demo mode; OCR/model accuracy is tested separately.
   await page.getByRole("button", { name: "发送", exact: true }).click();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   await expect(page.getByAltText("待发送的题目图片")).toHaveCount(0);
   await page.reload();
   await expect(page.locator(".chat-user-message").last()).toContainText("图片识别内容");

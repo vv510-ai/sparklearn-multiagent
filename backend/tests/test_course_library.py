@@ -118,7 +118,7 @@ def test_source_withdrawal_blocks_old_lessons_chat_resources_retrieval_and_repub
     b = bundle()
     # Use a unique source marker to avoid withdrawing the real pilot in other tests.
     source = b["textbook"]["sections"][0]
-    source["text"] += "\nWithdrawal fixture"
+    source["text"] += "\nWithdrawal fixture " + uuid.uuid4().hex
     import hashlib
     source["sha256"] = hashlib.sha256(source["text"].encode()).hexdigest()
     library.publish(b)

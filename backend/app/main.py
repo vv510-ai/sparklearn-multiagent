@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .api import pilot
 from .api import settings as model_settings
-from .api import learning, library
+from .api import learning, jobs, library
 from .auth import bind_request_user, decode_access_token, reset_request_user
 from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
@@ -41,7 +41,15 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         import logging
         logging.getLogger("sparklearn.library").exception("Course library publication failed: %s", exc)
-    yield
+    import asyncio, os
+    from .services.generation_jobs import enabled, worker_loop
+    worker = asyncio.create_task(worker_loop()) if enabled() and os.getenv("GENERATION_WORKER_MODE", "embedded") == "embedded" else None
+    try:
+        yield
+    finally:
+        if worker:
+            worker.cancel()
+            await asyncio.gather(worker, return_exceptions=True)
 
 
 app = FastAPI(title="知行循证 LearnLoop · 可验证个性化学习平台",
@@ -97,7 +105,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-for r in (assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
+for r in (jobs.router, assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
           tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router):
     app.include_router(r)
 

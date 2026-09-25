@@ -55,7 +55,7 @@ test("上传资料的答疑引用可以点开，刷新后保留相同原文", as
   const result = await response;
   const request = result.request().postDataJSON();
   expect(result.status()).toBe(200);
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   const answer = page.locator('[aria-label="小知回答"]').last();
   await expect(answer).toContainText("未逐项核验");
   await expect(answer.getByRole("link", { name: /查看引用/ }).first()).toBeVisible();

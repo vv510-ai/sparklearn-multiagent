@@ -8,6 +8,7 @@ from .study import StudySurvey
 
 
 class ChatRequest(BaseModel):
+    request_id: str = Field(default="", max_length=64)
     user_id: str = Field(default="demo_user")
     session_id: str = Field(default="s1")
     notebook_id: str = ""
@@ -22,6 +23,7 @@ class ChatRequest(BaseModel):
 
 
 class GenerateRequest(BaseModel):
+    request_id: str = Field(default="", max_length=64)
     user_id: str = "demo_user"
     session_id: str = ""
     notebook_id: str = ""

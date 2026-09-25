@@ -39,11 +39,15 @@ export interface SourceEvidence {
 }
 
 export interface SparkEvent {
+  job_id?: string;
+  reset?: boolean;
+  event_id?: number;
+  status?: string;
   type:
     | "agent_start" | "agent_end" | "agent_token"
     | "token" | "resource" | "profile" | "path"
     | "progress" | "citations" | "safety" | "summary" | "trace"
-    | "conversation_cleared" | "error" | "done";
+    | "conversation_cleared" | "error" | "job" | "done";
   ts?: string;
   agent?: AgentId | string;
   label?: string;

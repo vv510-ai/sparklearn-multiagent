@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import hashlib
 import logging
 import threading
@@ -17,6 +18,7 @@ from typing import Any, Awaitable, Callable
 import requests
 
 from ..agents.emitter import emit
+from ..services.generation_jobs import durable_call
 from ..config import GEN_DIR, get_settings, is_demo
 from ..tenant import current_user_id
 from . import modern_media, openai_client, ark_video
@@ -36,6 +38,8 @@ MMResult = dict[str, Any]
 _MM_POOL_SIZE = 4
 _MM_POOL = ThreadPoolExecutor(max_workers=_MM_POOL_SIZE, thread_name_prefix="sparklearn-mm")
 _MM_SLOTS = threading.BoundedSemaphore(_MM_POOL_SIZE)
+_IMAGE_POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="sparklearn-image")
+_IMAGE_SLOTS = threading.BoundedSemaphore(2)
 _IMAGE_DOWNLOAD_LOCK = threading.Lock()
 _VIDEO_DOWNLOAD_LOCK = threading.Lock()
 _DEFAULT_MAX_IMAGE_BYTES = 32 * 1024 * 1024
@@ -233,12 +237,25 @@ def _generate_xiaoyunque_image(prompt: str, digest: str, settings: Any) -> str:
         if _image_suffix(cached):
             return f"/static/gen/{cached.name}"
 
-    task_id = xiaoyunque_client.create_image_task(prompt)
+    from ..services.generation_jobs import effect_start, effect_save, SubmissionUncertain, ProviderPending
+    effect_id, prior = effect_start("xiaoyunque-image:" + digest)
+    if prior and not prior.get("task_id"):
+        raise SubmissionUncertain("小云雀上次提交结果不确定，已暂停，避免重复生成和扣费。")
+    if prior:
+        task_id = prior["task_id"]
+    else:
+        task_id = xiaoyunque_client.create_image_task(prompt)
+        effect_save(effect_id, "submitted", {"task_id": task_id})
     wait_budget_s = max(1.0, float(getattr(settings, "mm_xyq_image_wait_budget_s", 150)))
     poll_interval_s = max(0.2, float(getattr(settings, "mm_xyq_image_poll_interval_s", 2)))
     deadline = time.monotonic() + wait_budget_s
     while True:
-        state = dict(xiaoyunque_client.poll_image_task(task_id))
+        try:
+            state = dict(xiaoyunque_client.poll_image_task(task_id))
+        except (requests.RequestException, TimeoutError, ConnectionError, xiaoyunque_client._TransientPollError):
+            if effect_id:
+                raise ProviderPending()
+            raise
         if state.get("status") == "succeeded":
             source_url = str(state.get("url") or "")
             if not source_url:
@@ -249,32 +266,40 @@ def _generate_xiaoyunque_image(prompt: str, digest: str, settings: Any) -> str:
                     cached = target_stem.with_suffix(suffix)
                     if _image_suffix(cached):
                         return f"/static/gen/{cached.name}"
-                target = _download_image(
-                    source_url,
-                    target_stem,
-                    timeout_s=float(getattr(settings, "mm_image_download_timeout_s", 60)),
-                    max_bytes=min(max_mb * 1024 * 1024, _DEFAULT_MAX_IMAGE_BYTES),
-                )
+                try:
+                    target = _download_image(
+                        source_url,
+                        target_stem,
+                        timeout_s=float(getattr(settings, "mm_image_download_timeout_s", 60)),
+                        max_bytes=min(max_mb * 1024 * 1024, _DEFAULT_MAX_IMAGE_BYTES),
+                    )
+                except (requests.RequestException, TimeoutError, ConnectionError, xiaoyunque_client._TransientPollError):
+                    if effect_id:
+                        raise ProviderPending()
+                    raise
             return f"/static/gen/{target.name}"
         if state.get("status") == "failed":
             raise RuntimeError(str(state.get("error") or "Xiaoyunque image task failed"))
         remaining = deadline - time.monotonic()
         if remaining <= 0:
+            if effect_id:
+                raise ProviderPending()
             raise TimeoutError(f"Xiaoyunque image task still running after {wait_budget_s:g}s")
         time.sleep(min(poll_interval_s, remaining))
 
 
-async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float) -> Any:
+async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float, *, image_pool: bool = False) -> Any:
     started = time.monotonic()
-    queue_budget = min(2.0, max(0.01, timeout_s * 0.25))
+    slots, pool = (_IMAGE_SLOTS, _IMAGE_POOL) if image_pool else (_MM_SLOTS, _MM_POOL)
+    queue_budget = min(120.0 if image_pool else 2.0, max(0.01, timeout_s * 0.5))
 
     def acquire_slot() -> bool:
         try:
-            return bool(_MM_SLOTS.acquire(blocking=True, timeout=queue_budget))
+            return bool(slots.acquire(blocking=True, timeout=queue_budget))
         except TypeError:
             # Compatibility for lightweight test semaphores and older
             # semaphore implementations without a timeout argument.
-            return bool(_MM_SLOTS.acquire(blocking=False))
+            return bool(slots.acquire(blocking=False))
 
     if not await asyncio.to_thread(acquire_slot):
         raise _MMPoolSaturated("multimodal worker pool saturated")
@@ -283,10 +308,10 @@ async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float) -> Any:
         try:
             return func()
         finally:
-            _MM_SLOTS.release()
+            slots.release()
 
     loop = asyncio.get_running_loop()
-    future = loop.run_in_executor(_MM_POOL, wrapped)
+    future = loop.run_in_executor(pool, contextvars.copy_context().run, wrapped)
     remaining = max(0.01, timeout_s - (time.monotonic() - started))
     return await asyncio.wait_for(asyncio.shield(future), timeout=remaining)
 
@@ -465,6 +490,7 @@ async def _run_sync(
     return result
 
 
+@durable_call("ocr_image")
 async def ocr_image(
     image_bytes: bytes,
     *,
@@ -604,6 +630,7 @@ async def speech_to_text(
     )
 
 
+@durable_call("tts")
 async def tts(
     text: str,
     *,
@@ -842,7 +869,7 @@ async def text_to_image(
 
     for provider, call, provider_timeout_s in attempts:
         try:
-            raw = await _run_in_mm_pool(call, provider_timeout_s)
+            raw = await _run_in_mm_pool(call, provider_timeout_s, image_pool=True)
             data = normalize(raw, provider)
             result = _result(
                 "image",
@@ -856,6 +883,9 @@ async def text_to_image(
             await _record(result, agent="media")
             return result
         except TimeoutError:
+            from ..services.generation_jobs import _context, ProviderPending
+            if provider == "xiaoyunque" and _context.get():
+                raise ProviderPending()
             errors.append(f"{provider}: timeout after {provider_timeout_s:g}s")
         except Exception as error:  # noqa: BLE001
             errors.append(f"{provider}: {_error_text(error)}")
@@ -872,6 +902,7 @@ async def text_to_image(
     return result
 
 
+@durable_call("video_create")
 async def video_create(
     prompt: str,
     *,
@@ -897,6 +928,7 @@ async def video_create(
     )
 
 
+@durable_call("ppt_create")
 async def ppt_create(query: str, *, trace_id: str = "", citations: list[dict] | None = None) -> MMResult:
     s = get_settings()
     if modern_media.select_provider("ppt", s) == "native":

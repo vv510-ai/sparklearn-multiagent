@@ -295,3 +295,48 @@ class WithdrawnCourseSource(Base):
     sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class GenerationJob(Base):
+    __tablename__ = "generation_jobs"
+    __table_args__ = (UniqueConstraint("user_id", "request_key", name="uq_generation_request"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    request_key: Mapped[str] = mapped_column(String(64))
+    fingerprint: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(16))
+    notebook_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+    checkpoints: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(24), default="queued")
+    detail: Mapped[str] = mapped_column(String(300), default="等待处理，可以稍后回来查看。")
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=now)
+
+
+class GenerationTicket(Base):
+    """Worker-only queue metadata. No prompts or results; no public API."""
+    __tablename__ = "generation_tickets"
+    id: Mapped[str] = mapped_column(String(64), ForeignKey("generation_jobs.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="queued", index=True)
+    owner: Mapped[str] = mapped_column(String(64), default="")
+    lease_until: Mapped[float] = mapped_column(Float, default=0)
+    created: Mapped[float] = mapped_column(Float)
+
+
+class GenerationEvent(Base):
+    __tablename__ = "generation_events"
+    __table_args__ = {"sqlite_autoincrement": True}
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[str] = mapped_column(String(64), ForeignKey("generation_jobs.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class GenerationEffect(Base):
+    __tablename__ = "generation_effects"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[str] = mapped_column(String(64), ForeignKey("generation_jobs.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="started")
+    data: Mapped[dict] = mapped_column(JSON, default=dict)

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from ..agents import doc_agent
 from ..agents.graph import run_with_events
+from ..services import generation_jobs as jobs
 from ..llm import multimodal_gateway
 from ..models.db import session
 from ..models.entities import Resource
@@ -40,6 +41,11 @@ async def generate(req: GenerateRequest):
     from ..services.learning_scope import selected_sources
     req.source_ids = selected_sources(req.source_ids)
     ensure_user(req.user_id)
+    request_fingerprint = jobs.digest(req.model_dump(exclude={"request_id"}))
+    if jobs.enabled():
+        previous = jobs.lookup(req.user_id, req.request_id, request_fingerprint)
+        if previous:
+            return sse_response(jobs.events(req.user_id, previous["id"]))
     notebook = ensure_notebook_owner(req.user_id, req.notebook_id) if req.notebook_id else None
     try:
         source_ids = (
@@ -104,6 +110,11 @@ async def generate(req: GenerateRequest):
         "conversation_focus": req.conversation_focus,
         "intent": "generate",                  # 显式生成,Orchestrator 将尊重该意图
     }
+    if jobs.enabled():
+        from ..services.conversation_service import _course_release_id
+        state["course_release_id"] = _course_release_id()
+        job = jobs.submit(state, "resource", req.request_id, request_fingerprint)
+        return sse_response(jobs.events(req.user_id, job["id"]))
     return sse_response(run_with_events(state))
 
 

@@ -18,6 +18,7 @@ export interface TraceNode {
 export type TraceState = Record<string, TraceNode>;
 
 const AGENT_META: Record<string, { name: string; code: string; group: string }> = {
+  queue: { name: "任务进度", code: "JOB", group: "任务进度" },
   profile: { name: "读取画像", code: "PRF", group: "理解需求" },
   orchestrator: { name: "理解需求", code: "ORC", group: "判断意图" },
   planner: { name: "整理任务", code: "PLN", group: "拆解任务" },
@@ -39,6 +40,10 @@ export function emptyTrace(): TraceState {
 }
 
 export function applyTraceEvent(prev: TraceState, ev: SparkEvent): TraceState {
+  if (ev.type === "job") {
+    return { ...prev, queue: { status: ev.status === "completed" ? "done" : "running", label: "任务进度", detail: ev.text || "", summary: "" } };
+  }
+  if (ev.type === "done" && prev.queue) return { ...prev, queue: { ...prev.queue, status: "done" } };
   const a = ev.agent as string | undefined;
   if (!a || !(a in prev)) {
     if (ev.type === "error") {

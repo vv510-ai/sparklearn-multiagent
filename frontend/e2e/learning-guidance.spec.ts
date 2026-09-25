@@ -46,7 +46,7 @@ async function send(page: Page, question: string) {
   const response = page.waitForResponse(r => r.url().endsWith("/api/chat") && r.request().method() === "POST");
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await response;
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
 }
 
 test("功能直接展示、成功问答触发建议、明确选择后才生成并保留笔记原文", async ({ page }, info) => {

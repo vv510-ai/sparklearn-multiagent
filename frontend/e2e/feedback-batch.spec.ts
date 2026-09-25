@@ -50,7 +50,7 @@ test("课程隔离、听力暂停恢复、改名持久化与移动阅读", async
   await page.getByLabel("学习目标输入", { exact: true }).fill("请带我开始“词汇与语境”的第一项学习任务。先用一句话说清今天要学什么，再给我一个可以马上作答的小问题");
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page.locator('[aria-label="小知回答"]').last()).toBeVisible();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 180_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 180_000 });
   const generated = await page.request.post("/api/resources/generate", { timeout: 180_000, data: { user_id: "session_user", notebook_id: notebookId, kinds: ["doc"], prompt_template: "conversation_notes", goal: "整理本次学习对话", conversation_focus: "我今天要学习什么内容", source_ids: [] } });
   expect(generated.ok()).toBe(true); await generated.text();
   await page.getByRole("button", { name: /^资料归档/ }).click();

@@ -26,12 +26,18 @@ _GEN_NODES = {"doc": doc_agent.run, "mindmap": mindmap_agent.run,
               "quiz": quiz_agent.run, "media": media_agent.run}
 
 try:
-    from langgraph.checkpoint.memory import MemorySaver
     from langgraph.graph import END, START, StateGraph
     _HAS_LANGGRAPH = True
 except Exception:                                          # pragma: no cover
     _HAS_LANGGRAPH = False
 
+
+from ..services.generation_jobs import checkpoint
+
+def _durable_node(name, fn):
+    async def wrapped(state):
+        return await checkpoint(name, fn, state)
+    return wrapped
 
 # ============================ LangGraph 构图 ============================
 def _guard_gen_node(name: str, fn):
@@ -49,16 +55,16 @@ def _guard_gen_node(name: str, fn):
 
 def _build_langgraph():
     g = StateGraph(LearningState)
-    g.add_node("profile", profile_agent.run)
-    g.add_node("orchestrator", orchestrator.run)
-    g.add_node("planner", planner_agent.run)
-    g.add_node("path", path_agent.run)
+    g.add_node("profile", _durable_node("profile", profile_agent.run))
+    g.add_node("orchestrator", _durable_node("orchestrator", orchestrator.run))
+    g.add_node("planner", _durable_node("planner", planner_agent.run))
+    g.add_node("path", _durable_node("path", path_agent.run))
     for name, fn in _GEN_NODES.items():
-        g.add_node(name, _guard_gen_node(name, fn))
-    g.add_node("eval", eval_agent.run)
-    g.add_node("tutor", tutor_agent.run)
-    g.add_node("guided", guided_agent.run)
-    g.add_node("conversation_note", conversation_note_agent.run)
+        g.add_node(name, _durable_node(name, _guard_gen_node(name, fn)))
+    g.add_node("eval", _durable_node("eval", eval_agent.run))
+    g.add_node("tutor", _durable_node("tutor", tutor_agent.run))
+    g.add_node("guided", _durable_node("guided", guided_agent.run))
+    g.add_node("conversation_note", _durable_node("conversation_note", conversation_note_agent.run))
 
     g.add_edge(START, "profile")
     g.add_edge("profile", "orchestrator")
@@ -73,7 +79,7 @@ def _build_langgraph():
     g.add_edge("tutor", END)
     g.add_edge("guided", END)
     g.add_edge("conversation_note", END)
-    return g.compile(checkpointer=MemorySaver())
+    return g.compile()
 
 
 # ============================ MiniGraph 兜底 ============================
@@ -93,23 +99,23 @@ class MiniGraph:
                 else:
                     s[k] = v
 
-        absorb(await profile_agent.run(s))
-        absorb(await orchestrator.run(s))
+        absorb(await checkpoint("profile", profile_agent.run, s))
+        absorb(await checkpoint("orchestrator", orchestrator.run, s))
         branch = orchestrator.route_task(s)
         if branch == "learn":
-            absorb(await guided_agent.run(s))
+            absorb(await checkpoint("guided", guided_agent.run, s))
             return s
         if branch == "summary":
-            absorb(await conversation_note_agent.run(s))
+            absorb(await checkpoint("conversation_note", conversation_note_agent.run, s))
             return s
         if branch == "tutor":
-            absorb(await tutor_agent.run(s))
+            absorb(await checkpoint("tutor", tutor_agent.run, s))
             return s
         if branch == "eval":
-            absorb(await eval_agent.run(s))
+            absorb(await checkpoint("eval", eval_agent.run, s))
             return s
-        absorb(await planner_agent.run(s))
-        absorb(await path_agent.run(s))
+        absorb(await checkpoint("planner", planner_agent.run, s))
+        absorb(await checkpoint("path", path_agent.run, s))
         _KIND2NODE = {"doc": "doc", "code": "doc", "reading": "doc", "ppt": "doc",
                       "flashcards": "doc", "infographic": "doc", "data_table": "doc",
                       "mindmap": "mindmap", "quiz": "quiz",
@@ -117,15 +123,17 @@ class MiniGraph:
                       "manim": "media", "python_animation": "media"}
         wanted = [_KIND2NODE[k] for k in (s.get("kinds") or []) if k in _KIND2NODE]
         run_nodes = list(dict.fromkeys(wanted)) or list(_GEN_NODES)
-        results = await asyncio.gather(*(_GEN_NODES[n](s) for n in run_nodes),
+        results = await asyncio.gather(*(checkpoint(n, _guard_gen_node(n, _GEN_NODES[n]), s) for n in run_nodes),
                                        return_exceptions=True)
         for r in results:
+            if isinstance(r, BaseException) and not isinstance(r, Exception):
+                raise r
             if isinstance(r, Exception):
                 s["safety_flags"] = (s.get("safety_flags") or []) + [
                     {"type": "error", "detail": "".join(traceback.format_exception_only(r)).strip()}]
             else:
                 absorb(r)
-        absorb(await eval_agent.run(s))
+        absorb(await checkpoint("eval", eval_agent.run, s))
         return s
 
 
@@ -149,6 +157,7 @@ def _event_ts() -> str:
 
 async def run_with_events(state: dict[str, Any]) -> AsyncIterator[dict]:
     """执行编排图并实时产出事件字典流(API 层负责包成 SSE)。"""
+    state = {**state, "run_id": "run_" + uuid.uuid4().hex}
     queue: asyncio.Queue[dict] = asyncio.Queue()
     trace = TraceRecorder(state)
     trace_finished = False
@@ -165,7 +174,7 @@ async def run_with_events(state: dict[str, Any]) -> AsyncIterator[dict]:
     async def runner():
         try:
             from ..services.learning_scope import course_scope
-            with course_scope(state.get("user_id", "demo_user"), state.get("notebook_id", "")):
+            with course_scope(state.get("user_id", "demo_user"), state.get("notebook_id", ""), snapshot=state.get("course_snapshot")):
                 final_state = await graph.ainvoke(state, cfg)
             trace.record_final_state(final_state)
         except Exception as exc:                            # pragma: no cover
@@ -177,7 +186,8 @@ async def run_with_events(state: dict[str, Any]) -> AsyncIterator[dict]:
 
     await queue.put({
         "type": "trace",
-        "session_id": trace.session_id,
+        "session_id": trace.run_id,
+        "conversation_id": trace.session_id,
         "run_dir": str(trace.run_dir),
         "ts": _event_ts(),
     })
@@ -186,6 +196,7 @@ async def run_with_events(state: dict[str, Any]) -> AsyncIterator[dict]:
         while True:
             ev = await queue.get()
             if ev.get("type") == "__done__":
+                await task  # Propagate recovery/lease signals, never report false completion.
                 done = {"type": "done"}
                 trace.record_event(done)
                 trace.finish()
@@ -198,5 +209,6 @@ async def run_with_events(state: dict[str, Any]) -> AsyncIterator[dict]:
         reset_emitter(token)
         if not task.done():
             task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
         if not trace_finished:
             trace.finish()

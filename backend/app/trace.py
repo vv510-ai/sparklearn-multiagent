@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
-import shutil
+import uuid
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -88,7 +88,8 @@ class TraceRecorder:
     def __init__(self, state: dict[str, Any]) -> None:
         self.enabled = bool(get_settings().trace_enabled)
         self.session_id = _safe_name(state.get("session_id", "default"))
-        self.run_dir = RUNS_DIR / self.session_id
+        self.run_id = _safe_name(state.get("run_id") or "run_" + uuid.uuid4().hex)
+        self.run_dir = RUNS_DIR / self.run_id
         self.started_at = dt.datetime.now(dt.timezone.utc)
         self.events: list[dict[str, Any]] = []
         self.counts: Counter[str] = Counter()
@@ -104,15 +105,12 @@ class TraceRecorder:
         if self.enabled:
             self._prepare_run_dir()
             _write_json(self.run_dir / "request.json", state)
+            _write_json(self.run_dir / "state.summary.json", {"user_id": state.get("user_id"), "session_id": self.session_id, "run_id": self.run_id})
             (self.run_dir / "events.jsonl").write_text("", encoding="utf-8")
 
     def _prepare_run_dir(self) -> None:
-        self.run_dir.mkdir(parents=True, exist_ok=True)
-        for child in self.run_dir.iterdir():
-            if child.is_dir():
-                shutil.rmtree(child)
-            else:
-                child.unlink()
+        # Exclusive creation: even an accidental ID collision cannot destroy evidence.
+        self.run_dir.mkdir(parents=True, exist_ok=False)
 
     def record_event(self, event: dict[str, Any]) -> None:
         if not self.enabled:

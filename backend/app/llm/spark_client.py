@@ -173,6 +173,9 @@ def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: floa
 # --------------------------------------------------------------------------
 # 统一出入口
 # --------------------------------------------------------------------------
+from ..services.generation_jobs import durable_call, durable_stream
+
+@durable_call("llm_complete")
 async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
                        temperature: float = 0.7, json_mode: bool = False,
                        max_tokens: int | None = None,
@@ -275,6 +278,7 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
     return MockEngine.complete(prompt, role=role, json_mode=json_mode)
 
 
+@durable_stream
 async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      temperature: float = 0.7,
                      max_tokens: int | None = None,

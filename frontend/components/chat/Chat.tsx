@@ -346,7 +346,7 @@ export default function Chat({
       const q = text.trim();
       if (!q) return Promise.resolve(false);
       if (busy) {
-        setQueuedHint("当前任务还在整理中。可以先停止，再开始新的任务。");
+        setQueuedHint("当前任务还在整理中。可以先停止等待；已提交的后台任务会继续。");
         return Promise.resolve(false);
       }
       setQueuedHint("");
@@ -419,6 +419,10 @@ export default function Chat({
               case "summary":
                 answer ||= (ev.text as string) || "";
                 patchLast((a) => ({ ...a, text: a.text || (ev.text as string) || "" }));
+                break;
+              case "job":
+                if (ev.reset) { answer = ""; generatedResource = false; patchLast(a => ({ ...a, text: "", resources: [], citations: [], evidence: [] })); }
+                if (ev.text) patchLast(a => ({ ...a, progress: ev.text }));
                 break;
               case "progress":
                 if (["resource_content", "resource_check", "resource_audio"].includes(ev.stage || "") && ev.text?.trim()) {
@@ -686,7 +690,7 @@ export default function Chat({
             <button
               onClick={() => abortRef.current?.()}
               className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F4ECEA] text-[#A33A25] transition hover:bg-[#EEDDD8]"
-              aria-label="停止生成"
+              aria-label="停止等待" title="停止等待；已提交的后台任务会继续，可在任务进度查看"
             >
               <Square size={15} fill="currentColor" />
             </button>

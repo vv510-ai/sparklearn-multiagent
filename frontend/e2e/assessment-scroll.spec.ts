@@ -96,7 +96,7 @@ test("手机：往返测评保留对话面板的阅读位置", async ({ page }, 
   await page.getByLabel("学习目标输入", { exact: true }).fill("阅读位置验收");
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page.getByLabel("小知回答").last().locator("p")).toHaveCount(30);
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   await page.unroute("**/api/chat");
   const chat = page.locator(".notebook-chat-scroll");
   const before = await chat.evaluate(panel => {

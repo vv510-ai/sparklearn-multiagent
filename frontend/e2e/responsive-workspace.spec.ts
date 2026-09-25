@@ -203,7 +203,7 @@ test("第二个独立浏览器登录后可恢复服务端课程和对话，草�
   const { notebook, email, password } = await enter(page);
   await page.getByLabel("学习目标输入").fill("请用一个生活中的例子解释栈，暂时不用出题。");
   await page.getByRole("button", { name: "发送", exact: true }).click();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   await expect(page.getByLabel("小知回答").last()).toContainText(/\S/);
   await page.getByLabel("学习目标输入").fill("只在本机的未发送草稿");
   const context = await browser.newContext({ viewport: { width: 1024, height: 768 } });
@@ -268,7 +268,7 @@ test("会话过期后同页换账号不残留上一账号课程、消息和草�
   await page.getByLabel("学习目标输入").fill("这是一号账号的私有学习消息，请解释栈。");
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page.getByLabel("小知回答").last()).toContainText(/\S/);
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   const otherContext = await browser.newContext();
   const email = `responsive-switch-${Date.now()}@example.test`;
   const base = new URL(page.url()).origin;

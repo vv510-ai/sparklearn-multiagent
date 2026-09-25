@@ -33,6 +33,7 @@ import AssessmentPanel from "@/components/assessment/AssessmentPanel";
 import LearningGuide from "@/components/onboarding/LearningGuide";
 import type { CoachAction } from "@/components/onboarding/StudyCoach";
 import ResearchPanel from "@/components/learning/ResearchPanel";
+import GenerationJobs from "@/components/learning/GenerationJobs";
 import EnglishScenes from "@/components/learning/EnglishScenes";
 import CourseRecommendations from "@/components/courses/CourseRecommendations";
 import OnboardingGate from "@/components/onboarding/OnboardingGate";
@@ -978,6 +979,7 @@ export default function Home() {
               </div>
             </div>
           )}
+          {activeNotebook && <GenerationJobs key={activeNotebook.id} notebookId={activeNotebook.id} onView={kind => { if (kind === "chat") { void openNotebook(activeNotebook); } else { void loadResources(); setActivePanel("resources"); } }} />}
           {panelError && <div className="m-3 rounded-[8px] border border-[#F1D6C9] bg-[#FFF6F1] px-4 py-3 text-sm text-[#9E4B2D]">{panelError}</div>}
 
           <div className={`min-h-0 flex-1 ${activePanel === "chat" ? "block" : "hidden"}`} aria-hidden={activePanel !== "chat"}>

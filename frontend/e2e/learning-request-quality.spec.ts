@@ -28,7 +28,7 @@ test("复合六级请求保留考点占分方法并直接生成一图看懂", as
   const request = result.request().postDataJSON();
   expect(request.message).toBe(question);
   expect(request.source_policy).toBe("auto");
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0, { timeout: 240_000 });
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0, { timeout: 240_000 });
   const saved = await (await page.request.get(`/api/resources?${new URLSearchParams({ user_id: "session_user", notebook_id: request.notebook_id })}`)).json();
   const resource = saved.items.find((item: { payload: { template: string } }) => item.payload.template === "one_page");
   await writeFile(info.outputPath("generated-resource.json"), JSON.stringify(resource ?? null, null, 2));

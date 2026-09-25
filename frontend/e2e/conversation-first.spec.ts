@@ -47,7 +47,7 @@ async function ask(page: Page) {
   await page.getByLabel("学习目标输入", { exact: true }).fill("affect 和 effect 怎么区分？");
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page.getByLabel("小知回答")).toContainText("产生的结果");
-  await expect(page.getByRole("button", { name: "停止生成" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待" })).toHaveCount(0);
 }
 
 test("融合稿：多尺寸正文、资料状态与输入区，无重复标题或常驻底栏", async ({ page }, info) => {

@@ -11,7 +11,7 @@ test("生成时立即反馈并展示真实阶段，完成、停止和失败都�
   await page.getByLabel("学习目标输入", { exact: true }).fill("二叉树是什么？");
   await page.getByRole("button", { name: "发送", exact: true }).click();
   await expect(page.locator('[aria-label="小知回答"]').last()).toBeVisible();
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   // A controlled transport tests UI transitions, not model quality or live speed.
   await page.evaluate(() => {
     const original = window.fetch;
@@ -43,15 +43,15 @@ test("生成时立即反馈并展示真实阶段，完成、停止和失败都�
   await expect(page.getByRole("status", { name: "生成进度" })).toHaveCount(0);
   await push({ type: "summary", text: "互动讲解已整理好。" });
   await push({ type: "done" });
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   await expect(page.locator('[aria-label="小知回答"]').last()).toHaveText("互动讲解已整理好。");
   await start();
-  await page.getByRole("button", { name: "停止生成", exact: true }).click();
+  await page.getByRole("button", { name: "停止等待", exact: true }).click();
   await expect(page.getByRole("status", { name: "生成进度" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   await start();
   await push({ type: "error", detail: "测试服务暂不可用" });
   await expect(page.getByRole("status", { name: "生成进度" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "停止生成", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "停止等待", exact: true })).toHaveCount(0);
   await expect(page.locator('[aria-label="小知回答"]').last()).toContainText("测试服务暂不可用");
 });

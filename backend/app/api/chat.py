@@ -13,6 +13,7 @@ from typing import AsyncIterator
 from fastapi import APIRouter, HTTPException
 
 from ..agents.graph import run_with_events
+from ..services import generation_jobs as jobs
 from ..llm import multimodal_gateway
 from ..models.db import session
 from ..models.entities import Resource
@@ -180,6 +181,11 @@ async def chat(req: ChatRequest):
     from ..services.learning_scope import selected_sources
     req.source_ids = selected_sources(req.source_ids)
     ensure_user(req.user_id)
+    request_fingerprint = jobs.digest(req.model_dump(exclude={"request_id"}))
+    if jobs.enabled():
+        previous = jobs.lookup(req.user_id, req.request_id, request_fingerprint)
+        if previous:
+            return sse_response(jobs.events(req.user_id, previous["id"]))
     notebook = ensure_notebook_owner(req.user_id, req.notebook_id) if req.notebook_id else None
     session_id = notebook.session_id if notebook else req.session_id or uuid.uuid4().hex[:8]
     try:
@@ -235,7 +241,8 @@ async def chat(req: ChatRequest):
     history = get_session_messages(req.user_id, session_id, limit=120)
     from ..services.source_policy import resolve_source_policy
     current = {"role": "user", "content": req.message}
-    append_message(req.user_id, session_id, "user", visible_message)
+    if not jobs.enabled():
+        append_message(req.user_id, session_id, "user", visible_message)
     touch_notebook(req.user_id, req.notebook_id)
     state = {
         "user_id": req.user_id,
@@ -260,6 +267,10 @@ async def chat(req: ChatRequest):
             "topic_label": resource.get("title") or req.topic_label,
         })
     from ..services.conversation_service import _course_release_id
+    if jobs.enabled():
+        state.update(visible_message=visible_message, course_release_id=_course_release_id())
+        job = jobs.submit(state, "chat", req.request_id, request_fingerprint)
+        return sse_response(jobs.events(req.user_id, job["id"]))
     events = _persisted_events(
         run_with_events(state),
         user_id=req.user_id,

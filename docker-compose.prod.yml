@@ -36,6 +36,9 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
       AUTH_REQUIRED: "true"
       DEMO_MODE: "false"
+      GENERATION_JOBS_ENABLED: "true"
+      GENERATION_WORKER_MODE: external
+      GENERATION_MAX_RUNNING: "2"
       APP_RELEASE: ${IMAGE_TAG:-unknown}
       TRACE_ENABLED: "true"
       EMBEDDING_BACKEND: bge-small-zh
@@ -50,6 +53,7 @@ services:
     volumes:
       - gen_static:/srv/app/static/gen
       - uploaded_sources:/srv/app/data/uploaded_sources
+      - trace_runs:/srv/runs
     healthcheck:
       test:
         - CMD
@@ -61,6 +65,45 @@ services:
       retries: 12
       start_period: 90s
     mem_limit: 2300m
+    restart: unless-stopped
+
+  generation-worker:
+    image: sparklearn-backend:${IMAGE_TAG:-latest}
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://sparklearn:${POSTGRES_PASSWORD}@postgres:5432/sparklearn
+      REDIS_URL: redis://redis:6379/0
+      FRONTEND_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      AUTH_REQUIRED: "true"
+      DEMO_MODE: "false"
+      GENERATION_JOBS_ENABLED: "true"
+      GENERATION_WORKER_MODE: external
+      GENERATION_MAX_RUNNING: "2"
+      APP_RELEASE: ${IMAGE_TAG:-unknown}
+      TRACE_ENABLED: "true"
+      EMBEDDING_BACKEND: bge-small-zh
+      RERANK_MODE: auto
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      backend:
+        condition: service_healthy
+    command: ["python", "-m", "app.job_worker"]
+    volumes:
+      - gen_static:/srv/app/static/gen
+      - uploaded_sources:/srv/app/data/uploaded_sources
+      - trace_runs:/srv/runs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pathlib,tempfile,time; assert time.time()-float((pathlib.Path(tempfile.gettempdir())/'learnloop-worker-heartbeat').read_text()) < 20"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+    mem_limit: 900m
     restart: unless-stopped
 
   frontend:
@@ -116,6 +159,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  trace_runs:
   pgdata:
   redisdata:
   gen_static:

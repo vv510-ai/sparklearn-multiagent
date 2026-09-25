@@ -89,7 +89,7 @@ def test_trace_records_prompt_retrieval_fallback_grounding_and_latency(monkeypat
     })
     recorder.finish()
 
-    summary = json.loads((tmp_path / "quality-trace" / "summary.json").read_text(encoding="utf-8"))
+    summary = json.loads((recorder.run_dir / "summary.json").read_text(encoding="utf-8"))
     quality = summary["quality_evidence"]
     assert quality["counts"] == {
         "prompt_calls": 2,
@@ -104,8 +104,8 @@ def test_trace_records_prompt_retrieval_fallback_grounding_and_latency(monkeypat
     assert summary["agents"] == ["tutor"]
 
     agent_status = json.loads(
-        (tmp_path / "quality-trace" / "agent_status.json").read_text(encoding="utf-8")
+        (recorder.run_dir / "agent_status.json").read_text(encoding="utf-8")
     )
     assert isinstance(agent_status["tutor"]["duration_ms"], int)
     assert agent_status["tutor"]["duration_ms"] >= 0
-    assert (tmp_path / "quality-trace" / "quality.evidence.json").exists()
+    assert (recorder.run_dir / "quality.evidence.json").exists()

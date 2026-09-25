@@ -39,57 +39,61 @@ export function postSSE(
   onClose?: () => void,
 ): () => void {
   const ctrl = new AbortController();
+  const durable = path === "/chat" || path === "/resources/generate";
+  const payload = durable && body && typeof body === "object"
+    ? { ...body, request_id: (body as { request_id?: string }).request_id || crypto.randomUUID() } : body;
+  let jobId = "", cursor = 0, completed = false;
   (async () => {
     try {
-      const res = await fetch(`${BASE}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: ctrl.signal,
-      });
-      notifyUnauthorized(res.status);
-      if (!res.ok || !res.body) {
-        let detail = `HTTP ${res.status}`;
+      for (let attempt = 0; !ctrl.signal.aborted; attempt++) {
         try {
-          const data = await res.json() as { detail?: string };
-          detail = data.detail || detail;
-        } catch {
-          try {
-            const text = await res.text();
-            if (text) detail = `${detail}: ${text.slice(0, 180)}`;
-          } catch {
-            /* keep status only */
+          const res = await fetch(jobId ? `${BASE}/jobs/${encodeURIComponent(jobId)}/events?after=${cursor}` : `${BASE}${path}`, {
+            method: jobId ? "GET" : "POST",
+            headers: { "Content-Type": "application/json" },
+            ...(jobId ? {} : { body: JSON.stringify(payload) }), signal: ctrl.signal,
+          });
+          notifyUnauthorized(res.status);
+          if (durable && [502, 503, 504].includes(res.status)) throw new Error("服务正在恢复连接，已提交的任务会保留。");
+          if (!res.ok || !res.body) {
+            const data = await res.json().catch(() => ({})) as { detail?: string };
+            onEvent({ type: "error", detail: data.detail || `HTTP ${res.status}` });
+            return;
           }
-        }
-        onEvent({ type: "error", detail });
-        return;
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = buf.indexOf("\n\n")) >= 0) {
-          const frame = buf.slice(0, idx);
-          buf = buf.slice(idx + 2);
-          const line = frame.split("\n").find((l) => l.startsWith("data: "));
-          if (!line) continue;
-          try {
-            onEvent(JSON.parse(line.slice(6)) as SparkEvent);
-          } catch {
-            /* 跳过坏帧 */
+          const reader = res.body.getReader(), decoder = new TextDecoder();
+          let buf = "";
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let idx: number;
+            while ((idx = buf.indexOf("\n\n")) >= 0) {
+              const frame = buf.slice(0, idx); buf = buf.slice(idx + 2);
+              const line = frame.split("\n").find(l => l.startsWith("data: "));
+              if (!line) continue;
+              let ev: SparkEvent;
+              try { ev = JSON.parse(line.slice(6)) as SparkEvent; } catch { continue; }
+              if (ev.job_id) jobId = ev.job_id;
+              if (ev.event_id && ev.event_id <= cursor) continue;
+              if (ev.event_id) cursor = ev.event_id;
+              if (ev.type === "done") completed = true;
+              onEvent(ev);
+            }
           }
+          if (completed || !jobId) return;
+        } catch (error) {
+          if (ctrl.signal.aborted) return;
+          if (!durable || attempt >= 4) throw error;
         }
+        if (attempt >= 4) throw new Error("连接暂时中断，任务仍会继续。可在当前科目的任务进度中查看。");
+        onEvent({ type: "job", job_id: jobId, status: "reconnecting", text: "正在重新连接，任务仍会继续。" });
+        await new Promise<void>(resolve => {
+          const timer = setTimeout(resolve, Math.min(5000, 500 * 2 ** attempt));
+          ctrl.signal.addEventListener("abort", () => { clearTimeout(timer); resolve(); }, { once: true });
+        });
       }
-    } catch (e: unknown) {
-      if ((e as Error)?.name !== "AbortError")
-        onEvent({ type: "error", detail: connectionMessage(e) });
-    } finally {
-      onClose?.();
-    }
+    } catch (error) {
+      if (!ctrl.signal.aborted) onEvent({ type: "error", detail: connectionMessage(error) });
+    } finally { onClose?.(); }
   })();
   return () => ctrl.abort();
 }
