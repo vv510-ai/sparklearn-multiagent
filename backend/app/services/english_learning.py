@@ -61,7 +61,6 @@ class Word(TextModel):
     word: str = Field(min_length=1, max_length=100)
     meaning: str = Field(min_length=1, max_length=500)
     usage: str = Field(min_length=1, max_length=1500)
-    memory: str = Field(default="", max_length=800)
     contrast: str = Field(default="", max_length=1500)
 
 
@@ -101,10 +100,16 @@ def status(question: dict | None) -> dict:
 def _read_scene(raw: str, values: dict) -> dict:
     data = parse_json(raw)
     result = SceneCore.model_validate(data).model_dump()
+    # No verified mnemonic source exists in this short scene workflow.
+    # Ignore the model field rather than presenting invented pronunciation or etymology.
+    for word in result["vocabulary"]:
+        word["memory"] = ""
     subtitles = values.get("subtitles", "")
     if subtitles.strip():
         try:
             result["lines"] = source_lines(result["lines"], subtitles)
+            for line in result["lines"]:
+                line["speaker"] = ""  # Any supplied speaker label stays in the original text.
         except ValueError:
             raise SourceMismatch() from None
     else:

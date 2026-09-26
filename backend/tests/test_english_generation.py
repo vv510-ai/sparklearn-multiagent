@@ -208,3 +208,20 @@ def test_question_failure_keeps_original_persisted_payload(learner, monkeypatch)
     response = client.post("/api/learning/english/scene/question", json={"resource_id": initial["resource_id"], "notebook_id": notebook})
     assert response.status_code == 503
     assert client.get("/api/learning/english/scene/latest", params={"notebook_id": notebook}).json() == initial
+
+
+@pytest.mark.parametrize("with_subtitles", [False, True])
+def test_unverified_mnemonics_and_invented_subtitle_speakers_are_not_published(endpoint, monkeypatch, with_subtitles):
+    data = copy.deepcopy(SCENE)
+    data["vocabulary"][0]["memory"] = {"unverified": "invented pronunciation and etymology"}
+    data["lines"][0]["speaker"] = "Invented character"
+    async def complete(*args, **kwargs):
+        return json.dumps(data)
+    monkeypatch.setattr(english, "llm_complete", complete)
+    source = data["lines"][0]["text"] if with_subtitles else ""
+    result = asyncio.run(learning.english_scene.__wrapped__(learning.SceneRequest(words="figure out", subtitles=source)))
+    assert result["vocabulary"][0]["memory"] == ""
+    assert endpoint[0]["english_scene"]["vocabulary"][0]["memory"] == ""
+    if with_subtitles:
+        assert result["lines"][0]["speaker"] == ""
+        assert result["lines"][0]["text"] == source

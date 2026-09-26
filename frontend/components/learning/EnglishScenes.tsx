@@ -177,7 +177,6 @@ export default function EnglishScenes({ notebookId, onBack }: { notebookId: stri
           <h3 lang="en" className="break-words text-lg font-bold">{word.word}</h3>
           <p className="mt-2 text-sm font-semibold">{word.meaning}</p><p className="mt-2 text-sm leading-6 text-slate-600">{word.usage}</p>
           {word.contrast && <p className="mt-2 text-sm leading-6 text-slate-600">辨析：{word.contrast}</p>}
-          {word.memory && <p className="mt-2 text-xs leading-6 text-amber-800">助记：{word.memory}</p>}
         </article>)}</section>
         <details className="rounded-2xl border bg-white p-5"><summary className="cursor-pointer font-bold">展开用法笔记</summary><div className="mt-4"><Markdown text={result.notes} /></div></details>
         <section aria-label="场景练习" className="rounded-2xl border bg-white p-5">

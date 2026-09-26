@@ -25,6 +25,7 @@ test("真实模型：默认三个词、字幕来源、刷新恢复和现成课�
   for (const word of ["hesitate", "awkward", "figure out"]) {
     expect(data.vocabulary.map((item: { word: string }) => item.word.toLowerCase())).toContain(word);
   }
+  expect(data.vocabulary.every((word: { memory: string }) => word.memory === "")).toBe(true);
   expect(data.lines.every((line: { timestamp: string }) => line.timestamp === "")).toBe(true);
   await expect(page.getByRole("region", { name: "场景原句" })).toContainText(data.lines[0].text);
   if (!data.question) {
@@ -58,6 +59,7 @@ test("真实模型：默认三个词、字幕来源、刷新恢复和现成课�
   const source = await sourceResponse.json();
   expect(source.provenance).toContain("用户字幕整理");
   expect(source.source_text).toBe(subtitles);
+  expect(source.lines.every((line: { speaker: string }) => line.speaker === "")).toBe(true);
   expect(source.lines.every((line: { text: string; timestamp: string }) => originalLines.includes(line.text) && /^00:00:0[135],000$/.test(line.timestamp))).toBe(true);
   const latest = await (await page.request.get("/api/learning/english/scene/latest?notebook_id=" + notebookId)).json();
   expect(latest.resource_id).toBe(source.resource_id);
