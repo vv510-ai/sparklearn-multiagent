@@ -77,7 +77,24 @@ sudo bash deploy/install-auto-deploy.sh
 2. 改动后先运行相关测试；测试失败不得推送生产。
 3. 只提交本任务文件，不顺带提交其他工作区改动或 `.env`。
 4. 推送后必须核对服务器的 `deployed_commit` 与 GitHub 提交一致，并检查公网入口及本轮真实功能。
-5. Vercel / Render 在阿里云最终验收前保留为回退入口，确认迁移完成后再单独下线。
+5. Vercel 在阿里云最终验收前保留为回退入口，确认迁移完成后再单独下线。Render 已退出部署方案，不再保留仓库部署配置。
+
+## 旧 Render 部署下线
+
+2026-09-26 核验：阿里云前端连接内部 `backend`，后端连接本机 Compose 的 `postgres` 和 `redis`；运行中的后端环境未发现 Render 服务地址。仓库删除了定义 `sparklearn-backend` 和 `sparklearn-db` 的 `render.yaml`。
+
+**云端下线尚未完成。** Render 控制台登录受 GitHub 二次验证阻塞；已有 GitHub 凭据可以管理代码仓库，但没有应用安装管理权限，仓库也没有可单独关闭的部署 Webhook。不能据此声称旧服务已关闭、旧数据库已删除或后续邮件已停止。
+
+在恢复账号访问前，提交信息包含 `[skip render]` 可以跳过这次提交在 Render 上的自动部署；它不关闭服务，也不阻止手动、API 或 Blueprint 配置变更触发的部署。阿里云按提交号更新，不依赖此标记。
+
+恢复 Render 控制台访问后，按以下顺序完成：
+
+1. 在 `sparklearn-backend` 的 Settings 中将 Auto-Deploy 设为 Off；如受 Blueprint 管理，先关闭 Auto Sync 并解除该 Blueprint 对旧资源的管理，避免同步时重新创建。
+2. 删除旧 Web Service `sparklearn-backend`，重新检查服务列表确认已移除。
+3. 单独核对 `sparklearn-db` 中是否有需保留的数据，完成必要备份并确认迁移后再删除数据库。
+4. 核对旧 Blueprint、项目相关部署入口及资源列表，确认不再引用已下线资源。只处理本项目，不撤销其他项目的集成。
+
+官方说明：[跳过自动部署](https://render.com/docs/deploys#skipping-an-auto-deploy)、[Blueprint 资源删除](https://render.com/docs/infrastructure-as-code#deleting-resources)。删除仓库配置不会自动删除云端资源。
 
 ## 无域名 HTTPS
 
