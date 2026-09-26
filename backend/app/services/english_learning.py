@@ -12,6 +12,7 @@ from ..llm.failures import failure_code
 from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
 from .subtitle_service import source_lines
+from .english_dictionary import with_sources
 
 log = logging.getLogger(__name__)
 GENERATION_TIMEOUT = 135
@@ -161,20 +162,39 @@ async def _run(capability: str, values: dict, read, max_tokens: int) -> dict:
 
 
 async def generate_scene(values: dict) -> dict:
-    return await _run("english.scene", values, lambda raw: _read_scene(raw, values), 6000)
+    return with_sources(await _run("english.scene", values, lambda raw: _read_scene(raw, values), 6000))
 
 
 async def generate_question(scene: dict) -> dict:
-    context = json.dumps({key: scene[key] for key in ("title", "lines", "vocabulary")}, ensure_ascii=False)
+    context = json.dumps({"title": scene["title"], "lines": scene["lines"],
+                          "vocabulary": [{key: word.get(key, "") for key in ("word", "meaning", "usage", "contrast")}
+                                         for word in scene["vocabulary"]]}, ensure_ascii=False)
     return await _run("english.question", {"context": context},
                       lambda raw: Check.model_validate(parse_json(raw)).model_dump(), 1800)
 
 
+def _literal(text: str) -> str:
+    # External definitions remain plain text in the Markdown archive.
+    punctuation = "\\*_{}[]()<>#!|" + chr(96)
+    return "".join("\\" + char if char in punctuation else char for char in text)
+
+
 def archive(scene: dict) -> dict:
+    scene = with_sources(scene)
     parts = [f"# {scene['title']}", scene["provenance"], "## 场景原句"]
     parts.extend(f"{line['speaker']} {line['timestamp']}\n\n{line['text']}\n\n{line['translation']}" for line in scene["lines"])
     parts.append("## 词汇与搭配")
-    parts.extend(f"### {word['word']}\n\n{word['meaning']}\n\n{word['usage']}\n\n{word['contrast']}\n\n{word['memory']}" for word in scene["vocabulary"])
+    for word in scene["vocabulary"]:
+        parts.append(f"### {word['word']}\n\nAI 解释：{word['meaning']}\n\n{word['usage']}\n\n{word['contrast']}")
+        evidence = word.get("dictionary", {})
+        if evidence.get("status") == "included":
+            parts.extend(["#### 词典原文摘录", evidence["notice"]])
+            for sense in evidence["senses"]:
+                parts.append(f"{sense['pos']} · {', '.join(sense['tags'])}\n\n{_literal(sense['definition'])}")
+            parts.append(f"[Wiktionary contributors]({evidence['source_url']}) · [Kaikki 提取]({evidence['extraction_url']}) · [{evidence['license']}]({evidence['license_url']})")
+            parts.extend([evidence["attribution"], f"摘录日期：{evidence['retrieved_at'][:10]} · 版本：{evidence['version']}"])
+        elif evidence.get("search_url"):
+            parts.append(f"尚无内置词典摘录；此链接仅供查找，未确认收录：[前往 Wiktionary 查词]({evidence['search_url']})")
     parts.append(scene["notes"])
     if not scene.get("question"):
         parts.append("## 练习状态\n\n练习暂未生成；对话与笔记已保留。")

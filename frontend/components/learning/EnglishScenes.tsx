@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Play, RotateCcw } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api";
 import Markdown from "@/components/chat/Markdown";
+import DictionaryEvidence, { type DictionarySource } from "./DictionaryEvidence";
 
 type Question = { stem: string; options: string[]; answer: string; explanation: string };
 type Scene = {
   resource_id?: string; title: string; provenance: string; notes: string;
   lines: { speaker: string; text: string; translation: string; timestamp: string }[];
-  vocabulary: { word: string; meaning: string; usage: string; memory: string; contrast: string }[];
+  vocabulary: { word: string; meaning: string; usage: string; memory: string; contrast: string; dictionary?: DictionarySource }[];
   question: Question | null;
   generation?: { status: string; message: string };
   request?: { words: string; scene: string; goal: string; level: string };
@@ -173,10 +174,11 @@ export default function EnglishScenes({ notebookId, onBack }: { notebookId: stri
             {canReplay && line.timestamp && <button className="mt-2 flex items-center gap-1 text-xs text-emerald-700" onClick={() => replay(line.timestamp)}><Play size={12} />回到原片段</button>}
           </div>)}
         </section>
-        <section aria-label="词汇与搭配" className="grid gap-3 sm:grid-cols-2">{result.vocabulary.map((word, i) => <article key={i} className="min-w-0 rounded-xl border bg-white p-4">
+        <section aria-label="词汇与搭配" className="grid gap-3 sm:grid-cols-2">{result.vocabulary.map((word, i) => <article key={(result.resource_id || result.title) + ":" + i} className="min-w-0 rounded-xl border bg-white p-4">
           <h3 lang="en" className="break-words text-lg font-bold">{word.word}</h3>
-          <p className="mt-2 text-sm font-semibold">{word.meaning}</p><p className="mt-2 text-sm leading-6 text-slate-600">{word.usage}</p>
+          <p className="mt-2 text-xs text-slate-500">本场景 AI 解释</p><p className="mt-1 text-sm font-semibold">{word.meaning}</p><p className="mt-2 text-sm leading-6 text-slate-600">{word.usage}</p>
           {word.contrast && <p className="mt-2 text-sm leading-6 text-slate-600">辨析：{word.contrast}</p>}
+          <DictionaryEvidence word={word.word} evidence={word.dictionary} />
         </article>)}</section>
         <details className="rounded-2xl border bg-white p-5"><summary className="cursor-pointer font-bold">展开用法笔记</summary><div className="mt-4"><Markdown text={result.notes} /></div></details>
         <section aria-label="场景练习" className="rounded-2xl border bg-white p-5">

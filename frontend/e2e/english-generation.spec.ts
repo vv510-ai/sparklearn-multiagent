@@ -1,6 +1,16 @@
 import { expect, test } from "@playwright/test";
 
 import { openEnglish } from "./english-helpers";
+import type { DictionarySource } from "../components/learning/DictionaryEvidence";
+
+const evidence: DictionarySource = {
+  status: "included", headword: "figure out", provider: "Wiktionary 社区词典 · Kaikki 提取",
+  notice: "以下是部分词典义项，请结合场景对照；不代表上方 AI 解释已核验。",
+  version: "english-dictionary-2026-09-26-v1", retrieved_at: "2026-09-26T11:00:00Z",
+  source_url: "https://en.wiktionary.org/wiki/figure_out#English", extraction_url: "https://kaikki.org/dictionary/English/meaning/f/fi/figure%20out.jsonl",
+  license: "CC BY-SA 4.0", license_url: "https://creativecommons.org/licenses/by-sa/4.0/", attribution: "Wiktionary contributors；部分义项原文摘录。",
+  senses: [{ id: "figure out:0:0", pos: "verb", tags: ["informal"], definition: "To come to understand; to discover or find a solution; to deduce." }],
+};
 
 const question = { stem: "figure out 在本句中表示什么？", options: ["弄明白", "离开", "画画", "迟到"], answer: "A", explanation: "指通过思考找到办法。" };
 const scene = {
@@ -8,7 +18,7 @@ const scene = {
   notes: "## figure out\n通过思考弄明白。", source_text: "",
   request: { words: "hesitate, awkward, figure out", scene: "朋友一起商量周末计划", goal: "影视理解与日常交流", level: "中等" },
   lines: [{ speaker: "A", text: "We can figure it out.", translation: "我们能想明白的。", timestamp: "" }],
-  vocabulary: [{ word: "figure out", meaning: "弄明白", usage: "figure it out", memory: "", contrast: "" }],
+  vocabulary: [{ word: "figure out", meaning: "弄明白", usage: "figure it out", memory: "", contrast: "", dictionary: evidence }, { word: "serendipity", meaning: "偶然发现", usage: "an unexpected discovery", memory: "", contrast: "", dictionary: { status: "not_included", headword: "serendipity" } as DictionarySource }],
   question: null as typeof question | null,
   generation: { status: "partial", message: "对话和词汇笔记已保存，可以先学习；练习暂未就绪，可单独补生成。" },
 };
@@ -64,6 +74,21 @@ test("场景和词汇保留、只重试练习、恢复与手机布局", async ({
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole("heading", { name: "周末计划", exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath("english-generation-" + width + ".png"), fullPage: true });
+  }
+  const vocabulary = page.getByRole("region", { name: "词汇与搭配" });
+  await expect(vocabulary.getByText(evidence.senses![0].definition, { exact: true })).not.toBeVisible();
+  await vocabulary.getByText("查看词典原文", { exact: true }).click();
+  await expect(vocabulary.getByText(evidence.senses![0].definition, { exact: true })).toBeVisible();
+  await expect(vocabulary).toContainText("不代表上方 AI 解释已核验");
+  await expect(vocabulary.getByRole("link", { name: "完整词条（新窗口）", exact: true })).toHaveAttribute("href", evidence.source_url!);
+  await expect(vocabulary.getByRole("link", { name: "CC BY-SA 4.0", exact: true })).toHaveAttribute("href", evidence.license_url!);
+  await expect(vocabulary.getByRole("link", { name: "去词典查找（新窗口）", exact: true })).toHaveAttribute("href", /search=serendipity$/);
+  await expect(vocabulary).toContainText("暂无内置词典摘录");
+  for (const width of [1512, 834, 390]) {
+    await page.setViewportSize({ width, height: 950 });
+    await vocabulary.scrollIntoViewIfNeeded();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath("english-dictionary-" + width + ".png"), fullPage: true });
   }
   expect(errors).toEqual([]);
 });

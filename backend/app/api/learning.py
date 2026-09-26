@@ -104,7 +104,7 @@ async def latest_english_scene(notebook_id: str = ""):
             Resource.payload["template"].as_string() == "english_scene",
             Resource.payload["notebook_id"].as_string() == notebook_id)
             .order_by(Resource.created_at.desc(), Resource.id.desc()).first())
-        return {**row.payload["english_scene"], "resource_id": row.id} if row else None
+        return {**english.with_sources(row.payload["english_scene"]), "resource_id": row.id} if row else None
 
 
 @router.post("/english/scene/question")

@@ -1,0 +1,225 @@
+{
+  "version": "english-dictionary-2026-09-26-v1",
+  "provider": "Wiktionary 社区词典 · Kaikki 提取",
+  "attribution": "Wiktionary contributors；Kaikki / Wiktextract 提取。仅选取部分英文释义、词性与标签，原文未改写，顺序按本试点学习需要调整。摘录按 CC BY-SA 4.0 提供。",
+  "license": "CC BY-SA 4.0",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "license_source_url": "https://kaikki.org/dictionary/#copyright-and-license",
+  "supports": [
+    "英文释义原文",
+    "词性",
+    "原词条语域标签"
+  ],
+  "entries": {
+    "hesitate": {
+      "headword": "hesitate",
+      "source_url": "https://en.wiktionary.org/wiki/hesitate#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/h/he/hesitate.jsonl",
+      "retrieved_at": "2026-09-26T15:15:33.815298+00:00",
+      "source_sha256": "29354963071ca20a959e7c401094d1c17f12a56729d834e55416cbe3024d0063",
+      "senses": [
+        {
+          "id": "hesitate:0:0",
+          "pos": "verb",
+          "definition": "To stop or pause respecting decision or action; to be in suspense or uncertainty as to a determination.",
+          "tags": [
+            "intransitive"
+          ]
+        },
+        {
+          "id": "hesitate:0:1",
+          "pos": "verb",
+          "definition": "To stammer; to falter in speaking.",
+          "tags": [
+            "intransitive"
+          ]
+        }
+      ]
+    },
+    "awkward": {
+      "headword": "awkward",
+      "source_url": "https://en.wiktionary.org/wiki/awkward#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/a/aw/awkward.jsonl",
+      "retrieved_at": "2026-09-26T15:15:38.113176+00:00",
+      "source_sha256": "6b774f5809f48f6b0811757adfc1288af124deb254f690fafd532c04ca799f69",
+      "senses": [
+        {
+          "id": "awkward:0:1",
+          "pos": "adj",
+          "definition": "Not easily managed or effected; embarrassing.",
+          "tags": []
+        },
+        {
+          "id": "awkward:0:2",
+          "pos": "adj",
+          "definition": "Lacking social skills, or uncomfortable with social interaction.",
+          "tags": []
+        },
+        {
+          "id": "awkward:0:0",
+          "pos": "adj",
+          "definition": "Lacking dexterity in the use of the hands, or of instruments.",
+          "tags": []
+        }
+      ]
+    },
+    "figure out": {
+      "headword": "figure out",
+      "source_url": "https://en.wiktionary.org/wiki/figure_out#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/f/fi/figure%20out.jsonl",
+      "retrieved_at": "2026-09-26T15:15:34.230264+00:00",
+      "source_sha256": "090f456d89a2f54387d8c3e0b1ef426a044c8bb4ee6617f469aef7630a36b07b",
+      "senses": [
+        {
+          "id": "figure out:0:0",
+          "pos": "verb",
+          "definition": "To come to understand; to discover or find a solution; to deduce.",
+          "tags": [
+            "informal"
+          ]
+        },
+        {
+          "id": "figure out:0:1",
+          "pos": "verb",
+          "definition": "To calculate.",
+          "tags": [
+            "informal"
+          ]
+        }
+      ]
+    },
+    "recommend": {
+      "headword": "recommend",
+      "source_url": "https://en.wiktionary.org/wiki/recommend#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/r/re/recommend.jsonl",
+      "retrieved_at": "2026-09-26T15:15:37.000071+00:00",
+      "source_sha256": "e55ce1f5c2d8d26b994841f25ff9341b522cbd846cd226eb11a641938ca16525",
+      "senses": [
+        {
+          "id": "recommend:0:0",
+          "pos": "verb",
+          "definition": "To bestow commendation on; to represent favorably; to suggest, endorse or encourage as an appropriate choice.",
+          "tags": [
+            "transitive"
+          ]
+        },
+        {
+          "id": "recommend:0:2",
+          "pos": "verb",
+          "definition": "To advise, propose, counsel favorably.",
+          "tags": [
+            "transitive"
+          ]
+        }
+      ]
+    },
+    "instead": {
+      "headword": "instead",
+      "source_url": "https://en.wiktionary.org/wiki/instead#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/i/in/instead.jsonl",
+      "retrieved_at": "2026-09-26T15:15:40.926562+00:00",
+      "source_sha256": "f79ae1257f059c2a7af60b7f7f616f4a63fb2ed696e43d1b1210cbf7db09ea2a",
+      "senses": [
+        {
+          "id": "instead:0:0",
+          "pos": "adv",
+          "definition": "In the place of something (usually mentioned earlier); as a substitute or alternative.",
+          "tags": [
+            "not-comparable"
+          ]
+        }
+      ]
+    },
+    "take away": {
+      "headword": "take away",
+      "source_url": "https://en.wiktionary.org/wiki/take_away#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/t/ta/take%20away.jsonl",
+      "retrieved_at": "2026-09-26T15:15:39.021885+00:00",
+      "source_sha256": "ae20646efa82d31cd56e8c320170d741bf994df73d49424432f05a82d33625fc",
+      "senses": [
+        {
+          "id": "take away:0:0",
+          "pos": "verb",
+          "definition": "To remove something and put it in a different place.",
+          "tags": []
+        },
+        {
+          "id": "take away:0:1",
+          "pos": "verb",
+          "definition": "To remove something, either material or abstract, so that a person no longer has it.",
+          "tags": []
+        },
+        {
+          "id": "take away:0:3",
+          "pos": "verb",
+          "definition": "To subtract or diminish something.",
+          "tags": []
+        },
+        {
+          "id": "take away:0:4",
+          "pos": "verb",
+          "definition": "To leave a memory or impression in one's mind that you think about later.",
+          "tags": []
+        }
+      ]
+    },
+    "follow up": {
+      "headword": "follow up",
+      "source_url": "https://en.wiktionary.org/wiki/follow_up#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/f/fo/follow%20up.jsonl",
+      "retrieved_at": "2026-09-26T15:15:41.815732+00:00",
+      "source_sha256": "71029a9b1bfb1293f6d3f29dd25c654088627dc2643c615ab2794b4582d6be0e",
+      "senses": [
+        {
+          "id": "follow up:0:0",
+          "pos": "verb",
+          "definition": "To take further actions remaining after an event; to continue, revisit, or persist; especially, to maintain communication or verify.",
+          "tags": [
+            "intransitive",
+            "transitive"
+          ]
+        }
+      ]
+    },
+    "clarify": {
+      "headword": "clarify",
+      "source_url": "https://en.wiktionary.org/wiki/clarify#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/c/cl/clarify.jsonl",
+      "retrieved_at": "2026-09-26T15:15:41.078062+00:00",
+      "source_sha256": "bd9b562ab1282a9e02c2551b39ffb65151545f6497e3206af5b1a3f4c68ac10a",
+      "senses": [
+        {
+          "id": "clarify:0:1",
+          "pos": "verb",
+          "definition": "To make or become clear or easily understood; to explain or resolve in order to remove doubt or obscurity.",
+          "tags": [
+            "broadly"
+          ]
+        },
+        {
+          "id": "clarify:0:0",
+          "pos": "verb",
+          "definition": "To make or become clear or bright by freeing from impurities or turbidity.",
+          "tags": [
+            "ergative"
+          ]
+        }
+      ]
+    },
+    "deadline": {
+      "headword": "deadline",
+      "source_url": "https://en.wiktionary.org/wiki/deadline#English",
+      "extraction_url": "https://kaikki.org/dictionary/English/meaning/d/de/deadline.jsonl",
+      "retrieved_at": "2026-09-26T15:15:42.090235+00:00",
+      "source_sha256": "6a3fb81b48b910648fc99bab342dbf7cf2ec1ef05ed1e5f130402d3541020a80",
+      "senses": [
+        {
+          "id": "deadline:0:0",
+          "pos": "noun",
+          "definition": "A time limit in the form of a date on or before which something must be completed.",
+          "tags": []
+        }
+      ]
+    }
+  }
+}

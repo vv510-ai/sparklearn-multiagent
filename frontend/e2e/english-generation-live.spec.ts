@@ -26,6 +26,13 @@ test("真实模型：默认三个词、字幕来源、刷新恢复和现成课�
     expect(data.vocabulary.map((item: { word: string }) => item.word.toLowerCase())).toContain(word);
   }
   expect(data.vocabulary.every((word: { memory: string }) => word.memory === "")).toBe(true);
+  for (const word of data.vocabulary.filter((item: { word: string }) => ["hesitate", "awkward", "figure out"].includes(item.word.toLowerCase()))) {
+    expect(word.dictionary.status).toBe("included");
+    expect(word.dictionary.headword).toBe(word.word.toLowerCase());
+    expect(word.dictionary.source_url).toContain("https://en.wiktionary.org/wiki/");
+    expect(word.dictionary.license).toBe("CC BY-SA 4.0");
+    expect(word.dictionary.senses.length).toBeGreaterThan(0);
+  }
   expect(data.lines.every((line: { timestamp: string }) => line.timestamp === "")).toBe(true);
   await expect(page.getByRole("region", { name: "场景原句" })).toContainText(data.lines[0].text);
   if (!data.question) {
@@ -50,6 +57,19 @@ test("真实模型：默认三个词、字幕来源、刷新恢复和现成课�
     await page.getByRole("heading", { name: data.title, exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath("english-live-" + width + ".png"), fullPage: true });
   }
+  const vocabulary = page.getByRole("region", { name: "词汇与搭配" });
+  const figureCard = vocabulary.getByRole("article").filter({ has: page.getByRole("heading", { name: /^figure out$/i }) });
+  await figureCard.getByText("查看词典原文", { exact: true }).click();
+  await expect(figureCard).toContainText("To come to understand; to discover or find a solution; to deduce.");
+  await expect(figureCard).toContainText("不代表上方 AI 解释已核验");
+  await expect(figureCard.getByRole("link", { name: "完整词条（新窗口）", exact: true })).toHaveAttribute("href", "https://en.wiktionary.org/wiki/figure_out#English");
+  for (const width of [1512, 390]) {
+    await page.setViewportSize({ width, height: 950 });
+    await figureCard.scrollIntoViewIfNeeded();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath("english-dictionary-live-" + width + ".png"), fullPage: true });
+  }
+  expect(restored.vocabulary).toEqual(data.vocabulary);
   const originalLines = ["Don't hesitate to suggest a plan.", "It feels awkward to change plans at the last minute.", "Let's figure out a time that works for both of us."];
   const subtitles = originalLines.map((line, index) => String(index + 1) + "\n00:00:0" + (index * 2 + 1) + ",000 --> 00:00:0" + (index * 2 + 2) + ",900\n" + line).join("\n\n");
   const sourceResponse = await page.request.post("/api/learning/english/scene", { timeout: 170000, data: {
