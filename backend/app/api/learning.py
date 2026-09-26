@@ -5,7 +5,7 @@ import asyncio
 import uuid
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..auth import require_current_user_id
 from ..config import is_demo
@@ -18,12 +18,13 @@ from ..services.model_preferences import resolve
 from ..services.learning_scope import scoped_endpoint
 from ..services.notebook_service import ensure_notebook_owner
 from ..services.study_research import research
-from ..services.subtitle_service import source_lines
+from ..services import english_learning as english
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
 
 class SceneRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     words: str = Field(min_length=1, max_length=400)
     scene: str = Field(default="日常交流", max_length=300)
     level: str = Field(default="中等", max_length=40)
@@ -32,35 +33,9 @@ class SceneRequest(BaseModel):
     notebook_id: str = Field(default="", max_length=64)
 
 
-class Line(BaseModel):
-    speaker: str = Field(default="", max_length=80)
-    text: str = Field(min_length=1, max_length=1000)
-    translation: str = Field(default="", max_length=1000)
-    timestamp: str = Field(default="", max_length=60)
-
-
-class Word(BaseModel):
-    word: str = Field(max_length=100)
-    meaning: str = Field(max_length=500)
-    usage: str = Field(default="", max_length=1500)
-    memory: str = Field(default="", max_length=800)
-    contrast: str = Field(default="", max_length=1500)
-
-
-class Check(BaseModel):
-    stem: str = Field(min_length=1, max_length=800)
-    options: list[str] = Field(min_length=4, max_length=4)
-    answer: str = Field(pattern="^[ABCD]$")
-    explanation: str = Field(max_length=2000)
-
-
-class Scene(BaseModel):
-    title: str = Field(max_length=200)
-    provenance: str = Field(max_length=200)
-    lines: list[Line] = Field(min_length=1, max_length=30)
-    vocabulary: list[Word] = Field(min_length=1, max_length=25)
-    notes: str = Field(max_length=20000)
-    question: Check
+class SceneQuestionRequest(BaseModel):
+    resource_id: str = Field(min_length=1, max_length=64)
+    notebook_id: str = Field(default="", max_length=64)
 
 
 class ResearchRequest(BaseModel):
@@ -92,37 +67,69 @@ def _persist(user: str, notebook: str, title: str, payload: dict) -> str:
 @router.post("/english/scene")
 @scoped_endpoint
 async def english_scene(req: SceneRequest):
-    body = req
-    user = _scope(body.notebook_id)
-    call = invoke_learning_prompt("english.scene", **body.model_dump(exclude={"notebook_id"}))
-    if is_demo() and not resolve(call.prompt):
-        raise HTTPException(503, "英语场景学习需要可用模型，请在模型设置中连接 API")
+    user = _scope(req.notebook_id)
+    _english_available()
     try:
-        raw = await llm_complete(call.prompt, system=call.system, json_object=True, max_tokens=6000,
-                                 allow_mock_fallback=False, allow_model_fallback=False)
-        result = Scene.model_validate(parse_json(raw)).model_dump()
-    except (RuntimeError, ValueError, ValidationError, TypeError):
-        raise HTTPException(502, "英语场景未生成完整，请检查模型设置后重试") from None
-    # Provenance is a product fact, never delegated to a generative model.
-    result["provenance"] = "用户字幕整理；释义与练习为 AI 补充" if body.subtitles.strip() else "原创教学场景，非真实影视台词"
-    if body.subtitles.strip():
-        try:
-            result["lines"] = source_lines(result["lines"], body.subtitles)
-        except ValueError:
-            raise HTTPException(502, "生成的台词与原字幕不一致，已阻止保存，请重试")
-    if not body.subtitles.strip():
-        for line in result["lines"]:
-            line["timestamp"] = ""
-    result["source_text"] = body.subtitles
-    result["mode"] = "live"
-    archive = [f"# {result['title']}", result["provenance"], "## 场景原句"]
-    archive.extend(f"{line['speaker']} {line['timestamp']}\n\n{line['text']}\n\n{line['translation']}" for line in result["lines"])
-    archive.append("## 词汇与搭配")
-    archive.extend(f"### {word['word']}\n\n{word['meaning']}\n\n{word['usage']}\n\n{word['contrast']}\n\n{word['memory']}" for word in result["vocabulary"])
-    archive.append(result["notes"])
-    result["resource_id"] = _persist(user, body.notebook_id, result["title"], {
-        "template": "english_scene", "markdown": "\n\n".join(archive), "english_scene": result})
+        result = await english.generate_scene(req.model_dump(exclude={"notebook_id"}))
+    except english.GenerationError as exc:
+        raise _english_error(exc) from None
+    result["resource_id"] = _persist(user, req.notebook_id, result["title"], english.archive(result))
     return result
+
+
+def _english_available():
+    if is_demo() and not resolve("CAPABILITY=english.scene\n"):
+        raise HTTPException(503, "英语场景生成需要可用模型。请先使用已准备好的场景课程，或联系管理员。")
+
+
+def _english_error(exc: english.GenerationError) -> HTTPException:
+    return HTTPException(exc.status, exc.message, headers={"X-English-Error": exc.code, "X-Request-ID": exc.request_id})
+
+
+def _owned_scene(db, user: str, resource_id: str, notebook: str, *, lock=False):
+    row = db.get(Resource, resource_id, with_for_update=lock)
+    payload = row.payload if row else {}
+    if (not row or row.user_id != user or (payload or {}).get("template") != "english_scene"
+            or str(payload.get("notebook_id") or "") != notebook or not payload.get("english_scene")):
+        raise HTTPException(404, "当前课程中没有这份英语场景")
+    return row
+
+
+@router.get("/english/scene/latest")
+@scoped_endpoint
+async def latest_english_scene(notebook_id: str = ""):
+    user = _scope(notebook_id)
+    with session() as db:
+        row = (db.query(Resource).filter(Resource.user_id == user,
+            Resource.payload["template"].as_string() == "english_scene",
+            Resource.payload["notebook_id"].as_string() == notebook_id)
+            .order_by(Resource.created_at.desc(), Resource.id.desc()).first())
+        return {**row.payload["english_scene"], "resource_id": row.id} if row else None
+
+
+@router.post("/english/scene/question")
+@scoped_endpoint
+async def english_scene_question(req: SceneQuestionRequest):
+    user = _scope(req.notebook_id)
+    with session() as db:
+        row = _owned_scene(db, user, req.resource_id, req.notebook_id)
+        scene = dict(row.payload["english_scene"])
+    # Refreshes and duplicate clicks do not regenerate an already available exercise.
+    if scene.get("question"):
+        return {"question": scene["question"], "generation": english.status(scene["question"])}
+    _english_available()
+    try:
+        question = await english.generate_question(scene)
+    except english.GenerationError as exc:
+        raise _english_error(exc) from None
+    with session() as db:
+        row = _owned_scene(db, user, req.resource_id, req.notebook_id, lock=True)
+        current = dict(row.payload["english_scene"])
+        question = current.get("question") or question
+        current.update(question=question, generation=english.status(question))
+        row.payload = {**row.payload, **english.archive(current)}
+        db.commit()
+    return {"question": question, "generation": english.status(question)}
 
 
 @router.post("/research")

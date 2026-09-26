@@ -278,7 +278,8 @@ def test_screening_multiselect_context_drives_plan_and_materials(user):
     markdown = state["materials"][0]["markdown"]
     assert "补全关键步骤" in markdown and "伪代码" in markdown and "晚饭后" in markdown
     other = service.study_plan(state["report"], survey(goal="准备课程考试", goals=["准备课程考试"], daily_minutes=30))
-    assert "考点" in other["days"][0]["tasks"][0]["title"] or any("考点" in t["title"] for d in other["days"] for t in d["tasks"])
+    # Rest days (including today on weekends) legitimately have no tasks.
+    assert any("考点" in t["title"] for d in other["days"] for t in d["tasks"])
 
 
 def test_continue_screening_preserves_answers_progress_and_never_repeats_exposed_questions(user):

@@ -37,6 +37,12 @@ export default function CourseLibrary() {
   const heading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    if (!study && catalog && window.location.hash.startsWith("#course-")) {
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "start" });
+    }
+  }, [catalog, study]);
+
+  useEffect(() => {
     let active = true;
     void apiGet<AuthUser>("/auth/me").then(u => { if (active) setUser(u); }).catch(() => {}).finally(() => { if (active) setAuthReady(true); });
     const expired = () => { epoch.current++; setUser(null); setStudy(null); setLesson(null); setCatalog(null); drafts.current = {}; };
@@ -148,7 +154,7 @@ export default function CourseLibrary() {
       {catalog?.items.length === 0 && <p role="status">课程正在维护，已有学习记录仍然保留。请稍后重试。</p>}
       <div className="library-cards">{catalog?.items.map(course => {
         const existing = catalog.studies.find(x => x.release_id === course.release_id);
-        return <article className="library-course-card" key={course.release_id}>
+        return <article id={"course-" + course.course_id} className="library-course-card" key={course.release_id}>
           <p className="library-eyebrow">{course.status_label}</p><h2>{course.title}</h2><p>{course.description}</p>
           <p><strong>适合谁：</strong>{course.audience}</p><p><strong>开始前：</strong>{course.prerequisites}</p>
           <ol>{course.outline.map(l => <li key={l.id}>{l.title}</li>)}</ol>

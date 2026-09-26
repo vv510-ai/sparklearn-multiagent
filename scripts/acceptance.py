@@ -201,7 +201,7 @@ def main(argv=None):
     p.add_argument("--python", default=os.environ.get("PLAYWRIGHT_PYTHON", sys.executable))
     p.add_argument("--node", default=shutil.which("node") or "node")
     p.add_argument("--markdown", action="store_true", help="status: refresh the readable ledger from JSON")
-    p.add_argument("--suite", choices=["feedback", "trusted-course", "english-scenes"], default="feedback")
+    p.add_argument("--suite", choices=["feedback", "trusted-course", "english-scenes", "english-generation"], default="feedback")
     p.add_argument("--scope", choices=["all", "backend", "ui"], default="all")
     p.add_argument("--backend-port", type=int, default=18480)
     p.add_argument("--frontend-port", type=int, default=13480)
@@ -263,7 +263,7 @@ def main(argv=None):
                 report["release_lock"] = {"expected_commit": args.expected_commit, "ttl_seconds": args.lease_seconds}
                 print("[LOCKED] auto-deploy is excluded during this acceptance window", flush=True)
                 step("live-browser", [args.node, cli, "test", "--config", "frontend/playwright.config.ts",
-                     "frontend/e2e/" + {"trusted-course": "trusted-course-library.spec.ts", "english-scenes": "english-scenes.spec.ts", "feedback": "feedback-live.spec.ts"}[args.suite], "--reporter=list,json"], lease=lease)
+                     "frontend/e2e/" + {"trusted-course": "trusted-course-library.spec.ts", "english-scenes": "english-scenes.spec.ts", "english-generation": "english-generation-live.spec.ts", "feedback": "feedback-live.spec.ts"}[args.suite], "--reporter=list,json"], lease=lease)
                 lease.check()
                 report["browser"] = validate_browser_report(out / "playwright.json")
         report["passed"] = True

@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.25.01",
+  "version": "2026.09.26.01",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -131,6 +131,10 @@
     "english.scene": {
       "file": "english/scene.md",
       "description": "按目标与字幕生成英语场景词汇笔记"
+    },
+    "english.question": {
+      "file": "english/question.md",
+      "description": "依据已保存的场景单独补生成语境练习"
     },
     "tutor.next_step": {
       "file": "tutor/next-step.md",
