@@ -89,6 +89,7 @@ test("真实账号完成阅读、跨设备恢复、订正、提前复习和手�
   await expect(page.getByRole("button", { name: "提交复习答案", exact: true })).toBeInViewport();
   await page.screenshot({ path: info.outputPath("reading-mobile-question.png"), fullPage: true });
   await page.getByRole("button", { name: "提交复习答案", exact: true }).click();
+  await expect(page.locator(".reading-completion")).toContainText("这次复习已记录");
   const reviewed = await (await page.request.get(`${base}/${id}`)).json();
   expect(reviewed.review).toEqual(completed.review); expect(reviewed.first).toEqual(completed.first);
   expect(reviewed.history).toHaveLength(1); expect(reviewed.history[0].early).toBe(true);
