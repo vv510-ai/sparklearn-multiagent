@@ -1,0 +1,500 @@
+[
+  {
+    "id": "original-library-v1",
+    "material": {
+      "title": "晚一点关门，学习就更好吗？",
+      "englishTitle": "A Longer Day at the Library",
+      "source": "LearnLoop 原创体验示例 · v1；虚构情境，非六级真题，难度未校准",
+      "source_type": "other",
+      "source_url": "",
+      "paragraphs": [
+        "When a university library extended its opening hours until midnight, the decision seemed easy to defend. Students had repeatedly asked for a quiet place to work after evening classes. During a six-week trial, the library recorded more visits after nine o'clock than it had expected. For administrators, the numbers initially looked like clear evidence of success.",
+        "Yet the number of visits told only part of the story. Some students entered the library several times in a single evening, and others used it mainly to meet friends. A higher count therefore did not necessarily mean that more students were studying effectively. The library had measured entries, not concentration or learning.",
+        "Interviews revealed a more specific benefit. Students who shared crowded rooms said the late opening gave them a reliable place to study. Those with quiet rooms at home were less likely to change their routines. The service was especially useful to one group, although that did not make it unimportant. A service can be valuable without benefiting everyone equally.",
+        "There was also a cost. Keeping the whole building open required security staff and additional heating. Rather than ending the trial, the library opened only two study rooms after ten. It then counted how many seats were occupied and asked users whether they had completed their planned work. These measures were still imperfect: reporting a completed task did not prove that a student had learned more.",
+        "The trial suggests a cautious approach to judging educational services. Popularity can signal a need, but it should not be confused with educational impact. Instead of asking only how often a service is used, decision-makers should ask whom it helps, what it changes, and whether a less costly version can preserve the benefit."
+      ],
+      "questions": [
+        {
+          "id": "library-q1",
+          "skill": "区分指标与结论",
+          "prompt": "Why did the administrators initially consider the trial successful?",
+          "options": [
+            "Students achieved higher examination scores.",
+            "More visits were recorded than expected.",
+            "All students preferred studying after ten.",
+            "The library reduced its operating costs."
+          ],
+          "answer": 1,
+          "evidence": {
+            "paragraph": 0,
+            "quote": "During a six-week trial, the library recorded more visits after nine o'clock than it had expected."
+          },
+          "explanation": "题目问“最初为什么认为成功”，依据是晚间到访次数超过预期。文章此处没有提供考试成绩、全体学生的偏好或成本下降的数据。",
+          "optionFeedback": [
+            "原文没有比较考试成绩，不能把到访人数换成学习成绩。",
+            "B保留了原文的指标：到访次数超过预期。",
+            "all扩大了人群范围，after ten也不是此处的时间。",
+            "成本问题出现在后文，并没有说试行降低了成本。"
+          ],
+          "takeaway": "先看题目问的阶段，再确认原文实际测量了什么。",
+          "drill": {
+            "context": "An online course received twice as many visits this month. No information about test results was collected.",
+            "prompt": "Which conclusion is supported?",
+            "options": [
+              "Learners understood twice as much.",
+              "The course received more visits.",
+              "Every visitor finished the course."
+            ],
+            "answer": 1,
+            "explanation": "只有访问次数增加得到了数据支持；理解程度和完课情况没有被测量。"
+          },
+          "recall": {
+            "context": "A reading app reports longer screen time but has not tested comprehension.",
+            "prompt": "What can we conclude from this information alone?",
+            "options": [
+              "Users have better comprehension.",
+              "Users spend more time in the app.",
+              "Users read more accurately."
+            ],
+            "answer": 1,
+            "explanation": "使用时长是已观测指标；阅读理解和准确性仍需单独测量。"
+          }
+        },
+        {
+          "id": "library-q2",
+          "skill": "读懂否定与推断边界",
+          "prompt": "What does the second paragraph imply about the visit count?",
+          "options": [
+            "It proves that students concentrated for longer.",
+            "It should be ignored because all visits were social.",
+            "It counts the number of different students accurately.",
+            "It is insufficient to establish effective studying."
+          ],
+          "answer": 3,
+          "evidence": {
+            "paragraph": 1,
+            "quote": "A higher count therefore did not necessarily mean that more students were studying effectively."
+          },
+          "explanation": "did not necessarily mean表示“不一定意味着”。同一人可能多次进出，也有人来见朋友，所以次数不足以证明有效学习。作者没有说数据完全无用。",
+          "optionFeedback": [
+            "proves把“不足以证明”改成了“证明”。",
+            "all visits没有依据，作者只说others，且未要求忽略数据。",
+            "同一人可能多次进入，因此次数不等于不同学生的人数。",
+            "D准确表达了“不足以据此证明有效学习”。"
+          ],
+          "takeaway": "“不一定能证明”既不是“必然成立”，也不是“完全没有价值”。",
+          "drill": {
+            "context": "A rise in book sales does not necessarily mean that people finish more books.",
+            "prompt": "Which statement has the same meaning?",
+            "options": [
+              "Higher sales alone cannot establish that more books are finished.",
+              "Higher sales prove that more books are finished.",
+              "No one finishes the books they buy."
+            ],
+            "answer": 0,
+            "explanation": "not necessarily否定的是推断的必然性，并没有否定所有人都读完的可能性。"
+          },
+          "recall": {
+            "context": "More practice sessions do not necessarily lead to better performance.",
+            "prompt": "Which interpretation is justified?",
+            "options": [
+              "Practice is always useless.",
+              "Everyone improves after more practice.",
+              "Session counts alone do not guarantee improvement."
+            ],
+            "answer": 2,
+            "explanation": "次数本身不能保证效果；这不等于练习永远无用。"
+          }
+        },
+        {
+          "id": "library-q3",
+          "skill": "保留人群范围",
+          "prompt": "Who benefited especially from the later opening hours?",
+          "options": [
+            "Students living in crowded shared rooms.",
+            "Every student at the university to the same extent.",
+            "Students who already had quiet rooms at home.",
+            "Only students who met friends in the library."
+          ],
+          "answer": 0,
+          "evidence": {
+            "paragraph": 2,
+            "quote": "Students who shared crowded rooms said the late opening gave them a reliable place to study."
+          },
+          "explanation": "who shared crowded rooms限定了学生群体。下一句与家里有安静房间的学生形成对比；作者还明确说不需要人人受益相同，服务也可以有价值。",
+          "optionFeedback": [
+            "A与限定人群直接对应。",
+            "every和to the same extent都超出了原文，还与后文相反。",
+            "这个群体反而较少改变原来的作息。",
+            "only没有依据；见朋友的人也不是访谈中指出的主要受益群体。"
+          ],
+          "takeaway": "选项中的all、every、only、equally要逐个与原文核对。",
+          "drill": {
+            "context": "Some students found the new timetable helpful, while others preferred the old one.",
+            "prompt": "Which summary preserves the original scope?",
+            "options": [
+              "Every student preferred the new timetable.",
+              "The new timetable helped some students.",
+              "Only students with high scores liked it."
+            ],
+            "answer": 1,
+            "explanation": "some就是部分学生。原文既不支持every，也没有提到分数。"
+          },
+          "recall": {
+            "context": "The workshop was especially helpful to beginners; experienced writers reported fewer benefits.",
+            "prompt": "Which statement is supported?",
+            "options": [
+              "Beginners benefited particularly from the workshop.",
+              "Every writer benefited equally.",
+              "Experienced writers learned nothing at all."
+            ],
+            "answer": 0,
+            "explanation": "especially helpful对应“尤其受益”；fewer benefits不等于完全没有收获。"
+          }
+        },
+        {
+          "id": "library-q4",
+          "skill": "理解措施与目的",
+          "prompt": "Why did the library open only two rooms after ten?",
+          "options": [
+            "To prove that late opening had no value.",
+            "To prevent students from finishing their work.",
+            "To retain the service while limiting its cost.",
+            "To guarantee that every user learned more."
+          ],
+          "answer": 2,
+          "evidence": {
+            "paragraph": 3,
+            "quote": "Keeping the whole building open required security staff and additional heating. Rather than ending the trial, the library opened only two study rooms after ten."
+          },
+          "explanation": "先说全楼开放需要安保和供暖，再说没有停止试行，而是只开放两间自习室。结合两句可知，这个调整是在保留服务的同时控制投入。",
+          "optionFeedback": [
+            "rather than ending the trial说明仍然保留试行，不能理解成证明没有价值。",
+            "措施的成本背景很明确，没有阻碍完成任务的目的。",
+            "C保留了“继续服务”和“缩小开放范围”的联系。",
+            "文章明确提醒，完成任务也不能证明学得更多，更不可能保证人人如此。"
+          ],
+          "takeaway": "目的题要把措施与其前面的原因一起读。",
+          "drill": {
+            "context": "Keeping five help desks open was expensive. Instead of closing the service, the centre kept one desk open in the evening.",
+            "prompt": "What is the most reasonable explanation?",
+            "options": [
+              "The centre wanted to end all assistance.",
+              "The centre sought to provide help at a lower cost.",
+              "The centre proved every visitor needed help."
+            ],
+            "answer": 1,
+            "explanation": "前句交代成本，后句保留一个服务点；对应在控制成本的同时继续服务。"
+          },
+          "recall": {
+            "context": "To avoid cancelling a costly weekend bus service, the town ran smaller buses.",
+            "prompt": "What was the purpose of the change?",
+            "options": [
+              "To show that buses were unnecessary.",
+              "To make every resident use buses.",
+              "To keep the service with lower resource requirements."
+            ],
+            "answer": 2,
+            "explanation": "avoid cancelling与smaller buses共同支持保留服务、减少资源投入。"
+          }
+        },
+        {
+          "id": "library-q5",
+          "skill": "概括作者主张",
+          "prompt": "What is the main message of the passage?",
+          "options": [
+            "University libraries should never stay open late.",
+            "Educational services should be judged beyond usage figures.",
+            "Popularity is the only reliable measure of success.",
+            "Every service should benefit all users equally."
+          ],
+          "answer": 1,
+          "evidence": {
+            "paragraph": 4,
+            "quote": "Instead of asking only how often a service is used, decision-makers should ask whom it helps, what it changes, and whether a less costly version can preserve the benefit."
+          },
+          "explanation": "结尾归纳了全文：使用次数之外，还要看帮助了谁、带来什么变化和是否能以更低成本保留价值。本文不是否定延长开放，也没有要求人人受益相同。",
+          "optionFeedback": [
+            "never过度绝对，全文保留了晚间服务的特定价值。",
+            "B覆盖全文从到访次数到受益人群、效果与成本的讨论。",
+            "only与作者明确要求考虑更多指标相反。",
+            "第三段直接说明服务不必让每个人同等受益。"
+          ],
+          "takeaway": "主旨选项要覆盖全文立场，不能把一个局部现象或极端说法当结论。",
+          "drill": {
+            "context": "A museum attracts large crowds, but its director also checks what visitors remember and which groups cannot access the exhibitions.",
+            "prompt": "Which title best reflects this approach?",
+            "options": [
+              "Beyond Visitor Numbers",
+              "Why Museums Must Close",
+              "Crowds Guarantee Learning"
+            ],
+            "answer": 0,
+            "explanation": "除人数外还关注记忆与可及性，Beyond Visitor Numbers覆盖这种思路。"
+          },
+          "recall": {
+            "context": "A tutor considers practice frequency, the quality of answers, and whether learners can solve unfamiliar problems.",
+            "prompt": "Which summary fits?",
+            "options": [
+              "Only frequent practice matters.",
+              "Several kinds of evidence inform the tutor's judgment.",
+              "Unfamiliar problems should always be avoided."
+            ],
+            "answer": 1,
+            "explanation": "文中列出多个观察方面，不支持only，也没有要求回避新问题。"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "original-bus-v1",
+    "material": {
+      "title": "免费的公交，改变了谁的出行？",
+      "englishTitle": "When a Free Ride Is Not the Whole Answer",
+      "source": "LearnLoop 原创体验示例 · v1；虚构情境，非六级真题，难度未校准",
+      "source_type": "other",
+      "source_url": "",
+      "paragraphs": [
+        "A small town made its weekend buses free for three months. The aim was to reduce car journeys to the busy town centre. Passenger numbers rose sharply, and local newspapers described the experiment as a transport success. The mayor, however, asked for more evidence before recommending a permanent change.",
+        "A survey of passengers showed why caution was needed. Many of the new riders had previously walked or cycled. Some were making journeys they would not otherwise have made. Although the service had become more popular, the survey did not establish how many car trips had been avoided. A rise in bus use and a fall in car use were different questions.",
+        "The survey also revealed benefits unrelated to traffic. Residents with limited incomes said they could visit family more often. Teenagers reported having greater access to sports facilities. These improvements mattered, even if they were not the original purpose of the experiment. Evaluating the policy only by its effect on cars would overlook part of its value.",
+        "For drivers who kept using their cars, price was rarely the main obstacle. They pointed to infrequent buses and long waits after evening events. In response, the town tested more frequent services on one route rather than expanding the free scheme immediately. It compared traffic counts on similar weekends and recorded passenger origins as well as totals.",
+        "The findings did not offer a simple choice between keeping and abandoning free travel. They suggested that different goals required different measures. Free fares might improve access for some residents, while reliable schedules could be more important for attracting drivers. The town needed to define success clearly before deciding which version of the policy to fund."
+      ],
+      "questions": [
+        {
+          "id": "bus-q1",
+          "skill": "区分指标与结论",
+          "prompt": "What was the original aim of the free-bus experiment?",
+          "options": [
+            "To make all local transport free.",
+            "To increase the number of evening events.",
+            "To reduce car journeys to the town centre.",
+            "To stop people from walking or cycling."
+          ],
+          "answer": 2,
+          "evidence": {
+            "paragraph": 0,
+            "quote": "The aim was to reduce car journeys to the busy town centre."
+          },
+          "explanation": "题目问最初目标，对应The aim was。乘客人数增加是随后观察到的现象，不能替换政策目标。",
+          "optionFeedback": [
+            "范围扩大到了all local transport，原文只说周末公交。",
+            "没有增加晚间活动数量的目标。",
+            "C与首段直接对应。",
+            "步行和骑车是调查结果涉及的既有出行方式，不是要阻止的行为。"
+          ],
+          "takeaway": "把目标、采取的措施和观察到的结果分开。",
+          "drill": {
+            "context": "A school added bike racks to reduce short car journeys. More bikes were later parked on campus.",
+            "prompt": "Which was the original goal?",
+            "options": [
+              "Reducing short car journeys",
+              "Counting the racks",
+              "Increasing all journeys"
+            ],
+            "answer": 0,
+            "explanation": "to reduce直接说明目标；停放自行车变多属于结果观察。"
+          },
+          "recall": {
+            "context": "A city built a park to provide outdoor space. It later attracted tourists.",
+            "prompt": "What was the stated initial purpose?",
+            "options": [
+              "Attracting tourists",
+              "Providing outdoor space",
+              "Increasing hotel prices"
+            ],
+            "answer": 1,
+            "explanation": "to provide引出的才是最初目标；游客是后续结果。"
+          }
+        },
+        {
+          "id": "bus-q2",
+          "skill": "读懂否定与推断边界",
+          "prompt": "Why was the mayor cautious about the higher passenger numbers?",
+          "options": [
+            "The figures alone did not show how many car trips had been replaced.",
+            "The survey proved that every bus rider had previously driven.",
+            "All the new riders were tourists.",
+            "The buses had become less popular."
+          ],
+          "answer": 0,
+          "evidence": {
+            "paragraph": 1,
+            "quote": "Although the service had become more popular, the survey did not establish how many car trips had been avoided."
+          },
+          "explanation": "although承认公交更受欢迎，但这并未说明少了多少汽车出行。许多新增乘客原先步行或骑车，因此不能直接把新增客流当作减少的汽车出行。",
+          "optionFeedback": [
+            "A保留了使用人数与替代汽车出行之间的区别。",
+            "every和proved都与调查内容冲突。",
+            "没有说新增乘客全是游客。",
+            "less popular与more popular相反。"
+          ],
+          "takeaway": "两个相关数字不能未经验证就当作同一件事。",
+          "drill": {
+            "context": "A shop sells more reusable cups, but has not measured how many disposable cups customers stop using.",
+            "prompt": "What remains unknown?",
+            "options": [
+              "Whether reusable cups were sold",
+              "How many disposable cups were replaced",
+              "Whether the shop exists"
+            ],
+            "answer": 1,
+            "explanation": "销量已知；一次性杯使用量的变化未被测量。"
+          },
+          "recall": {
+            "context": "Downloads of an exercise app increased, but users' actual activity was not tracked.",
+            "prompt": "Which claim needs additional evidence?",
+            "options": [
+              "The app had more downloads.",
+              "Download numbers rose.",
+              "Users became more physically active."
+            ],
+            "answer": 2,
+            "explanation": "下载增长并不能单独证明实际运动增长。"
+          }
+        },
+        {
+          "id": "bus-q3",
+          "skill": "保留人群范围",
+          "prompt": "What benefit did residents with limited incomes report?",
+          "options": [
+            "They all stopped using cars.",
+            "They received higher salaries.",
+            "They visited family more often.",
+            "They no longer needed reliable schedules."
+          ],
+          "answer": 2,
+          "evidence": {
+            "paragraph": 2,
+            "quote": "Residents with limited incomes said they could visit family more often."
+          },
+          "explanation": "limited incomes限定人群，visit family more often给出具体收益。原文没有把免费公交的收益说成涨工资或不需要准点服务。",
+          "optionFeedback": [
+            "all以及停止开车均没有在此被报告。",
+            "收入有限不等于收入后来增加。",
+            "C直接对应原文。",
+            "时刻表仍是其他乘客指出的重要因素。"
+          ],
+          "takeaway": "收益题需要同时保留“谁”和“得到什么”。",
+          "drill": {
+            "context": "Older residents said the new benches allowed them to rest during walks.",
+            "prompt": "Which benefit is stated?",
+            "options": [
+              "Everyone walked faster.",
+              "Older residents could rest while walking.",
+              "No one needed buses anymore."
+            ],
+            "answer": 1,
+            "explanation": "仅支持老年居民散步途中可以休息。"
+          },
+          "recall": {
+            "context": "Workers on night shifts found the new café hours convenient.",
+            "prompt": "Which group is explicitly mentioned?",
+            "options": [
+              "All residents",
+              "Only café owners",
+              "Workers on night shifts"
+            ],
+            "answer": 2,
+            "explanation": "on night shifts限定workers，不能扩成所有居民。"
+          }
+        },
+        {
+          "id": "bus-q4",
+          "skill": "理解措施与目的",
+          "prompt": "Why did the town test more frequent services on one route?",
+          "options": [
+            "Drivers had identified long waits as a problem.",
+            "Every resident demanded higher fares.",
+            "The survey showed schedules did not matter.",
+            "It had already decided to abandon all buses."
+          ],
+          "answer": 0,
+          "evidence": {
+            "paragraph": 3,
+            "quote": "They pointed to infrequent buses and long waits after evening events. In response, the town tested more frequent services on one route rather than expanding the free scheme immediately."
+          },
+          "explanation": "In response把措施和前面的反馈相连：班次少、等候久。因此先试增加班次，不是立刻扩大免费范围。",
+          "optionFeedback": [
+            "A与前因后果一致。",
+            "没有提高票价的要求，every也无依据。",
+            "司机的反馈正说明时间安排重要。",
+            "原文试验更多班次，并没有放弃所有公交。"
+          ],
+          "takeaway": "遇到in response，向前找它具体回应的需求。",
+          "drill": {
+            "context": "Patients complained about long waits. In response, the clinic added an evening session.",
+            "prompt": "What problem does the change address?",
+            "options": [
+              "The colour of the building",
+              "Long waiting times",
+              "A shortage of parking maps"
+            ],
+            "answer": 1,
+            "explanation": "in response指向上一句的long waits。"
+          },
+          "recall": {
+            "context": "Readers said the print was too small. In response, the publisher released a large-print edition.",
+            "prompt": "Why was the new edition released?",
+            "options": [
+              "To make the text easier to read",
+              "To shorten every chapter",
+              "To remove all illustrations"
+            ],
+            "answer": 0,
+            "explanation": "措施回应字号过小的反馈，其余两个目的没有依据。"
+          }
+        },
+        {
+          "id": "bus-q5",
+          "skill": "概括作者主张",
+          "prompt": "Which statement best expresses the author's conclusion?",
+          "options": [
+            "Free travel is always a failed policy.",
+            "Passenger totals should be the only success measure.",
+            "Every resident needs exactly the same service.",
+            "Transport policies should be evaluated against clearly defined goals."
+          ],
+          "answer": 3,
+          "evidence": {
+            "paragraph": 4,
+            "quote": "The town needed to define success clearly before deciding which version of the policy to fund."
+          },
+          "explanation": "全文比较减少汽车出行、改善出行机会等不同目标，以及票价、班次等不同措施。结尾要求先清楚定义成功，再决定资助哪种版本。",
+          "optionFeedback": [
+            "always过于绝对，文中明确承认部分收益。",
+            "only与多目标、多指标的讨论相反。",
+            "文章恰好描述不同群体的不同需求。",
+            "D覆盖了末段结论及前文展开的理由。"
+          ],
+          "takeaway": "把结尾观点与全文例子连接，再判断主旨是否足够完整。",
+          "drill": {
+            "context": "A training programme aims to improve confidence and accuracy. Its organisers measure both before deciding how to continue.",
+            "prompt": "Which summary fits?",
+            "options": [
+              "Evaluate outcomes against the programme's goals.",
+              "Ignore accuracy if attendance is high.",
+              "Assume everyone improves equally."
+            ],
+            "answer": 0,
+            "explanation": "按信心和准确性两个目标测量，符合以目标为基础的评估。"
+          },
+          "recall": {
+            "context": "A community garden is assessed for food production and opportunities for neighbours to meet.",
+            "prompt": "What approach is being used?",
+            "options": [
+              "Judging only popularity",
+              "Considering more than one intended benefit",
+              "Assuming benefits without observation"
+            ],
+            "answer": 1,
+            "explanation": "两类预期收益分别被评估，支持多方面判断。"
+          }
+        }
+      ]
+    }
+  }
+]

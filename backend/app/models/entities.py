@@ -289,6 +289,17 @@ class CourseStudy(Base):
     revision: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class ReadingTraining(Base):
+    """Immutable source snapshot and private, resumable reading journey."""
+    __tablename__ = "reading_trainings"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    material_id: Mapped[str] = mapped_column(String(64))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class NotebookStudy(Base):
     __tablename__ = "notebook_studies"
     notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), primary_key=True)

@@ -18,6 +18,8 @@ from ..services import course_learning_service as course_service
 from ..services.learning_scope import course_scope, ensure_space
 from ..services import study_paths
 import datetime as dt
+from ..schemas.reading import ReadingImport, ReadingAction
+from ..services import reading_training
 
 
 class CoursePrepareRequest(BaseModel):
@@ -28,6 +30,31 @@ class CoursePrepareRequest(BaseModel):
 
 
 router = APIRouter(prefix="/api/notebooks", tags=["notebooks"])
+
+
+@router.get("/{notebook_id}/reading")
+def reading_library(notebook_id: str):
+    return reading_training.library(require_current_user_id(), notebook_id)
+
+
+@router.post("/{notebook_id}/reading/import")
+def reading_import(notebook_id: str, req: ReadingImport):
+    return reading_training.import_material(require_current_user_id(), notebook_id, str(req.request_id), req.material)
+
+
+@router.post("/{notebook_id}/reading/examples/{sample_id}")
+def reading_example(notebook_id: str, sample_id: str):
+    return reading_training.start_example(require_current_user_id(), notebook_id, sample_id)
+
+
+@router.get("/{notebook_id}/reading/{item_id}")
+def reading_detail(notebook_id: str, item_id: str):
+    return reading_training.detail(require_current_user_id(), notebook_id, item_id)
+
+
+@router.post("/{notebook_id}/reading/{item_id}")
+def reading_action(notebook_id: str, item_id: str, req: ReadingAction):
+    return reading_training.act(require_current_user_id(), notebook_id, item_id, req)
 
 
 class UnitProgressRequest(BaseModel):

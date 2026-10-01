@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, ExternalLink } from "lucide-react";
+import ReadingTraining from "./ReadingTraining";
 import Markdown from "@/components/chat/Markdown";
 import { apiGet, apiPost } from "@/lib/api";
 import type { CourseStudy, StudyProgress, UnitRecord } from "@/lib/course-study";
@@ -9,10 +10,12 @@ import type { CourseStudy, StudyProgress, UnitRecord } from "@/lib/course-study"
 const blank = (): UnitRecord => ({ read: false, practiced: false, checked: false, completed: false, notes: "", next_review: null });
 const readable = (e: unknown) => e instanceof Error ? e.message.replace(/^(GET|POST) \S+ → \d+:\s*/, "") : "暂时无法保存，请重试。";
 
-export default function CourseStudyPanel({ notebookId, userId, requestedUnit, onChat, onUpload }: {
+export default function CourseStudyPanel({ notebookId, userId, requestedUnit, onChat, onUpload, onFocus, onReviews }: {
   notebookId: string; userId: string; requestedUnit: { id: string; request: number };
-  onChat: (prompt: string) => void; onUpload: () => void;
+  onChat: (prompt: string) => void; onUpload: () => void; onFocus: (active: boolean) => void; onReviews: () => void;
 }) {
+  const [readingActive, setReadingActive] = useState(false);
+  useEffect(() => { onFocus(readingActive); return () => onFocus(false); }, [readingActive, onFocus]);
   const [data, setData] = useState<CourseStudy | null>(null);
   const [unitId, setUnitId] = useState("");
   const [draft, setDraft] = useState<UnitRecord>(blank);
@@ -99,8 +102,10 @@ export default function CourseStudyPanel({ notebookId, userId, requestedUnit, on
   const canComplete = draft.read && draft.practiced && draft.checked && draft.notes.trim().length >= 3;
   const completedCount = data.path.units.filter(u => data.progress.units[u.id]?.completed).length;
   return <div className="course-study-scroll" aria-label="当前课程学习">
-    <header className="course-study-top"><div><span>{data.path.title}</span><p>已完成 {completedCount} / {data.path.units.length} 节</p></div><button className="secondary-action" onClick={() => onChat("")}>学习对话</button></header>
-    {!!due.length && <details className="course-study-review"><summary>有 {due.length} 节到了复习日期</summary>{due.map(u => <button key={u.id} disabled={busy} onClick={() => pick(data, u.id)}>{u.title}</button>)}</details>}
+    <header className="course-study-top" hidden={readingActive}><div><span>{data.path.title}</span><p>已完成 {completedCount} / {data.path.units.length} 节</p></div><button className="secondary-action" onClick={() => onChat("")}>学习对话</button></header>
+    {data.path.course === "cet6" && <ReadingTraining key={`${userId}:${notebookId}:${requestedUnit.request}`} notebookId={notebookId} userId={userId} onFocus={setReadingActive} onChat={onChat} chapterDue={due.map(u => ({ id: u.id, title: u.title }))} onReviews={onReviews} onChapter={id => { pick(data, id); requestAnimationFrame(() => heading.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }} />}
+    <div hidden={readingActive}>
+    {!!due.length && data.path.course !== "cet6" && <details className="course-study-review"><summary>有 {due.length} 节到了复习日期</summary>{due.map(u => <button key={u.id} disabled={busy} onClick={() => pick(data, u.id)}>{u.title}</button>)}</details>}
     <article className="course-study-card">
       <div className="course-study-position"><span>{unit.group} · 第 {at + 1} 节</span><span>建议 {unit.minutes} 分钟，可分次完成</span></div>
       <h1 ref={heading} tabIndex={-1}>{unit.title}</h1>
@@ -124,5 +129,6 @@ export default function CourseStudyPanel({ notebookId, userId, requestedUnit, on
       <nav className="course-study-navigation" aria-label="前后章节"><button disabled={busy || at === 0} onClick={() => pick(data, data.path.units[at - 1].id)}><ArrowLeft size={15} />上一节</button><button disabled={busy || at + 1 >= data.path.units.length} onClick={() => pick(data, data.path.units[at + 1].id)}>先看下一节<ArrowRight size={15} /></button></nav>
     </article>
     <details className="course-study-more" onToggle={e => { if (e.currentTarget.open && !materials.length) void apiGet<{ items: typeof materials }>("/materials").then(r => { if (alive.current) setMaterials(r.items.filter(m => m.course === data.path.course)); }).catch(() => { if (alive.current) setNotice("更多资料暂时无法加载，请稍后重试。"); }); }}><summary>本课更多教材与真题</summary>{data.path.course === "cet6" && <label>资料类型<select value={materialKind} onChange={e => setMaterialKind(e.target.value)}><option value="past_paper">历年真题</option><option value="mock">专项模拟</option><option value="book">图书配套</option><option value="">全部</option></select></label>}{materials.filter(m => data.path.course !== "cet6" || !materialKind || m.kind === materialKind).map(m => <details key={m.id}><summary>{m.title}</summary><p>{m.source_role} · {m.access}</p><a href={m.url} target="_blank" rel="noopener noreferrer">打开原始材料 ↗</a></details>)}</details>
+    </div>
   </div>;
 }

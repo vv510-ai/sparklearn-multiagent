@@ -36,6 +36,7 @@ import ResearchPanel from "@/components/learning/ResearchPanel";
 import GenerationJobs from "@/components/learning/GenerationJobs";
 import EnglishScenes from "@/components/learning/EnglishScenes";
 import CourseStudyPanel from "@/components/learning/CourseStudyPanel";
+import ReadingProgress from "@/components/learning/ReadingProgress";
 import CourseRecommendations from "@/components/courses/CourseRecommendations";
 import OnboardingGate from "@/components/onboarding/OnboardingGate";
 import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
@@ -199,6 +200,7 @@ function EvidenceSummary({
 
 export default function Home() {
   useStudyViewport();
+  const [readingFocus, setReadingFocus] = useState(false);
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
   const [studioCollapsed, setStudioCollapsed] = useState(false);
   const [sourceWidth, setSourceWidth] = useState(280);
@@ -349,7 +351,8 @@ export default function Home() {
         if (epoch !== accountEpochRef.current) return;
         let remembered = "";
         try { remembered = localStorage.getItem(`learnloop:last-notebook:${authUser?.id}`) || ""; } catch { /* Optional local resume. */ }
-        const recent = books.items.find(book => book.id === remembered) || books.items[0];
+        const linked = new URLSearchParams(window.location.search).get("notebook");
+        const recent = books.items.find(book => book.id === linked) || books.items.find(book => book.id === remembered) || books.items[0];
         if (recent && !activeNotebookIdRef.current) {
           const notebook = await apiGet<LearningNotebook>(`/notebooks/${recent.id}?user_id=${USER_ID}`);
           if (epoch !== accountEpochRef.current) return;
@@ -536,6 +539,10 @@ export default function Home() {
   const enterNotebook = (notebook: LearningNotebook, initialGoal = "") => {
     const goal = initialGoal.trim();
     if (authUser?.id) try { localStorage.setItem(`learnloop:last-notebook:${authUser.id}`, notebook.id); } catch { /* Server history remains available. */ }
+    const readingURL = new URL(window.location.href);
+    if (readingURL.searchParams.get("notebook") !== notebook.id) readingURL.searchParams.delete("reading");
+    readingURL.searchParams.set("notebook", notebook.id);
+    window.history.replaceState(null, "", `${readingURL.pathname}${readingURL.search}${readingURL.hash}`);
     activeNotebookIdRef.current = notebook.id;
     setActiveNotebook(notebook);
     pendingStudyNotebook.current = notebook.id;
@@ -885,7 +892,7 @@ export default function Home() {
   const sourcePanel = (
     <SourcePanel
       includeBuiltin={!!activeNotebook && activeCourse?.kind === "ds_algo" && !activeCourse?.study_path}
-      onStudy={(id = "") => { setStudyUnit(value => ({ id, request: value.request + 1 })); setActivePanel("study"); setMobilePane(null); }}
+      onStudy={(id = "") => { const url = new URL(window.location.href); url.searchParams.delete("reading"); window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); setReadingFocus(false); setStudyUnit(value => ({ id, request: value.request + 1 })); setActivePanel("study"); setMobilePane(null); }}
       course={activeCourse}
       notebooks={notebooks}
       activeNotebookId={activeNotebook?.id}
@@ -943,8 +950,8 @@ export default function Home() {
         {activeNotebook && <button type="button" onClick={() => { setActivePanel("chat"); void startNewConversation(); }} disabled={chatBusy || !!openingNotebookId} className="study-icon" aria-label="新对话" title="新对话"><SquarePen size={21} /></button>}
 
         <div className="workspace-pane-controls">
-          <button type="button" onClick={() => window.innerWidth >= 900 ? setSourcesCollapsed(value => !value) : setMobilePane("sources")} className="study-icon" aria-label="切换资料栏" title="切换资料栏" aria-pressed={!sourcesCollapsed}><PanelLeftOpen size={19} /></button>
-          <button type="button" onClick={() => window.innerWidth >= 1400 ? setStudioCollapsed(value => !value) : setMobilePane("studio")} className="study-icon" aria-label="切换工坊栏" title="切换工坊栏"><PanelRightOpen size={19} /></button>
+          <button type="button" onClick={() => window.innerWidth >= 900 ? (setReadingFocus(false), setSourcesCollapsed(value => readingFocus ? false : !value)) : setMobilePane("sources")} className="study-icon" aria-label="切换资料栏" title="切换资料栏" aria-pressed={!(sourcesCollapsed || (readingFocus && activePanel === "study"))}><PanelLeftOpen size={19} /></button>
+          <button type="button" onClick={() => window.innerWidth >= 1400 ? (setReadingFocus(false), setStudioCollapsed(value => readingFocus ? false : !value)) : setMobilePane("studio")} className="study-icon" aria-label="切换工坊栏" title="切换工坊栏"><PanelRightOpen size={19} /></button>
         </div>
         <AdaptiveMenu label="学习菜单" className="workspace-actions">
           <button type="button" className="notebook-home-button workspace-tools-entry" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
@@ -963,7 +970,7 @@ export default function Home() {
         </AdaptiveMenu>
       </header>
 
-      <div className="notebook-layout min-h-0 flex-1" data-sources-collapsed={sourcesCollapsed} data-studio-collapsed={studioCollapsed}
+      <div className="notebook-layout min-h-0 flex-1" data-sources-collapsed={sourcesCollapsed || (readingFocus && activePanel === "study")} data-studio-collapsed={studioCollapsed || (readingFocus && activePanel === "study")}
         style={{ "--study-source-width": `${sourceWidth}px` } as React.CSSProperties}>
         <aside data-guide="sources" className="workspace-sources min-h-0">{sourcePanel}
           <div className="pane-resizer" role="separator" aria-label="资料栏宽度" aria-orientation="vertical" tabIndex={0}
@@ -1033,7 +1040,7 @@ export default function Home() {
             />
           </div>
 
-          {activeNotebook && activeCourse?.study_path && <div className={`min-h-0 flex-1 ${activePanel === "study" ? "block" : "hidden"}`} aria-hidden={activePanel !== "study"}><CourseStudyPanel key={`${authUser.id}:${activeNotebook.id}`} userId={authUser.id} notebookId={activeNotebook.id} requestedUnit={studyUnit} onChat={prompt => { if (prompt) void startLearning(prompt); else setActivePanel("chat"); }} onUpload={() => sourceInputRef.current?.click()} /></div>}
+          {activeNotebook && activeCourse?.study_path && <div className={`min-h-0 flex-1 ${activePanel === "study" ? "block" : "hidden"}`} aria-hidden={activePanel !== "study"}><CourseStudyPanel key={`${authUser.id}:${activeNotebook.id}`} userId={authUser.id} notebookId={activeNotebook.id} requestedUnit={studyUnit} onFocus={setReadingFocus} onReviews={() => openPanel("profile")} onChat={prompt => { if (prompt) void startLearning(prompt); else setActivePanel("chat"); }} onUpload={() => sourceInputRef.current?.click()} /></div>}
           {activePanel === "assessment" && activeCourse?.study_path && <div className="course-study-scroll"><h2>从当前章节的原题开始</h2><p>本课采用教材与机构练习。先完成题目、核对答案，再记录订正；已有测评记录仍保留。</p><button className="primary-action" onClick={() => setActivePanel("study")}>继续课程学习</button><details><summary>查看已有测评记录</summary><AssessmentPanel historyOnly key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} onBack={() => setActivePanel("study")} onLearn={(prompt) => void startLearning(prompt)} onCourses={() => setActivePanel("courses")} onUpdated={() => { void loadProfile(); }} /></details></div>}
           {activePanel === "assessment" && !activeCourse?.study_path && <AssessmentPanel key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} initialSurvey={{ course_title: activeCourse?.title || activeNotebook?.title || "", course_key: "custom", source_ids: selectedSourceIds.filter(id => id !== COURSE_SOURCE_ID), ...profile?.learning_intake }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
           {activePanel === "research" && <ResearchPanel key={activeNotebook?.id || "research"} notebookId={activeNotebook?.id || ""} initialTopic={conversationFocus || notebookTopic} onBack={() => setActivePanel("chat")} />}
@@ -1044,8 +1051,10 @@ export default function Home() {
               <div className="notebook-content-heading">
                 <div><span>LEARNING PROFILE</span><h1>我的学习情况</h1><p>每次独立作答积累证据；初始先验不代表实际成绩。</p></div>
                 <div className="flex items-center gap-2"><button onClick={() => { setOnboardingRequired(true); setEntered(false); setOnboardingLoading(false); }} className="secondary-action">调整学习起点</button><button onClick={() => void loadProfile()} className="secondary-action">刷新</button></div>
+
               </div>
               <div className="px-5 pt-5">
+              {activeNotebook && activeCourse?.kind === "cet6" && <ReadingProgress key={activeNotebook.id} notebookId={activeNotebook.id} onOpen={id => { const url = new URL(window.location.href); url.searchParams.set("notebook", activeNotebook.id); url.searchParams.set("reading", id); window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); setStudyUnit(value => ({ id: "", request: value.request + 1 })); setActivePanel("study"); }} />}
                 <button className="entry-profile-cta" onClick={() => openPanel("assessment")}><Target size={20} /><span><strong>查看起点测评与两周计划</strong><small>真实题目、逐题解析、按时间安排的学习任务</small></span><ArrowRight size={18} /></button>
                 <ReviewQueue key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} onEvaluated={refreshAfterEvaluation} />
               </div>

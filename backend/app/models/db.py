@@ -39,6 +39,7 @@ TENANT_TABLES = (
     "course_studies",
     "material_studies",
     "notebook_studies",
+    "reading_trainings",
     "learning_spaces",
     "model_preferences",
     "assessment_sessions",
