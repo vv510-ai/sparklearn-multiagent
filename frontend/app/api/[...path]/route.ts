@@ -85,7 +85,8 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
   // Audio/image/video elements request the BFF URL directly. They still send
   // the HttpOnly session cookie, so require it here and forward the JWT to the
   // backend ownership check instead of treating generated assets as public.
-  if (!token && !isPublicHealth) return jsonError("请先登录", 401);
+  const isPublicMaterials = req.method === "GET" && path.length === 1 && path[0] === "materials";
+  if (!token && !isPublicHealth && !isPublicMaterials) return jsonError("请先登录", 401);
 
   // Keep legacy frontend calls working while making the server-side identity canonical.
   if (subject && path[0] === "profile" && path.length > 1) path[1] = subject;
@@ -119,7 +120,7 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
               return jsonError("请通过 HTTPS 或本机 localhost 填写 API 密钥", 400);
             }
           }
-          if (subject && path[0] !== "pilot" && body && typeof body === "object" && !Array.isArray(body)) {
+          if (subject && !["pilot", "materials"].includes(path[0]) && body && typeof body === "object" && !Array.isArray(body)) {
             (body as Record<string, unknown>).user_id = subject;
           }
           init.body = JSON.stringify(body);

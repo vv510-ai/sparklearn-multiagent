@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .api import pilot
 from .api import settings as model_settings
-from .api import learning, jobs, library
+from .api import learning, jobs, library, materials
 from .auth import bind_request_user, decode_access_token, reset_request_user
 from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
@@ -75,7 +75,8 @@ _PUBLIC_PATHS = {
 
 @app.middleware("http")
 async def authenticate_request(request: Request, call_next):
-    if not auth_required() or request.url.path in _PUBLIC_PATHS:
+    public_materials = request.method == "GET" and request.url.path == "/api/materials"
+    if not auth_required() or request.url.path in _PUBLIC_PATHS or public_materials:
         return await call_next(request)
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
@@ -106,7 +107,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 for r in (jobs.router, assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
-          tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router):
+          tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router, materials.router):
     app.include_router(r)
 
 

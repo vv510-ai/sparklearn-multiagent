@@ -144,7 +144,7 @@ export default function CourseLibrary() {
   const progressCount = Object.values(study?.progress.lessons || {}).filter(p => p.read).length;
 
   return <main id="main" className="course-library" aria-busy={busy}>
-    <header className="library-header"><a href="/">知行循证 <span>LearnLoop</span></a><nav aria-label="课程导航"><a href="/">学习工作区</a><button onClick={back} disabled={busy}>课程目录</button><span>{user.name}</span></nav></header>
+    <header className="library-header"><a href="/">知行循证 <span>LearnLoop</span></a><nav aria-label="课程导航"><a href="/materials">真实资料中心</a><a href="/">学习工作区</a><button onClick={back} disabled={busy}>课程目录</button><span>{user.name}</span></nav></header>
     {error && <div className="library-error" role="alert">{error}{study && !study.withdrawn && <button onClick={() => void openLesson(study, lesson?.id || study.progress.last_lesson, false)} disabled={busy}>刷新本课</button>}</div>}
     {notice && <p className="library-notice" role="status">{notice}</p>}
     {busy && <p role="status" className="library-loading">正在保存或载入，请稍候…</p>}
@@ -152,6 +152,7 @@ export default function CourseLibrary() {
       <section className="library-intro"><p className="library-eyebrow">教材、讲解与练习已经准备好</p><h1>选一门课，直接开始学。</h1><p>不需要先上传资料。按课程目录阅读、动手和练习，学习进度会保存在你的账号中。</p></section>
       {!catalog && !busy && <button onClick={() => void apiGet<Catalog>("/library").then(setCatalog).catch(e => setError(readableError(e)))}>重新加载课程</button>}
       {catalog?.items.length === 0 && <p role="status">课程正在维护，已有学习记录仍然保留。请稍后重试。</p>}
+      <section className="library-other"><h2>备考与课后练习，从原始资料开始</h2><p>六级历年真题、出版社配套音频，以及 Python、算法、高数和英语的原始教材与习题。</p><a href="/materials">打开真实资料中心 →</a> · <a href="/materials?course=cet6">六级真题与模拟训练 →</a></section>
       <div className="library-cards">{catalog?.items.map(course => {
         const existing = catalog.studies.find(x => x.release_id === course.release_id);
         return <article id={"course-" + course.course_id} className="library-course-card" key={course.release_id}>

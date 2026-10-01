@@ -201,7 +201,7 @@ def main(argv=None):
     p.add_argument("--python", default=os.environ.get("PLAYWRIGHT_PYTHON", sys.executable))
     p.add_argument("--node", default=shutil.which("node") or "node")
     p.add_argument("--markdown", action="store_true", help="status: refresh the readable ledger from JSON")
-    p.add_argument("--suite", choices=["feedback", "trusted-course", "english-scenes", "english-generation"], default="feedback")
+    p.add_argument("--suite", choices=["feedback", "trusted-course", "english-scenes", "english-generation", "materials"], default="feedback")
     p.add_argument("--scope", choices=["all", "backend", "ui"], default="all")
     p.add_argument("--backend-port", type=int, default=18480)
     p.add_argument("--frontend-port", type=int, default=13480)
@@ -216,7 +216,7 @@ def main(argv=None):
     if args.mode == "status":
         ledger_status(args.markdown)
         return 0
-    if args.mode == "live" and not args.allow_live_models:
+    if args.mode == "live" and args.suite != "materials" and not args.allow_live_models:
         p.error("live makes fixed synthetic QA requests to the configured model; add --allow-live-models")
     if args.mode == "live" and not args.expected_commit:
         p.error("live requires --expected-commit so acceptance is bound to one deployed version")
@@ -253,7 +253,7 @@ def main(argv=None):
                            PLAYWRIGHT_FRONTEND_PORT=str(args.frontend_port), PLAYWRIGHT_PRODUCTION="true")
                 step("build", [args.node, "node_modules/next/dist/bin/next", "build", "--webpack"], ROOT / "frontend")
                 step("browser", [args.node, cli, "test", "--config", "frontend/playwright.config.ts",
-                     *["frontend/e2e/" + name + ".spec.ts" for name in UI_SPECS], "--reporter=list,json"])
+                     *["frontend/e2e/" + name + ".spec.ts" for name in (["study-materials"] if args.suite == "materials" else UI_SPECS)], "--reporter=list,json"])
                 report["browser"] = validate_browser_report(out / "playwright.json")
         else:
             env.update(PLAYWRIGHT_BASE_URL=args.base_url, PLAYWRIGHT_REAL_MODE="1",
@@ -263,7 +263,7 @@ def main(argv=None):
                 report["release_lock"] = {"expected_commit": args.expected_commit, "ttl_seconds": args.lease_seconds}
                 print("[LOCKED] auto-deploy is excluded during this acceptance window", flush=True)
                 step("live-browser", [args.node, cli, "test", "--config", "frontend/playwright.config.ts",
-                     "frontend/e2e/" + {"trusted-course": "trusted-course-library.spec.ts", "english-scenes": "english-scenes.spec.ts", "english-generation": "english-generation-live.spec.ts", "feedback": "feedback-live.spec.ts"}[args.suite], "--reporter=list,json"], lease=lease)
+                     "frontend/e2e/" + {"materials": "study-materials.spec.ts", "trusted-course": "trusted-course-library.spec.ts", "english-scenes": "english-scenes.spec.ts", "english-generation": "english-generation-live.spec.ts", "feedback": "feedback-live.spec.ts"}[args.suite], "--reporter=list,json"], lease=lease)
                 lease.check()
                 report["browser"] = validate_browser_report(out / "playwright.json")
         report["passed"] = True

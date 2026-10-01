@@ -1,0 +1,1210 @@
+{
+  "version": "2026-10-01-v1",
+  "courses": {
+    "cet6": "大学英语六级",
+    "python": "Python",
+    "ds_algo": "数据结构与算法",
+    "calculus": "高等数学",
+    "english": "情境英语"
+  },
+  "kinds": {
+    "exam_reference": "考试要求与样题",
+    "past_paper": "历年真题",
+    "mock": "专项模拟",
+    "book": "出版物配套",
+    "archive": "历年目录",
+    "textbook": "原始教材",
+    "course": "公开课程",
+    "exercises": "原始习题"
+  },
+  "boundary": "当前收录经过核查的公开原始入口；题目、音频与解析在原站使用。暂未收齐市面全部真题和模拟题，也未将出版物全文收进站内题库。",
+  "items": [
+    {
+      "id": "cet6-format",
+      "course": "cet6",
+      "title": "六级笔试内容与题型比例",
+      "provider": "中国教育考试网",
+      "source_role": "考试主办方",
+      "kind": "exam_reference",
+      "url": "https://cet.neea.edu.cn/html1/report/16123/201-1.htm",
+      "scope": "确认写作、听力、阅读与翻译的题型、时长和分值比例。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已核对考试院题型说明；这是一份考试说明，不是历年试卷。",
+      "task": "列出四个部分的任务与时间，再选择一份真题练习。",
+      "skills": [
+        "考试要求"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-syllabus",
+      "course": "cet6",
+      "title": "考试大纲原始 PDF",
+      "provider": "中国教育考试网",
+      "source_role": "考试主办方",
+      "kind": "exam_reference",
+      "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf",
+      "scope": "查看考试大纲、样题和词汇要求，以原文件标注的版本为准。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "考试院发布的原始 PDF；历史版大纲，考试安排需另查最新通知。",
+      "task": "对照大纲找到六级阅读与翻译要求，记录自己尚不熟悉的题型。",
+      "skills": [
+        "考试要求",
+        "词汇"
+      ],
+      "year": "2016版",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-scoring",
+      "course": "cet6",
+      "title": "笔试成绩如何报道",
+      "provider": "中国教育考试网",
+      "source_role": "考试主办方",
+      "kind": "exam_reference",
+      "url": "https://cet.neea.edu.cn/html1/folder/19081/5124-1.htm",
+      "scope": "理解总分和单项成绩的报道方式，避免用少量练习推算考试分数。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已核对考试院成绩解释入口；本站不将练习正确率换算为六级成绩。",
+      "task": "读懂成绩单，再用真实试卷记录错题类型。",
+      "skills": [
+        "考试要求"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202506-1",
+      "course": "cet6",
+      "title": "2025年6月六级 · 第1套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20250609/901413.html",
+      "scope": "原页提供题面图、答案图及听力入口，练习时先遮住答案。",
+      "access": "原站公开阅读；站内提供原始入口。部分资料领取另需登录或扫码。",
+      "verification": "已看到题面与答案图入口。音频文字日期/套次存在不一致，音频对应套次待核实；未逐题核对答案。",
+      "task": "先独立完成一篇仔细阅读，记录题号、用时、你的答案及原页参考答案。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "year": "2025-06",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202506-2",
+      "course": "cet6",
+      "title": "2025年6月六级 · 第2套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20250609/901414.html",
+      "scope": "原页提供题面图、答案图及听力入口，练习时先遮住答案。",
+      "access": "原站公开阅读；站内提供原始入口。部分资料领取另需登录或扫码。",
+      "verification": "已看到题面与答案图入口。音频文字日期/套次存在不一致，音频对应套次待核实；未逐题核对答案。",
+      "task": "先独立完成一篇仔细阅读，记录题号、用时、你的答案及原页参考答案。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "year": "2025-06",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202506-3",
+      "course": "cet6",
+      "title": "2025年6月六级 · 第3套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20250609/901415.html",
+      "scope": "原页提供题面图、答案图及听力入口，练习时先遮住答案。",
+      "access": "原站公开阅读；站内提供原始入口。部分资料领取另需登录或扫码。",
+      "verification": "已看到题面与答案图入口。音频文字日期/套次存在不一致，音频对应套次待核实；未逐题核对答案。",
+      "task": "先独立完成一篇仔细阅读，记录题号、用时、你的答案及原页参考答案。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "year": "2025-06",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202412-1",
+      "course": "cet6",
+      "title": "2024年12月六级 · 第1套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20250415/898834.html",
+      "scope": "按原页题面练习并核对答案，保留错题所在页码。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已看到题面图片；未逐题核对答案与音频。",
+      "task": "选择一个阅读小节独立作答；把不认识的词放回句中解释。",
+      "skills": [
+        "阅读",
+        "写作",
+        "翻译"
+      ],
+      "year": "2024-12",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202412-2",
+      "course": "cet6",
+      "title": "2024年12月六级 · 第2套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20250415/898835.html",
+      "scope": "按原页题面练习并核对答案，保留错题所在页码。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已看到题面图片；高清下载链接与第一套重复，请优先查看原页图版，卷次需再次核对。",
+      "task": "选择一个阅读小节独立作答；把不认识的词放回句中解释。",
+      "skills": [
+        "阅读",
+        "写作",
+        "翻译"
+      ],
+      "year": "2024-12",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202412-3",
+      "course": "cet6",
+      "title": "2024年12月六级 · 第3套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20250415/898836.html",
+      "scope": "按原页题面练习并核对答案，保留错题所在页码。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已看到题面图片；未逐题核对答案与音频。原页未见第三套独立音频。",
+      "task": "选择一个阅读小节独立作答；把不认识的词放回句中解释。",
+      "skills": [
+        "阅读",
+        "写作",
+        "翻译"
+      ],
+      "year": "2024-12",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202312-1",
+      "course": "cet6",
+      "title": "2023年12月六级 · 第1套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20240229/884398.html",
+      "scope": "题面和参考答案图版，可按阅读、翻译和写作分段使用。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "原页有题面、图版下载和听力入口；音频尚未逐段试听，未逐题复核答案。",
+      "task": "选一篇阅读：独立做题 → 核对答案 → 找到原文依据 → 次日复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "year": "2023-12",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202312-2",
+      "course": "cet6",
+      "title": "2023年12月六级 · 第2套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20240229/884399.html",
+      "scope": "题面和参考答案图版，可按阅读、翻译和写作分段使用。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "原页有题面、图版下载和听力入口；音频尚未逐段试听，未逐题复核答案。",
+      "task": "选一篇阅读：独立做题 → 核对答案 → 找到原文依据 → 次日复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "year": "2023-12",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202312-3",
+      "course": "cet6",
+      "title": "2023年12月六级 · 第3套图版",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "url": "https://cet6.koolearn.com/20240229/884400.html",
+      "scope": "题面和参考答案图版，可按阅读、翻译和写作分段使用。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "原页有题面、图版下载和听力入口；音频尚未逐段试听，未逐题复核答案。",
+      "task": "选一篇阅读：独立做题 → 核对答案 → 找到原文依据 → 次日复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "year": "2023-12",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202406-1",
+      "course": "cet6",
+      "title": "2024年6月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2024-06",
+      "url": "https://cet6.koolearn.com/20241204/892871.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202406-2",
+      "course": "cet6",
+      "title": "2024年6月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2024-06",
+      "url": "https://cet6.koolearn.com/20241204/892872.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202406-3",
+      "course": "cet6",
+      "title": "2024年6月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2024-06",
+      "url": "https://cet6.koolearn.com/20241204/892873.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202306-1",
+      "course": "cet6",
+      "title": "2023年6月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2023-06",
+      "url": "https://cet6.koolearn.com/20230617/873399.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202306-2",
+      "course": "cet6",
+      "title": "2023年6月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2023-06",
+      "url": "https://cet6.koolearn.com/20230617/873400.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202306-3",
+      "course": "cet6",
+      "title": "2023年6月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2023-06",
+      "url": "https://cet6.koolearn.com/20230617/873401.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202303-1",
+      "course": "cet6",
+      "title": "2023年3月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2023-03",
+      "url": "https://cet6.koolearn.com/20230310/870260.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202303-2",
+      "course": "cet6",
+      "title": "2023年3月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2023-03",
+      "url": "https://cet6.koolearn.com/20230310/870261.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202303-3",
+      "course": "cet6",
+      "title": "2023年3月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2023-03",
+      "url": "https://cet6.koolearn.com/20230310/870262.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202212-1",
+      "course": "cet6",
+      "title": "2022年12月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-12",
+      "url": "https://cet6.koolearn.com/20221210/866671.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202212-2",
+      "course": "cet6",
+      "title": "2022年12月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-12",
+      "url": "https://cet6.koolearn.com/20221210/866672.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202212-3",
+      "course": "cet6",
+      "title": "2022年12月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-12",
+      "url": "https://cet6.koolearn.com/20221210/866673.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202209-1",
+      "course": "cet6",
+      "title": "2022年9月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-09",
+      "url": "https://cet6.koolearn.com/20220917/863621.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202209-2",
+      "course": "cet6",
+      "title": "2022年9月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-09",
+      "url": "https://cet6.koolearn.com/20220917/863622.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202209-3",
+      "course": "cet6",
+      "title": "2022年9月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-09",
+      "url": "https://cet6.koolearn.com/20220917/863623.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202206-1",
+      "course": "cet6",
+      "title": "2022年6月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-06",
+      "url": "https://cet6.koolearn.com/20220611/860152.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202206-2",
+      "course": "cet6",
+      "title": "2022年6月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-06",
+      "url": "https://cet6.koolearn.com/20220613/861768.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202206-3",
+      "course": "cet6",
+      "title": "2022年6月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2022-06",
+      "url": "https://cet6.koolearn.com/20220613/861769.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202112-1",
+      "course": "cet6",
+      "title": "2021年12月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2021-12",
+      "url": "https://cet6.koolearn.com/20211218/850672.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202112-2",
+      "course": "cet6",
+      "title": "2021年12月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2021-12",
+      "url": "https://cet6.koolearn.com/20211218/850589.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202112-3",
+      "course": "cet6",
+      "title": "2021年12月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2021-12",
+      "url": "https://cet6.koolearn.com/20211218/850673.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202106-1",
+      "course": "cet6",
+      "title": "2021年6月六级 · 第1套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2021-06",
+      "url": "https://cet6.koolearn.com/20210612/844840.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202106-2",
+      "course": "cet6",
+      "title": "2021年6月六级 · 第2套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2021-06",
+      "url": "https://cet6.koolearn.com/20210612/844610.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-202106-3",
+      "course": "cet6",
+      "title": "2021年6月六级 · 第3套",
+      "provider": "新东方在线",
+      "source_role": "机构整理真题",
+      "kind": "past_paper",
+      "year": "2021-06",
+      "url": "https://cet6.koolearn.com/20210612/844838.html",
+      "scope": "原页提供实际试卷题文或题面图，并有参考答案相关内容，可按模块练习。",
+      "access": "原站公开阅读；部分下载和资料领取需按原站要求操作。",
+      "verification": "逐页检查到实际题文或图版，非更新占位页。音频入口尚未试听或核对套次；未逐题审核答案，也未与考试院原卷比对。",
+      "task": "先选一个阅读或翻译小节独立作答，记录题号、用时和错因，次日不看答案复做。",
+      "skills": [
+        "阅读",
+        "听力",
+        "写作",
+        "翻译"
+      ],
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-archive",
+      "course": "cet6",
+      "title": "历年真题与听力原音目录",
+      "provider": "新东方在线",
+      "source_role": "机构整理目录",
+      "kind": "archive",
+      "url": "https://cet6.koolearn.com/20241204/892874.html",
+      "scope": "按考期继续查找2021—2024年真题和听力入口；以原页实际目录为准。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已核对目录，部分卷次单独核查并收录。目录入口不等于整库完整性或所有下载均可用。",
+      "task": "按手头试卷核对年份、月份和套次，记录实际打开的卷次。",
+      "skills": [
+        "历年真题",
+        "听力"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-reading-mock-2026",
+      "course": "cet6",
+      "title": "仔细阅读专项模拟 · 两篇十题",
+      "provider": "新东方在线",
+      "source_role": "机构收录练习（原页标网络）",
+      "kind": "mock",
+      "url": "https://cet6.koolearn.com/20260505/911053.html",
+      "scope": "两篇仔细阅读，包含46—55题与参考答案。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已核对页面实际题文与答案；题目原作者归属未完整披露，不标为考试院真题或机构原创。",
+      "task": "先做5道题；把每道错题分为词义、句法、定位或推断问题，再写出原文证据。",
+      "skills": [
+        "阅读"
+      ],
+      "year": "2026",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-reading-explained-2",
+      "course": "cet6",
+      "title": "仔细阅读模拟与详解（二）",
+      "provider": "新东方在线",
+      "source_role": "机构收录练习（原页标网络）",
+      "kind": "mock",
+      "url": "https://cet6.koolearn.com/20260327/908824.html",
+      "scope": "阅读模拟题与答案定位解释，适合做完后复盘。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已核对页面实际题文与答案；题目原作者归属未完整披露，不标为考试院真题或机构原创。",
+      "task": "先做5道题；把每道错题分为词义、句法、定位或推断问题，再写出原文证据。",
+      "skills": [
+        "阅读"
+      ],
+      "year": "2026",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cet6-reading-explained-3",
+      "course": "cet6",
+      "title": "仔细阅读模拟与详解（三）",
+      "provider": "新东方在线",
+      "source_role": "机构收录练习（原页标网络）",
+      "kind": "mock",
+      "url": "https://cet6.koolearn.com/20260327/908823.html",
+      "scope": "阅读专项训练与参考解释；不是全科模拟卷。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已核对页面实际题文与答案；题目原作者归属未完整披露，不标为考试院真题或机构原创。",
+      "task": "先做5道题；把每道错题分为词义、句法、定位或推断问题，再写出原文证据。",
+      "skills": [
+        "阅读"
+      ],
+      "year": "2026",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "sparke-books",
+      "course": "cet6",
+      "title": "星火英语 · 图书配套学习",
+      "provider": "星火英语",
+      "source_role": "出版方配套入口",
+      "kind": "book",
+      "url": "https://www.sparke.cn/bookStudy",
+      "scope": "按六级、书名或图书代码查找真题、专项训练、词汇等图书的配套学习内容。",
+      "access": "需登录；按手头图书版本或代码匹配，部分内容需购书。",
+      "verification": "官网可见图书学习入口与六级分类；未核实全部卷次、每本书的下载权限与音频可播性。",
+      "task": "找到手头六级图书的对应版本，使用配套音频做一次听力，再记下错题和没听清的片段。",
+      "skills": [
+        "真题",
+        "模拟",
+        "听力",
+        "词汇"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "huayan-guide",
+      "course": "cet6",
+      "title": "华研外语 · 六级真题指南与配套资源",
+      "provider": "华研外语",
+      "source_role": "品牌自营出版物",
+      "kind": "book",
+      "url": "https://detail.youzan.com/show/goods?alias=ykq1lojo",
+      "scope": "图书介绍列有2024.12—2026.6考期真题及2套模拟；具体配置以购买版本为准。",
+      "access": "图书需购买；听力、预测卷等音频按书内相应页码扫码获取。",
+      "verification": "已核对品牌自营商品页及资源获取说明；未取得免费全书，不把商品介绍计为已收录试卷。",
+      "task": "已有这本书：核对版本后扫码听对应卷；把本次卷次和错题记在学习清单。",
+      "skills": [
+        "真题",
+        "模拟",
+        "听力"
+      ],
+      "year": "2026版",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "huayan-special",
+      "course": "cet6",
+      "title": "华研外语 · 六级专项与听力1000题",
+      "provider": "华研外语",
+      "source_role": "品牌自营出版物",
+      "kind": "book",
+      "url": "https://detail.youzan.com/show/goods?alias=26yze0vtkokiq",
+      "scope": "查看专项套装及听力训练配置，原页介绍15套听力模拟。",
+      "access": "需购书；音频通过图书扫码进入配套小程序。",
+      "verification": "已核对商品介绍和扫码说明；模拟套数是出版方图书说明，不是本站可直接答题数量。",
+      "task": "从书中选一段听力，先听后核对原文，再复听没有听懂的句子。",
+      "skills": [
+        "模拟",
+        "听力",
+        "阅读",
+        "词汇"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "python-tutorial",
+      "course": "python",
+      "title": "Python 官方中文教程",
+      "provider": "Python 官方文档",
+      "source_role": "项目官方教材",
+      "kind": "textbook",
+      "url": "https://docs.python.org/zh-cn/3/tutorial/",
+      "scope": "从解释器、流程控制、数据结构到模块、文件与异常的官方教程。",
+      "access": "原站本次访问返回503，暂不可用；可先阅读站内Python课程已保存的官方原文摘录。",
+      "verification": "来源地址与站内教材原始引用核对；本次浏览器和直接请求均返回503，未认定当前可访问。/3/随版本更新。",
+      "task": "选择今天的一节，运行示例并改变一个输入，解释输出为何变化。",
+      "skills": [
+        "Python",
+        "编程"
+      ],
+      "year": "Python 3",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "python-control",
+      "course": "python",
+      "title": "Python 官方教程 · 条件、循环与函数",
+      "provider": "Python 官方文档",
+      "source_role": "项目官方教材",
+      "kind": "textbook",
+      "url": "https://docs.python.org/zh-cn/3/tutorial/controlflow.html",
+      "scope": "if、for、range、函数定义与参数。",
+      "access": "原站本次访问返回503，暂不可用；可先阅读站内Python课程已保存的官方原文摘录。",
+      "verification": "来源地址与站内教材原始引用核对；本次浏览器和直接请求均返回503，未认定当前可访问。/3/随版本更新。",
+      "task": "自己写一个循环和函数，在本机运行并记录输入与输出。",
+      "skills": [
+        "Python",
+        "编程"
+      ],
+      "year": "Python 3",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "python-structures",
+      "course": "python",
+      "title": "Python 官方教程 · 数据结构",
+      "provider": "Python 官方文档",
+      "source_role": "项目官方教材",
+      "kind": "textbook",
+      "url": "https://docs.python.org/zh-cn/3/tutorial/datastructures.html",
+      "scope": "列表、元组、集合和字典的操作与示例。",
+      "access": "原站本次访问返回503，暂不可用；可先阅读站内Python课程已保存的官方原文摘录。",
+      "verification": "来源地址与站内教材原始引用核对；本次浏览器和直接请求均返回503，未认定当前可访问。/3/随版本更新。",
+      "task": "用列表和字典表示同一组数据，解释如何查询和修改。",
+      "skills": [
+        "Python",
+        "编程"
+      ],
+      "year": "Python 3",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cs50-python",
+      "course": "python",
+      "title": "Harvard CS50P · Python 课程与习题",
+      "provider": "Harvard CS50",
+      "source_role": "大学原始课程",
+      "kind": "course",
+      "url": "https://cs50.harvard.edu/python/",
+      "scope": "从函数、变量、条件和循环，到异常、测试、文件和面向对象。",
+      "access": "课程资料可公开阅读；提交作业等服务需按原站要求登录。",
+      "verification": "已核对课程主页与课程目录；授课语言为英语。",
+      "task": "观看一个主题，自己完成对应problem set，再回看讲解。",
+      "skills": [
+        "Python",
+        "编程"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "cs50-python-psets",
+      "course": "python",
+      "title": "CS50P · 原始 Problem Sets",
+      "provider": "Harvard CS50",
+      "source_role": "大学原始作业",
+      "kind": "exercises",
+      "url": "https://cs50.harvard.edu/python/psets/",
+      "scope": "直接进入课程作业目录，按周选择有明确输入输出要求的真实编程任务。",
+      "access": "原站公开阅读；站内提供原始入口。在线提交需原站账号。",
+      "verification": "已核对原始作业目录；本站记录任务，不代替原站或本地测试运行。",
+      "task": "先完成一个作业；保存你实际运行的测试输入、输出与报错。",
+      "skills": [
+        "Python",
+        "编程",
+        "测试"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "exercism-python",
+      "course": "python",
+      "title": "Exercism · Python 练习路线",
+      "provider": "Exercism",
+      "source_role": "练习平台原始内容",
+      "kind": "exercises",
+      "url": "https://exercism.org/tracks/python/",
+      "scope": "按概念选择有配套测试的Python练习。",
+      "access": "浏览练习介绍；在线练习和进度需注册原站账号。",
+      "verification": "已核对Python路线入口；测试运行和反馈在Exercism完成。",
+      "task": "完成一个练习并运行测试；将失败用例和修改原因记下来。",
+      "skills": [
+        "Python",
+        "编程",
+        "测试"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "hello-algo",
+      "course": "ds_algo",
+      "title": "Hello 算法 · 中文图解教材",
+      "provider": "Hello 算法",
+      "source_role": "开源项目原始教材",
+      "kind": "textbook",
+      "url": "https://www.hello-algo.com/",
+      "scope": "数据结构、复杂度、搜索排序与算法策略，配合图示和多语言代码。",
+      "access": "原站公开阅读；站内提供原始入口。",
+      "verification": "已核对项目教材入口；原站标示的许可适用于其内容，本站仅提供链接。",
+      "task": "选一种数据结构，手画操作过程，再运行原站示例。",
+      "skills": [
+        "数据结构",
+        "算法",
+        "复杂度"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "mit-algo",
+      "course": "ds_algo",
+      "title": "MIT 6.006 · 算法导论",
+      "provider": "MIT OpenCourseWare",
+      "source_role": "大学原始教学资料",
+      "kind": "course",
+      "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/",
+      "scope": "数据结构、排序、图算法与动态规划的大学课程。",
+      "access": "公开英语课程资料，按原站许可使用。",
+      "verification": "已核对课程/作业/考试目录及解答入口；2011年课程，不等同于你的学校考试大纲。",
+      "task": "按教学日历选一讲，做相应习题。",
+      "skills": [
+        "数据结构",
+        "算法"
+      ],
+      "year": "2011秋",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "mit-algo-assignments",
+      "course": "ds_algo",
+      "title": "MIT 6.006 · 作业与参考解答",
+      "provider": "MIT OpenCourseWare",
+      "source_role": "大学原始教学资料",
+      "kind": "exercises",
+      "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/pages/assignments/",
+      "scope": "原始problem sets、编程作业及参考解答。",
+      "access": "公开英语课程资料，按原站许可使用。",
+      "verification": "已核对课程/作业/考试目录及解答入口；2011年课程，不等同于你的学校考试大纲。",
+      "task": "独立完成一道题；再比较正确性论证和复杂度分析。",
+      "skills": [
+        "数据结构",
+        "算法"
+      ],
+      "year": "2011秋",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "mit-algo-exams",
+      "course": "ds_algo",
+      "title": "MIT 6.006 · 考试与参考解答",
+      "provider": "MIT OpenCourseWare",
+      "source_role": "大学原始教学资料",
+      "kind": "exercises",
+      "url": "https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/pages/exams/",
+      "scope": "大学期中、期末考试与对应解答。",
+      "access": "公开英语课程资料，按原站许可使用。",
+      "verification": "已核对课程/作业/考试目录及解答入口；2011年课程，不等同于你的学校考试大纲。",
+      "task": "选一道已学主题的试题限时完成，再核对解答中的推理。",
+      "skills": [
+        "数据结构",
+        "算法"
+      ],
+      "year": "2011秋",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "mit-calculus",
+      "course": "calculus",
+      "title": "MIT 18.01SC · 单变量微积分",
+      "provider": "MIT OpenCourseWare",
+      "source_role": "大学原始教学资料",
+      "kind": "course",
+      "url": "https://ocw.mit.edu/courses/18-01sc-single-variable-calculus-fall-2010/",
+      "scope": "微分、积分与级数，含讲解视频、例题和练习。",
+      "access": "公开英语课程资料，按原站许可使用。",
+      "verification": "已核对课程和试卷/解答入口；2010年单变量课程，不覆盖整套国内高等数学。",
+      "task": "从当前章节选一节，推导一遍公式再独立做一道题。",
+      "skills": [
+        "微积分",
+        "高数"
+      ],
+      "year": "2010秋",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "mit-calculus-exam1",
+      "course": "calculus",
+      "title": "微分单元 · Exam 1与解答",
+      "provider": "MIT OpenCourseWare",
+      "source_role": "大学原始教学资料",
+      "kind": "exercises",
+      "url": "https://ocw.mit.edu/courses/18-01sc-single-variable-calculus-fall-2010/pages/1.-differentiation/exam-1/",
+      "scope": "导数相关单元的复习与考试材料。",
+      "access": "公开英语课程资料，按原站许可使用。",
+      "verification": "已核对课程和试卷/解答入口；2010年单变量课程，不覆盖整套国内高等数学。",
+      "task": "完成一道导数题，逐步写出依据，再对照原解答。",
+      "skills": [
+        "微积分",
+        "高数"
+      ],
+      "year": "2010秋",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "mit-calculus-final",
+      "course": "calculus",
+      "title": "单变量微积分 · 期末试卷与解答",
+      "provider": "MIT OpenCourseWare",
+      "source_role": "大学原始教学资料",
+      "kind": "exercises",
+      "url": "https://ocw.mit.edu/courses/18-01sc-single-variable-calculus-fall-2010/pages/final-exam/",
+      "scope": "原始期末复习题、试卷与参考解答。",
+      "access": "公开英语课程资料，按原站许可使用。",
+      "verification": "已核对课程和试卷/解答入口；2010年单变量课程，不覆盖整套国内高等数学。",
+      "task": "只选择学过的范围作答，记录缺少的前置知识。",
+      "skills": [
+        "微积分",
+        "高数"
+      ],
+      "year": "2010秋",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "bc-listening",
+      "course": "english",
+      "title": "British Council · 分级听力",
+      "provider": "British Council",
+      "source_role": "教学机构原始材料",
+      "kind": "exercises",
+      "url": "https://learnenglish.britishcouncil.org/free-resources/listening",
+      "scope": "按A1—C1选择情境录音与交互练习。",
+      "access": "公开练习；收藏与部分课程服务需登录或另行报名。",
+      "verification": "已核对对应技能目录；通用英语练习，不是六级真题，也不做CEFR与六级分数换算。",
+      "task": "选一个适合难度的情境，先不看文字听一次，再复听并完成练习。",
+      "skills": [
+        "听力",
+        "情境英语"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "bc-reading",
+      "course": "english",
+      "title": "British Council · 分级阅读",
+      "provider": "British Council",
+      "source_role": "教学机构原始材料",
+      "kind": "exercises",
+      "url": "https://learnenglish.britishcouncil.org/free-resources/reading",
+      "scope": "按A1—C1选择不同主题的阅读和交互练习。",
+      "access": "公开练习；收藏与部分课程服务需登录或另行报名。",
+      "verification": "已核对对应技能目录；通用英语练习，不是六级真题，也不做CEFR与六级分数换算。",
+      "task": "独立阅读一篇，做练习后找出支持答案的原文。",
+      "skills": [
+        "阅读",
+        "情境英语"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    },
+    {
+      "id": "bc-vocabulary",
+      "course": "english",
+      "title": "British Council · 主题词汇练习",
+      "provider": "British Council",
+      "source_role": "教学机构原始材料",
+      "kind": "exercises",
+      "url": "https://learnenglish.britishcouncil.org/free-resources/vocabulary",
+      "scope": "词义、发音、拼写与主题词汇练习。",
+      "access": "公开练习；收藏与部分课程服务需登录或另行报名。",
+      "verification": "已核对对应技能目录；通用英语练习，不是六级真题，也不做CEFR与六级分数换算。",
+      "task": "从当天材料选择5个词，用自己的句子复述，次日不看答案再回忆。",
+      "skills": [
+        "词汇",
+        "情境英语"
+      ],
+      "year": "",
+      "checked_on": "2026-10-01"
+    }
+  ]
+}

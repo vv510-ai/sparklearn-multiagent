@@ -608,6 +608,7 @@ export default function AssessmentPanel({
           </details>
         </div>
       ) : null}
+      {data?.course?.kind === "cet6" && !setup && !loading && <p className="entry-note"><a href="/materials?course=cet6">打开六级真实资料：历年真题、模拟训练与配套音频 →</a></p>}
       {data && !setup && !loading && <details className="entry-reference-details">
         <summary>了解测评方法与资料来源</summary>
       {data?.course && <details className="entry-course-context"><summary>这份计划依据哪些目标与资料？</summary><p>优先：{data.survey.goal}；每个学习日 {data.survey.daily_minutes} 分钟，每周 {data.survey.study_days.length} 天。</p><p>{data.course.coverage_note}</p>{data.course.sources?.map(source => <p key={source.id}>{source.title} · {source.location_kind} {source.locations.join("、")} · 已取样 {source.sampled_chunks}/{source.total_chunks} 个片段</p>)}{!data.course.sources?.length && <p>使用本课程入门内容；尚未绑定上传文件。</p>}<p>{data.course.boundary}</p></details>}

@@ -89,6 +89,8 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
           <Icon size={22} aria-hidden="true" /><span><strong>{option.title}</strong><small>{option.description}</small></span><Check size={17} className="course-choice-check" aria-hidden="true" />
         </label>; })}
       </fieldset>
+      {selection === "cet6" && <section className="course-create-hint"><strong>备考六级，先用真实试卷。</strong><p>历年真题、专项模拟与星火 / 华研配套资料已整理到资料中心。下面创建的是原创入门训练，不是完整真题课程。</p><a href="/materials?course=cet6" className="primary-action">打开六级真题与资料 →</a></section>}
+      {selection && selection !== "cet6" && selection !== "upload" && selection !== "custom" && <p className="course-create-hint"><a href={`/materials?course=${selection}`}>先找本课原始教材与习题 →</a></p>}
       {catalogueError && <div role="status"><p className="course-create-hint">{catalogueError}</p><button type="button" disabled={busy} className="secondary-action" onClick={loadCatalogue}>重新加载课程</button></div>}
       <label className="course-create-title-field" htmlFor="new-book-title">课程名称或学习主题</label>
       <input id="new-book-title" className="course-create-input" maxLength={120} disabled={busy || created} value={title} onChange={e => setTitle(e.target.value)} placeholder="例如：大学英语阅读 / 线性代数 / 我的生物课本" />

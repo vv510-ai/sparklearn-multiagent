@@ -37,6 +37,7 @@ _init_lock = Lock()
 TENANT_TABLES = (
     "generation_jobs", "generation_events", "generation_effects",
     "course_studies",
+    "material_studies",
     "learning_spaces",
     "model_preferences",
     "assessment_sessions",

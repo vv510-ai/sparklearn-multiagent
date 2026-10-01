@@ -23,7 +23,7 @@ def supplemental_context(question: str) -> list[dict]:
                        "citation": f"中国教育考试网 · 试卷结构（记录核验日期 {reference.get('checked_on', '未记录')}） {reference.get('url', '')}"})
     if re.search(r"(?:网站|平台|小知|LearnLoop|learnloop|你们)[^。！？!?]{0,24}(?:能|功能|帮助|提供|学习方法|怎么用)", question):
         chunks.append({
-            "text": "LearnLoop 当前提供：上传并选择自己的学习资料、围绕资料对话答疑、整理笔记与一图看懂、知识框架、练习与作答反馈、根据实际作答安排补救和复测、查找外部网课。生成与媒体功能受模型或服务可用性影响。六级内置内容为原创起点指南和基础训练，并非完整历年真题库；不承诺考试提分。用户尚未作答时不能声称已诊断出其短板。",
+            "text": "LearnLoop 当前提供：上传并选择自己的学习资料、围绕资料对话答疑、整理笔记与一图看懂、知识框架、练习与作答反馈、根据实际作答安排补救和复测、查找外部网课、在 /materials 真实资料中心查找原始教材和六级真题入口，并保存个人任务、错题与复习日期。/materials?course=cet6 可筛选六级资料；外部资料链接不会自动读取全文或纳入AI知识库，自述学习完成不等于能力掌握。生成与媒体功能受模型或服务可用性影响。六级内置内容为原创起点指南和基础训练，并非完整历年真题库；不承诺考试提分。用户尚未作答时不能声称已诊断出其短板。",
             "source": "LearnLoop 产品功能说明", "source_id": "learnloop-capabilities",
             "source_type": "product", "chapter": "当前学习功能",
             "citation": "LearnLoop · 当前学习功能说明（应用内记录）",

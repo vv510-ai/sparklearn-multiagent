@@ -159,6 +159,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
               </button>
             </form>
 
+            <p className="mt-5 text-center text-sm text-[#0F6B50]"><a href="/materials">先浏览真实资料：真题、教材与习题 →</a></p>
             <p className="mt-5 text-center text-[11px] leading-5 text-[#9298A2]">密码只保存为不可逆哈希，登录令牌不会暴露给网页脚本。</p>
           </div>
         </section>

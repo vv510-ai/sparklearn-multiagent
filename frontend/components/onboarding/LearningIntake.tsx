@@ -253,6 +253,7 @@ export default function LearningIntake({ initial = {}, busy = false, isReplan = 
             {course.textbook && <TextbookScope book={course.textbook} />}
             {!!course.sources?.length && <details><summary>这次使用了哪些资料？</summary>{course.sources.map(source => <p key={source.id}>{source.title}：读取 {source.sampled_chunks}/{source.total_chunks} 个解析片段；{source.location_kind} {source.locations.join("、")}。</p>)}</details>}
             <small>{course.boundary}</small></section> : <p className="intake-response">下一步先准备“{survey.course_title}”的知识点范围，供你选择和核对；确认之后才开始作答。</p>}
+          {survey.course_key === "cet6" && <p className="intake-response"><a href="/materials?course=cet6">先用六级真题、专项模拟和配套音频学习 →</a> 这里的原创起点小题可稍后再做。</p>}
           <fieldset className="intake-mode"><legend>这次想了解多少？</legend>{[
             ["screening", "先找学习起点", survey.course_key === "cet6" && !survey.source_ids?.length ? "最多 6 题 · 先看 2 个模块，其余之后再了解；不限时，可暂停" : "最多 12 题 · 先检查至多 4 个知识点，可暂停"],
             ...(survey.course_key === "ds_algo" && !survey.source_ids?.length ? [["foundation", "检查入门基础", "通常 18 题，跳过时最多 22 题 · 可暂停续答"]] : []),

@@ -289,6 +289,16 @@ class CourseStudy(Base):
     revision: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class MaterialStudy(Base):
+    __tablename__ = "material_studies"
+    __table_args__ = (UniqueConstraint("user_id", "material_id", name="uq_material_study"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    material_id: Mapped[str] = mapped_column(String(96))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class WithdrawnCourseSource(Base):
     """Durable public-source tombstone, also checked by future releases."""
     __tablename__ = "withdrawn_course_sources"

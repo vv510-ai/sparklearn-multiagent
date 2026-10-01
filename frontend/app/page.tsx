@@ -932,6 +932,7 @@ export default function Home() {
           <button type="button" onClick={() => window.innerWidth >= 1400 ? setStudioCollapsed(value => !value) : setMobilePane("studio")} className="study-icon" aria-label="切换工坊栏" title="切换工坊栏"><PanelRightOpen size={19} /></button>
         </div>
         <AdaptiveMenu label="学习菜单" className="workspace-actions">
+          <a href="/materials" className="notebook-home-button"><BookOpen size={17} /><span>真实资料</span></a>
           <a href="/library" className="notebook-home-button"><BookOpen size={17} /><span>课程目录</span></a>
           <button type="button" className="notebook-home-button workspace-tools-entry" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
           <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden md:inline">测评与计划</span></button>
