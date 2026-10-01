@@ -3,7 +3,7 @@ import copy
 
 from app.models.db import session
 from app.models.entities import AssessmentSession
-from tests.test_learning_spaces import learner, prepare  # noqa: F401
+from tests.test_learning_spaces import learner, prepare_custom_assessment_fixture as prepare  # noqa: F401
 
 
 def submit(client, state, status="answered", choice="A"):
@@ -17,11 +17,11 @@ def submit(client, state, status="answered", choice="A"):
     return result.json()
 
 
-def test_short_cet6_entry_keeps_unchecked_modules_pending_and_can_extend(learner):
+def test_short_custom_entry_keeps_unchecked_modules_pending_and_can_extend(learner):
     client, user = learner
     _, survey, _ = prepare(client, user, "cet6", "大学英语六级")
     state = client.post("/api/assessment/start", json={"survey": survey, "mode": "screening"}).json()
-    assert state["maximum"] == 6
+    assert state["maximum"] == 12
     seen = set()
     while state["question"]:
         q = state["question"]
@@ -29,9 +29,9 @@ def test_short_cet6_entry_keeps_unchecked_modules_pending_and_can_extend(learner
         assert not {"answer", "explain", "transcript"} & q.keys()
         seen.add(q["id"])
         state = submit(client, state)
-    assert len(seen) == state["answered"] == 6
-    assert state["report"]["coverage"] == 2
-    assert sum(s["status"] == "unmeasured" for s in state["report"]["skills"]) == 4
+    assert len(seen) == state["answered"] == 12
+    assert state["report"]["coverage"] == 4
+    assert sum(s["status"] == "unmeasured" for s in state["report"]["skills"]) == 2
     report = copy.deepcopy(state["report"])
     state = client.post(f"/api/assessment/{state['id']}/extend", json={"revision": state["revision"]}).json()
     while state["question"]:

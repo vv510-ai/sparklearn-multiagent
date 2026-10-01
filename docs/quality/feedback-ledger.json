@@ -618,6 +618,23 @@
         "最新错误：题库独立复核没有完成所有选项的明确判断。原资料保留，未保存未通过检查的题库。"
       ],
       "next_action": "保存脱敏生成/复核结构，定位字段缺失、顺序或题目覆盖问题；完善契约及有限修复后，重新验证从上传建课到测评问答。不能绕过题库质量校验。"
+    },
+    {
+      "id": "UX-COURSE-20261002",
+      "title": "六级章节稀疏、左栏冗长，真实资料与课程目录和学习工作区分离",
+      "status": "partial",
+      "group": "课程学习体验",
+      "checked_commit": "",
+      "source_feedback": [
+        "不使用平台原创教材与默认题库，使用有真实来源的教材、真题和机构模拟。",
+        "保留右侧全部能力工具；去掉顶部真实资料和课程目录入口，把章节、材料与进度放回当前课程。"
+      ],
+      "evidence": [
+        "本地全量后端 684 项通过；新增历史报告不重建资料回归通过。",
+        "frontend/e2e/course-study.spec.ts 两条综合浏览器场景通过：五门课 72 节、右侧工具、保存恢复、冲突草稿、手机布局。",
+        "tmp/study-browser-local-passed-20261002.log；前两轮失败证据分别保留在 tmp/course-study-local-browser 与 tmp/course-study-local-browser-final。"
+      ],
+      "next_action": "本条记录提交前的本地验证；部署后以同版本锁执行 course-study 公网验收，最终结论读取 .tmp/acceptance 对应 report.json。外站全文与音频并未全部托管，真实模型质量不计入本轮流程验收。"
     }
   ]
 }

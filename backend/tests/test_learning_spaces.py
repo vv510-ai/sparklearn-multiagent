@@ -43,6 +43,24 @@ def prepare(client, user, key="python", title="Python 入门", goal="独立解�
     return book, survey, course
 
 
+def prepare_custom_assessment_fixture(client, user, key="python", title="Python 入门", goal="独立解题与纠错"):
+    """Exercise the generic engine with explicit test content, never the default catalogue.
+
+    The archived pack supplies deterministic questions for scoring/isolation tests.
+    Mark it as a custom test curriculum; public built-in behavior is separately
+    covered in test_notebook_study. This does not change production policy.
+    """
+    from app.data.course_packs import build_pack
+    from app.models.entities import LearningSpace
+    book, survey, public = prepare(client, user, key, title, goal)
+    with session() as db:
+        row = db.get(LearningSpace, book["id"])
+        value = {**row.course, **build_pack(key), "kind": "generated", "title": title}
+        row.course = value
+        db.commit()
+    return book, {**survey, "course_key": "custom"}, public
+
+
 def finish(client, survey, correct=True):
     response = client.post("/api/assessment/start", json={"survey": survey, "mode": "comprehensive"})
     assert response.status_code == 200, response.text
@@ -65,8 +83,8 @@ def finish(client, survey, correct=True):
 def test_two_curricula_keep_assessment_plan_profile_and_path_separate(learner):
     client, user = learner
     before = client.get(f"/api/profile/{user}").json()["knowledge_mastery"]
-    py, py_survey, _ = prepare(client, user)
-    maths, math_survey, _ = prepare(client, user, "calculus", "高等数学入门", "准备课程考试")
+    py, py_survey, _ = prepare_custom_assessment_fixture(client, user)
+    maths, math_survey, _ = prepare_custom_assessment_fixture(client, user, "calculus", "高等数学入门", "准备课程考试")
     py_result, math_result = finish(client, py_survey), finish(client, math_survey, False)
     assert py_result["report"]["coverage"] == math_result["report"]["coverage"] == 4
     assert py_result["answered"] == math_result["answered"] == 12
@@ -85,7 +103,7 @@ def test_two_curricula_keep_assessment_plan_profile_and_path_separate(learner):
 
 def test_resume_onboarding_and_no_silent_new_attempt(learner):
     client, user = learner
-    book, survey, course = prepare(client, user)
+    book, survey, course = prepare_custom_assessment_fixture(client, user)
     unconfirmed = client.post("/api/assessment/start", json={"survey": {**survey, "course_revision": "stale"}})
     assert unconfirmed.status_code == 409
     first = client.post("/api/assessment/start", json={"survey": survey}).json()
@@ -196,9 +214,9 @@ def test_other_learner_cannot_read_or_prepare_space(learner):
 
 def test_quiz_evidence_stays_in_its_course(learner):
     client, user = learner
-    py, survey, _ = prepare(client, user)
+    py, survey, _ = prepare_custom_assessment_fixture(client, user)
     result = finish(client, survey, False)
-    maths, _, _ = prepare(client, user, "calculus", "高等数学入门")
+    maths, _, _ = prepare_custom_assessment_fixture(client, user, "calculus", "高等数学入门")
     rid = f"test-course-quiz-{uuid.uuid4().hex}"
     with session() as db:
         db.add(Resource(id=rid, user_id=user, kind="quiz", kp="py_values", title="变量新题", payload={"notebook_id": py["id"], "questions": [{"id": "fresh", "kp": "py_values", "type": "single", "stem": "a = 11; b = a + 5，b 是多少？", "options": ["16", "11", "5", "6"], "answer": "A", "explain": "先计算 11+5=16，再赋值给 b。", "difficulty": 1}]}))
@@ -220,7 +238,7 @@ def test_quiz_evidence_stays_in_its_course(learner):
 
 def test_changed_curriculum_rejects_stale_plan_and_quiz(learner):
     client, user = learner
-    book, survey, course = prepare(client, user)
+    book, survey, course = prepare_custom_assessment_fixture(client, user)
     old = finish(client, survey)
     rid = uuid.uuid4().hex
     with session() as db:
@@ -241,7 +259,7 @@ def test_changed_curriculum_rejects_stale_plan_and_quiz(learner):
 
 def test_confirmed_subset_controls_assessment_coverage(learner):
     client, user = learner
-    book, survey, _ = prepare(client, user)
+    book, survey, _ = prepare_custom_assessment_fixture(client, user)
     survey["target_kps"] = ["py_functions"]
     result = finish(client, survey)
     assert result["answered"] == 3

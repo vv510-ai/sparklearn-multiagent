@@ -16,6 +16,8 @@ from ..schemas.study import StudySurvey
 from pydantic import BaseModel, Field
 from ..services import course_learning_service as course_service
 from ..services.learning_scope import course_scope, ensure_space
+from ..services import study_paths
+import datetime as dt
 
 
 class CoursePrepareRequest(BaseModel):
@@ -26,6 +28,28 @@ class CoursePrepareRequest(BaseModel):
 
 
 router = APIRouter(prefix="/api/notebooks", tags=["notebooks"])
+
+
+class UnitProgressRequest(BaseModel):
+    revision: int = Field(ge=0)
+    version: str = Field(max_length=40)
+    read: bool = False
+    practiced: bool = False
+    checked: bool = False
+    completed: bool = False
+    notes: str = Field(default="", max_length=8000)
+    next_review: dt.date | None = None
+
+
+@router.get("/{notebook_id}/study")
+def study_path(notebook_id: str):
+    return study_paths.get(require_current_user_id(), notebook_id)
+
+
+@router.post("/{notebook_id}/study/{unit_id}")
+def save_unit(notebook_id: str, unit_id: str, req: UnitProgressRequest):
+    return study_paths.save(require_current_user_id(), notebook_id, unit_id, req.revision, req.version,
+                            req.model_dump(mode="json", exclude={"revision", "version"}))
 
 
 @router.get("/learning/catalogue")

@@ -92,12 +92,16 @@ def retrieve(
     include_course = not selected_sources or COURSE_SCOPE_ID in selected_sources
     from ..services.learning_scope import current_space
     space = current_space()
+    from ..services.course_source_policy import publisher_path, trusted_textbook
     if space and space["course"].get("kind") != "ds_algo":
+        include_course = False
+    if space and publisher_path(space["course"]):
         include_course = False
     hits: list[dict] = []
     # A verified built-in textbook is scoped to its prepared course. Selecting
     # uploaded files alone excludes it; an empty selection uses the course book.
     if (space and space["course"].get("textbook")
+            and (not publisher_path(space["course"]) or trusted_textbook(space["course"]))
             and (not selected_sources or COURSE_SCOPE_ID in selected_sources)):
         from ..services.textbook_service import course_textbook_chunks
         if space["course"].get("course_release_id"):

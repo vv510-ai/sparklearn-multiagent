@@ -59,6 +59,8 @@ def begin(user_id: str, assessment_id: str, kp: str) -> dict:
         if data["status"] != "completed":
             raise HTTPException(409, "先完成起点测评，再开始新题练习")
         course = data.get("course_snapshot") or {}
+        from .course_source_policy import require_default_practice
+        require_default_practice(course)
         profile_row(db, user_id)  # Serialize practice across assessments in this notebook.
         tasks = [t for day in data["plan"]["days"] for t in day["tasks"]] + data["plan"]["deferred"]
         if kp not in {t["kp"] for t in tasks}:

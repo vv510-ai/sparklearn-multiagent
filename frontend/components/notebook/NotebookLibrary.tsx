@@ -65,7 +65,6 @@ export default function NotebookLibrary({
           <button type="button" onClick={onCreate} className="inline-flex items-center gap-2 rounded-full bg-[#0F6B50] px-5 py-3 text-sm font-bold text-white shadow-[0_10px_28px_rgba(15,107,80,0.2)] transition hover:-translate-y-0.5 hover:bg-[#0B5C44]"><Plus size={18} />新建科目书本</button>
         </div>
 
-        <p className="mb-6 text-sm text-[#0F6B50]"><a href="/materials">真实资料中心：真题、官方教材与习题 →</a></p>
         {error && <div className="mb-5 rounded-2xl border border-[#F1D6C9] bg-[#FFF6F1] px-4 py-3 text-sm text-[#9E4B2D]">{error}</div>}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

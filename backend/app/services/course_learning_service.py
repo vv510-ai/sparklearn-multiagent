@@ -25,17 +25,23 @@ log = logging.getLogger("sparklearn.course_learning")
 
 
 def catalogue() -> list[dict]:
-    return [{"id": "ds_algo", "title": "数据结构与算法", "description": "16 个知识点，可分次全面摸底"},
-        *[{"id": k, "title": v["title"], "description": v.get("description", "4 个入门知识点，12 道自编起点题")} for k, v in PACKS.items()],
-        {"id": "custom", "title": "其他课程或主题", "description": "输入主题，或围绕你的资料检查学习起点"}]
+    from ..data.study_paths import PATHS
+    return [{"id": k, "title": v["title"], "description": f"{len(v['units'])} 个学习单元 · {v['subtitle']}"} for k, v in PATHS.items()] + [
+        {"id": "custom", "title": "其他课程或主题", "description": "使用自己的教材与笔记学习"}]
 
 
 def public_course(course: dict) -> dict:
+    from .course_source_policy import active_sources
+    from .study_paths import overview
+    path = overview(course)
+    course = active_sources(course)
     return {k: copy.deepcopy(course.get(k)) for k in ("title", "kind", "revision", "course_release_id", "source_ids", "sources", "boundary", "coverage_note", "textbook", "exam_reference", "quality_review", "preparation_timings")} | {
         "outline": [{"id": n["id"], "name": n["name"], "objective": n.get("desc", "")}
                     for n in course.get("graph", {}).get("nodes", [])],
         "question_count": len(course.get("bank", [])),
         "practice_available": bool(course.get("practice_bank")),
+        "study_path": path,
+        "source_policy": course.get("source_policy", ""),
     }
 
 
@@ -345,6 +351,13 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
         course = {"title": graph["course"], "kind": "ds_algo", "bank": question_bank(),
             "lessons": {kp: (DATA / "seed_corpus" / name).read_text(encoding="utf-8").split("---", 2)[-1].strip() for kp, name in LESSONS.items()},
             "graph": {**graph, "nodes": list(graph["nodes"].values())}, "boundary": "自编课程题；未测知识点保持待测，需要换题和延迟复测。"}
+    elif not source_ids and course_key == "english":
+        from ..data.study_paths import PATHS
+        route = PATHS["english"]
+        course = {"title": route["title"], "kind": "english", "bank": [], "lessons": {},
+                  "graph": {"course_id": "english", "course": route["title"], "nodes": [
+                      {"id": u["id"], "name": u["title"], "desc": u["task"], "difficulty": 1} for u in route["units"]], "edges": []},
+                  "boundary": "使用 British Council 原站音频与配套练习。"}
     elif not source_ids and course_key in PACKS:
         course = build_pack(course_key)
     else:
@@ -368,6 +381,9 @@ async def prepare(user_id: str, notebook_id: str, *, title: str, course_key: str
                     "X-Learning-Timings": json.dumps(getattr(exc, "learning_timings", []), separators=(",", ":")),
                 }) from None
         log.info("Course preparation completed elapsed_ms=%d topics=%d", (time.monotonic() - started) * 1000, len(course["graph"]["nodes"]))
+    if not source_ids:
+        from .course_source_policy import active_sources
+        course = active_sources(course)
     course.update(source_ids=source_ids, sources=sources, request_fingerprint=fingerprint,
         coverage_note=("基于所列解析片段选取代表性知识点，未覆盖全文。" if sources else course.get("coverage_note", "只覆盖下面列出的知识点。"))
             + course.get("preparation_note", ""))
@@ -409,7 +425,8 @@ def context_summary() -> dict | None:
         if not profile.get("learning_intake"):
             return None
         space = {"notebook_id": "", "profile": profile, "course": {"title": "数据结构与算法", "sources": []}}
-    profile, course = space["profile"], space["course"]
+    from .course_source_policy import active_sources
+    profile, course = space["profile"], active_sources(space["course"])
     survey = profile.get("learning_intake") or {}
     return {"course": course["title"], "course_release_id": course.get("course_release_id", ""), "course_revision": course.get("revision"), "notebook_id": space["notebook_id"],
         "goal": survey.get("goal", profile.get("goal")), "goals": survey.get("goals", []),

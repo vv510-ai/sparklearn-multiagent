@@ -13,7 +13,7 @@ Support = Literal["visual", "steps", "examples", "hints", "small_steps"]
 
 class StudySurvey(BaseModel):
     notebook_id: str = Field(default="", max_length=64)
-    course_key: Literal["ds_algo", "python", "calculus", "cet6", "custom"] = "ds_algo"
+    course_key: Literal["ds_algo", "python", "calculus", "cet6", "english", "custom"] = "ds_algo"
     course_title: str = Field(default="数据结构与算法", max_length=120)
     source_ids: list[str] = Field(default_factory=list, max_length=6)
     course_revision: str = Field(default="", max_length=64)

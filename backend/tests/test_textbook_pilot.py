@@ -12,7 +12,7 @@ from app.models.entities import EventLog, LearningSpace
 from app.services.learning_scope import course_scope
 from app.services.textbook_service import python_book, python_chunks, course_textbook_chunks
 from app.data.python_practice import EXERCISES, practice_bank
-from tests.test_learning_spaces import learner, prepare, finish  # noqa: F401
+from tests.test_learning_spaces import learner, prepare, finish, prepare_custom_assessment_fixture  # noqa: F401
 
 
 def test_imported_sections_are_complete_and_chunks_point_to_exact_text():
@@ -79,7 +79,6 @@ def test_named_course_generation_retrieves_textbook_without_uploaded_files(learn
     from app.services.source_service import selected_source_summaries
     client, user = learner
     book, survey, _ = prepare(client, user)
-    finish(client, survey, False)
     prompts = []
     async def model(prompt, **kwargs):
         prompts.append(prompt)
@@ -122,7 +121,7 @@ def _answer_new(client, state, kp, *, correct=True, assisted=False):
 def test_weak_and_strong_learners_get_different_plans_and_new_evidence_updates(learner, monkeypatch):
     from app.services import assessment_practice
     client, user = learner
-    book, survey, _ = prepare(client, user)
+    book, survey, _ = prepare_custom_assessment_fixture(client, user)
     weak = finish(client, survey, False)
     assert any(t["kind"] == "study" for d in weak["plan"]["days"] for t in d["tasks"])
     task = next(t for d in weak["plan"]["days"] for t in d["tasks"] if t["kp"] == "py_values")
@@ -144,7 +143,7 @@ def test_weak_and_strong_learners_get_different_plans_and_new_evidence_updates(l
     monkeypatch.setattr(assessment_practice, "now", lambda: due + dt.timedelta(seconds=1))
     later, _ = _answer_new(client, updated, "py_values")
     assert later["result"]["question_id"].endswith("fresh-4")
-    strong_book, strong_survey, _ = prepare(client, user)
+    strong_book, strong_survey, _ = prepare_custom_assessment_fixture(client, user)
     strong = finish(client, strong_survey)
     assert all(t["kind"] in ("transfer", "review") for d in strong["plan"]["days"] for t in d["tasks"])
     assert "Python 官方教程" in strong["materials"][0]["markdown"]
@@ -152,7 +151,7 @@ def test_weak_and_strong_learners_get_different_plans_and_new_evidence_updates(l
 
 def test_assistance_resume_restart_ownership_and_stale_scope(learner):
     client, user = learner
-    book, survey, _ = prepare(client, user)
+    book, survey, _ = prepare_custom_assessment_fixture(client, user)
     state = finish(client, survey, False)
     before = client.get(f"/api/profile/{user}?notebook_id={book['id']}").json()["knowledge_mastery"]
     first = client.post(f"/api/assessment/{state['id']}/practice", json={"kp": "py_values"}).json()
@@ -190,7 +189,7 @@ def test_assistance_resume_restart_ownership_and_stale_scope(learner):
 def test_delayed_rounds_use_nine_distinct_questions_then_stop(learner, monkeypatch):
     from app.services import assessment_practice
     client, user = learner
-    book, survey, _ = prepare(client, user)
+    book, survey, _ = prepare_custom_assessment_fixture(client, user)
     state = finish(client, survey, False)
     clock = dt.datetime(2030, 1, 1, tzinfo=dt.timezone.utc)
     monkeypatch.setattr(assessment_practice, "now", lambda: clock)

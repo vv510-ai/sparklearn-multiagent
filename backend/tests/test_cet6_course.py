@@ -9,7 +9,7 @@ from pathlib import Path
 from app.data.cet6_course import build_course, LESSONS, GUIDE_URL
 from app.services.learning_scope import course_scope, selected_sources
 from app.services.textbook_service import course_textbook_chunks
-from tests.test_learning_spaces import learner, prepare, finish  # noqa: F401
+from tests.test_learning_spaces import learner, prepare, finish, prepare_custom_assessment_fixture  # noqa: F401
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -50,35 +50,23 @@ def test_original_bank_and_audio_are_complete_and_match_pinned_scripts():
     assert all(c["course"] == "cet6" for c in course_textbook_chunks(course))
 
 
-def test_cet6_catalogue_diagnostic_and_plan_are_course_specific(learner):
+def test_cet6_catalogue_uses_publisher_material_without_original_diagnostic(learner):
     client, user = learner
     catalogue = client.get("/api/notebooks/learning/catalogue").json()["items"]
-    assert any(item["id"] == "cet6" and "18" in item["description"] for item in catalogue)
+    assert any(item["id"] == "cet6" and "28" in item["description"] for item in catalogue)
     book, survey, course = prepare(client, user, "cet6", "大学英语六级", "准备课程考试")
-    survey.update(barriers=["listening", "expression"], study_days=[1, 2, 3, 4, 5, 6, 7], daily_minutes=30)
     assert course["kind"] == "cet6" and course["exam_reference"]["total_minutes"] == 130
-    assert "practice_bank" not in course and "evidence" not in course
-    state = finish(client, survey, False)
-    assert state["report"]["coverage"] == 6
-    assert "不预测六级分数" in state["report"]["boundary"]
-    assert "完整输出能力" in state["report"]["boundary"]
-    tasks = [t for d in state["plan"]["days"] for t in d["tasks"]]
-    assert all(t["kp"].startswith("cet6_") for t in tasks)
-    assert all(d["minutes"] <= d["capacity"] <= 30 for d in state["plan"]["days"])
-    assert "完整听一遍" in " ".join(next(t for t in tasks if t["kp"] == "cet6_listening")["steps"])
-    assert any("文字稿" in s for s in state["plan"]["adaptations"])
-    assert len(state["materials"]) == 6
-    assert any("120–150" in m["markdown"] for m in state["materials"])
+    assert course["question_count"] == 0 and course["textbook"] is None
+    assert len(course["study_path"]["units"]) == 28
+    assert client.post("/api/assessment/start", json={"survey": survey}).status_code == 409
     with course_scope(user, book["id"]):
         from app.rag.retriever import retrieve
-        hits = retrieve("however 转折 听力", user_id=user, kp="cet6_listening", source_ids=selected_sources([]))
-        assert hits and all(h["course"] == "cet6" and h["url"].startswith(GUIDE_URL) for h in hits)
-        assert retrieve("return None", user_id=user, kp="py_functions") == []
+        assert retrieve("however 转折 听力", user_id=user, kp="cet6_listening", source_ids=selected_sources([])) == []
 
 
 def test_skipped_listening_is_unmeasured_and_transcripts_are_deferred(learner):
     client, user = learner
-    _, survey, _ = prepare(client, user, "cet6", "大学英语六级")
+    _, survey, _ = prepare_custom_assessment_fixture(client, user, "cet6", "大学英语六级")
     survey["target_kps"] = ["cet6_listening"]
     state = client.post("/api/assessment/start", json={"survey": survey, "mode": "comprehensive"}).json()
     while state["question"]:
@@ -94,7 +82,7 @@ def test_skipped_listening_is_unmeasured_and_transcripts_are_deferred(learner):
 
 def test_fresh_listening_scoring_resume_and_delay_preserve_baseline(learner):
     client, user = learner
-    book, survey, _ = prepare(client, user, "cet6", "大学英语六级")
+    book, survey, _ = prepare_custom_assessment_fixture(client, user, "cet6", "大学英语六级")
     state = finish(client, survey, False)
     bank = {q["id"]: q for q in build_course()["practice_bank"]}
     for i in range(3):
@@ -121,12 +109,11 @@ def test_fresh_listening_scoring_resume_and_delay_preserve_baseline(learner):
     assert all(not t["done"] for t in tasks if t["kp"] == "cet6_writing")
 
 
-def test_generated_explanation_receives_english_scope_and_real_guide(learner, monkeypatch):
+def test_generated_explanation_requires_actual_material_instead_of_old_original_guide(learner, monkeypatch):
     from app.agents import doc_agent
     from app.services.knowledge_graph import resolve_conversation_topic
     client, user = learner
     book, survey, _ = prepare(client, user, "cet6", "大学英语六级", "准备课程考试")
-    finish(client, survey, False)
     prompts = []
     async def model(prompt, **kwargs):
         prompts.append(prompt)
@@ -147,11 +134,10 @@ def test_generated_explanation_receives_english_scope_and_real_guide(learner, mo
             resource = asyncio.run(doc_agent._gen_one("doc", kp, {}, topic_name=topic, custom_topic=custom,
                 source_ids=selected_sources([]), goal=goal, prompt_template="complete_notes", user_id=user,
                 trace_id="cet6-test", skip_multimodal=True))["resource"]
-            assert resource["payload"]["generation_mode"] == "model"
-    assert len(prompts) == 2 and all("Students who joined the reading club" in p for p in prompts)
-    assert "准备课程考试" in prompts[0] and "20" in prompts[0]
-    assert resource["citations"] and all("cet6-guide-v1" in c for c in resource["citations"])
-    assert resource["payload"]["source_evidence"]
+            assert resource["payload"]["generation_mode"] == "unavailable"
+    assert all("Students who joined the reading club" not in p and "cet6-guide-v1" not in p for p in prompts)
+    assert resource["citations"] == []
+    assert not resource["payload"].get("source_evidence")
 
 
 def test_submitted_draft_routes_to_feedback_instead_of_generating_quiz(monkeypatch):
@@ -171,7 +157,6 @@ def test_draft_feedback_has_room_for_source_feedback_and_revision_task(learner, 
     from app.agents import tutor_agent
     client, user = learner
     book, survey, _ = prepare(client, user, "cet6", "大学英语六级")
-    finish(client, survey, False)
     calls = []
     async def stream(prompt, **kwargs):
         calls.append((prompt, kwargs))
@@ -185,4 +170,5 @@ def test_draft_feedback_has_room_for_source_feedback_and_revision_task(learner, 
     assert calls and calls[0][1]["max_tokens"] >= 1800
     assert "Universities should offer quiet rooms" in calls[0][0]
     assert "自行修订" in calls[0][0]
-    assert "请你自己补写" in result["answer"] and result["citations"]
+    assert "请你自己补写" in result["answer"] and not result["citations"]
+    assert "cet6-guide-v1" not in calls[0][0]

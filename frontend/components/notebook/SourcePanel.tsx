@@ -63,6 +63,7 @@ export default function SourcePanel({
   onToggle,
   includeBuiltin = false,
   course,
+  onStudy,
 }: {
   notebooks: LearningNotebook[];
   activeNotebookId?: string;
@@ -80,6 +81,7 @@ export default function SourcePanel({
   onToggle: (sourceId: string) => void;
   includeBuiltin?: boolean;
   course?: CourseScope | null;
+  onStudy?: (unitId?: string) => void;
 }) {
   const usingCourse = selectedIds.includes(COURSE_SOURCE_ID);
   const usingTextbook = !!course?.textbook && !selectedIds.some(id => id !== COURSE_SOURCE_ID);
@@ -130,7 +132,7 @@ export default function SourcePanel({
             <span><strong className="block text-sm text-[#343944]">选择或创建第一门课</strong><small className="mt-0.5 block text-[11px] text-[#858C9A]">数据结构 · Python · 高数 · 英语六级 · 自定义</small></span>
           </button>
         )}
-        <p className="mt-2 px-1 text-[11px] leading-5 text-[#858C9A]">切换科目后，下方只显示这本书的资料与学习记录。</p>
+        <p className="mt-2 px-1 text-[11px] leading-5 text-[#858C9A]">教材、章节与进度保存在当前课程。</p>
         {notebookError && <p className="mt-2 rounded-[8px] bg-[#FFF3ED] px-2.5 py-2 text-[11px] leading-4 text-[#A14D2E]">{notebookError}</p>}
       </div>
 
@@ -145,7 +147,15 @@ export default function SourcePanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        {course?.textbook && <div className="course-source-summary"><BookOpen size={18} /><div><strong>{course.textbook.title}</strong><p>{course.textbook.scope_note}</p><a href={course.textbook.url} target="_blank" rel="noopener noreferrer">查看原教材 · {course.textbook.version} ↗</a><small>未选择上传资料时，讲解从这些章节查找依据。</small></div></div>}
+        {course?.study_path && <section className="course-source-path">
+          <button type="button" className="source-add-button" onClick={() => onStudy?.()}>继续课程学习</button>
+          <details><summary>学习章节 · {course.study_path.units.length} 节</summary>
+            {[...new Set(course.study_path.units.map(u => u.group))].map(group => <details key={group}>
+              <summary>{group}</summary>{course.study_path!.units.filter(u => u.group === group).map(u => <button type="button" key={u.id} onClick={() => onStudy?.(u.id)}>{u.title}</button>)}
+            </details>)}
+          </details>
+        </section>}
+        {course?.textbook && <details className="course-source-book"><summary>已配教材 · {course.textbook.title}</summary><p>{course.textbook.scope_note}</p><a href={course.textbook.url} target="_blank" rel="noopener noreferrer">查看原教材 ↗</a></details>}
         {includeBuiltin && <button onClick={onToggleCourse} className={`source-row ${usingCourse ? "is-selected" : ""}`}>
           <span className="source-icon is-course"><BookOpen size={17} /></span>
           <span className="min-w-0 flex-1 text-left">
@@ -157,9 +167,7 @@ export default function SourcePanel({
           </span>
         </button>}
 
-        {activeNotebookId && course && course.kind !== "ds_algo" && !!course.outline?.length && <div className="course-source-summary">
-          <BookOpen size={18} /><div><strong>{course.title}</strong><p>{course.source_ids?.length ? `课程已绑定 ${course.source_ids.length} 份上传资料，讲解和题目围绕所列资料展开。` : course.kind === "generated" ? "围绕主题生成的初步讲义与题目，可上传教材补充依据。" : "已配入门讲义与起点题，可上传自己的课本补充依据。"}</p><small>{course.outline.length} 个知识点 · {course.question_count} 道起点题</small></div>
-        </div>}
+        {activeNotebookId && course?.source_ids?.length ? <p className="course-source-note">已绑定 {course.source_ids.length} 份上传资料</p> : null}
 
         {sources.map((source) => {
           const selected = selectedIds.includes(source.id);
@@ -186,10 +194,10 @@ export default function SourcePanel({
         })}
 
         {sources.length === 0 && activeNotebookId && (
-          <div className="source-empty">
+          <div className="source-empty source-empty-compact">
             <UploadCloud size={20} />
-            <strong>还没有上传自己的资料</strong>
-            <span>可以使用已配讲义，也可以添加这门课的教材与笔记。</span>
+            <strong>添加资料后可引用原文讲解</strong>
+            <span>先学习本课章节；需要讲解原题时，可上传题目或教材。</span>
           </div>
         )}
 

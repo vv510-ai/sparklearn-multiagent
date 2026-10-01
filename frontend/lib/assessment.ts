@@ -1,6 +1,6 @@
 export type StudySurvey = {
   notebook_id?: string;
-  course_key?: "ds_algo" | "python" | "calculus" | "cet6" | "custom";
+  course_key?: "ds_algo" | "python" | "calculus" | "cet6" | "english" | "custom";
   course_title?: string;
   source_ids?: string[];
   course_revision?: string;
@@ -126,6 +126,8 @@ export type Textbook = {
 };
 
 export type CourseScope = {
+  study_path?: import("./course-study").StudyPathSummary | null;
+  source_policy?: string;
   exam_reference?: { url: string; checked_on: string; total_minutes: number; parts: { name: string; weight: number; minutes: number }[] } | null;
   title: string;
   kind: string;

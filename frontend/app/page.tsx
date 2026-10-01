@@ -35,6 +35,7 @@ import type { CoachAction } from "@/components/onboarding/StudyCoach";
 import ResearchPanel from "@/components/learning/ResearchPanel";
 import GenerationJobs from "@/components/learning/GenerationJobs";
 import EnglishScenes from "@/components/learning/EnglishScenes";
+import CourseStudyPanel from "@/components/learning/CourseStudyPanel";
 import CourseRecommendations from "@/components/courses/CourseRecommendations";
 import OnboardingGate from "@/components/onboarding/OnboardingGate";
 import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
@@ -46,7 +47,7 @@ import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/a
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
-type PanelKey = "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
+type PanelKey = "study" | "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
@@ -233,6 +234,8 @@ export default function Home() {
   const [request, setRequest] = useState<ChatRequest | undefined>();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [activeCourse, setActiveCourse] = useState<CourseScope | null>(null);
+  const [studyUnit, setStudyUnit] = useState({ id: "", request: 0 });
+  const pendingStudyNotebook = useRef("");
   const [pathPlan, setPathPlan] = useState<PathPlan | null>(null);
   const [selectedPathNode, setSelectedPathNode] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceItem[]>([]);
@@ -405,12 +408,16 @@ export default function Home() {
       ]);
       if (activeNotebookIdRef.current !== notebookId) return;
       setActiveCourse(learning.course);
+      if (pendingStudyNotebook.current === notebookId) {
+        pendingStudyNotebook.current = "";
+        if (learning.course.study_path) setActivePanel(current => current === "chat" || current === "assessment" ? "study" : current);
+      }
       const items = dedupeSources(data.items || []);
       setSources(items);
       setSelectedSourceIds((ids) => {
         const personal = items.filter(isSourceSelectable).map((item) => item.id);
         const available = new Set([
-          ...(learning.course.kind === "ds_algo" ? [COURSE_SOURCE_ID] : []),
+          ...(learning.course.kind === "ds_algo" && !learning.course.study_path ? [COURSE_SOURCE_ID] : []),
           ...items.filter(isSourceSelectable).map((item) => item.id),
         ]);
         const valid = ids.filter((id) => available.has(id));
@@ -418,7 +425,7 @@ export default function Home() {
           return personal;
         }
         const bound = (learning.course.source_ids || []).filter(id => available.has(id));
-        return valid.length ? valid : bound.length ? bound : personal.length ? personal : learning.course.kind === "ds_algo" ? [COURSE_SOURCE_ID] : [];
+        return valid.length ? valid : bound.length ? bound : personal.length ? personal : learning.course.kind === "ds_algo" && !learning.course.study_path ? [COURSE_SOURCE_ID] : [];
       });
     } catch (error) {
       if (activeNotebookIdRef.current !== notebookId) return;
@@ -531,6 +538,8 @@ export default function Home() {
     if (authUser?.id) try { localStorage.setItem(`learnloop:last-notebook:${authUser.id}`, notebook.id); } catch { /* Server history remains available. */ }
     activeNotebookIdRef.current = notebook.id;
     setActiveNotebook(notebook);
+    pendingStudyNotebook.current = notebook.id;
+    setStudyUnit({ id: "", request: 0 });
     setProfile(null);
     setActiveCourse(null);
     setPathPlan(null);
@@ -865,12 +874,18 @@ export default function Home() {
   }
 
   if (!entered && onboardingRequired) {
-    return <OnboardingGate user={authUser} onComplete={completeIntake} onSkip={skipIntake} onLogout={() => void logout()} />;
+    return <main className="onboarding-shell"><div className="course-welcome"><h1>选一门课，从第一节开始</h1><p>教材、练习和学习进度放在同一门课里。</p><button className="secondary-action" onClick={() => void skipIntake(false)}>先进入学习空间</button></div><CourseCreateDialog onClose={() => void skipIntake(false)} onCreated={async notebook => {
+      await apiPost("/onboarding", { skipped: true });
+      setOnboardingRequired(false);
+      if (!await openNotebook(notebook)) throw new Error("课程已保存，暂时无法打开，请重试。");
+      await loadNotebooks();
+    }} /></main>;
   }
 
   const sourcePanel = (
     <SourcePanel
-      includeBuiltin={!!activeNotebook && activeCourse?.kind === "ds_algo"}
+      includeBuiltin={!!activeNotebook && activeCourse?.kind === "ds_algo" && !activeCourse?.study_path}
+      onStudy={(id = "") => { setStudyUnit(value => ({ id, request: value.request + 1 })); setActivePanel("study"); setMobilePane(null); }}
       course={activeCourse}
       notebooks={notebooks}
       activeNotebookId={activeNotebook?.id}
@@ -932,8 +947,6 @@ export default function Home() {
           <button type="button" onClick={() => window.innerWidth >= 1400 ? setStudioCollapsed(value => !value) : setMobilePane("studio")} className="study-icon" aria-label="切换工坊栏" title="切换工坊栏"><PanelRightOpen size={19} /></button>
         </div>
         <AdaptiveMenu label="学习菜单" className="workspace-actions">
-          <a href="/materials" className="notebook-home-button"><BookOpen size={17} /><span>真实资料</span></a>
-          <a href="/library" className="notebook-home-button"><BookOpen size={17} /><span>课程目录</span></a>
           <button type="button" className="notebook-home-button workspace-tools-entry" onClick={() => setMobilePane("studio")}><PanelRightOpen size={17} /><span>学习工坊</span></button>
           <button onClick={() => openPanel("assessment")} className="notebook-home-button" aria-label="打开起点测评"><Target size={16} /><span className="hidden md:inline">测评与计划</span></button>
           <span className={`hidden rounded-full px-3 py-1.5 text-xs font-semibold md:inline-flex ${running ? "bg-[#FFF1DD] text-[#9A5B12]" : finished ? "bg-[#E8F4ED] text-[#0F6B50]" : "bg-[#F0F1F5] text-[#626978]"}`}>
@@ -1020,7 +1033,9 @@ export default function Home() {
             />
           </div>
 
-          {activePanel === "assessment" && <AssessmentPanel key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} initialSurvey={{ course_title: activeCourse?.title || activeNotebook?.title || "", course_key: "custom", source_ids: selectedSourceIds.filter(id => id !== COURSE_SOURCE_ID), ...profile?.learning_intake }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
+          {activeNotebook && activeCourse?.study_path && <div className={`min-h-0 flex-1 ${activePanel === "study" ? "block" : "hidden"}`} aria-hidden={activePanel !== "study"}><CourseStudyPanel key={`${authUser.id}:${activeNotebook.id}`} userId={authUser.id} notebookId={activeNotebook.id} requestedUnit={studyUnit} onChat={prompt => { if (prompt) void startLearning(prompt); else setActivePanel("chat"); }} onUpload={() => sourceInputRef.current?.click()} /></div>}
+          {activePanel === "assessment" && activeCourse?.study_path && <div className="course-study-scroll"><h2>从当前章节的原题开始</h2><p>本课采用教材与机构练习。先完成题目、核对答案，再记录订正；已有测评记录仍保留。</p><button className="primary-action" onClick={() => setActivePanel("study")}>继续课程学习</button><details><summary>查看已有测评记录</summary><AssessmentPanel historyOnly key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} onBack={() => setActivePanel("study")} onLearn={(prompt) => void startLearning(prompt)} onCourses={() => setActivePanel("courses")} onUpdated={() => { void loadProfile(); }} /></details></div>}
+          {activePanel === "assessment" && !activeCourse?.study_path && <AssessmentPanel key={activeNotebook?.id || "initial"} notebookId={activeNotebook?.id || ""} onStarted={assessmentStarted} initialSurvey={{ course_title: activeCourse?.title || activeNotebook?.title || "", course_key: "custom", source_ids: selectedSourceIds.filter(id => id !== COURSE_SOURCE_ID), ...profile?.learning_intake }} onBack={() => setActivePanel("chat")} onLearn={(prompt) => void startLearning(prompt)} onCourses={(kp = "") => { setCourseKp(kp); setActivePanel("courses"); }} onUpdated={() => { void loadProfile(); void loadPath(); }} />}
           {activePanel === "research" && <ResearchPanel key={activeNotebook?.id || "research"} notebookId={activeNotebook?.id || ""} initialTopic={conversationFocus || notebookTopic} onBack={() => setActivePanel("chat")} />}
           {activePanel === "english" && <EnglishScenes key={activeNotebook?.id || "english"} notebookId={activeNotebook?.id || ""} onBack={() => setActivePanel("chat")} />}
           {activePanel === "courses" && <CourseRecommendations key={activeNotebook?.id || "global"} notebookId={activeNotebook?.id} initialTopic={activeCourse?.title || notebookTopic || conversationFocus} initialKp={courseKp} onBack={() => setActivePanel("chat")} onAssess={() => openPanel("assessment")} />}
@@ -1142,7 +1157,7 @@ export default function Home() {
           await loadNotebooks();
           setNewBookOpen(false);
           setMobilePane(null);
-          setActivePanel("assessment");
+          // loadSources selects the new course learning panel when available.
         }}
       />}
 

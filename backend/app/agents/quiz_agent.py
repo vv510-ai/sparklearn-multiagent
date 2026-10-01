@@ -313,6 +313,10 @@ async def run(state: dict) -> dict:
     # Generic self-reflection prompts are demo fixtures, not real subject questions.
     if not is_demo():
         fallback_items = [] if source_ids or custom_topic else _seed_questions(kp)
+    from ..services.learning_scope import current_space
+    from ..services.course_source_policy import publisher_path
+    if current_space() and publisher_path(current_space()["course"]):
+        fallback_items = []
     for item in [*items, *fallback_items]:
         valid = _validate(dict(item), kp) if isinstance(item, dict) else None
         if valid and remediation and _reuses_stem(valid.get("stem"), forbidden_stems):

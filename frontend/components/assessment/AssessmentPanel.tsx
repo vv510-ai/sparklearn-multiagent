@@ -40,7 +40,9 @@ export default function AssessmentPanel({
   initialSurvey = {},
   notebookId = "",
   onStarted,
+  historyOnly = false,
 }: {
+  historyOnly?: boolean;
   onBack: () => void;
   onLearn: (prompt: string) => void;
   onCourses: (kp?: string) => void;
@@ -225,6 +227,12 @@ export default function AssessmentPanel({
         )}\n\n## 待安排\n\n${plan.deferred.map((t) => `- ${t.title}：${t.deferred_reason}`).join("\n")}`,
     );
   };
+  if (historyOnly) return <section className="entry-panel" aria-label="历史测评记录">
+    {loading ? <p role="status">正在读取历史记录…</p> : loadFailed ? <p role="alert">{error}<button onClick={() => void load()}>重新读取</button></p> : !data ? <p>这门课还没有历史测评记录。请继续当前章节学习。</p> : <>
+      <h2>已保存的测评记录</h2><p>已提交 {data.answered} 题。记录按当时的题目保留，不代表当前课程覆盖范围。</p>
+      {report ? <AssessmentReview report={report} onLearn={onLearn} /> : <p>这次测评尚未形成完整报告。</p>}
+    </>}
+  </section>;
   return (
     <div
       ref={panel}
@@ -608,7 +616,6 @@ export default function AssessmentPanel({
           </details>
         </div>
       ) : null}
-      {data?.course?.kind === "cet6" && !setup && !loading && <p className="entry-note"><a href="/materials?course=cet6">打开六级真实资料：历年真题、模拟训练与配套音频 →</a></p>}
       {data && !setup && !loading && <details className="entry-reference-details">
         <summary>了解测评方法与资料来源</summary>
       {data?.course && <details className="entry-course-context"><summary>这份计划依据哪些目标与资料？</summary><p>优先：{data.survey.goal}；每个学习日 {data.survey.daily_minutes} 分钟，每周 {data.survey.study_days.length} 天。</p><p>{data.course.coverage_note}</p>{data.course.sources?.map(source => <p key={source.id}>{source.title} · {source.location_kind} {source.locations.join("、")} · 已取样 {source.sampled_chunks}/{source.total_chunks} 个片段</p>)}{!data.course.sources?.length && <p>使用本课程入门内容；尚未绑定上传文件。</p>}<p>{data.course.boundary}</p></details>}

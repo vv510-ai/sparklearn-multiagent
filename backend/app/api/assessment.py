@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ..auth import require_current_user_id
@@ -70,7 +70,10 @@ def latest(notebook_id: str = ""):
 @router.post("/start")
 @scoped_endpoint
 def start(req: StartRequest):
-    return service.start(require_current_user_id(), req.survey.model_dump(mode="json"), req.mode,
+    user = require_current_user_id()
+    if not req.survey.notebook_id:
+        raise HTTPException(409, "请先打开课程，按原教材学习，或上传自己的资料后进行检查。")
+    return service.start(user, req.survey.model_dump(mode="json"), req.mode,
                          req.survey.course_revision, req.survey.target_kps)
 
 
@@ -95,4 +98,8 @@ def replan(assessment_id: str, req: StartRequest):
 @router.post("/{assessment_id}/extend")
 @scoped_endpoint
 def extend(assessment_id: str, req: ExtendRequest):
+    from ..services.learning_scope import current_space
+    require_current_user_id()
+    if not current_space():
+        raise HTTPException(409, "旧测评已保留，请进入当前课程继续学习。")
     return service.extend(require_current_user_id(), assessment_id, req.revision)

@@ -23,6 +23,7 @@ from .path_service import plan_path
 from .profile_service import ensure_user, get_profile
 from .learning_intake import context_reasons, lesson_guidance, screening_targets, small_steps, task_approach
 from .learning_scope import current_space, notebook_id, profile_row, event_in_scope
+from .course_source_policy import publisher_path, require_default_practice
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 STATUS_LABELS = {"unmeasured": "待补充测评", "gap": "优先补基础", "developing": "需要巩固", "strength": "本次表现较好"}
@@ -37,6 +38,8 @@ LESSONS = {
 
 
 def question_bank() -> list[dict]:
+    if current_space() and publisher_path(current_space()["course"]):
+        return []
     if current_space() and current_space()["course"].get("bank"):
         return copy.deepcopy(current_space()["course"]["bank"])
     seed = json.loads((DATA / "seed_quiz.json").read_text(encoding="utf-8"))["questions"]
@@ -256,7 +259,7 @@ def latest(user_id: str) -> dict:
         row = db.scalar(_sessions(user_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc()).limit(1).with_for_update())
         if row and current_space() and (row.data.get("course_snapshot") or {}).get("revision") != current_space()["course"].get("revision"):
             row = None
-        if row and row.data["status"] == "completed":
+        if row and row.data["status"] == "completed" and not publisher_path(row.data.get("course_snapshot") or {}):
             _refresh_from_practice(db, row)
             db.commit()
         return {"assessment": _public(row) if row else None, "course": load_kg()["course"]}
@@ -265,6 +268,7 @@ def latest(user_id: str) -> dict:
 def start(user_id: str, survey: dict, mode: str, course_revision: str = "", target_kps: list[str] | None = None) -> dict:
     profile_data = get_profile(user_id)
     space = current_space()
+    require_default_practice(space["course"] if space else None)
     if space and (not space["course"].get("bank") or course_revision != space["course"].get("revision")):
         raise HTTPException(409, "请先核对这门课程的学习范围，再开始测评")
     survey = copy.deepcopy(survey)
@@ -418,6 +422,8 @@ def _finish(db, row, data):
 
 
 def _build_materials(db, row, data, report):
+    if publisher_path(data.get("course_snapshot") or {}):
+        return
     if data.get("course_snapshot"):
         return _course_materials(db, row, data, report)
     """Keep every measured task paired with current learner-specific material."""
@@ -574,7 +580,8 @@ def replan(user_id: str, assessment_id: str, survey: dict) -> dict:
         changed = db.execute(update(AssessmentSession).where(AssessmentSession.id == row.id, AssessmentSession.revision == revision).values(revision=revision + 1))
         if changed.rowcount != 1:
             raise HTTPException(409, "计划已更新，请刷新后继续")
-        _build_materials(db, row, data, data.get("plan_evidence", data["report"]))
+        if not publisher_path(data.get("course_snapshot") or {}):
+            _build_materials(db, row, data, data.get("plan_evidence", data["report"]))
         row.data, row.revision = data, revision + 1
         profile = profile_row(db, user_id)
         if profile:
@@ -590,6 +597,7 @@ def extend(user_id: str, assessment_id: str, revision: int) -> dict:
     with session() as db:
         row = _owned(db, user_id, assessment_id)
         data = copy.deepcopy(row.data)
+        require_default_practice(data.get("course_snapshot"))
         if data["status"] == "active" and data["mode"] == "comprehensive":
             return _public(row)
         if row.revision != revision or data["status"] != "completed" or data["mode"] == "comprehensive":

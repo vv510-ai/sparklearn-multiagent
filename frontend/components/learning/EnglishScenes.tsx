@@ -116,9 +116,8 @@ export default function EnglishScenes({ notebookId, onBack }: { notebookId: stri
       <button className="secondary-action" onClick={onBack}><ArrowLeft size={15} />返回</button>
     </div>
     <div className="mx-auto max-w-4xl space-y-5 p-5 pb-16">
-      <section aria-label="现成英语场景" className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#DDE5D9] bg-emerald-50 p-5">
-        <div><h2 className="font-bold">从现成场景开始学</h2><p className="mt-1 text-sm leading-6 text-slate-600">同学邀约、咖啡店点单、室友协商。含原创对话和合成音频，无需上传。</p></div>
-        <a href="/library#course-english-scenes" className="primary-action">进入场景课程</a>
+      <section aria-label="原声英语学习" className="rounded-2xl border border-[#DDE5D9] bg-emerald-50 p-5">
+        <h2 className="font-bold">按原声课程学习</h2><p className="mt-1 text-sm leading-6 text-slate-600">在左侧新建“日常英语”，即可按 British Council 原声、原文与配套练习逐节学习。</p>
       </section>
       <form onSubmit={e => { e.preventDefault(); void generate(); }} className="space-y-4 rounded-2xl border border-[#DDE5D9] bg-white p-5">
         <h2 className="font-bold">用想学的词，自定义一个场景</h2>

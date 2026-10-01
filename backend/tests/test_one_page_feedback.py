@@ -26,7 +26,7 @@ def test_one_page_prompt_receives_current_dialog_but_keeps_source_boundary():
     assert "只能来自“参考资料”" in call.prompt
 
 
-def test_cet6_one_page_reaches_generation_with_real_course_evidence(learner, monkeypatch):
+def test_cet6_one_page_requires_actual_material_instead_of_old_original_guide(learner, monkeypatch):
     client, user = learner
     book, _, _ = prepare(client, user, "cet6", "大学英语六级")
     calls = []
@@ -48,11 +48,10 @@ def test_cet6_one_page_reaches_generation_with_real_course_evidence(learner, mon
             conversation="学习者：选词有没有记忆点\n小知：先读整句，再判断词性。",
             user_id=user, trace_id="feedback-02", skip_multimodal=True))
     payload = out["resource"]["payload"]
-    assert payload["generation_mode"] == "model"
-    assert calls and "不要只凭一个熟悉的中文释义选词" in calls[0]
-    assert "小知：先读整句，再判断词性" in calls[0]
-    assert payload["source_evidence"]
-    assert all("cet6-guide-v1" in c for c in out["resource"]["citations"])
+    assert payload["generation_mode"] == "unavailable"
+    assert all("不要只凭一个熟悉的中文释义选词" not in p and "cet6-guide-v1" not in p for p in calls)
+    assert not payload.get("source_evidence")
+    assert not out["resource"]["citations"]
 
 
 def test_missing_selected_source_never_turns_dialog_or_error_into_a_map(monkeypatch):
