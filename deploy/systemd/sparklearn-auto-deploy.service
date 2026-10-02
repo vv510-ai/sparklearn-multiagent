@@ -11,7 +11,8 @@ Group=root
 UMask=0027
 EnvironmentFile=-/etc/default/sparklearn-auto-deploy
 ExecStart=/opt/sparklearn/bin/auto-deploy.sh
-TimeoutStartSec=45min
+# Cold builds also download OCR and embedding dependencies on a slow mirror.
+TimeoutStartSec=90min
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=6
