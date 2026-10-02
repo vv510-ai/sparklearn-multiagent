@@ -40,6 +40,7 @@ TENANT_TABLES = (
     "material_studies",
     "notebook_studies",
     "reading_trainings",
+    "cet6_profiles", "vocabulary_cards", "cet6_practices",
     "learning_spaces",
     "model_preferences",
     "assessment_sessions",

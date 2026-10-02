@@ -1,0 +1,1150 @@
+{
+  "schema_version": 1,
+  "status": "all_visible_rows_extracted_declared_total_difference_unresolved",
+  "source_url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf",
+  "source_sha256": "9166d3c03b7bc43abd9d9df91bd2ef8085b4419286f1e5ca100dea68f3cfd1f1",
+  "pdf_page_count": 215,
+  "vocabulary_physical_pages": [
+    21,
+    149
+  ],
+  "vocabulary_printed_pages": [
+    16,
+    144
+  ],
+  "counts": {
+    "visible_main_rows": 5377,
+    "starred_main_rows": 1263,
+    "unstarred_main_rows": 4114,
+    "visible_derivative_cells": 2519,
+    "main_rows_with_homograph_number": 154,
+    "derivative_cells_with_homograph_number": 2,
+    "unique_normalized_heads": 5300,
+    "unique_normalized_derivative_forms": 2518,
+    "body_glyphs_considered": 59048,
+    "body_glyphs_assigned_once": 59040,
+    "unassigned_printed_total_digits": 8,
+    "printed_main_total": 5418,
+    "printed_second_column_total": 2551,
+    "printed_minus_visible_main_rows": 41,
+    "printed_minus_visible_derivative_cells": 32
+  },
+  "checks": {
+    "printed_page_numbers_continuous": true,
+    "no_duplicate_body_pages": true,
+    "every_retained_body_glyph_assigned_once": true,
+    "only_unassigned_glyphs_are_printed_totals": true,
+    "original_sha256_unchanged_after_run": true,
+    "variants_preserved_without_expansion": true
+  },
+  "interpretation": [
+    "Visible row and cell counts are not asserted to equal the publisher declared counts.",
+    "The 41-row difference equals the final page unused 42-row positions, but this does not establish how the publisher counted.",
+    "No missing or duplicate numbered vocabulary page was found; printed pages 16 through 144 are continuous.",
+    "Different spelling variants and bracket abbreviations stay in their original source cell.",
+    "Homograph numbers remain separate identities, including cross-page pairs and prayer derivatives.",
+    "The official table supplies spelling forms, not pronunciation, meanings, or part of speech."
+  ],
+  "layout_repairs": [
+    {
+      "type": "baseline_instead_of_bbox_top",
+      "reason": "star bbox top offset is 7.336 pt despite equal text baseline"
+    },
+    {
+      "type": "split_visually_verified_columns",
+      "pdf_page": 63,
+      "printed_page": 58,
+      "source_row": 8,
+      "left": "esthetic/aesthetic",
+      "right": "esthetics/aesthetics",
+      "right_start_x": 168.699
+    },
+    {
+      "type": "phrase_parenthesis_space",
+      "pdf_page": 49,
+      "source_row": 10,
+      "normalized": "coup (d'état)"
+    }
+  ],
+  "inferred_and_visually_verified_spaces": [
+    {
+      "page": 21,
+      "row": 35,
+      "column": 0,
+      "raw": "accordingto",
+      "insert_before_index": 9,
+      "extra_gap_pt": 3.493
+    },
+    {
+      "page": 29,
+      "row": 40,
+      "column": 0,
+      "raw": "babyboom",
+      "insert_before_index": 4,
+      "extra_gap_pt": 3.493
+    },
+    {
+      "page": 29,
+      "row": 40,
+      "column": 1,
+      "raw": "babyboomer",
+      "insert_before_index": 4,
+      "extra_gap_pt": 3.494
+    },
+    {
+      "page": 101,
+      "row": 7,
+      "column": 0,
+      "raw": "oughtto",
+      "insert_before_index": 5,
+      "extra_gap_pt": 3.493
+    },
+    {
+      "page": 102,
+      "row": 15,
+      "column": 1,
+      "raw": "owingto",
+      "insert_before_index": 5,
+      "extra_gap_pt": 3.493
+    }
+  ],
+  "pages": [
+    {
+      "pdf_page": 21,
+      "printed_page": 16,
+      "row_count": 42,
+      "first_head": "a/an",
+      "last_head": "accustom",
+      "body_sha256": "c738e7735e616a023aa5f0ef88d852d73d17843d650b720a832773d2347f38f1"
+    },
+    {
+      "pdf_page": 22,
+      "printed_page": 17,
+      "row_count": 42,
+      "first_head": "ace",
+      "last_head": "advise",
+      "body_sha256": "cdfb5e58a401b3708d0b0dbcdd5570183cd7b7ae8111ffa323a3403803485a84"
+    },
+    {
+      "pdf_page": 23,
+      "printed_page": 18,
+      "row_count": 42,
+      "first_head": "advocate",
+      "last_head": "airplane/aeroplane",
+      "body_sha256": "3f0704b7da8f57a36b9ff44cff7bce1fd195733cc4a2be7deb4dc5001891eb3b"
+    },
+    {
+      "pdf_page": 24,
+      "printed_page": 19,
+      "row_count": 42,
+      "first_head": "airport",
+      "last_head": "altogether",
+      "body_sha256": "aa01e55cbb34d06fecafadc0c6ca063bec13e9a1d41b881caa77df23378346a1"
+    },
+    {
+      "pdf_page": 25,
+      "printed_page": 20,
+      "row_count": 42,
+      "first_head": "alumin(i)um",
+      "last_head": "another",
+      "body_sha256": "ad38fade157495efcac1c229b941f1e1ef42c4435e750408cfd1ca07ef740a18"
+    },
+    {
+      "pdf_page": 26,
+      "printed_page": 21,
+      "row_count": 42,
+      "first_head": "answer",
+      "last_head": "April",
+      "body_sha256": "6557dfe5bfe9633f9b36f40f5a4fef4d44fc8b01b6610791523af0cbaff114c1"
+    },
+    {
+      "pdf_page": 27,
+      "printed_page": 22,
+      "row_count": 42,
+      "first_head": "apron",
+      "last_head": "ashore",
+      "body_sha256": "decfbc07d5b9e0ade70c90d6f51f8545ef5167a2a3887d5a9fe53320766b2cc5"
+    },
+    {
+      "pdf_page": 28,
+      "printed_page": 23,
+      "row_count": 42,
+      "first_head": "aside",
+      "last_head": "attract",
+      "body_sha256": "e7cf70c83bb15771bbed49878f27054bff849f09cc25db83224f99150c61d02e"
+    },
+    {
+      "pdf_page": 29,
+      "printed_page": 24,
+      "row_count": 42,
+      "first_head": "attribute",
+      "last_head": "back",
+      "body_sha256": "b50c699feed701546e2a2dee6964172ecbe086294558841a61aa068b1c96643f"
+    },
+    {
+      "pdf_page": 30,
+      "printed_page": 25,
+      "row_count": 42,
+      "first_head": "background",
+      "last_head": "bark",
+      "body_sha256": "27e0c654d6bafb5b704ade5b442a141673731b24e3c2810f9f7625dba1bc9f4b"
+    },
+    {
+      "pdf_page": 31,
+      "printed_page": 26,
+      "row_count": 42,
+      "first_head": "barn",
+      "last_head": "bee",
+      "body_sha256": "53b44ffd35de61dae2c8a4806616c37d20344b50d57ddda611bc58fd285bb480"
+    },
+    {
+      "pdf_page": 32,
+      "printed_page": 27,
+      "row_count": 42,
+      "first_head": "beef",
+      "last_head": "Bible",
+      "body_sha256": "597f7ff7d76f5df0efe00439319fd428aff12a7ffd66b75c683c49861f228fef"
+    },
+    {
+      "pdf_page": 33,
+      "printed_page": 28,
+      "row_count": 42,
+      "first_head": "bibliography",
+      "last_head": "block",
+      "body_sha256": "c69e4817101b3d8c3e4eb8420029a7dd954e0c27aca3b1b97e8bf29008870eb0"
+    },
+    {
+      "pdf_page": 34,
+      "printed_page": 29,
+      "row_count": 42,
+      "first_head": "blog",
+      "last_head": "bottom",
+      "body_sha256": "3c8b61954d442d7c38dc20e12f37f852479337745363805fbbfe5ffd2edcf0f6"
+    },
+    {
+      "pdf_page": 35,
+      "printed_page": 30,
+      "row_count": 42,
+      "first_head": "bounce",
+      "last_head": "bride",
+      "body_sha256": "00caca5ea09be96d1fda32667aa191327dedb6fa686e3c901d98c6734d1a4857"
+    },
+    {
+      "pdf_page": 36,
+      "printed_page": 31,
+      "row_count": 42,
+      "first_head": "bridegroom",
+      "last_head": "bull",
+      "body_sha256": "2b64cb58b1d6e052004d3d704e239de097bd1816eb3496887232025c13ab2184"
+    },
+    {
+      "pdf_page": 37,
+      "printed_page": 32,
+      "row_count": 42,
+      "first_head": "bullet",
+      "last_head": "calculate",
+      "body_sha256": "b1ff9ff7772b11db118dd5b6086e4ea40ab9f8a046507c77319ecdabbf52c385"
+    },
+    {
+      "pdf_page": 38,
+      "printed_page": 33,
+      "row_count": 42,
+      "first_head": "calendar",
+      "last_head": "care",
+      "body_sha256": "f46cc92d7fb1fa86c4c1f99173dc0ae40b7fb75a87809de7617d40f4ac87ddaa"
+    },
+    {
+      "pdf_page": 39,
+      "printed_page": 34,
+      "row_count": 42,
+      "first_head": "career",
+      "last_head": "Celsius/-cius",
+      "body_sha256": "d01546caf49c8a80d020546de754b5ebc041d4f060d6492ea2779f5862f0223a"
+    },
+    {
+      "pdf_page": 40,
+      "printed_page": 35,
+      "row_count": 42,
+      "first_head": "cement",
+      "last_head": "check¹",
+      "body_sha256": "b1e906c85b663c4ee7e0d6072206569ef9a4a9f5a50714b585ba4ce0bc19be09"
+    },
+    {
+      "pdf_page": 41,
+      "printed_page": 36,
+      "row_count": 42,
+      "first_head": "check²/cheque",
+      "last_head": "circus",
+      "body_sha256": "127e0a8708793154311cefdf9f3ee2ae691e88c6daa8b8cebc1fa8396af956f3"
+    },
+    {
+      "pdf_page": 42,
+      "printed_page": 37,
+      "row_count": 42,
+      "first_head": "cite",
+      "last_head": "cloak",
+      "body_sha256": "2bacf3e8de6d6323d4dbf1923776cdd7088678aa6e8880a31ba077611af0bb57"
+    },
+    {
+      "pdf_page": 43,
+      "printed_page": 38,
+      "row_count": 42,
+      "first_head": "clock",
+      "last_head": "collect",
+      "body_sha256": "14f06536d24a78acc6a261ed8326578e29a5bdf701906af577d32d2d0d946348"
+    },
+    {
+      "pdf_page": 44,
+      "printed_page": 39,
+      "row_count": 42,
+      "first_head": "collective",
+      "last_head": "compatible",
+      "body_sha256": "5fdfd781837cb424bb8931bab58c698b810b9408ad25d52666671a20f18c8f21"
+    },
+    {
+      "pdf_page": 45,
+      "printed_page": 40,
+      "row_count": 42,
+      "first_head": "compel",
+      "last_head": "condition",
+      "body_sha256": "681575d4198fdd59cef896ff361b10d07addd4c60852aee32d207c6f4764985b"
+    },
+    {
+      "pdf_page": 46,
+      "printed_page": 41,
+      "row_count": 42,
+      "first_head": "condolence",
+      "last_head": "conspire",
+      "body_sha256": "e5d8d101565e12bdef40b1ed4eba219a111c9c9ba8936abd43f1b5bfc60a3492"
+    },
+    {
+      "pdf_page": 47,
+      "printed_page": 42,
+      "row_count": 42,
+      "first_head": "constant",
+      "last_head": "convict",
+      "body_sha256": "c545a36bd021829aad558d6a1b9b4e94e872b62ff18ed1d10bc13b2a8c9f38c7"
+    },
+    {
+      "pdf_page": 48,
+      "printed_page": 43,
+      "row_count": 42,
+      "first_head": "convince",
+      "last_head": "counsel",
+      "body_sha256": "2d5103c312db540f8bbd48cafe99283ae34ae1eacb487e56e11058568bef307d"
+    },
+    {
+      "pdf_page": 49,
+      "printed_page": 44,
+      "row_count": 42,
+      "first_head": "count",
+      "last_head": "credible",
+      "body_sha256": "13a87156b73e9566958ec5f297737430bc6d8421e1aedd49fb6688c77bf1f35d"
+    },
+    {
+      "pdf_page": 50,
+      "printed_page": 45,
+      "row_count": 42,
+      "first_head": "credit",
+      "last_head": "cure",
+      "body_sha256": "b5b78f9191593f6623020744d373160e9fd3d1c3a5ae511c1e5c2aa1544b2c39"
+    },
+    {
+      "pdf_page": 51,
+      "printed_page": 46,
+      "row_count": 42,
+      "first_head": "curfew",
+      "last_head": "day",
+      "body_sha256": "e95183353ed529c7dd2f07157d74e3496e36974293d7aefe52f43cb6f6477773"
+    },
+    {
+      "pdf_page": 52,
+      "printed_page": 47,
+      "row_count": 42,
+      "first_head": "daylight",
+      "last_head": "defer",
+      "body_sha256": "e96ff23f1392844030eb084b86dccbb85aea9938587f0cc0ee0da4ff6f820fbd"
+    },
+    {
+      "pdf_page": 53,
+      "printed_page": 48,
+      "row_count": 42,
+      "first_head": "deficient",
+      "last_head": "deprive",
+      "body_sha256": "659e7f88946cf771c74bbfccbb9e2c0e258afe1600803ce9c80c30f65cd21446"
+    },
+    {
+      "pdf_page": 54,
+      "printed_page": 49,
+      "row_count": 42,
+      "first_head": "depth",
+      "last_head": "dew",
+      "body_sha256": "f7a0344834605bd448c2abdca307078937eb3023c18d543189b2b9d57b145480"
+    },
+    {
+      "pdf_page": 55,
+      "printed_page": 50,
+      "row_count": 42,
+      "first_head": "diabetes",
+      "last_head": "disappear",
+      "body_sha256": "56b91e6f20ad018d42b5f63a19f9ac68726dfac95ab07d7fddc7d46d9caaa106"
+    },
+    {
+      "pdf_page": 56,
+      "printed_page": 51,
+      "row_count": 42,
+      "first_head": "disappoint",
+      "last_head": "dissertation",
+      "body_sha256": "bb1a4243abac965108351766e7c735a73f481e47a3bfb17f3cfef93c7ebfeec8"
+    },
+    {
+      "pdf_page": 57,
+      "printed_page": 52,
+      "row_count": 42,
+      "first_head": "dissident",
+      "last_head": "dormitory/dorm",
+      "body_sha256": "290adcc66f2ccae8f5f7be0903b94d5e8bd737d7f807498a78bb986187bd7f98"
+    },
+    {
+      "pdf_page": 58,
+      "printed_page": 53,
+      "row_count": 42,
+      "first_head": "dose",
+      "last_head": "dub",
+      "body_sha256": "2e0efcfc5bfa76085783ea3b20f0f2519b148ad9dfd4bcbf01210a10121f0cb3"
+    },
+    {
+      "pdf_page": 59,
+      "printed_page": 54,
+      "row_count": 42,
+      "first_head": "dubious",
+      "last_head": "edible",
+      "body_sha256": "a1d3bb4dc4e5b258b362922bdc3aa569bf0f68d28e4988ff3d38127a7d6e7e64"
+    },
+    {
+      "pdf_page": 60,
+      "printed_page": 55,
+      "row_count": 42,
+      "first_head": "edit",
+      "last_head": "embarrass",
+      "body_sha256": "8fb2a5f5144242df9ac68710608e3a779704a7c85ebc177d13749078c2eaacc4"
+    },
+    {
+      "pdf_page": 61,
+      "printed_page": 56,
+      "row_count": 42,
+      "first_head": "embassy",
+      "last_head": "enormous",
+      "body_sha256": "8370c77347c22dbce1f9b9fff95d341a959c3b3f7d4f50b57108404cfad0ac4d"
+    },
+    {
+      "pdf_page": 62,
+      "printed_page": 57,
+      "row_count": 42,
+      "first_head": "enough",
+      "last_head": "escape",
+      "body_sha256": "7f723a2734027e939c1f2970ecde1cd993df15dc3821339934da2296ea3f2d2f"
+    },
+    {
+      "pdf_page": 63,
+      "printed_page": 58,
+      "row_count": 42,
+      "first_head": "escort",
+      "last_head": "except",
+      "body_sha256": "3bbdfa04564ca20b9899fed21580344db03a584ae35a30b3629656d45e95db6b"
+    },
+    {
+      "pdf_page": 64,
+      "printed_page": 59,
+      "row_count": 42,
+      "first_head": "exception",
+      "last_head": "exquisite",
+      "body_sha256": "013ef4b9368ae96fad500849784b63772345e9f865ced83613f7b714dc8e5500"
+    },
+    {
+      "pdf_page": 65,
+      "printed_page": 60,
+      "row_count": 42,
+      "first_head": "extend",
+      "last_head": "fan",
+      "body_sha256": "8b10ae4e210b0d8cb44cb15dcce8372fca03196779429db722ae114e4138e151"
+    },
+    {
+      "pdf_page": 66,
+      "printed_page": 61,
+      "row_count": 42,
+      "first_head": "fancy",
+      "last_head": "fetch",
+      "body_sha256": "600528c4a9f9151903f9486a356befac1efd9b50af62f2aa3ba95d86c781d6a3"
+    },
+    {
+      "pdf_page": 67,
+      "printed_page": 62,
+      "row_count": 42,
+      "first_head": "fever",
+      "last_head": "flare",
+      "body_sha256": "ad565c5715acabbae87049971e9a9b4e361b0cceb6e3cf42f2593b970a18a719"
+    },
+    {
+      "pdf_page": 68,
+      "printed_page": 63,
+      "row_count": 42,
+      "first_head": "flash",
+      "last_head": "football",
+      "body_sha256": "5dd37f8f9a809e3d13ed0746f47cbd1ec8b6041589ce83434f56fcd353df6613"
+    },
+    {
+      "pdf_page": 69,
+      "printed_page": 64,
+      "row_count": 42,
+      "first_head": "footprint",
+      "last_head": "fourteen",
+      "body_sha256": "8de759719dc85620113d300814b9d93190ff2faa7a036bfbac415a903bdc12b3"
+    },
+    {
+      "pdf_page": 70,
+      "printed_page": 65,
+      "row_count": 42,
+      "first_head": "fox",
+      "last_head": "funeral",
+      "body_sha256": "394049373dd4c839ef8f98bc7e3caefb7ae15e33db2f965aa488582382bdd80d"
+    },
+    {
+      "pdf_page": 71,
+      "printed_page": 66,
+      "row_count": 42,
+      "first_head": "fur",
+      "last_head": "generous",
+      "body_sha256": "558703d9390d6335826c05b84b255e36d15fe4dbfb67812cc7bdead5d7b361c2"
+    },
+    {
+      "pdf_page": 72,
+      "printed_page": 67,
+      "row_count": 42,
+      "first_head": "genius",
+      "last_head": "golf",
+      "body_sha256": "e3dc705e3d4b17cf595499eda51720b34d20089366ba4bdc5b6f6ccf747cbd36"
+    },
+    {
+      "pdf_page": 73,
+      "printed_page": 68,
+      "row_count": 42,
+      "first_head": "good",
+      "last_head": "grief",
+      "body_sha256": "b70c5181ce1fb9736c40feccb67028346ddd88dd6e0c2d547aeb15f7670aa5f7"
+    },
+    {
+      "pdf_page": 74,
+      "printed_page": 69,
+      "row_count": 42,
+      "first_head": "grill",
+      "last_head": "hamper",
+      "body_sha256": "d7d8ca3623de00fddf46f1022d6944066689649625551b316d797356a273d273"
+    },
+    {
+      "pdf_page": 75,
+      "printed_page": 70,
+      "row_count": 42,
+      "first_head": "hand",
+      "last_head": "headmaster",
+      "body_sha256": "8de51fafabb9896bbc301c23fbfd0e110bed72287082042163a2304761c8c246"
+    },
+    {
+      "pdf_page": 76,
+      "printed_page": 71,
+      "row_count": 42,
+      "first_head": "headquarters",
+      "last_head": "hierarchy",
+      "body_sha256": "9ad31c110b714bb8186956fc9b622e23eb10818afd347593e2b44f1605e8c22f"
+    },
+    {
+      "pdf_page": 77,
+      "printed_page": 72,
+      "row_count": 42,
+      "first_head": "high",
+      "last_head": "horror",
+      "body_sha256": "2a2f81b1e0181ee00ecab361e9c9a935b6583ad5694e75694a1fa8d54d91e17d"
+    },
+    {
+      "pdf_page": 78,
+      "printed_page": 73,
+      "row_count": 42,
+      "first_head": "horse",
+      "last_head": "hut",
+      "body_sha256": "197e12ff3d3a115f4765239069ad38aebe349128fbb5910fb61bd426e9b3b9ce"
+    },
+    {
+      "pdf_page": 79,
+      "printed_page": 74,
+      "row_count": 42,
+      "first_head": "hybrid",
+      "last_head": "impact",
+      "body_sha256": "80823b51bc3a50a562685b6bd9274279f37047bf8ee69ca833e25113391c3f5f"
+    },
+    {
+      "pdf_page": 80,
+      "printed_page": 75,
+      "row_count": 42,
+      "first_head": "impair",
+      "last_head": "indifferent",
+      "body_sha256": "c4625859fd2c9d235d283a3434c9b92764ff9c834de596655eb3d09679c42947"
+    },
+    {
+      "pdf_page": 81,
+      "printed_page": 76,
+      "row_count": 42,
+      "first_head": "indigenous",
+      "last_head": "inquire/enquire",
+      "body_sha256": "54246bd2dff822faa11f70295be869d701e94d5d8ab21d087d484e81734a7c7b"
+    },
+    {
+      "pdf_page": 82,
+      "printed_page": 77,
+      "row_count": 42,
+      "first_head": "insane",
+      "last_head": "intermittent",
+      "body_sha256": "c415e58eefa0f11428fb8b4e644d867be0ee1362268d686854d4fe1f10edda11"
+    },
+    {
+      "pdf_page": 83,
+      "printed_page": 78,
+      "row_count": 42,
+      "first_head": "internal",
+      "last_head": "isolate",
+      "body_sha256": "e66f27afc0bbe97de3c4f2e52eaf4a407b75ce0341842ad99d8cbff262d4e7d2"
+    },
+    {
+      "pdf_page": 84,
+      "printed_page": 79,
+      "row_count": 42,
+      "first_head": "issue",
+      "last_head": "July",
+      "body_sha256": "aaa8c18f2a28a8ecb2108156ff47ab81cbd544092424da4daf169b0948ce1f37"
+    },
+    {
+      "pdf_page": 85,
+      "printed_page": 80,
+      "row_count": 42,
+      "first_head": "jump",
+      "last_head": "knot",
+      "body_sha256": "a57b68532462db2e26eb87de0a42839ece967de2ffd235b3398c67bd04d99042"
+    },
+    {
+      "pdf_page": 86,
+      "printed_page": 81,
+      "row_count": 42,
+      "first_head": "know",
+      "last_head": "lay",
+      "body_sha256": "f3f1ff05d8c9718a2ce1866f203509e3b2b862e881b1da2f98befdd771fb0517"
+    },
+    {
+      "pdf_page": 87,
+      "printed_page": 82,
+      "row_count": 42,
+      "first_head": "layer",
+      "last_head": "liberal",
+      "body_sha256": "ba6fe2b513969fadc4da2821efccd1358850b8719a68ac0dc4f5da0fe53a9279"
+    },
+    {
+      "pdf_page": 88,
+      "printed_page": 83,
+      "row_count": 42,
+      "first_head": "liberate",
+      "last_head": "live¹",
+      "body_sha256": "6cc57eedad5398c0c6bf3c979727d2dc64a054a38756ccb1c440e5b396e7fd67"
+    },
+    {
+      "pdf_page": 89,
+      "printed_page": 84,
+      "row_count": 42,
+      "first_head": "live²",
+      "last_head": "loyal",
+      "body_sha256": "8b3e84b735de27601cde2f4761f109ea9bc09d29c3aaf281cb7ec97cbc74d2ff"
+    },
+    {
+      "pdf_page": 90,
+      "printed_page": 85,
+      "row_count": 42,
+      "first_head": "lubricate",
+      "last_head": "mandate",
+      "body_sha256": "b1549d77f4d714f78c82765a69287a166eb9e13ba2c464dc95a26be2a9228da7"
+    },
+    {
+      "pdf_page": 91,
+      "printed_page": 86,
+      "row_count": 42,
+      "first_head": "maneuver/manoeuvre",
+      "last_head": "mature",
+      "body_sha256": "e953b7294dd27c5dfca8997baad90d31820a39e8309b6f5a5cce87a0c2e583ae"
+    },
+    {
+      "pdf_page": 92,
+      "printed_page": 87,
+      "row_count": 42,
+      "first_head": "maximum",
+      "last_head": "merchandise",
+      "body_sha256": "297f93b17c0df808f5d97b38f97fee3cca216db55e9ee0108233318b7c2a1a25"
+    },
+    {
+      "pdf_page": 93,
+      "printed_page": 88,
+      "row_count": 42,
+      "first_head": "merchant",
+      "last_head": "mine²",
+      "body_sha256": "ba0f167d6d06dce77a1a115b3b7b7e2a2d61a5e35f58641fb1e394cbf6bf3aa5"
+    },
+    {
+      "pdf_page": 94,
+      "printed_page": 89,
+      "row_count": 42,
+      "first_head": "mine³",
+      "last_head": "moment",
+      "body_sha256": "72f7c33b1cad308b8bd337afbe27ffd958a3a4a4b5576a1afedbd0f580e21f0e"
+    },
+    {
+      "pdf_page": 95,
+      "printed_page": 90,
+      "row_count": 42,
+      "first_head": "momentum",
+      "last_head": "mug",
+      "body_sha256": "1eae91ed3dae0a8edb2e56a3b30a02e54e8c0d2a4f9d32471f39548748efd9c5"
+    },
+    {
+      "pdf_page": 96,
+      "printed_page": 91,
+      "row_count": 42,
+      "first_head": "mule",
+      "last_head": "neck",
+      "body_sha256": "4ad38dbfb04612cddfcdf87b4cce172f53d7af7bfbf1010f5ca074cbc61e02fd"
+    },
+    {
+      "pdf_page": 97,
+      "printed_page": 92,
+      "row_count": 42,
+      "first_head": "necklace",
+      "last_head": "none",
+      "body_sha256": "4f17b2b4de70404249b8fd3fbd7a90075966973132f2fcadb6a59a90d3f6c9cd"
+    },
+    {
+      "pdf_page": 98,
+      "printed_page": 93,
+      "row_count": 42,
+      "first_head": "nonetheless",
+      "last_head": "oak",
+      "body_sha256": "622187183a1f2a68d1f2deb662d38729dc42baf2eb2a221c32d7e107e421ec65"
+    },
+    {
+      "pdf_page": 99,
+      "printed_page": 94,
+      "row_count": 42,
+      "first_head": "oar",
+      "last_head": "olive",
+      "body_sha256": "6fed0c638d1527c6cf232580b14227f77e94e781809c35056a93eabffcca4f9a"
+    },
+    {
+      "pdf_page": 100,
+      "printed_page": 95,
+      "row_count": 42,
+      "first_head": "Olympic",
+      "last_head": "orient²",
+      "body_sha256": "07bd87d4b0303ea90bc7426d9e757f27ace03292ca3bb9a5a70caf66bf6b8eb4"
+    },
+    {
+      "pdf_page": 101,
+      "printed_page": 96,
+      "row_count": 42,
+      "first_head": "origin",
+      "last_head": "overhear",
+      "body_sha256": "2490eb671f1075289a2e4ec72fa017cc192d5db00a15bb0083233681e6c6e356"
+    },
+    {
+      "pdf_page": 102,
+      "printed_page": 97,
+      "row_count": 42,
+      "first_head": "overlap",
+      "last_head": "pant",
+      "body_sha256": "95f3d81fe7268fab4e5f3adf33536b633f144dbaa5b827212e6e79d74be25dc3"
+    },
+    {
+      "pdf_page": 103,
+      "printed_page": 98,
+      "row_count": 42,
+      "first_head": "pants",
+      "last_head": "paste",
+      "body_sha256": "8cdce53c45ad69f830e81cd4e0ffb0bb32990f47e850a2637bbbb85454c5a161"
+    },
+    {
+      "pdf_page": 104,
+      "printed_page": 99,
+      "row_count": 42,
+      "first_head": "pastime",
+      "last_head": "penetrate",
+      "body_sha256": "9016506a126ff86deae8307498a378878a461a2836556334e2f6556ce2dff9a0"
+    },
+    {
+      "pdf_page": 105,
+      "printed_page": 100,
+      "row_count": 42,
+      "first_head": "penguin",
+      "last_head": "philosophy",
+      "body_sha256": "15f472663492c7c51ff1497e9116b60bc066a2b73fd6ba6969d5b734133890e5"
+    },
+    {
+      "pdf_page": 106,
+      "printed_page": 101,
+      "row_count": 42,
+      "first_head": "photo(graph)",
+      "last_head": "plant",
+      "body_sha256": "9b6999e468d8bede5820d065d8f9e3ccdf5c6b27a165f4fb75200b6c6a148ad1"
+    },
+    {
+      "pdf_page": 107,
+      "printed_page": 102,
+      "row_count": 42,
+      "first_head": "plastic",
+      "last_head": "pool",
+      "body_sha256": "2750fbf1588a978940f6246918085d32320694169d50bb4723c75eefb6807a8b"
+    },
+    {
+      "pdf_page": 108,
+      "printed_page": 103,
+      "row_count": 42,
+      "first_head": "poor",
+      "last_head": "precious",
+      "body_sha256": "72102544b6508b2ce7d641beb219c8927a286b7154c68fc37a05a7b6cfe5c77a"
+    },
+    {
+      "pdf_page": 109,
+      "printed_page": 104,
+      "row_count": 42,
+      "first_head": "precise",
+      "last_head": "prime",
+      "body_sha256": "9cbac912aa5c84822e7ef5a91fb75c7e742cbc640205da612abc600e4f41a876"
+    },
+    {
+      "pdf_page": 110,
+      "printed_page": 105,
+      "row_count": 42,
+      "first_head": "primitive",
+      "last_head": "prop",
+      "body_sha256": "9e8926d36a74183a4278f8b479e26556815672ca2553c90287365b0ad677588a"
+    },
+    {
+      "pdf_page": 111,
+      "printed_page": 106,
+      "row_count": 42,
+      "first_head": "propaganda",
+      "last_head": "purse",
+      "body_sha256": "98b9409775a6266cffc5a8d56f872bb8844cd01146d001207888d3c97d0f3acd"
+    },
+    {
+      "pdf_page": 112,
+      "printed_page": 107,
+      "row_count": 42,
+      "first_head": "pursue",
+      "last_head": "rainbow",
+      "body_sha256": "9f80f9782cc2c30ff8640d163be189df41d2f3eaacb77d679bfbfc2fb33f5a3c"
+    },
+    {
+      "pdf_page": 113,
+      "printed_page": 108,
+      "row_count": 42,
+      "first_head": "raincoat",
+      "last_head": "recipe",
+      "body_sha256": "e20e5f33374553114124da27ca819976284b9eb7e22b53fa0d94c3131e184d86"
+    },
+    {
+      "pdf_page": 114,
+      "printed_page": 109,
+      "row_count": 42,
+      "first_head": "reciprocal",
+      "last_head": "regulate",
+      "body_sha256": "d7bc268167ea6f06633981e5b0db09fe0ceea3fbb789d551c4801aee606d2a56"
+    },
+    {
+      "pdf_page": 115,
+      "printed_page": 110,
+      "row_count": 42,
+      "first_head": "rehabilitate",
+      "last_head": "reply",
+      "body_sha256": "027f13db2218c2d5f6c1e5c3766844a3a3eddb1ab69518d3ca3b6962454743d2"
+    },
+    {
+      "pdf_page": 116,
+      "printed_page": 111,
+      "row_count": 42,
+      "first_head": "report",
+      "last_head": "retarded",
+      "body_sha256": "1b04f1236f55023f0f5e14d7635b46fc6d34e64d1b71c65a8977ef0257d5a370"
+    },
+    {
+      "pdf_page": 117,
+      "printed_page": 112,
+      "row_count": 42,
+      "first_head": "retell",
+      "last_head": "risk",
+      "body_sha256": "1b4179aa18129e169a3d8ebfff7ae7ca3279bd44fa5a91649d419f37fc062cd7"
+    },
+    {
+      "pdf_page": 118,
+      "printed_page": 113,
+      "row_count": 42,
+      "first_head": "ritual",
+      "last_head": "rush",
+      "body_sha256": "f34c880adeee270848e30a70858660255d2f055bfc32b80d694131d25a86dcf9"
+    },
+    {
+      "pdf_page": 119,
+      "printed_page": 114,
+      "row_count": 42,
+      "first_head": "rust",
+      "last_head": "scan",
+      "body_sha256": "684c426c8b9bb9910d9dfb83977a233300e0e05f77ac6722dc9b05a82db76255"
+    },
+    {
+      "pdf_page": 120,
+      "printed_page": 115,
+      "row_count": 42,
+      "first_head": "scandal",
+      "last_head": "section",
+      "body_sha256": "23c3fa81914b5faf14770606d3ab9fa5dc8e598830912d4a34f49536a05696e9"
+    },
+    {
+      "pdf_page": 121,
+      "printed_page": 116,
+      "row_count": 42,
+      "first_head": "sector",
+      "last_head": "seventy",
+      "body_sha256": "449ab92d2c7fd5b55de2486e76e02ee4fe908532b35d014c8b83b1522c9eeece"
+    },
+    {
+      "pdf_page": 122,
+      "printed_page": 117,
+      "row_count": 42,
+      "first_head": "several",
+      "last_head": "shortcoming",
+      "body_sha256": "5c50d5d690d7d9ad2e4e1f3cac4b869cef282f789e3cdb7d8f5ad446da73f08b"
+    },
+    {
+      "pdf_page": 123,
+      "printed_page": 118,
+      "row_count": 42,
+      "first_head": "shorthand",
+      "last_head": "sing",
+      "body_sha256": "4d6cf621ee87f0d7bc262c83face4b2ff9975ce49d43cb98947ccee7cf4ee855"
+    },
+    {
+      "pdf_page": 124,
+      "printed_page": 119,
+      "row_count": 42,
+      "first_head": "single",
+      "last_head": "slim",
+      "body_sha256": "0645f99cc2b34204ab24f000480b039ebdfd327d9b11382d960c57a7b7b12738"
+    },
+    {
+      "pdf_page": 125,
+      "printed_page": 120,
+      "row_count": 42,
+      "first_head": "slip",
+      "last_head": "sofa",
+      "body_sha256": "faf19ce8c936da2d041b949f6a97763baa73f4d70ed6ac0e94e3ba8440c6797e"
+    },
+    {
+      "pdf_page": 126,
+      "printed_page": 121,
+      "row_count": 42,
+      "first_head": "soft",
+      "last_head": "sovereign",
+      "body_sha256": "ad7c2819ebbef50a3659cc4df41ad5d682b5e52848dabd3fb542cfc0b686d39c"
+    },
+    {
+      "pdf_page": 127,
+      "printed_page": 122,
+      "row_count": 42,
+      "first_head": "sow",
+      "last_head": "sponsor",
+      "body_sha256": "8b1214d4cafff61cde43500fa6cdaf064956d86d4dbd2ac2a08f152bb5912d0e"
+    },
+    {
+      "pdf_page": 128,
+      "printed_page": 123,
+      "row_count": 42,
+      "first_head": "spontaneous",
+      "last_head": "staple²",
+      "body_sha256": "be15ddcf92164ffda713812864e6e8d00a90e2d49b300b2c67bf65bd4a682995"
+    },
+    {
+      "pdf_page": 129,
+      "printed_page": 124,
+      "row_count": 42,
+      "first_head": "star",
+      "last_head": "stock",
+      "body_sha256": "b16d0694a219840c38014fa83addbb03cd94a3b71175fbe545cfb1b8a65279b5"
+    },
+    {
+      "pdf_page": 130,
+      "printed_page": 125,
+      "row_count": 42,
+      "first_head": "stocking",
+      "last_head": "strong",
+      "body_sha256": "53ac2370f2b8bf9018d2a51c74a5f479338943c5bf86939805d07c1a3753fb0f"
+    },
+    {
+      "pdf_page": 131,
+      "printed_page": 126,
+      "row_count": 42,
+      "first_head": "structure",
+      "last_head": "suicide",
+      "body_sha256": "3fc74d17c2c48d19d14df32ff0e49afa10a41699450ab2572ded8e7bee207968"
+    },
+    {
+      "pdf_page": 132,
+      "printed_page": 127,
+      "row_count": 42,
+      "first_head": "suit¹",
+      "last_head": "surround",
+      "body_sha256": "1ca5109dd16ba33eeb85da78bb121a38e517ecdd3a4fede048c697accd3d83ec"
+    },
+    {
+      "pdf_page": 133,
+      "printed_page": 128,
+      "row_count": 42,
+      "first_head": "surveillance",
+      "last_head": "tactic",
+      "body_sha256": "f86d96ff4efa5aa98139a408ff629696bf60c20a312c3cf5174a9419df19079a"
+    },
+    {
+      "pdf_page": 134,
+      "printed_page": 129,
+      "row_count": 42,
+      "first_head": "tag",
+      "last_head": "temper",
+      "body_sha256": "3f764559d0b9a8a67f940591e477d3840ae7fb533938a5a1c707f71b8bbb7a8a"
+    },
+    {
+      "pdf_page": 135,
+      "printed_page": 130,
+      "row_count": 42,
+      "first_head": "temperament",
+      "last_head": "their",
+      "body_sha256": "7cb01f7d5b1eb87ab22aa1be920af7442cc02ad8a7a97e829e81a6be5369508f"
+    },
+    {
+      "pdf_page": 136,
+      "printed_page": 131,
+      "row_count": 42,
+      "first_head": "theirs",
+      "last_head": "through",
+      "body_sha256": "451ec1b302a250c0a4c1fe4cc1c4470e0f7110ee907a5ea1baf3b536494a1aca"
+    },
+    {
+      "pdf_page": 137,
+      "printed_page": 132,
+      "row_count": 42,
+      "first_head": "throughout",
+      "last_head": "tone",
+      "body_sha256": "870927a7f301f9a2b5aba9847a77e903000185db606076189b814f3e19de4928"
+    },
+    {
+      "pdf_page": 138,
+      "printed_page": 133,
+      "row_count": 42,
+      "first_head": "tongue",
+      "last_head": "transfer",
+      "body_sha256": "66f8fa09bdf79ee72294a8a26e57a0c729e412afffb4a531b818d88c86e92815"
+    },
+    {
+      "pdf_page": 139,
+      "printed_page": 134,
+      "row_count": 42,
+      "first_head": "transform",
+      "last_head": "trolley",
+      "body_sha256": "28a71fe46885b77ac72968effb696cd6a4529e17aafb358487d3fec55f31f266"
+    },
+    {
+      "pdf_page": 140,
+      "printed_page": 135,
+      "row_count": 42,
+      "first_head": "troop",
+      "last_head": "ultimate",
+      "body_sha256": "0629b1ffaa8bba8f186acf1d5b34a705cdd18fa3009d9c5b094705766a9210ec"
+    },
+    {
+      "pdf_page": 141,
+      "printed_page": 136,
+      "row_count": 42,
+      "first_head": "ultra",
+      "last_head": "uphold",
+      "body_sha256": "e2c96a7c15f90ab2604a7577e775a2bcede897572d08e2d59ed1f46a4f7700c9"
+    },
+    {
+      "pdf_page": 142,
+      "printed_page": 137,
+      "row_count": 42,
+      "first_head": "upload",
+      "last_head": "vegetation",
+      "body_sha256": "2896f39720739c1a40a491cb8bc1215e2d12af67261ff7f0a3d8378f8f667c14"
+    },
+    {
+      "pdf_page": 143,
+      "printed_page": 138,
+      "row_count": 42,
+      "first_head": "vehicle",
+      "last_head": "virgin",
+      "body_sha256": "3a8d8258eed72868453d6039fe0b854597c18c51e332dd102ce822f3c310d174"
+    },
+    {
+      "pdf_page": 144,
+      "printed_page": 139,
+      "row_count": 42,
+      "first_head": "virtual",
+      "last_head": "ward",
+      "body_sha256": "f0defd8f21d7489e041283bde4d94bd64c5881f8940b1ad95493aaf1d7a61054"
+    },
+    {
+      "pdf_page": 145,
+      "printed_page": 140,
+      "row_count": 42,
+      "first_head": "wardrobe",
+      "last_head": "welcome",
+      "body_sha256": "cef9a7e16029c897cf8b92e342536e5c7031278aec35f2609d2988a604edbb87"
+    },
+    {
+      "pdf_page": 146,
+      "printed_page": 141,
+      "row_count": 42,
+      "first_head": "welfare",
+      "last_head": "wilderness",
+      "body_sha256": "255826b225aa07241c35e57e716954dd4948d0e77d4112eb84c4cf5d942c28be"
+    },
+    {
+      "pdf_page": 147,
+      "printed_page": 142,
+      "row_count": 42,
+      "first_head": "wildlife",
+      "last_head": "worst",
+      "body_sha256": "aa47a682a8aa8dd266a107030605b5445acfd5dba454c67f3b64c49c19a39ad5"
+    },
+    {
+      "pdf_page": 148,
+      "printed_page": 143,
+      "row_count": 42,
+      "first_head": "worth",
+      "last_head": "zoology",
+      "body_sha256": "bb5fa7b5ebd9f13dc06d5750364922adb736cfad542c330e3f6d0b061a81fa10"
+    },
+    {
+      "pdf_page": 149,
+      "printed_page": 144,
+      "row_count": 1,
+      "first_head": "zoom",
+      "last_head": "zoom",
+      "body_sha256": "0ed7ec603ef0466fe0adb3b12cda7c55c99a3072a6f0dfb98be655cfd5f123d4"
+    }
+  ],
+  "runtime_versions": {
+    "pdfplumber": "0.11.9",
+    "pypdf": "6.10.0"
+  },
+  "rows_file_sha256": "ce8df2e46d8c4f033115118c4a41d36c7d608901783bdd81d943eb12c1afb844"
+}

@@ -18,6 +18,7 @@ async function register(page: Page) {
   const catalogue = await (await page.request.get("/api/notebooks/learning/catalogue")).json();
   await dialog.getByRole("radio", { name: catalogue.items.find((c: { id: string }) => c.id === "cet6").title, exact: true }).check();
   await dialog.getByRole("button", { name: "创建并进入", exact: true }).click();
+  await page.locator(".cet6-skill-grid").getByRole("button", { name: /阅读/ }).click();
   await expect(page.getByRole("region", { name: "今日阅读任务" })).toBeVisible();
   const notebook = await page.getByRole("combobox", { name: "切换科目书本" }).inputValue();
   return { notebook, base: `/api/notebooks/${notebook}/reading` };
@@ -74,6 +75,11 @@ test("真实账号完成阅读、跨设备恢复、订正、提前复习和手�
   await expect(page.locator(".reading-completion")).toContainText("首次作答 4 / 5");
   await expect(page.locator(".reading-next-review")).toContainText("关闭网站后不会发送通知");
   const completed = await (await page.request.get(`${base}/${id}`)).json();
+  const sourceLink = new URL(page.url()); sourceLink.searchParams.set("reading_question", sample.questions[1].id);
+  await page.goto(sourceLink.toString());
+  await expect(page.getByLabel("生词对应的原题语境")).toContainText(sample.questions[1].prompt);
+  await expect(page.getByLabel("生词对应的原题语境")).toContainText(sample.paragraphs[0]);
+  expect((await (await page.request.get(`${base}/${id}`)).json()).revision).toBe(completed.revision);
   await page.getByRole("button", { name: "提前练习一次", exact: true }).click();
   await expect(page.locator(".reading-callout")).toContainText("不推进原复习计划");
   for (const [i, qid] of completed.focus_ids.entries()) await answer(page, i, sample.questions.find((q: { id: string }) => q.id === qid).recall.answer);
@@ -194,7 +200,7 @@ test("阅读可返回课程章节；一页保存不删除另一页的新草稿",
   await other.close(); await page.unroute(`**${url}`);
   await page.getByRole("button", { name: "学习对话", exact: true }).click();
   await page.locator(".course-source-path").getByRole("button", { name: "继续课程学习", exact: true }).click();
-  await expect(page.locator(".course-study-card h1")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "按你的需要，一步步学" })).toBeVisible();
   await expect(page.locator(".reading-player")).toHaveCount(0);
   expect(new URL(page.url()).searchParams.has("reading")).toBe(false);
 });

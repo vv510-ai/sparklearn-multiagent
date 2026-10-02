@@ -2,10 +2,11 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, ExternalLink } from "lucide-react";
-import ReadingTraining from "./ReadingTraining";
+import Cet6Dashboard from "./Cet6Dashboard";
 import Markdown from "@/components/chat/Markdown";
 import { apiGet, apiPost } from "@/lib/api";
 import type { CourseStudy, StudyProgress, UnitRecord } from "@/lib/course-study";
+import { cet6Route } from "@/lib/cet6";
 
 const blank = (): UnitRecord => ({ read: false, practiced: false, checked: false, completed: false, notes: "", next_review: null });
 const readable = (e: unknown) => e instanceof Error ? e.message.replace(/^(GET|POST) \S+ → \d+:\s*/, "") : "暂时无法保存，请重试。";
@@ -15,6 +16,7 @@ export default function CourseStudyPanel({ notebookId, userId, requestedUnit, on
   onChat: (prompt: string) => void; onUpload: () => void; onFocus: (active: boolean) => void; onReviews: () => void;
 }) {
   const [readingActive, setReadingActive] = useState(false);
+  const [showReferences, setShowReferences] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("notebook") === notebookId && new URLSearchParams(window.location.search).get("cet6") === "references");
   useEffect(() => { onFocus(readingActive); return () => onFocus(false); }, [readingActive, onFocus]);
   const [data, setData] = useState<CourseStudy | null>(null);
   const [unitId, setUnitId] = useState("");
@@ -51,7 +53,7 @@ export default function CourseStudyPanel({ notebookId, userId, requestedUnit, on
       const resume = last >= 0 && result.progress.units[result.progress.last_unit]?.completed
         ? result.path.units.slice(last + 1).find(u => !result.progress.units[u.id]?.completed)?.id || result.progress.last_unit
         : result.progress.last_unit;
-      if (!preserveDraft) { pick(result, latestRequest.current.id || resume || result.path.units[0].id); consumedRequest.current = latestRequest.current.request; }
+      if (!preserveDraft) { pick(result, latestRequest.current.id || resume || result.path.units[0].id); consumedRequest.current = latestRequest.current.request; if (result.path.units.some(u => u.id === latestRequest.current.id)) { setShowReferences(true); if (result.path.course === "cet6") cet6Route(notebookId, "references"); } }
       else setNotice("已读取服务器进度。当前草稿保留；你可以核对后重新保存，或放弃草稿。");
     } catch (e) { if (alive.current && ticket === loadVersion.current) setError(readable(e)); }
     finally { if (alive.current && ticket === loadVersion.current) setBusy(false); }
@@ -63,8 +65,10 @@ export default function CourseStudyPanel({ notebookId, userId, requestedUnit, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useLayoutEffect(() => {
-    if (data && requestedUnit.id && !busy && !saving.current && consumedRequest.current !== requestedUnit.request) {
-      consumedRequest.current = requestedUnit.request; pick(data, requestedUnit.id);
+    if (data && !busy && !saving.current && consumedRequest.current !== requestedUnit.request) {
+      consumedRequest.current = requestedUnit.request;
+      if (requestedUnit.id) { pick(data, requestedUnit.id); setShowReferences(true); if (data.path.course === "cet6") cet6Route(notebookId, "references"); }
+      else { setShowReferences(false); setReadingActive(false); }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedUnit.request, data, busy]);
@@ -101,9 +105,10 @@ export default function CourseStudyPanel({ notebookId, userId, requestedUnit, on
   const due = data.path.units.filter(u => data.progress.units[u.id]?.next_review && data.progress.units[u.id].next_review! <= today);
   const canComplete = draft.read && draft.practiced && draft.checked && draft.notes.trim().length >= 3;
   const completedCount = data.path.units.filter(u => data.progress.units[u.id]?.completed).length;
+  if (data.path.course === "cet6" && !showReferences) return <div className="course-study-scroll"><Cet6Dashboard key={requestedUnit.request} notebookId={notebookId} userId={userId} onChat={onChat} onFocus={setReadingActive} onReviews={onReviews} chapterDue={due.map(u => ({ id: u.id, title: u.title }))} onReference={id => { if (id) pick(data, id); cet6Route(notebookId, "references"); setShowReferences(true); setReadingActive(false); }} /></div>;
   return <div className="course-study-scroll" aria-label="当前课程学习">
+    {data.path.course === "cet6" && <button className="secondary-action" onClick={() => { cet6Route(notebookId, "home"); setShowReferences(false); setReadingActive(false); }}>返回六级学习首页</button>}
     <header className="course-study-top" hidden={readingActive}><div><span>{data.path.title}</span><p>已完成 {completedCount} / {data.path.units.length} 节</p></div><button className="secondary-action" onClick={() => onChat("")}>学习对话</button></header>
-    {data.path.course === "cet6" && <ReadingTraining key={`${userId}:${notebookId}:${requestedUnit.request}`} notebookId={notebookId} userId={userId} onFocus={setReadingActive} onChat={onChat} chapterDue={due.map(u => ({ id: u.id, title: u.title }))} onReviews={onReviews} onChapter={id => { pick(data, id); requestAnimationFrame(() => heading.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }} />}
     <div hidden={readingActive}>
     {!!due.length && data.path.course !== "cet6" && <details className="course-study-review"><summary>有 {due.length} 节到了复习日期</summary>{due.map(u => <button key={u.id} disabled={busy} onClick={() => pick(data, u.id)}>{u.title}</button>)}</details>}
     <article className="course-study-card">

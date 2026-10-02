@@ -16,6 +16,7 @@ async function createCourse(page: Page, key: string) {
   await dialog.getByRole("radio", { name: title, exact: true }).check();
   await dialog.getByRole("button", { name: "创建并进入", exact: true }).click();
   await expect(dialog).not.toBeVisible();
+  if (key === 'cet6') await page.getByRole('button', { name: '备考参考', exact: true }).click();
   await expect(page.locator('.course-study-card h1')).toBeVisible();
   const id = await page.getByRole("combobox", { name: "切换科目书本" }).inputValue();
   const result = await (await page.request.get(`/api/notebooks/${id}/study`)).json();
@@ -43,7 +44,7 @@ test('五门课程直接进入章节，来源明确、右侧工具齐全、入�
     await expect(page.getByRole('link', { name: '打开本节材料' })).toHaveAttribute('href', course.path.units[0].source.url);
     await expect(page.locator('.notebook-topbar a[href="/materials"], .notebook-topbar a[href="/library"]')).toHaveCount(0);
     await expect(page.locator('.course-study-card')).not.toContainText('小知六级指南');
-    await expect(page.locator('.course-source-path')).toContainText(`学习章节 · ${count} 节`);
+    await expect(page.locator('.course-source-path')).toContainText(`${key === 'cet6' ? '备考参考' : '学习章节'} · ${count} 节`);
     if (key === 'cet6') {
       for (const title of ['互动讲解', '一图看懂', '框架导图', '学习笔记', '易错易混', '巩固测验', '记忆闪卡', '学习信息图', '知识数据表', '复习PPT', '讲解视频'])
         await expect(page.locator('.studio-tile').filter({ has: page.locator('strong', { hasText: title }) })).toBeVisible();
@@ -55,6 +56,7 @@ test('五门课程直接进入章节，来源明确、右侧工具齐全、入�
       const unchanged = await (await page.request.get(`/api/notebooks/${course.id}/learning`)).json();
       expect(unchanged.course.kind).toBe('cet6');
       await page.locator('.course-source-path').getByRole('button', { name: '继续课程学习' }).click();
+      await page.getByRole('button', { name: '备考参考', exact: true }).click();
       await page.getByText('本课更多教材与真题', { exact: true }).click();
       await expect(page.locator('.course-study-more details')).toHaveCount(33);
     }

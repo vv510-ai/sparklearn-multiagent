@@ -1,4 +1,10 @@
 .reading-hub { color: #253b34; margin: 0 auto 24px; max-width: 1180px; }
+.reading-vocabulary { border-top: 1px solid #cbd9c6; padding-top: 14px; font: 13px/1.8 sans-serif; }
+.reading-vocabulary summary { cursor: pointer; font-weight: 650; padding: 8px 0; }
+.reading-passage .reading-vocabulary p { font: 12px/1.8 sans-serif; padding: 0; margin: 12px 0; }
+.reading-vocabulary label { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; }
+.reading-vocabulary input, .reading-vocabulary select, .reading-vocabulary textarea { background: #fff; border: 1px solid #becfba; border-radius: 6px; padding: 9px; width: 100%; min-width: 0; }
+.reading-vocabulary a { display: block; color: #316a4c; text-decoration: underline; padding-top: 12px; }
 .reading-hub button, .reading-hub a, .reading-hub input, .reading-hub textarea, .reading-hub select { outline-offset: 4px; }
 .reading-hub button:focus-visible, .reading-hub a:focus-visible, .reading-hub summary:focus-visible { outline: 3px solid #24866b; }
 .reading-hub button:disabled { cursor: not-allowed; opacity: .5; }
@@ -125,6 +131,7 @@
 .reading-reflection { flex-shrink: 0; margin-block: 12px; }
 .reading-completion { flex: 1; min-height: 0; width: 100%; overflow-y: auto; }
 .reading-player > .reading-error { flex-shrink: 0; max-height: 25vh; overflow-y: auto; }
+.reading-player > .reading-details { flex-shrink: 1; max-height: 35%; min-height: 54px; overflow-y: auto; padding-inline: 22px; }
 @media (max-width: 760px) {
   .reading-title { padding-block: 6px 12px; }
   .reading-title h1 { font-size: 21px; margin-block: 3px 6px; }

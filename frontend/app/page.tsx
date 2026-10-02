@@ -892,7 +892,7 @@ export default function Home() {
   const sourcePanel = (
     <SourcePanel
       includeBuiltin={!!activeNotebook && activeCourse?.kind === "ds_algo" && !activeCourse?.study_path}
-      onStudy={(id = "") => { const url = new URL(window.location.href); url.searchParams.delete("reading"); window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); setReadingFocus(false); setStudyUnit(value => ({ id, request: value.request + 1 })); setActivePanel("study"); setMobilePane(null); }}
+      onStudy={(id = "") => { const url = new URL(window.location.href); for (const key of ["reading", "reading_question", "cet6", "cet6_task", "cet6_word", "cet6_review"]) url.searchParams.delete(key); window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`); setReadingFocus(false); setStudyUnit(value => ({ id, request: value.request + 1 })); setActivePanel("study"); setMobilePane(null); }}
       course={activeCourse}
       notebooks={notebooks}
       activeNotebookId={activeNotebook?.id}

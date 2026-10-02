@@ -428,6 +428,12 @@ def context_summary() -> dict | None:
     from .course_source_policy import active_sources
     profile, course = space["profile"], active_sources(space["course"])
     survey = profile.get("learning_intake") or {}
+    if course.get("kind") == "cet6":
+        from .cet6_learning import profile as cet6_profile
+        preferences = cet6_profile(learning_user(), space["notebook_id"])["preferences"]
+        survey = {**survey, "goal": preferences["goal"] or survey.get("goal"),
+            "daily_minutes": preferences["daily_minutes"], "target_date": preferences["exam_date"],
+            "support": "六级学习偏好（学习者自述，不代表能力诊断）：" + json.dumps(preferences, ensure_ascii=False)}
     return {"course": course["title"], "course_release_id": course.get("course_release_id", ""), "course_revision": course.get("revision"), "notebook_id": space["notebook_id"],
         "goal": survey.get("goal", profile.get("goal")), "goals": survey.get("goals", []),
         "stage": survey.get("stage"), "prior_experience": survey.get("prior_experience"),

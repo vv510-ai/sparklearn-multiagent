@@ -149,7 +149,7 @@ export default function SourcePanel({
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {course?.study_path && <section className="course-source-path">
           <button type="button" className="source-add-button" onClick={() => onStudy?.()}>继续课程学习</button>
-          <details><summary>学习章节 · {course.study_path.units.length} 节</summary>
+          <details><summary>{course.study_path.course === "cet6" ? "备考参考" : "学习章节"} · {course.study_path.units.length} 节</summary>
             {[...new Set(course.study_path.units.map(u => u.group))].map(group => <details key={group}>
               <summary>{group}</summary>{course.study_path!.units.filter(u => u.group === group).map(u => <button type="button" key={u.id} onClick={() => onStudy?.(u.id)}>{u.title}</button>)}
             </details>)}

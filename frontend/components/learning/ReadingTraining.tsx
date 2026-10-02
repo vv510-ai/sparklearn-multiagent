@@ -6,6 +6,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import { readStudyDraft, writeStudyDraft } from "@/lib/study-workspace";
 import { readingDate, readingError, readingRequestId, type ReadingLibrary, type ReadingSession, type ReadingQuestion, type ReadingExercise } from "@/lib/reading";
 import ReadingImport from "./ReadingImport";
+import ReadingVocabulary from "./ReadingVocabulary";
 import "./reading-training.css";
 
 type Props = { notebookId: string; userId: string; onFocus: (active: boolean) => void; onChat: (prompt: string) => void;
@@ -14,6 +15,7 @@ type Props = { notebookId: string; userId: string; onFocus: (active: boolean) =>
 function setReadingLink(notebook: string, item?: string) {
   const url = new URL(window.location.href); url.searchParams.set("notebook", notebook);
   if (item) url.searchParams.set("reading", item); else url.searchParams.delete("reading");
+  if (!item) url.searchParams.delete("reading_question");
   window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
@@ -101,9 +103,11 @@ function ReadingPlayer({ initial, userId, onExit, onChat }: { initial: ReadingSe
   const busyRef = useRef(false); const alive = useRef(true); const changes = useRef(0); const draftRef = useRef(draft); draftRef.current = draft;
   const started = useRef(Date.now()); const heading = useRef<HTMLHeadingElement>(null);
   const receipt = useRef<{ key: string; id: string; elapsed: number } | null>(null);
+  const linkedQuestion = useRef(typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("reading_question"));
+  const linkedContext = useRef(initial.material.questions.find(q => q.id === linkedQuestion.current));
   const url = `/notebooks/${session.notebook_id}/reading/${session.id}`;
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { setIndex(0); setMobilePane("question"); requestAnimationFrame(() => heading.current?.focus()); }, [session.phase]);
+  useEffect(() => { const at = session.phase === "answer" && linkedQuestion.current ? initial.material.questions.findIndex(q => q.id === linkedQuestion.current) : 0; setIndex(Math.max(0, at)); linkedQuestion.current = null; setMobilePane("question"); requestAnimationFrame(() => heading.current?.focus()); }, [session.phase, initial.material.questions]);
   const edit = (value: Partial<Draft>) => {
     const next = { ...draftRef.current, ...value, token: readingRequestId(), baseRevision: session.revision, elapsed: Math.min(86400, draftRef.current.elapsed + (Date.now() - started.current) / 1000) };
     started.current = Date.now(); changes.current++; draftRef.current = next; setDraft(next); setDirty(true); setNotice("");
@@ -172,6 +176,7 @@ function ReadingPlayer({ initial, userId, onExit, onChat }: { initial: ReadingSe
   return <section className="reading-player" aria-label="阅读训练工作区">
     <header className="reading-player-top"><button className="reading-back" disabled={busy} onClick={() => void leave()}><ArrowLeft size={17} />今日任务</button><span>{stageLabel}</span><span className="reading-save-status" role="status">{busy ? "保存中…" : error || blocked ? "草稿待核对" : dirty ? "本机草稿待同步" : notice || "已恢复账号记录"}</span></header>
     <div className="reading-title"><p className="reading-source-badge">{sourceLabel}</p><h1 ref={heading} tabIndex={-1}>{session.material.title}</h1><details><summary>材料出处</summary><p>{session.material.source}</p>{session.material.source_url && <a href={session.material.source_url} target="_blank" rel="noopener noreferrer">打开来源 ↗</a>}</details></div>
+    {phase !== "answer" && linkedContext.current && <details open className="reading-details" aria-label="生词对应的原题语境"><summary>生词对应的原题 · 第 {questions.findIndex(q => q.id === linkedContext.current?.id) + 1} 题</summary><p>这里只回看原文与题面，当前练习进度保持不变。</p>{session.material.paragraphs.map((p, i) => <p key={i} lang="en">{p}</p>)}<h3 lang="en">{linkedContext.current.prompt}</h3>{linkedContext.current.options.map((o, i) => <p key={i} lang="en">{String.fromCharCode(65 + i)}. {o}</p>)}</details>}
     {(error || blocked) && <div className="reading-error" role="alert"><p>{error || notice}</p><p>服务器版本已作答 {Object.keys(phase === "answer" ? session.draft : session.exercise_answers).length} 题，本机草稿已作答 {Object.keys(draft.answers).length} 题。</p><div className="reading-toolbar"><button disabled={busy} onClick={() => void reload(true)}>重新加载，保留草稿</button><button disabled={busy} onClick={() => void reload(false)}>使用服务器版本</button><button disabled={busy} onClick={() => void action(phase === "recall" ? "review_draft" : "draft")}>保存当前草稿</button></div></div>}
     {phase === "done" ? <div className="reading-completion">
       <Check size={30} /><h2>{session.last_review ? "这次复习已记录" : "阅读与订正已完成"}</h2>
@@ -189,6 +194,7 @@ function ReadingPlayer({ initial, userId, onExit, onChat }: { initial: ReadingSe
         <article className="reading-passage" aria-label={isExercise ? "练习材料" : "文章原文"}>
           <h2>{isExercise ? selected && "kind" in selected && selected.kind === "original" ? "原题重做" : "换个情境，再试一次" : session.material.englishTitle || "文章原文"}</h2>
           {isExercise ? <p lang="en" style={{ whiteSpace: "pre-line" }}>{(selected as ReadingExercise)?.context}</p> : session.material.paragraphs.map((p, i) => <p lang="en" key={i} data-evidence={phase === "feedback" && feedback?.evidence?.paragraph === i}><span className="reading-paragraph-number">{i + 1}</span>{p}</p>)}
+          {!isExercise && current && <ReadingVocabulary key={current.id} notebookId={session.notebook_id} readingId={session.id} questionId={current.id} questionNumber={index + 1} paragraphs={session.material.paragraphs} duringAttempt={phase === "answer" || phase === "recall"} onHelp={() => edit({ used_help: true })} />}
         </article>
         <section className="reading-question-pane" aria-label="题目与作答">
           <div className="reading-question-nav" aria-label="选择题目">{answerSet.map((q, n) => <button key={q.id} aria-pressed={index === n} aria-label={`第 ${n + 1} 题${draft.answers[q.id] !== undefined ? "，已作答" : ""}`} onClick={() => setIndex(n)}>{n + 1}{(phase === "answer" || phase === "drill" || phase === "recall") && draft.answers[q.id] !== undefined && <span aria-hidden="true">·</span>}</button>)}</div>

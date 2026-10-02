@@ -29,6 +29,7 @@ sqlalchemy>=2.0
 psycopg2-binary>=2.9         # docker-compose 下连接 PostgreSQL;本地 SQLite 不需要
 boto3>=1.35                  # S3/R2/Supabase Storage compatible object storage
 numpy>=1.26
+fsrs==6.3.2                 # Anki 使用的 FSRS 算法之 Python 实现，MIT；词卡调度
 
 # ---- RAG 可选重依赖(无 GPU/无网时自动降级,不装也能跑)----
 # FlagEmbedding>=1.2         # BGE-M3 本地向量化

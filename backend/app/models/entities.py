@@ -300,6 +300,35 @@ class ReadingTraining(Base):
     revision: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class Cet6Profile(Base):
+    __tablename__ = "cet6_profiles"
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class VocabularyCard(Base):
+    __tablename__ = "vocabulary_cards"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    entry_id: Mapped[str] = mapped_column(String(64), index=True)
+    sense_id: Mapped[str] = mapped_column(String(64))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Cet6Practice(Base):
+    __tablename__ = "cet6_practices"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    task_id: Mapped[str] = mapped_column(String(64))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class NotebookStudy(Base):
     __tablename__ = "notebook_studies"
     notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), primary_key=True)
