@@ -170,7 +170,13 @@ test("今日词卡先回忆，四档间隔与未完成恢复", async ({ page }) 
   const revealed = await (await page.request.get(`${base}/words/${word}`)).json();
   const options = revealed.cards.find((c: { active: unknown }) => c.active).rating_options;
   expect(Date.parse(options.easy)).toBeGreaterThan(Date.parse(options.good));
-  await page.getByRole("button", { name: /^正常想起/ }).click();
+  const [ratingSaved] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith(`${base}/words/${word}`)
+      && response.request().method() === "POST" && response.request().postDataJSON().action === "rate"),
+    page.getByRole("button", { name: /^正常想起/ }).click(),
+  ]);
+  expect(ratingSaved.ok()).toBe(true);
+  await expect(page.locator(".cet6-next-review")).toContainText("按本次回忆与历史记录安排");
   const rated = await (await page.request.get(`${base}/words/${word}`)).json();
   expect(rated.cards.find((c: { last: unknown }) => c.last).tracks.meaning.scheduler).toContain("fsrs-6/");
   await page.reload();
