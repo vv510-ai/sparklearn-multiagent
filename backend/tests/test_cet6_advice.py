@@ -61,7 +61,7 @@ def test_save_then_generate_restore_cache_and_real_actions(learner, monkeypatch)
     assert len(calls) == 1
     assert '"total_score": 353' in calls[0][0] and '"daily_minutes": 20' in calls[0][0]
     assert calls[0][1]["allow_mock_fallback"] is False and calls[0][1]["json_object"] is True
-    assert calls[0][1]["reasoning_mode"] == "disabled"
+    assert calls[0][1]["reasoning_mode"] == "enabled"
     client.post(f"/api/notebooks/{book}/conversations", json={})
     assert client.get(base + "/advice").json()["content"] == report["content"]
 
@@ -105,7 +105,7 @@ def test_report_revisions_keep_previous_and_ignore_word_quota(learner, monkeypat
     assert updated["input"]["daily_minutes"] == 90
 
 
-@pytest.mark.parametrize("bad", ["link", "known_question", "wrong_time", "promise", "made_up_target", "missing_section"])
+@pytest.mark.parametrize("bad", ["link", "known_question", "wrong_time", "promise", "made_up_target", "missing_section", "extra_daily", "wrong_listening", "old_answers", "invented_self_report", "wrong_translation"])
 def test_reject_untrusted_or_inconsistent_model_output_with_recovery(learner, monkeypatch, bad):
     client, _, _, base, saved = setup(learner, preparation="regular", reading_completion="unfinished")
     def corrupt(text):
@@ -115,6 +115,11 @@ def test_reject_untrusted_or_inconsistent_model_output_with_recovery(learner, mo
         if bad == "promise": text["summary"] += " 保证通过考试。"
         if bad == "made_up_target": text["summary"] += " 目标设为450分。"
         if bad == "missing_section": text["sections"].pop()
+        if bad == "extra_daily": text["sections"][0]["steps"][0] = "每天完成阅读后，还要额外做完听力和整篇作文。"
+        if bad == "wrong_listening": text["sections"][1]["steps"][0] = "先选择六级短对话题，再独立听录音并回答问题。"
+        if bad == "old_answers": text["sections"][0]["check"] = "重做旧题时能快速选对答案，就说明阅读能力已经提高。"
+        if bad == "invented_self_report": text["summary"] += " 你自述认识单词，只是速度跟不上。"
+        if bad == "wrong_translation": text["sections"][3]["steps"][0] = "将英文原文译成中文，保持原意完整并保证中文自然。"
     model(monkeypatch, saved["preferences"], corrupt)
     client.post(base + "/advice", json={"profile_revision": 1})
     failed = client.get(base + "/advice").json()
@@ -124,6 +129,29 @@ def test_reject_untrusted_or_inconsistent_model_output_with_recovery(learner, mo
     model(monkeypatch, saved["preferences"])
     client.post(base + "/advice", json={"profile_revision": 1})
     assert client.get(base + "/advice").json()["status"] == "ready"
+
+
+def test_correct_listening_exclusion_is_not_rejected(learner, monkeypatch):
+    client, _, _, base, saved = setup(learner)
+    def explain_scope(text):
+        text["sections"][1]["analysis"] += "六级只按规定题型练习，不混入四级短篇新闻。"
+    model(monkeypatch, saved["preferences"], explain_scope)
+    client.post(base + "/advice", json={"profile_revision": 1})
+    assert client.get(base + "/advice").json()["status"] == "ready"
+
+
+def test_model_cannot_replace_the_program_schedule(learner, monkeypatch):
+    client, _, _, base, saved = setup(learner, daily_minutes=20)
+    def conflicting_schedule(text):
+        text["week_note"] = "每天再额外做一篇作文，并增加90分钟训练。"
+        text["stages"] = [{"title": "八到十周冲刺", "text": "考试日期未填，也要按这个固定周期准备。"}]
+    model(monkeypatch, saved["preferences"], conflicting_schedule)
+    client.post(base + "/advice", json={"profile_revision": 1})
+    report = client.get(base + "/advice").json()
+    assert report["status"] == "ready"
+    assert report["content"]["week_note"] == advice.schedule_text(saved["preferences"])["week_note"]
+    assert report["content"]["stages"] == advice.schedule_text(saved["preferences"])["stages"]
+    assert all(day["minutes"] == 20 for day in report["week"])
 
 
 def test_running_claim_expiry_and_late_result_cannot_replace_new_report(learner, monkeypatch):

@@ -24,7 +24,7 @@ from ..tenant import current_user_context
 from . import cet6_learning as learning
 from .learning_scope import course_scope
 
-VERSION = "cet6-advice-v1-20261004"
+VERSION = "cet6-advice-v2-20261004"
 TIMEOUT = 120
 CLAIM_TTL = 180
 LABELS = learning.LABELS
@@ -98,10 +98,39 @@ def basic_text(prefs: dict) -> dict:
     return {"summary": "先从你选择的重点和每天能投入的时间开始。下面提供可立即使用的基础安排；具体卡点还需要通过独立作答和核对来了解。",
             "priority_kind": priority, "rationale": "优先参考你勾选的内容；有多个分项时结合历史常模参照选择起点。信息不足时先尝试一项短练。",
             "uncertainty": "目前还不能确定主要困难来自词句理解、时间分配还是答题判断。保留首次作答和卡点，再逐步调整安排。",
-            "sections": [{"kind": k, "title": v[0], "analysis": v[1], "steps": v[2], "check": v[3]} for k, v in METHODS.items()],
-            "week_note": "每天按可用时间完成一小段学习，并给核对、修改留下时间。未完成的原卷可以暂停，下一次继续；不要求短时间做完整套卷。",
-            "stages": [{"title": "第一周先了解卡点", "text": "保留首次答案和实际用时，完成练习后记下一处具体困难。周末查看反复出现的问题，再决定下一周重点。"}],
+            "sections": [{"kind": k, "title": v[0], "analysis": v[1], "steps": list(v[2]), "check": v[3]} for k, v in METHODS.items()],
+            **schedule_text(prefs),
             "followup_keys": facts(prefs)["unknown_fields"]}
+
+
+def schedule_text(prefs: dict) -> dict:
+    """The same authority owns the timetable and every sentence about that timetable."""
+    short = prefs["daily_minutes"] < 45
+    note = ("按下方安排轮换主项。当天只做一个主项，并在同一时间预算内完成核对、修改或回忆；其他板块留到对应的学习日。"
+            if short else "按下方各时段组合主项、短练、词卡和复盘。每个时段只做能完成的一小段，不把未完成的内容叠加到当天预算之外。")
+    note += "原卷可暂停续做；完整模拟需要另外留出完整时段，不属于这里的日常短练。"
+    days = facts(prefs)["days_to_exam"]
+    if days is not None and days <= 0:
+        stages = [{"title": "先核对考试日期", "text": "如果考试就在今天，以实际考试安排为先，可跳过短练；如果日期已经过去，请更新后再安排下一轮。暂不增加考前任务。"}]
+    elif days is not None and days <= 14:
+        stages = [{"title": "剩余时间先处理具体卡点", "text": "沿用下方短练安排，优先回看已经发现的错误与答题步骤。不要临时叠加整套刷题，也不把短期练习当成分数保证。"}]
+    else:
+        stages = [
+            {"title": "起步：留下首次作答和卡点", "text": "按下方第一周安排开始，记录实际用时和具体困难，给核对与修改留出时间。先完成可观察的小步骤，不急于给能力定级。"},
+            {"title": "复盘后再调整", "text": "结合未做过的材料检查同类问题是否仍出现，再调整下一轮主项。旧题重做用于巩固，不把记住旧答案当成进步依据。"},
+        ]
+        if days is not None:
+            stages.append({"title": "临近考试时检查完整流程", "text": "如果能另留完整时段，再用保留的新套题检查时间分配与作答流程，并安排复盘；日常可用时间不足时不强塞整套模拟。"})
+    return {"week_note": note, "stages": stages}
+
+
+def generation_facts(prefs: dict, available: list[dict]) -> dict:
+    return {**facts(prefs), "available_actions": available,
+            "schedule": schedule_text(prefs),
+            "schedule_style": "按天轮换一个主项与复盘" if prefs["daily_minutes"] < 45 else "按时段组合主项、短练、词卡与复盘",
+            "cet6_listening_types": ["长对话", "听力篇章", "讲话/报道/讲座"],
+            "translation_direction": "汉译英：把中文原文译成英文，译文应保持原意并符合英语表达。",
+            "unknown_scores": [k for k in ("total_score", "listening_score", "reading_score", "writing_translation_score") if prefs.get(k) is None]}
 
 
 def week_plan(prefs: dict, priority: str) -> list[dict]:
@@ -216,10 +245,34 @@ def request(user: str, notebook: str, profile_revision: int) -> tuple[dict, str 
 
 
 def validate_text(raw: str, prefs: dict) -> dict:
-    checked = AdviceText.model_validate(parse_json(raw)).model_dump()
+    payload = parse_json(raw)
+    if not isinstance(payload, dict):
+        raise ValueError("Advice must be an object")
+    # The model cannot rewrite the budget or invent an exam timeline.
+    checked = AdviceText.model_validate({**payload, **schedule_text(prefs)}).model_dump()
     if set(checked["followup_keys"]) - set(facts(prefs)["unknown_fields"]):
         raise ValueError("Repeated known intake question")
     prose = json.dumps(checked, ensure_ascii=False)
+    model_prose = json.dumps({k: v for k, v in checked.items() if k not in {"week_note", "stages"}}, ensure_ascii=False)
+    if re.search(r"\d", model_prose):
+        raise ValueError("Numeric advice belongs to the verified interface")
+    familiar_words = re.search(r"认识.{0,8}(?:词|单词)|词.{0,8}(?:认识|眼熟|都懂)|单词.{0,5}(?:懂|会)", prefs.get("goal", ""))
+    if not familiar_words and re.search(r"你(?:自述|提到|表示|说).{0,8}(?:认识单词|词都认识)", model_prose):
+        raise ValueError("Invented learner statement about vocabulary")
+    if any(re.search(r"每天|每日|每周", json.dumps(s, ensure_ascii=False)) for s in checked["sections"]):
+        raise ValueError("Methods must not add a competing schedule")
+    listening = next(s for s in checked["sections"] if s["kind"] == "listening")
+    listening_prose = json.dumps(listening, ensure_ascii=False)
+    # A correct exclusion (e.g. 不混入四级短篇新闻) is not a recommendation.
+    listening_claims = re.sub(r"(?:不要|不应|不能|不)(?:混入|包括|包含|涉及|考|练|选择|使用)(?:四级的?)?(?:短篇新闻|短对话|新闻)", "", listening_prose)
+    if re.search(r"短对话|短篇新闻|新闻", listening_claims):
+        raise ValueError("Unsupported CET6 listening type")
+    translation = next(s for s in checked["sections"] if s["kind"] == "translation")
+    if re.search(r"中文自然|汉语自然|译成(?:中文|汉语)|英译汉", json.dumps(translation, ensure_ascii=False)):
+        raise ValueError("CET6 translation must be Chinese to English")
+    reading = next(s for s in checked["sections"] if s["kind"] == "reading")
+    if not re.search(r"未做过|新(?:的)?(?:题|材料|文章)|陌生(?:材料|文章)", reading["check"]):
+        raise ValueError("Reading progress needs unfamiliar material")
     if re.search(r"https?://|www\.|<[^>]+>|\]\(", prose):
         raise ValueError("Unverified URL or markup")
     for minutes in re.findall(r"每天(?:学习|安排|用|投入)?\s*(\d+)\s*分钟", prose):
@@ -246,15 +299,15 @@ async def generate(user: str, notebook: str, claim: str) -> None:
         try:
             with course_scope(user, notebook):
                 call = invoke_learning_prompt("english.cet6_advice", learner_input=json.dumps(prefs, ensure_ascii=False),
-                    facts=json.dumps({**facts(prefs), "available_actions": actions(user, notebook, initial_priority(prefs))}, ensure_ascii=False),
+                    facts=json.dumps(generation_facts(prefs, actions(user, notebook, initial_priority(prefs))), ensure_ascii=False),
                     references=json.dumps(REFERENCES, ensure_ascii=False))
                 from .model_preferences import resolve
                 route = resolve(call.prompt)
                 settings = get_settings()
                 provider = active_provider()
                 model = route["model"] if route else getattr(settings, provider + "_model", provider)
-                raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, max_tokens=6500,
-                    temperature=.35, reasoning_mode="disabled", json_mode=True, json_object=True,
+                raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, max_tokens=10000,
+                    temperature=.25, reasoning_mode="enabled", json_mode=True, json_object=True,
                     allow_model_fallback=False, allow_mock_fallback=False), timeout=TIMEOUT)
                 content = validate_text(raw, prefs)
             data.update(status="ready", content=content, model=model, generated_at=learning.now().isoformat(), prompt_skill=call.metadata())
