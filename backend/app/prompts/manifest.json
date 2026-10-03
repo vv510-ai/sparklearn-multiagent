@@ -136,6 +136,10 @@
       "file": "english/question.md",
       "description": "依据已保存的场景单独补生成语境练习"
     },
+    "english.word_lesson": {
+      "file": "english/word-lesson.md",
+      "description": "按选定义项生成可保存的词汇精讲与应用练习"
+    },
     "tutor.next_step": {
       "file": "tutor/next-step.md",
       "description": "依据本轮答案实时生成下一步问题"

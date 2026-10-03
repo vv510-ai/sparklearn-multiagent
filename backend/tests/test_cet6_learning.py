@@ -52,7 +52,7 @@ def test_goals_optional_editable_isolated_and_survive_new_conversation(learner):
     stale = client.post(base + "/preferences", json={**body, "preferences": {**prefs, "goal": "另一个窗口"}})
     assert stale.status_code == 409
     state = client.get(base).json()
-    assert state["recommendation"]["kind"] == "reading" and state["daily_new_limit"] == 5
+    assert state["recommendation"]["kind"] == "reading" and state["daily_new_limit"] == 20
     assert state["preferences"]["total_score"] == 400
     with course_scope(user, book):
         summary = context_summary()
@@ -85,7 +85,7 @@ def test_corpus_all_visible_forms_provenance_and_search(learner):
         found = find_word(client, base, word)
         assert found["entry"]["source_pages"] and found["entry"]["source_url"].startswith("https://cet.neea.edu.cn/")
     today = client.get(base + "/words?view=today").json()
-    assert len(today["items"]) <= 10
+    assert len(today["items"]) == 20
     assert all(not w["meaning"] for w in today["items"])
     assert client.get(base + "/words?group=invalid").status_code == 422
     assert "vocabulary_cards" in TENANT_TABLES and "cet6_profiles" in TENANT_TABLES and "cet6_practices" in TENANT_TABLES

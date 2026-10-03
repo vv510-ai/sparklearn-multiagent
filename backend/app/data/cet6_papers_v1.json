@@ -1,0 +1,694 @@
+[
+  {
+    "id": "official-syllabus-2016-cet6",
+    "title": "2016年修订版官方大纲样卷",
+    "source_type": "教育考试院 · 官方样卷",
+    "source_url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf",
+    "checked_on": "2026-10-03",
+    "coverage": "原卷题面、官方答案、阅读30题答题卡，以及写作与翻译草稿。",
+    "audio_status": "官方听力音频待核验",
+    "source_note": "原件由中国教育考试网提供；这是考试大纲中的六级样卷。本站保存题号、答案与学习记录，题面由官方原站加载。",
+    "sha256": "9166d3c03b7bc43abd9d9df91bd2ef8085b4419286f1e5ca100dea68f3cfd1f1",
+    "answer_page": 191,
+    "sections": [
+      {
+        "id": "cloze",
+        "title": "选词填空",
+        "page": 176,
+        "note": "题号26–35，题面与词库在第176页。"
+      },
+      {
+        "id": "matching",
+        "title": "长篇匹配",
+        "page": 177,
+        "note": "文章在177–179页，题目在179–180页。"
+      },
+      {
+        "id": "careful",
+        "title": "仔细阅读",
+        "page": 180,
+        "note": "两篇文章与第46–55题位于180–183页，第49题选项跨页。"
+      },
+      {
+        "id": "writing",
+        "title": "写作",
+        "page": 172,
+        "note": "按原任务写150–200词，建议30分钟。"
+      },
+      {
+        "id": "translation",
+        "title": "翻译",
+        "page": 183,
+        "note": "按第183页原任务翻译，建议30分钟。"
+      },
+      {
+        "id": "listening",
+        "title": "听力题面",
+        "page": 172,
+        "note": "原音待核验；此处仅供查看题面。"
+      }
+    ],
+    "questions": [
+      {
+        "number": 26,
+        "answer": "C",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "信息不再由旅行社控制；结合后面的 by，需用过去分词。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 27,
+        "answer": "L",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "信息透明使价格下降；help 后接动词原形，表达大幅降价。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 28,
+        "answer": "M",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "平台专门提供酒店等评价；specializing in 作修饰成分。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 29,
+        "answer": "K",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "与顾客形成对比，原先负责行业评级者是业内专业人士。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 30,
+        "answer": "E",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "has 后接过去分词，表示评价机制建立了新的买卖关系。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 31,
+        "answer": "A",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "评论公开令商家更需担责；be 后接形容词作表语。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 32,
+        "answer": "F",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "powerful 后需名词，评价机制为改善服务提供强大激励。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 33,
+        "answer": "B",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "所有格后需名词，强调网站汇总大量评分的能力。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 34,
+        "answer": "H",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "cannot be 后接过去分词，意为这种影响怎么强调也不为过。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 35,
+        "answer": "O",
+        "page": 176,
+        "evidence_page": 176,
+        "explanation": "顾客先因好评而来，随后再给反馈；需表示先后顺序的副词。",
+        "section": "cloze",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 36,
+        "answer": "H",
+        "page": 179,
+        "evidence_page": 178,
+        "explanation": "H 段建议国际旅行者选择带芯片和密码的银行卡。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 37,
+        "answer": "B",
+        "page": 179,
+        "evidence_page": 177,
+        "explanation": "B 段描写收银系统遭恶意软件入侵，卡片信息被盗卖。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 38,
+        "answer": "G",
+        "page": 179,
+        "evidence_page": 178,
+        "explanation": "G 段说明法国电话系统低效且昂贵，推动当地采用 EMV。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 39,
+        "answer": "C",
+        "page": 179,
+        "evidence_page": 177,
+        "explanation": "C 段对比美国仍用旧磁条技术与其他地区普遍使用 EMV。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 40,
+        "answer": "A",
+        "page": 179,
+        "evidence_page": 177,
+        "explanation": "A 段列出银行、执法与技术机构合力阻止身份资料盗窃。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 41,
+        "answer": "I",
+        "page": 180,
+        "evidence_page": 178,
+        "explanation": "I 段比较盗刷后的责任承担，信用卡通常有更强保护。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 42,
+        "answer": "D",
+        "page": 180,
+        "evidence_page": 177,
+        "explanation": "D 段用普通卡和芯片卡的成本差解释银行换卡迟疑。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 43,
+        "answer": "L",
+        "page": 180,
+        "evidence_page": 179,
+        "explanation": "L 段指出潜在赔偿责任远高于升级收银系统所需成本。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 44,
+        "answer": "F",
+        "page": 180,
+        "evidence_page": 178,
+        "explanation": "F 段说明磁条第二轨存放账户信息，易被恶意软件窃取。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 45,
+        "answer": "O",
+        "page": 180,
+        "evidence_page": 179,
+        "explanation": "O 段认为消费者的担忧与不便会推动芯片密码技术普及。",
+        "section": "matching",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D",
+          "E",
+          "F",
+          "G",
+          "H",
+          "I",
+          "J",
+          "K",
+          "L",
+          "M",
+          "N",
+          "O"
+        ]
+      },
+      {
+        "number": 46,
+        "answer": "B",
+        "page": 181,
+        "evidence_page": 180,
+        "explanation": "第一篇首段：反对者担忧大企业控制种子市场、挤压农户，对应垄断。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 47,
+        "answer": "D",
+        "page": 181,
+        "evidence_page": 180,
+        "explanation": "第一篇第二段：作者强调争议需要更多科学研究，并非仅靠站队或妥协。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 48,
+        "answer": "A",
+        "page": 181,
+        "evidence_page": 180,
+        "explanation": "第一篇第二段：继续发展转基因作物，以应对人口增长的供粮挑战。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 49,
+        "answer": "D",
+        "page": 181,
+        "evidence_page": 181,
+        "explanation": "第一篇第三段并列多种增产手段，支持所有能提高耕作效率的方法。注意 D 选项在下一页（182页）。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 50,
+        "answer": "C",
+        "page": 182,
+        "evidence_page": 181,
+        "explanation": "第一篇末段希望把争论精力转向更紧迫的农业难题，C 项范围准确。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 51,
+        "answer": "C",
+        "page": 183,
+        "evidence_page": 182,
+        "explanation": "第二篇首段把失业视为当前最大的经济与社会问题。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 52,
+        "answer": "D",
+        "page": 183,
+        "evidence_page": 182,
+        "explanation": "第二篇第二段：央行通过购买资产大量投放资金，耶伦参与设计。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 53,
+        "answer": "B",
+        "page": 183,
+        "evidence_page": 182,
+        "explanation": "第二篇第四段：专家担心通胀，更多人担心通缩；题目问后者。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 54,
+        "answer": "C",
+        "page": 183,
+        "evidence_page": 182,
+        "explanation": "第二篇第六、七段：她不赞成金融业自我监管，认为此前监管过松。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      },
+      {
+        "number": 55,
+        "answer": "A",
+        "page": 183,
+        "evidence_page": 183,
+        "explanation": "第二篇末段评价她能说服他人又不引起敌意，突出其说服能力。",
+        "section": "careful",
+        "options": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ]
+      }
+    ]
+  }
+]

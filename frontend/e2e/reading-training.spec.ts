@@ -200,7 +200,7 @@ test("阅读可返回课程章节；一页保存不删除另一页的新草稿",
   await other.close(); await page.unroute(`**${url}`);
   await page.getByRole("button", { name: "学习对话", exact: true }).click();
   await page.locator(".course-source-path").getByRole("button", { name: "继续课程学习", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "按你的需要，一步步学" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "六级备考中心" })).toBeVisible();
   await expect(page.locator(".reading-player")).toHaveCount(0);
   expect(new URL(page.url()).searchParams.has("reading")).toBe(false);
 });

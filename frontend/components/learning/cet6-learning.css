@@ -109,3 +109,56 @@
 .cet6-input-group { border: 0; padding: 0; margin: 0; min-width: 0; }
 .cet6-ratings button { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1 1 130px; }
 .cet6-ratings small { font-size: 11px; font-weight: 400; }
+.cet6-subtitle { margin: 0; font-size: 12px !important; color: #667766; }
+.cet6-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 10px 0 22px; }
+.cet6-entry-grid button { display: grid; grid-template-columns: 26px minmax(0, 1fr) 18px; gap: 8px 13px; padding: 22px; border: 1px solid #c6d6c6; border-radius: 12px; background: #fcfdf7; text-align: left; }
+.cet6-entry-grid strong { font-size: 21px; }
+.cet6-entry-grid span { grid-column: 2; font-size: 12px; line-height: 1.8; color: #526b56; }
+.cet6-entry-grid svg:last-child { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+.cet6-daily-plan, .cet6-paper-card { padding: 22px; border: 1px solid #d3dfcd; border-radius: 12px; background: #f3f7ed; margin: 20px 0; }
+.cet6-plan-progress { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.cet6-plan-progress > div { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.cet6-plan-progress strong { font-size: 30px; font-weight: 650; }
+.cet6-plan-progress small { font-size: 12px; color: #596e5d; font-weight: 400; }
+.cet6-plan-progress progress { width: 100%; max-width: 260px; height: 7px; accent-color: #305c44; }
+.cet6-target-form { border-top: 1px solid #d1dec9; padding-top: 5px; }
+.cet6-target-form input { max-width: 180px; }
+.cet6-target-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cet6-target-presets button { border: 1px solid #b6cbb7; border-radius: 6px; padding: 8px 13px; min-height: 40px; background: #fff; }
+.cet6-target-presets button[aria-pressed=true] { background: #305c44; color: white; }
+.cet6-word-lesson { margin: 24px 0; padding-top: 20px; border-top: 1px solid #cfdecb; }
+.cet6-word-lesson h4 { margin: 22px 0 8px; font-size: 15px; font-weight: 650; }
+.cet6-word-lesson .cet6-section-heading { margin-bottom: 10px; }
+.cet6-lesson-label { color: #49644d; background: #e9efdf; padding: 5px 8px; border-radius: 5px; font-size: 11px; line-height: 1.8; }
+.cet6-lesson-usage ul { padding-left: 22px; list-style: disc; }
+.cet6-lesson-usage li { margin: 9px 0; font-size: 14px; line-height: 1.9; }
+.cet6-lesson-example { margin: 22px 0; padding: 18px 20px; border-left: 3px solid #8ba986; background: #f1f5e9; }
+.cet6-lesson-example figcaption { font-size: 11px; color: #637258; }
+.cet6-lesson-example blockquote { font-family: Georgia, serif; font-size: 18px; line-height: 1.8; margin: 10px 0; }
+.cet6-lesson-check { border: 1px solid #d1dfca; padding: 14px 18px; margin-top: 25px; border-radius: 8px; min-width: 0; }
+.cet6-lesson-check legend { padding: 0 6px; font-size: 13px; font-weight: 600; }
+.cet6-paper-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr); align-items: start; gap: 22px; }
+.cet6-original { position: sticky; top: 10px; min-width: 0; }
+.cet6-original iframe { display: block; width: 100%; height: 70vh; min-height: 470px; border: 1px solid #c4d0bf; background: #e6e9e3; border-radius: 6px; }
+.cet6-original-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 12px; }
+.cet6-original-toolbar a { text-decoration: underline; text-underline-offset: 3px; }
+.cet6-answer-sheet { min-width: 0; border: 1px solid #d4dfce; border-radius: 10px; padding: 18px; background: #fffef9; }
+.cet6-paper-question { padding: 12px 0; border-bottom: 1px solid #dbe3d5; font-size: 13px; }
+.cet6-paper-question > div:first-child { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cet6-paper-question select { padding: 9px; border: 1px solid #c5d3bd; border-radius: 6px; width: 100%; min-height: 42px; background: white; }
+.cet6-answer-feedback { padding: 10px 0; font-size: 12px; line-height: 1.8; }
+.cet6-answer-feedback p { font-size: 13px; margin: 8px 0; }
+.cet6-answer-sheet pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+@media (max-width: 900px) {
+  .cet6-paper-layout { grid-template-columns: 1fr; }
+  .cet6-original { position: static; }
+  .cet6-original iframe { min-height: 360px; height: 55vh; }
+}
+@media (max-width: 700px) {
+  .cet6-entry-grid { grid-template-columns: 1fr; }
+  .cet6-entry-grid button { padding: 18px; }
+  .cet6-daily-plan, .cet6-paper-card, .cet6-answer-sheet { padding: 16px; }
+  .cet6-plan-progress { gap: 16px; }
+  .cet6-plan-progress strong { font-size: 25px; }
+  .cet6-lesson-example { padding: 15px; }
+}

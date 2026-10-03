@@ -1,0 +1,642 @@
+{
+  "version": "cet6-word-lessons-20261003-v1",
+  "checked_on": "2026-10-03",
+  "scope": "20个词条的重点义项。基本词义依据Merriam-Webster核对；讲解、例句、助记和应用题由本站编写，不是教师原讲或历年真题。",
+  "entries": [
+    {
+      "word": "analyze",
+      "sense_index": 0,
+      "focus": "分析：把信息拆开，找出各部分的关系",
+      "explanation": "看到一组结果时，analyze强调追问它由什么组成、各部分怎样关联。读研究类文章时，注意作者分析的对象和采用的依据。英式拼写也常用analyse。",
+      "usage": [
+        "analyze data / results：分析数据或结果，直接接分析对象。",
+        "analyze a problem：拆解问题；随后可以说明原因、关系或模式。"
+      ],
+      "example": {
+        "text": "The students analyzed their mistakes before changing their study plan.",
+        "translation": "学生们先分析自己的错误，再调整学习计划。",
+        "note": "analyzed是过去式，mistakes是分析对象；before交代先后顺序。"
+      },
+      "contrast": "analyze侧重拆解与理解；assess侧重对价值、程度或表现作判断。你可以先分析错题，再评估某种方法是否适合自己。",
+      "memory": "想象把一张成绩单拆成词义、定位、推理三个小格，再寻找错误集中在哪里。这个画面帮助连接“分析”，不属于词源解释。",
+      "check": {
+        "stem": "填入动词：Before drawing a conclusion, we need to ____ the survey data.",
+        "options": [
+          "analyze",
+          "analysis",
+          "analytical",
+          "analyst"
+        ],
+        "answer": "A",
+        "explanation": "need to后接动词原形，选择analyze；其余分别是名词、形容词和表示人的名词。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 阅读选词填空正文 · PDF第176页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=176",
+          "note": "analyzed；这是原词的过去分词形式。"
+        }
+      ]
+    },
+    {
+      "word": "assess",
+      "sense_index": 0,
+      "focus": "评估：依据资料判断程度、价值或影响",
+      "explanation": "assess不是随口给一个好坏结论，而是围绕某个标准作判断。学习研究中的效果、风险、需求都可以成为评估对象。税务语境中它还有核定税额等意思，本次先练“评估”。",
+      "usage": [
+        "assess the impact / risk：评估影响或风险。",
+        "assess whether...：评估某种情况是否成立，后接完整从句。"
+      ],
+      "example": {
+        "text": "The team assessed whether the new timetable met students' needs.",
+        "translation": "团队评估了新时间表是否满足学生的需求。",
+        "note": "whether引出要判断的问题；assessed不表示评估结果必然是正面的。"
+      },
+      "contrast": "assess强调作评估；estimate通常强调估计数量或程度。两者有重叠，具体选择要看是在估数，还是综合作判断。",
+      "memory": "把assess和一张“标准—证据—判断”的小表联系起来。记住先看依据，再下判断。",
+      "check": {
+        "stem": "哪种活动最符合assess的本次义项？",
+        "options": [
+          "原样抄写数据",
+          "依据标准评价方案的效果",
+          "随意猜一个词",
+          "只把表格换颜色"
+        ],
+        "answer": "B",
+        "explanation": "本次assess表示依据资料判断效果或价值；单纯抄写、猜词或改变外观不构成评估。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "assume",
+      "sense_index": 0,
+      "focus": "假定：暂时把某件事当作成立",
+      "explanation": "assume that...给推理设定一个前提。读到这个词时，需要区分作者暂取的前提和已经得到的证据；它本身并不证明后面的内容。assume responsibility中的assume则表示承担。",
+      "usage": [
+        "assume that + 从句：假定某情况成立。",
+        "assume responsibility for...：承担某事的责任，是另一个义项。"
+      ],
+      "example": {
+        "text": "We assumed that every participant had internet access, but the survey showed otherwise.",
+        "translation": "我们原先假定每位参与者都能上网，但调查显示事实并非如此。",
+        "note": "but后的内容修正了前面的假定，不能把假定当成调查结论。"
+      },
+      "contrast": "assume与presume都可表示认为某事成立。一般用法中，presume常带有根据已有迹象推断的意味；assume可以只是先接受一个前提。",
+      "memory": "在句子前放一张“暂且按这个前提算”的便签，提醒自己它还可能被后续证据推翻。",
+      "check": {
+        "stem": "文中说“We assume that the cost stays the same.”最准确的理解是？",
+        "options": [
+          "成本已经被证明不变",
+          "成本必然降低",
+          "暂把成本不变作为前提",
+          "作者拒绝讨论成本"
+        ],
+        "answer": "C",
+        "explanation": "assume在这里设定前提；不能把它升级为已证明的事实。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "achieve",
+      "sense_index": 0,
+      "focus": "实现、达到：努力取得一个目标或结果",
+      "explanation": "achieve常把注意力放在最终达到的结果上。准备、尝试和努力可以是过程，achieve说明目标或成果已经实现。",
+      "usage": [
+        "achieve a goal / an objective：实现目标。",
+        "achieve a balance：达到一种平衡，不一定指比赛或成就。"
+      ],
+      "example": {
+        "text": "By reviewing regularly, Mei achieved her goal of reading an English article each day.",
+        "translation": "通过定期复习，小梅实现了每天读一篇英文文章的目标。",
+        "note": "achieved后接goal；of reading说明目标的具体内容。例句是虚构学习场景。"
+      },
+      "contrast": "achieve a goal强调达成；try to achieve a goal只说明尝试。不能把try to省掉后仍认为句意不变。",
+      "memory": "把achieve放在终点线，而把try放在起跑线上，记住“尝试”和“达成”的差别。",
+      "check": {
+        "stem": "哪句明确表示目标已经实现？",
+        "options": [
+          "She hopes to achieve the goal.",
+          "She is trying to achieve the goal.",
+          "She plans to achieve the goal.",
+          "She achieved the goal."
+        ],
+        "answer": "D",
+        "explanation": "D直接用过去式说明达成；其余分别表达希望、正在尝试和计划。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "approach",
+      "sense_index": 3,
+      "focus": "方法、思路：处理问题的方式",
+      "explanation": "作名词时，approach可以表示处理某件事的路线或思路。读到an approach to...，可以问“采用什么办法处理什么问题”。作动词的“接近”是另一个常用义项。",
+      "usage": [
+        "an approach to a problem：解决问题的一种思路。",
+        "an approach to learning：一种学习方法；这里的to是介词，后面可以接名词或动名词。"
+      ],
+      "example": {
+        "text": "The course offers a practical approach to learning new vocabulary.",
+        "translation": "这门课提供了一种学习新词的实用方法。",
+        "note": "approach是名词；to learning说明方法针对的活动。"
+      },
+      "contrast": "approach the station中的approach是动词，直接接地点；an approach to learning中的approach是名词，后面的to连接所针对的事情。",
+      "memory": "想象面前有一个问题，你选择一条路径走向它。把“走近问题”和“处理问题的思路”联系起来，这是场景助记。",
+      "check": {
+        "stem": "要表达“一种学习新词的方法”，补全：a new approach to ____ new words",
+        "options": [
+          "learning",
+          "learn",
+          "learns",
+          "to learn"
+        ],
+        "answer": "A",
+        "explanation": "名词approach后的to是介词，这里接动名词learning。"
+      },
+      "exam_occurrences": [],
+      "sense_definition": "n. 处理某件事的方法、思路"
+    },
+    {
+      "word": "benefit",
+      "sense_index": 0,
+      "focus": "益处、好处：带来的有利影响",
+      "explanation": "名词benefit强调某种做法带来的好处。阅读时要看好处归谁、来自什么，以及作者有没有同时提到成本或局限。这个词也能作动词。",
+      "usage": [
+        "the benefits of...：某事的好处，of后说明来源或活动。",
+        "for the benefit of...：为了对某人有益、为了某人的利益。"
+      ],
+      "example": {
+        "text": "One benefit of group study is the chance to explain ideas to others.",
+        "translation": "小组学习的一个好处是有机会向他人解释观点。",
+        "note": "One benefit是主语中心；of group study说明这种好处来自哪里。"
+      },
+      "contrast": "名词a benefit表示一项好处；动词benefit from表示从中受益；动词benefit someone则表示使某人受益。注意谁是受益者。",
+      "memory": "画一支箭头：学习活动→得到的好处。说出箭头起点和终点，避免只记“好处”两个字。",
+      "check": {
+        "stem": "补全：Students can benefit ____ regular feedback.",
+        "options": [
+          "at",
+          "from",
+          "for",
+          "of"
+        ],
+        "answer": "B",
+        "explanation": "这里用benefit from，表示学生从定期反馈中受益。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 长篇阅读 J 段 · PDF第178页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=178",
+          "note": "benefit，位于文章正文。"
+        }
+      ]
+    },
+    {
+      "word": "conduct",
+      "sense_index": 1,
+      "focus": "开展、实施：有组织地完成一项活动",
+      "explanation": "研究语境中，conduct强调组织并实施调查或实验。它还可以表示指挥或传导，要根据宾语判断本句义项。",
+      "usage": [
+        "conduct a survey / an experiment：开展调查或实验。",
+        "conduct an investigation：进行调查，conduct后直接接活动。"
+      ],
+      "example": {
+        "text": "The researchers conducted a survey to find out how students used the library.",
+        "translation": "研究人员开展了一项调查，了解学生如何使用图书馆。",
+        "note": "conducted表示开展；to find out说明目的，how从句说明要了解的内容。"
+      },
+      "contrast": "本次conduct是动词。名词conduct表示行为或举止时，通常重读第一音节；动词通常重读第二音节，单词的设备朗读可能无法正确区分。",
+      "memory": "把conduct和“把调查从计划推进到实际执行”的画面联系起来：组织人员、收集回答、完成调查。",
+      "check": {
+        "stem": "The team conducted an experiment.这里conducted表示什么？",
+        "options": [
+          "否认",
+          "猜测",
+          "开展",
+          "遗忘"
+        ],
+        "answer": "C",
+        "explanation": "宾语是experiment，因此conducted表示开展或实施实验。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "contribute",
+      "sense_index": 0,
+      "focus": "贡献：把时间、资源或想法投入共同的事情",
+      "explanation": "contribute突出“提供自己的一份”。贡献可以是钱、时间、想法或文章，不限于捐款。读到contribute to某个结果时，还要留意它可能表示对该结果起作用。",
+      "usage": [
+        "contribute time / money to...：为某事贡献时间或资金。",
+        "contribute to a discussion：参与讨论并提供观点。"
+      ],
+      "example": {
+        "text": "Each student contributed one idea to the group discussion.",
+        "translation": "每名学生都为小组讨论贡献了一个想法。",
+        "note": "one idea是贡献的内容，to the group discussion说明投入的对象。"
+      },
+      "contrast": "contribute money强调提供资金；contribute to a problem可表示促成问题，不能一律译成正面的“作贡献”。具体褒贬取决于结果。",
+      "memory": "想象每个人向同一个篮子放入一张想法卡片，最后形成共同成果。记住“各出一份”。",
+      "check": {
+        "stem": "哪句表示“给团队提供想法”？",
+        "options": [
+          "Ignore the team's ideas.",
+          "Remove ideas from the team.",
+          "Wait outside the team.",
+          "Contribute ideas to the team."
+        ],
+        "answer": "D",
+        "explanation": "contribute ideas to...表示向某个团队或活动提供想法。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "demonstrate",
+      "sense_index": 0,
+      "focus": "展示、说明：让别人通过证据或演示看清楚",
+      "explanation": "demonstrate可以用动作演示方法，也可以用证据说明一个结论。阅读时要看后面是操作过程，还是由结果支持的判断。",
+      "usage": [
+        "demonstrate how...：演示怎样做某事。",
+        "demonstrate that...：用证据说明一个判断。"
+      ],
+      "example": {
+        "text": "The tutor demonstrated how to identify the main idea of a paragraph.",
+        "translation": "老师演示了如何识别段落的主要意思。",
+        "note": "how to identify是演示的具体方法；本句不是声称已经证明某项研究结论。"
+      },
+      "contrast": "say只是说出内容；demonstrate通常包含展示、演示或论证。阅读中仍需检查给出的证据是否支持作者的判断。",
+      "memory": "想象老师说“看我做一遍”，把抽象步骤变成看得见的动作。",
+      "check": {
+        "stem": "选择最符合demonstrate how to use a tool的行为。",
+        "options": [
+          "实际操作并展示步骤",
+          "只提到工具的名字",
+          "把工具藏起来",
+          "拒绝回答问题"
+        ],
+        "answer": "A",
+        "explanation": "demonstrate how...强调把方法演示清楚，A最符合。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "establish",
+      "sense_index": 0,
+      "focus": "建立、确立：让事物形成稳定基础",
+      "explanation": "establish可以表示建立组织、关系或制度；在研究语境中，也可以表示把某个事实或联系确定下来。要根据它的宾语选择中文意思。",
+      "usage": [
+        "establish a system / a relationship：建立制度或关系。",
+        "establish whether...：查明某种情况是否成立。"
+      ],
+      "example": {
+        "text": "The school established a support system for new students.",
+        "translation": "学校为新生建立了一套支持体系。",
+        "note": "system是建立的对象，for new students说明服务对象。"
+      },
+      "contrast": "establish a fact在这里表示证实或确定事实；establish a club表示创立社团。相同动词会随宾语改变自然译法。",
+      "memory": "用“搭好基础、让它立起来”的画面连接组织、制度与关系，但不要把这当作历史词源。",
+      "check": {
+        "stem": "The study established a link between the two factors.最合适的理解是？",
+        "options": [
+          "研究建立了一个社团",
+          "研究确定两因素之间存在联系",
+          "研究删除了两个因素",
+          "研究保证了因果关系"
+        ],
+        "answer": "B",
+        "explanation": "established a link表示确定存在联系；link本身不能自动升级为因果关系。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "evidence",
+      "sense_index": 0,
+      "focus": "证据：支持某个判断的信息",
+      "explanation": "evidence指能够支持判断的资料或迹象。阅读中要区分证据本身、作者对证据的解释和最终结论。“有证据”也不自动表示证据足够。",
+      "usage": [
+        "evidence of / for...：关于某情况或支持某观点的证据。",
+        "a piece of evidence：一条证据；普通学习表达中evidence通常作不可数名词。"
+      ],
+      "example": {
+        "text": "The report provides evidence that regular feedback can support learning.",
+        "translation": "这份报告提供了证据，表明定期反馈可能有助于学习。",
+        "note": "that从句说明证据所支持的内容；can保留可能性，不能翻译成必然有效。"
+      },
+      "contrast": "evidence是支撑判断的信息，opinion是观点。观点可以有证据支持，也可能只是个人判断，不能混为一谈。",
+      "memory": "把结论想成桌面，把证据想成桌腿：逐一检查哪些信息在支撑这个结论。",
+      "check": {
+        "stem": "请选择普通英语中自然的表达。",
+        "options": [
+          "an evidence",
+          "many evidences",
+          "a piece of evidence",
+          "evidence are"
+        ],
+        "answer": "C",
+        "explanation": "这里将evidence作为不可数名词，一条证据可说a piece of evidence。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 仔细阅读第50题 D 项 · PDF第182页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=182",
+          "note": "evidence，位于选项；出现不代表该选项正确。"
+        }
+      ]
+    },
+    {
+      "word": "indicate",
+      "sense_index": 0,
+      "focus": "表明、显示：信息指向某种情况",
+      "explanation": "indicate可以说明一个信号、数字或现象指向什么。研究文章中常由results、data等作主语，但具体结论有多强，仍要看上下文和证据。",
+      "usage": [
+        "indicate that + 从句：表明某种情况。",
+        "indicate a change / a need：显示变化或需求。"
+      ],
+      "example": {
+        "text": "The results indicate that students need more practice with unfamiliar texts.",
+        "translation": "结果表明，学生需要更多针对陌生文本的练习。",
+        "note": "results是主语，that从句是结果指向的判断。"
+      },
+      "contrast": "indicate常表示显示或指向；不能在没有额外证据时一律把它改写为prove conclusively（确凿证明）。",
+      "memory": "想象一块指示牌指向某个方向。它告诉你信息指向哪里，但还需要沿路检查证据。",
+      "check": {
+        "stem": "The data indicate a possible increase.哪种译法保留了原句的限定？",
+        "options": [
+          "数据保证必然增长",
+          "数据否定增长",
+          "数据说明增长已经结束",
+          "数据表明可能出现增长"
+        ],
+        "answer": "D",
+        "explanation": "possible修饰increase，应保留“可能”，不能把提示性信息写成必然结果。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "involve",
+      "sense_index": 0,
+      "focus": "涉及、包含：把某个活动或人纳入其中",
+      "explanation": "involve常用来说明一件事具体包含哪些活动，或哪些人参与其中。翻译时可先找到整体任务，再找被包含的部分。",
+      "usage": [
+        "involve doing something：包含或需要做某事。",
+        "involve someone in something：让某人参与某事。"
+      ],
+      "example": {
+        "text": "The project involves collecting data and explaining the findings.",
+        "translation": "这个项目包括收集数据和解释研究发现。",
+        "note": "collecting与explaining是两个并列活动，用动名词放在involves后。"
+      },
+      "contrast": "include强调把某部分算在整体内；involve常突出活动的内在组成或所需过程。二者有重叠，不能把它们当成在所有句子中都能互换。",
+      "memory": "把一个项目画成大圆，里面放入必须做的小任务。involve帮助你打开大圆，看看具体有哪些事。",
+      "check": {
+        "stem": "补全：The task involves ____ two short reports.",
+        "options": [
+          "comparing",
+          "compare",
+          "compares",
+          "compared"
+        ],
+        "answer": "A",
+        "explanation": "involve后接动名词表示所包含的活动，因此用comparing。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 听力第24题 D 项 · PDF第175页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=175",
+          "note": "involving，位于选项；出现不代表该选项正确。"
+        },
+        {
+          "label": "官方大纲样卷 · 长篇阅读第42题 · PDF第180页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=180",
+          "note": "involved，原词的语法变形。"
+        }
+      ]
+    },
+    {
+      "word": "maintain",
+      "sense_index": 0,
+      "focus": "保持、维持：让已有状态继续下去",
+      "explanation": "maintain常强调持续付出，使一种状态、功能或水平不下降。它也能表示坚持某种说法，需要结合后面的结构判断。",
+      "usage": [
+        "maintain a balance / a standard：维持平衡或标准。",
+        "maintain that + 从句：坚持认为，是表达主张的义项。"
+      ],
+      "example": {
+        "text": "Short breaks helped the students maintain their concentration.",
+        "translation": "短暂休息帮助学生保持注意力。",
+        "note": "maintain后接需要保持的状态concentration。"
+      },
+      "contrast": "maintain a machine侧重维护，使其继续正常工作；repair a machine侧重修复已经出现的故障。两种活动可能相关，但关注点不同。",
+      "memory": "想象给稳定转动的齿轮定期保养，重点是“让它继续正常转动”。",
+      "check": {
+        "stem": "The author maintains that the plan is practical.这里maintains表示什么？",
+        "options": [
+          "修理机器",
+          "坚持认为",
+          "放弃观点",
+          "降低标准"
+        ],
+        "answer": "B",
+        "explanation": "maintain that...引出坚持的观点，应译为“坚持认为”。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "obtain",
+      "sense_index": 0,
+      "focus": "获得：通过一定行动取得所需东西",
+      "explanation": "obtain可接实物，也可接许可、资料等抽象对象。它比日常口语中的get更常见于正式说明或研究叙述。",
+      "usage": [
+        "obtain information / permission：获得信息或许可。",
+        "obtain something from...：从某个来源取得某物。"
+      ],
+      "example": {
+        "text": "The researchers obtained permission before collecting the interviews.",
+        "translation": "研究人员在收集访谈资料之前取得了许可。",
+        "note": "permission是所获对象，before说明顺序；句子没有说明是谁授予许可。"
+      },
+      "contrast": "obtain information侧重取得所需资料；achieve a goal侧重达成目标。选择动词时观察后面的名词，而不是只看中文都能译成“获得”。",
+      "memory": "把obtain与“提出申请、完成步骤、拿到所需资料”的过程联系起来。",
+      "check": {
+        "stem": "哪种搭配最自然地表示“获得许可”？",
+        "options": [
+          "arrive permission",
+          "happen permission",
+          "obtain permission",
+          "sleep permission"
+        ],
+        "answer": "C",
+        "explanation": "obtain是及物动词，可直接接permission表示获得许可。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 长篇阅读 B 段 · PDF第177页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=177",
+          "note": "obtain，位于文章正文。"
+        }
+      ]
+    },
+    {
+      "word": "significant",
+      "sense_index": 0,
+      "focus": "重要的、显著的：值得注意或会产生影响",
+      "explanation": "significant可以强调某事重要，也可以强调变化明显到值得注意。遇到研究中的statistically significant，要按统计语境理解，不直接等同于实际影响很大。",
+      "usage": [
+        "a significant change / difference：显著的变化或差异。",
+        "play a significant role：发挥重要作用。"
+      ],
+      "example": {
+        "text": "Access to clear feedback played a significant role in the project.",
+        "translation": "获得清晰反馈在这个项目中发挥了重要作用。",
+        "note": "本句significant修饰role，强调作用重要，没有给出统计检验结果。"
+      },
+      "contrast": "significant是形容词，修饰名词；significantly是副词，常修饰动词或形容词，如improve significantly。",
+      "memory": "在信息表中给值得特别注意的一项加上醒目的标记，记住“重要、值得注意”的感觉。",
+      "check": {
+        "stem": "补全：The number increased ____ after the change.",
+        "options": [
+          "significance",
+          "significant",
+          "signify",
+          "significantly"
+        ],
+        "answer": "D",
+        "explanation": "这里需要副词修饰increased，所以选择significantly。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "potential",
+      "sense_index": 0,
+      "focus": "潜力、可能性：还没有完全实现的发展空间",
+      "explanation": "名词potential关注可以发展成什么，而不只看当前表现。形容词potential表示潜在的、可能发生的；潜在结果既可能好，也可能坏。",
+      "usage": [
+        "have the potential to do...：有做成某事的潜力。",
+        "realize one's potential：发挥或实现某人的潜力。"
+      ],
+      "example": {
+        "text": "The new method has the potential to make feedback easier to understand.",
+        "translation": "这种新方法有潜力让反馈更容易理解。",
+        "note": "has the potential to说明发展可能，不能改写成已经取得了效果。"
+      },
+      "contrast": "potential benefits是可能的好处；actual benefits是实际产生的好处。区分计划、潜力和已观察到的结果。",
+      "memory": "把potential想成尚未长成的种子：有发展的空间，但结果仍需要条件和过程。",
+      "check": {
+        "stem": "“has the potential to improve learning”明确说明了什么？",
+        "options": [
+          "存在改善学习的可能",
+          "已证明人人都提高分数",
+          "效果一定为零",
+          "学习已经完成"
+        ],
+        "answer": "A",
+        "explanation": "potential表示潜力或可能性，本身不证明效果已经实现。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 长篇阅读 L 段 · PDF第179页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=179",
+          "note": "potential，位于文章正文。"
+        }
+      ]
+    },
+    {
+      "word": "require",
+      "sense_index": 0,
+      "focus": "需要、要求：某事成立或完成所必需的条件",
+      "explanation": "require可以表达客观需要，也可以表达规则提出的要求。阅读题中看到它，要留意后面说的是必要条件，而不是可有可无的建议。",
+      "usage": [
+        "require time / effort：需要时间或努力。",
+        "require someone to do...：要求某人做某事；被动式为be required to do。"
+      ],
+      "example": {
+        "text": "Students are required to explain the reason for each answer.",
+        "translation": "学生需要解释每个答案的理由。",
+        "note": "are required to是被动结构，表达对学生提出的要求。"
+      },
+      "contrast": "require侧重需要或要求；recommend侧重建议。把“建议做”改成“必须做”会改变原文要求的强度。",
+      "memory": "想象任务入口处有一张“完成前需满足”的清单，清单上的必要条件对应require。",
+      "check": {
+        "stem": "补全：The course requires students ____ a final report.",
+        "options": [
+          "submit",
+          "to submit",
+          "submitted",
+          "submits"
+        ],
+        "answer": "B",
+        "explanation": "require someone to do something是这里使用的结构。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 听力第24题 C 项 · PDF第175页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=175",
+          "note": "require，位于选项；出现不代表该选项正确。"
+        }
+      ]
+    },
+    {
+      "word": "respond",
+      "sense_index": 1,
+      "focus": "回应、作出反应：针对信息或情况采取行动",
+      "explanation": "respond可以表示用语言回答，也可以表示对变化、问题或需求作出反应。它不一定意味着说话，动作也可以是一种回应。",
+      "usage": [
+        "respond to a question / a change：回应问题或变化。",
+        "respond by doing...：通过某种行动作出回应。"
+      ],
+      "example": {
+        "text": "The library responded to students' requests by extending its opening hours.",
+        "translation": "图书馆通过延长开放时间回应了学生的请求。",
+        "note": "to后接回应对象；by后接具体采取的行动。"
+      },
+      "contrast": "respond to a question与answer a question都可表示回答问题，但结构不同：这里respond后有to，answer直接接question。",
+      "memory": "把“收到信号→作出回应”画成两步：to指向收到的信号，by说明采取的方式。",
+      "check": {
+        "stem": "补全：The manager responded ____ the suggestion promptly.",
+        "options": [
+          "for",
+          "of",
+          "to",
+          "from"
+        ],
+        "answer": "C",
+        "explanation": "respond to表示回应某个对象，这里对象是the suggestion。"
+      },
+      "exam_occurrences": []
+    },
+    {
+      "word": "sustainable",
+      "sense_index": 1,
+      "focus": "可持续的：能够长久维持而不耗尽所依赖的资源",
+      "explanation": "sustainable既可用于环境资源，也可形容计划、增长或经营方式能够持续。本词库旧释义较简略，这里补充现代常用义；不能只要看到它就一律译成“环保的”。",
+      "usage": [
+        "sustainable development：可持续发展。",
+        "a sustainable routine / business model：能够长期维持的习惯或经营方式。"
+      ],
+      "example": {
+        "text": "A sustainable study routine leaves enough time for both practice and rest.",
+        "translation": "一种能长期坚持的学习安排，会为练习和休息都留出足够时间。",
+        "note": "本句强调学习安排可长期维持，没有讨论环境保护。"
+      },
+      "contrast": "sustainable强调能否持续；effective强调是否产生预期效果。一种方法可能短期有效，却难以长期维持。",
+      "memory": "想象给植物浇水：一次倒光所有水可能很用力，但能持续供水才有助于它长久生长。这是理解用的类比。",
+      "check": {
+        "stem": "a sustainable study routine在本课例句中主要强调什么？",
+        "options": [
+          "每天学习时间越长越好",
+          "只关注考试当天",
+          "一定使用纸质书",
+          "安排能够长期维持"
+        ],
+        "answer": "D",
+        "explanation": "这里sustainable强调长期可维持，不能机械译成“环保的”。"
+      },
+      "exam_occurrences": [
+        {
+          "label": "官方大纲样卷 · 仔细阅读第49题 B 项 · PDF第181页",
+          "url": "https://cet.neea.edu.cn/res/Home/1704/55b02330ac17274664f06d9d3db8249d.pdf#page=181",
+          "note": "sustainable，位于选项；出现不代表该选项正确。"
+        }
+      ],
+      "sense_definition": "adj. 可持续的；能够长期维持而不耗尽所依赖资源的"
+    }
+  ]
+}

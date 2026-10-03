@@ -319,6 +319,33 @@ class VocabularyCard(Base):
     revision: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class VocabularyDay(Base):
+    __tablename__ = "vocabulary_days"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class VocabularyLesson(Base):
+    """Generic, source-versioned explanations; never stores learner context."""
+    __tablename__ = "vocabulary_lessons"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Cet6PaperAttempt(Base):
+    __tablename__ = "cet6_paper_attempts"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    paper_id: Mapped[str] = mapped_column(String(64))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class Cet6Practice(Base):
     __tablename__ = "cet6_practices"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

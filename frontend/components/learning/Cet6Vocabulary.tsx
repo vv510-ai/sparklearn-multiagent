@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Search, Volume2 } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api";
 import { readingDate, readingError, readingRequestId } from "@/lib/reading";
-import { cet6Route, type WordCatalogue, type WordDetail, type WordCard } from "@/lib/cet6";
+import { cet6Route, type WordCatalogue, type WordDetail, type WordCard, type WordPlan } from "@/lib/cet6";
+import WordLesson from "./WordLesson";
 
 export function speakEnglish(text: string, onError: (message: string) => void, onEnd?: () => void) {
   if (!("speechSynthesis" in window)) { onError("当前浏览器不支持朗读，请使用有音频的资料或换支持朗读的浏览器。"); return false; }
@@ -23,6 +24,7 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
   const [data, setData] = useState<WordCatalogue | null>(null), [word, setWord] = useState(initialWord || "");
   const [review, setReview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("cet6_review") === "1");
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [refresh, setRefresh] = useState(0);
+  const [sessionNumber, setSessionNumber] = useState(0), [completion, setCompletion] = useState("");
   const request = useRef(0);
   useEffect(() => {
     if (word) return;
@@ -34,14 +36,23 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
     }, query ? 250 : 0);
     return () => { clearTimeout(timer); request.current++; };
   }, [notebookId, view, query, group, offset, word, refresh]);
-  const open = (id: string) => { setWord(id); setReview(view === "today"); cet6Route(notebookId, "vocabulary", id, view === "today"); };
-  if (word) return <VocabularyWord key={word} notebookId={notebookId} wordId={word} review={review} onChat={onChat} onExit={() => { setWord(""); setRefresh(n => n + 1); onChanged(); cet6Route(notebookId, "vocabulary"); }} />;
+  const open = (id: string, fromPlan = view === "today") => { setWord(id); setReview(fromPlan); setSessionNumber(n => n + 1); setCompletion(""); cet6Route(notebookId, "vocabulary", id, fromPlan); };
+  const next = async () => {
+    const r = await apiGet<WordCatalogue>(`/notebooks/${notebookId}/cet6/words?view=today&limit=1`);
+    onChanged();
+    if (r.items.length) open(r.items[0].id, true);
+    else { setWord(""); setView("today"); setOffset(0); setRefresh(n => n + 1); setCompletion("当前词卡已完成。今天的新学与复习记录已保存，稍后到期的词卡会再次出现在这里。"); cet6Route(notebookId, "vocabulary"); }
+  };
+  if (word) return <VocabularyWord key={`${word}:${sessionNumber}`} notebookId={notebookId} wordId={word} review={review} onChat={onChat} onNext={next} onExit={() => { setWord(""); setRefresh(n => n + 1); onChanged(); cet6Route(notebookId, "vocabulary"); }} />;
   return <section className="cet6-vocabulary" aria-label="六级词汇学习">
-    <div className="cet6-section-heading"><div><h2>把词记在语境里</h2><p>先回忆，再核对；认得词义和写得出来分别记录。</p></div></div><details className="cet6-source"><summary>复习时间怎么安排？</summary><p>使用 Anki 也支持的 FSRS 算法，根据每张词卡的回忆记录安排间隔。新词先短间隔复习，能稳定想起后逐渐拉长；忘记后重新学习。词义与拼写单独安排。</p><p>初期使用通用参数，目标记忆保留率设为 90%，这是调度设置，不是学习效果保证。提前练习保留原时间；看过提示不算独立回忆。记录随本站账号保存，关闭网站后不会推送通知。</p></details>
-    <nav className="cet6-tabs" aria-label="词汇范围">{[["today", "今天学什么"], ["all", "全部词汇"], ["mine", "我的生词"]].map(([id, title]) => <button key={id} aria-pressed={view === id} onClick={() => { setView(id); setOffset(0); }}>{title}</button>)}</nav>
+    <div className="cet6-section-heading"><div><h2>词汇精学</h2><p>先回忆，再理解与运用。每天新学多少，由你决定。</p></div></div>
+    <DailyWordPlan notebookId={notebookId} refresh={refresh} onSaved={() => { setRefresh(n => n + 1); onChanged(); }} onStart={() => void next().catch(e => setError(readingError(e)))} />
+    {completion && <p role="status" className="cet6-notice">{completion}</p>}
+    <details className="cet6-source"><summary>复习时间怎么安排？</summary><p>根据每张词卡的回忆记录安排间隔。新学数量按不同单词计算，词义和拼写的复习分别安排；到期词卡不会占用新词名额。</p><p>使用 FSRS 通用参数，目标保留率为90%，这是调度设置。记录随账号保存；每天按北京时间更新计划。</p></details>
+    <nav className="cet6-tabs" aria-label="词汇范围">{[["today", "今日词卡"], ["all", "全部词汇"], ["mine", "我的生词"]].map(([id, title]) => <button key={id} aria-pressed={view === id} onClick={() => { setView(id); setOffset(0); }}>{title}</button>)}</nav>
     <div className="cet6-search"><label><Search size={16} /><span className="sr-only">搜索单词或派生词</span><input value={query} onChange={e => { setQuery(e.target.value); setOffset(0); }} placeholder="搜索单词或派生词" maxLength={100} /></label><label><span className="sr-only">词汇级别</span><select value={group} onChange={e => { setGroup(e.target.value); setOffset(0); }}><option value="all">基础与六级</option><option value="foundation">基础词汇</option><option value="cet6">六级标记词</option></select></label></div>
     {busy && <p role="status">正在读取词库…</p>}{error && <p role="alert" className="cet6-error">{error}<button onClick={() => setRefresh(n => n + 1)}>重试</button></p>}
-    {data && <><p className="cet6-muted">{view === "today" ? "按到期记录、可用时间和学习偏好选一小组。逾期词卡仍保留，可在全部词汇查看。" : view === "mine" ? "收藏来自词库或阅读中的生词，原句保存在对应义项里。" : "基础词与六级标记词都可学习；派生词单独查找，原词表关系保留。"} · 当前 {data.total} 个结果</p>
+    {data && <><p className="cet6-muted">{view === "today" ? "先续上未完成的词卡和到期复习，再学习今天的新词。刷新或退出后，计划与进度会保留。" : view === "mine" ? "收藏来自词库或阅读中的生词，原句保存在对应义项里。" : "基础词与六级标记词都可学习；派生词单独查找，原词表关系保留。"} · 当前 {data.total} 个结果</p>
       {!data.items.length && !busy && <p className="cet6-empty">{view === "mine" ? "还没有符合条件的生词。打开词条或阅读中的“保存题中生词”即可收藏。" : "这组暂时没有待学词汇。可以清空搜索、切换级别或查看全部词汇。"}</p>}
       <div className="cet6-word-list" aria-busy={busy}>{data.items.map((item, index) => <button key={item.id} disabled={busy} onClick={() => open(item.id)}><span><strong lang={item.word ? "en" : "zh-CN"}>{item.word || `待回忆词卡 ${offset + index + 1}`}</strong><small>{item.level === "cet6" ? "六级标记" : "基础词汇"}{item.collected ? " · 已收藏" : ""}</small></span><span className="cet6-word-meaning">{view === "today" ? "打开后先回忆，再显示答案" : item.meaning}</span><small>{item.status}</small></button>)}</div>
       <div className="cet6-actions"><button className="secondary-action" disabled={busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - 30))}>上一页</button><span>{data.total ? `${offset + 1}–${Math.min(offset + 30, data.total)} / ${data.total}` : "0 个结果"}</span><button className="secondary-action" disabled={busy || offset + 30 >= data.total} onClick={() => setOffset(offset + 30)}>下一页</button></div>
@@ -50,7 +61,31 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
   </section>;
 }
 
-function VocabularyWord({ notebookId, wordId, review, onExit, onChat }: { notebookId: string; wordId: string; review: boolean; onExit: () => void; onChat: (prompt: string) => void }) {
+function DailyWordPlan({ notebookId, refresh, onSaved, onStart }: { notebookId: string; refresh: number; onSaved: () => void; onStart: () => void }) {
+  const [plan, setPlan] = useState<WordPlan | null>(null), [editing, setEditing] = useState(false), [target, setTarget] = useState("20");
+  const [busy, setBusy] = useState(false), [error, setError] = useState(""), [reload, setReload] = useState(0);
+  const alive = useRef(true);
+  useEffect(() => { let current = true; alive.current = true; void apiGet<WordPlan>(`/notebooks/${notebookId}/cet6/word-plan`).then(p => { if (current) { setPlan(p); setError(""); } }).catch(e => { if (current) setError(readingError(e)); }); return () => { current = false; alive.current = false; }; }, [notebookId, refresh, reload]);
+  const save = async () => {
+    const n = Number(target);
+    if (!plan || target.trim() === "" || !Number.isInteger(n) || n < 0 || n > 200) { setError("请输入0到200之间的整数；0表示只复习。"); return; }
+    setBusy(true); setError("");
+    try { const p = await apiPost<WordPlan>(`/notebooks/${notebookId}/cet6/word-plan`, { revision: plan.profile_revision, daily_new_words: n }); if (alive.current) { setPlan(p); setEditing(false); onSaved(); } }
+    catch (e) { if (alive.current) setError(readingError(e)); }
+    finally { if (alive.current) setBusy(false); }
+  };
+  return <section className="cet6-daily-plan" aria-label="每日背词计划">
+    {plan ? <><div className="cet6-plan-progress"><div><span>今日新学</span><strong>{plan.new_done}<small> / {plan.target} 个</small></strong><progress aria-label="今日新词进度" value={Math.min(plan.new_done, plan.target)} max={Math.max(1, plan.target)} /></div><div><span>待复习</span><strong>{plan.review_due}<small> 张词卡</small></strong><small>今天已复习 {plan.review_done} 次</small></div></div>
+      <div className="cet6-actions"><button className="primary-action" disabled={busy} onClick={onStart}>开始今日词卡</button><button className="secondary-action" disabled={busy} aria-expanded={editing} onClick={() => { setEditing(v => !v); setTarget(String(plan.target)); }}>调整每日目标</button></div>
+      {plan.target === 0 && <p className="cet6-muted">今天只复习。已开始的词卡仍可继续，已有记录会保留。</p>}
+      {plan.new_done > plan.target && <p className="cet6-muted">今天已学数量超过新目标，已完成记录仍保留。</p>}
+      {editing && <form className="cet6-target-form" onSubmit={e => { e.preventDefault(); void save(); }}><label className="cet6-field">每日新词数<input type="number" min={0} max={200} step={1} required value={target} disabled={busy} onChange={e => setTarget(e.target.value)} /></label><div className="cet6-target-presets">{[0, 10, 20, 30, 50].map(n => <button key={n} type="button" disabled={busy} aria-pressed={target === String(n)} onClick={() => setTarget(String(n))}>{n === 0 ? "只复习" : `${n}个`}</button>)}</div><p className="cet6-muted">目标立即生效。降低数量会保留已经学过的词；到期复习另行计算。</p><button className="primary-action" type="submit" disabled={busy}>保存每日目标</button></form>}
+    </> : <p role="status">正在恢复每日计划…</p>}
+    {error && <div role="alert" className="cet6-error"><p>{error}</p><button disabled={busy} onClick={() => setReload(n => n + 1)}>刷新目标，保留输入</button></div>}
+  </section>;
+}
+
+function VocabularyWord({ notebookId, wordId, review, onExit, onChat, onNext }: { notebookId: string; wordId: string; review: boolean; onExit: () => void; onChat: (prompt: string) => void; onNext: () => Promise<void> }) {
   const [data, setData] = useState<WordDetail | null>(null), [senseId, setSenseId] = useState("");
   const [mode, setMode] = useState<"meaning" | "spelling">("meaning"), [answer, setAnswer] = useState(""), [help, setHelp] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState(""), [loadCount, setLoadCount] = useState(0);
@@ -69,7 +104,7 @@ function VocabularyWord({ notebookId, wordId, review, onExit, onChat }: { notebo
         const started = await apiPost<WordCard>(url, { ...body, request_id: receipt.current.id });
         r = { ...r, cards: r.cards.map(card => card.sense_id === c.sense_id ? started : card) }; receipt.current = null;
       }
-      if (current) { setData(r); setSenseId(r.cards.find(c => c.active)?.sense_id || r.entry.senses[0]?.id || ""); setError(""); }
+      if (current) { setData(r); setSenseId(r.cards.find(c => c.active)?.sense_id || r.cards.filter(c => c.last).sort((a, b) => b.last!.submitted_at.localeCompare(a.last!.submitted_at))[0]?.sense_id || r.preferred_sense_id || r.entry.senses[0]?.id || ""); setError(""); }
     })().catch(e => { if (current) setError(readingError(e)); }).finally(() => { if (current) setBusy(false); });
     return () => { current = false; alive.current = false; window.speechSynthesis?.cancel(); };
   }, [url, loadCount, review]);
@@ -79,7 +114,7 @@ function VocabularyWord({ notebookId, wordId, review, onExit, onChat }: { notebo
     const body = { version: data.version, sense_id: senseId, revision: card.revision, action: kind, mode, answer, used_help: kind === "start" || help, ...(rating ? { rating } : {}) };
     const key = JSON.stringify(body); if (receipt.current?.key !== key) receipt.current = { key, id: readingRequestId() };
     flight.current = true; setBusy(true); setError(""); setNotice("");
-    try { const result = await apiPost<WordCard>(url, { ...body, request_id: receipt.current.id }); if (alive.current) { setData({ ...data, cards: data.cards.map(c => c.sense_id === senseId ? result : c) }); receipt.current = null; if (kind === "collect") setNotice("已收藏到我的生词。"); if (kind === "rate") { reviewDone.current = true; cet6Route(notebookId, "vocabulary", wordId); setNotice("已保存回忆记录。下次安排见下方；本次不等于已掌握。"); setAnswer(""); setHelp(false); } } }
+    try { const result = await apiPost<WordCard>(url, { ...body, request_id: receipt.current.id }); if (alive.current) { setData({ ...data, cards: data.cards.map(c => c.sense_id === senseId ? result : c) }); receipt.current = null; if (kind === "collect") setNotice("已收藏到我的生词。"); if (kind === "rate") { reviewDone.current = true; cet6Route(notebookId, "vocabulary", wordId); setNotice("已保存回忆记录。下次安排见下方；本次不等于已掌握。"); setAnswer(""); setHelp(false); if (review) await onNext(); } } }
     catch (e) { if (alive.current) setError(readingError(e)); }
     finally { flight.current = false; if (alive.current) setBusy(false); }
   };
@@ -91,18 +126,21 @@ function VocabularyWord({ notebookId, wordId, review, onExit, onChat }: { notebo
       {(!active || active.revealed || active.mode === "meaning") && <p className="cet6-pronunciation">{data.entry.phonetic && <span>/{data.entry.phonetic}/</span>}<button className="secondary-action" onClick={() => speakEnglish(data.entry.word, setError)}><Volume2 size={16} />设备朗读</button><small>合成语音，口音由设备提供</small></p>}
       {!active && <><label className="cet6-field">本次义项<select value={senseId} disabled={busy} onChange={e => { setSenseId(e.target.value); setAnswer(""); }}>{data.entry.senses.map((s, i) => <option key={s.id} value={s.id}>义项 {i + 1} · {s.definition}</option>)}</select></label>{!sense && <p>这个词的释义尚待补充，请先查看来源原页。</p>}
         <div className="cet6-actions"><button className="secondary-action" disabled={busy || !sense} onClick={() => void action("collect")}>{card?.collected ? "已收藏" : "加入我的生词"}</button><button className="secondary-action" disabled={!sense} onClick={ask}>讲清楚一点</button></div>
-        <p className="cet6-muted">当前页已展示参考，从这里练习会按借助提示记录。独立复习请从“今天学什么”打开词卡。</p><div className="cet6-recall-start"><label className="cet6-field">这次练什么<select value={mode} onChange={e => setMode(e.target.value as typeof mode)}><option value="meaning">看词回忆词义（自己核对）</option><option value="spelling">看释义回忆拼写</option></select></label><button className="primary-action" disabled={busy || !sense} onClick={() => { setAnswer(""); setHelp(false); void action("start"); }}>开始回忆</button></div>
+        <p className="cet6-muted">当前页已展示参考，从这里练习会按借助提示记录。独立复习请从“今日词卡”打开。</p><div className="cet6-recall-start"><label className="cet6-field">这次练什么<select value={mode} onChange={e => setMode(e.target.value as typeof mode)}><option value="meaning">看词回忆词义（自己核对）</option><option value="spelling">看释义回忆拼写</option></select></label><button className="primary-action" disabled={busy || !sense} onClick={() => { setAnswer(""); setHelp(false); void action("start"); }}>开始回忆</button></div>
       </>}
-      {active && <div className="cet6-recall"><p>{active.mode === "meaning" ? "这个词在所选义项中是什么意思？可以先口头回忆，再写下关键词。" : sense?.definition}</p>{active.early && <p className="cet6-muted">这是提前练习，原到期时间保留。</p>}
+      {active && <div className="cet6-recall">{active.help_reason && <p className="cet6-notice">{active.help_reason}</p>}<p>{active.mode === "meaning" ? "这个词在所选义项中是什么意思？可以先口头回忆，再写下关键词。" : sense?.definition}</p>{active.early && <p className="cet6-muted">这是提前练习，原到期时间保留。</p>}
         {!active.revealed ? <><label className="cet6-field">我的回忆<input lang="en" autoComplete="off" spellCheck={false} value={answer} maxLength={500} disabled={busy} onChange={e => setAnswer(e.target.value)} /></label><label className="cet6-check"><input type="checkbox" checked={help} onChange={e => setHelp(e.target.checked)} />这次借助了提示</label><button className="primary-action" disabled={busy} onClick={() => void action("reveal")}>核对答案</button></> : <>
-          <div className="cet6-feedback"><strong lang="en">{data.entry.word}</strong><p>{sense?.definition}</p><p>我的回忆：{active.answer || "未写下答案"}</p>{active.mode === "spelling" && <p>{active.correct ? "拼写一致" : "拼写还需要再练"}</p>}</div>
+          <div className="cet6-feedback"><strong lang="en">{data.entry.word}</strong><p>{sense?.definition}</p>{sense?.source_url && <p className="cet6-muted"><a href={sense.source_url} target="_blank" rel="noreferrer">{sense.source_label}</a></p>}<p>我的回忆：{active.answer || "未写下答案"}</p>{active.mode === "spelling" && <p>{active.correct ? "拼写一致" : "拼写还需要再练"}</p>}</div>
+          {sense && <WordLesson notebookId={notebookId} wordId={wordId} senseId={senseId} />}
           <p className="cet6-muted">{active.mode === "meaning" ? "词义由你对照释义自评；不自动判定掌握。" : "只核对这次拼写，不代表已经会在语境中使用。"}</p>
-          <p className="cet6-muted">忘记时请选择“忘记了”；“吃力想起”表示确实回忆正确。{active.used_help || help ? "本次看过提示，按重新学习安排，不计为独立回忆。" : "下方显示预计的下次复习时间。"}</p><div className="cet6-actions cet6-ratings">{([["again", "忘记了"], ["hard", "吃力想起"], ["good", "正常想起"], ["easy", "轻松想起"]] as const).map(([rating, label]) => <button key={rating} className={rating === "good" ? "primary-action" : "secondary-action"} disabled={busy || (rating !== "again" && active.mode === "spelling" && !active.correct)} onClick={() => void action("rate", rating)}><strong>{label}</strong>{card?.rating_options?.[rating] && <small>{readingDate(card.rating_options[rating])}</small>}</button>)}</div>
+          <p className="cet6-muted">请按翻面前的回忆评分。忘记时请选择“忘记了”；“吃力想起”表示确实回忆正确。{active.used_help || help ? "本次看过提示，按重新学习安排。" : "下方是预计的下次复习时间。"}{review && "保存后自动进入下一张。"}</p><div className="cet6-actions cet6-ratings">{([["again", "忘记了"], ["hard", "吃力想起"], ["good", "正常想起"], ["easy", "轻松想起"]] as const).map(([rating, label]) => <button key={rating} className={rating === "good" ? "primary-action" : "secondary-action"} disabled={busy || (rating !== "again" && active.mode === "spelling" && !active.correct)} onClick={() => void action("rate", rating)}><strong>{label}</strong>{card?.rating_options?.[rating] && <small>{readingDate(card.rating_options[rating])}</small>}</button>)}</div>
         </>}
       </div>}
+      {!active && sense && <WordLesson notebookId={notebookId} wordId={wordId} senseId={senseId} />}
+      {!active && reviewDone.current && <button className="primary-action" disabled={busy} onClick={() => void onNext().catch(e => setError(readingError(e)))}>继续今日词卡</button>}
       {!active && card?.last && <p className="cet6-next-review">下次{card.last.mode === "meaning" ? "词义" : "拼写"}复习：{readingDate(card.last.due_at)} · {card.last.basis}。{card.last.scheduling_reason}。关闭网站后不会发送通知。</p>}
-      {!active && !!card?.contexts.length && <details open className="cet6-source"><summary>这个义项的原句与笔记</summary>{card.contexts.map((c, i) => <article key={i}><blockquote lang="en">{c.text}</blockquote><p>{c.note && `我记的意思：${c.note} · `}{c.source}</p>{c.question_prompt && <p>第 {c.question_number} 题：{c.question_prompt}</p>}{c.reading_id && <a href={`/?notebook=${encodeURIComponent(notebookId)}&reading=${encodeURIComponent(c.reading_id)}${c.question_id ? `&reading_question=${encodeURIComponent(c.question_id)}` : ""}`}>回到原阅读</a>}</article>)}</details>}
-      {!active && <details className="cet6-source"><summary>词形、派生关系与来源</summary><p>异体：{data.entry.variants.join(" / ") || "无另列异体"}</p><p>原词表派生词：{data.entry.derivatives.join(" · ") || "未另列"}</p><p><a href={data.entry.source_url} target="_blank" rel="noreferrer">官方词表原页</a>（PDF 第 {data.entry.source_pages.join("、")} 页）；释义与读音：<a href={data.entry.dictionary_url} target="_blank" rel="noreferrer">ECDICT 社区词典</a>。词典记录可能有误，遇到疑问需核验。</p></details>}
+      {!active && !!card?.contexts.length && <details open className="cet6-source"><summary>这个义项的原句与笔记</summary>{card.contexts.map((c, i) => <article key={i}><blockquote lang="en">{c.text}</blockquote><p>{c.note && `我记的意思：${c.note} · `}{c.source}</p>{c.question_prompt && <p>第 {c.question_number} 题：{c.question_prompt}</p>}{c.reading_id && <a href={`/?notebook=${encodeURIComponent(notebookId)}&reading=${encodeURIComponent(c.reading_id)}${c.question_id ? `&reading_question=${encodeURIComponent(c.question_id)}` : ""}`}>回到原阅读</a>}{c.paper_id && <a href={`/?notebook=${encodeURIComponent(notebookId)}&cet6=papers&cet6_paper=${encodeURIComponent(c.paper_id)}&cet6_paper_question=${c.paper_question || ""}`}>回到原卷 · 第{c.paper_question}题</a>}</article>)}</details>}
+      {!active && <details className="cet6-source"><summary>词形、派生关系与来源</summary><p>异体：{data.entry.variants.join(" / ") || "无另列异体"}</p><p>原词表派生词：{data.entry.derivatives.join(" · ") || "未另列"}</p><p><a href={data.entry.source_url} target="_blank" rel="noreferrer">官方词表原页</a>（PDF 第 {data.entry.source_pages.join("、")} 页）；原始释义与读音：<a href={data.entry.dictionary_url} target="_blank" rel="noreferrer">ECDICT 社区词典</a>。核验后的补充义单独列出出处与复习记录；原词典记录可能有误，遇到疑问需核验。</p></details>}
     </>}
     {notice && <p role="status" className="cet6-notice">{notice}</p>}{error && <div role="alert" className="cet6-error"><p>{error}</p><button disabled={busy} onClick={() => setLoadCount(n => n + 1)}>重新读取词卡</button></div>}
   </section>;

@@ -4,7 +4,7 @@
   "source_sha256": "15de8bb9c126b52421b69c68d40167d4f060c06b33d8bf4f0a759b937339e07d",
   "source_problem_count": 25,
   "source_image_count": 29,
-  "updated_at": "2026-09-24",
+  "updated_at": "2026-10-03",
   "issues": [
     {
       "id": "FB-01",
@@ -607,6 +607,29 @@
   ],
   "audit_note": "2026-09-24 复核结束：原反馈不能标记全部解决。新增 QA-01 独立跟踪，不混入原文 25 项计数。单次样本不保证所有模型输出；详见 2026-09-24-audit.md。",
   "new_findings": [
+    {
+      "id": "UX-CET6-20261003",
+      "title": "每日固定新词、专业首页、精讲词卡和可信原卷站内训练",
+      "status": "partial",
+      "group": "六级备考体验",
+      "checked_commit": "",
+      "source_feedback": [
+        "每天新词数量由用户选择，并接入记忆闪卡。",
+        "标题需要更专业，首页突出背词和练真题。",
+        "明确真题、官方样卷、机构模拟与自编练习；词汇翻面直接提供Skill式精讲。",
+        "官方题卷可站内打开与作答。"
+      ],
+      "test_refs": [
+        "backend/tests/test_cet6_plans_and_papers.py",
+        "frontend/e2e/cet6-personalized.spec.ts"
+      ],
+      "evidence": [
+        "docs/2026-10-03-cet6-word-plan-and-papers.md：功能范围、原卷逐题核验、词典补充义与未解决来源缺口。",
+        ".tmp/acceptance/20261003T060431Z-local/backend.log：完整后端709项通过。",
+        ".tmp/acceptance/20261003T061246Z-local/report.json：前端构建与15条浏览器流程通过；手机和桌面截图已查看。"
+      ],
+      "next_action": "本地回归通过；部署后以同提交生产验收与实际PDF、生成讲解核验为准。官方听力原音待核验，机构整卷未批量导入；不得标记为全部内容已解决。"
+    },
     {
       "id": "QA-01",
       "title": "上传资料生成独立课程被题库复核阻断",

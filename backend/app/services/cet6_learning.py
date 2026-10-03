@@ -136,6 +136,6 @@ def overview(user: str, notebook: str) -> dict:
                 reason = "先参考你填写的听力、阅读成绩安排；之后用实际练习修正建议。"
             recommended = {"kind": kind, "title": f"开始一小段{LABELS[kind]}学习", "reason": reason}
     return {**result, "recommendation": recommended, "server_time": current,
-        "daily_new_limit": min(20, max(3, prefs["daily_minutes"] // 2)), "review_minutes": min(10, max(2, prefs["daily_minutes"] // 3)),
+        "daily_new_limit": prefs["daily_new_words"], "review_minutes": min(10, max(2, prefs["daily_minutes"] // 3)),
         "stats": {"collected": sum(bool(w.data.get("collected")) for w in words), "word_due": word_due,
                   "reading_due": len(reading_due), "practice_due": len(practice_due)}, "recent": recent[:5]}

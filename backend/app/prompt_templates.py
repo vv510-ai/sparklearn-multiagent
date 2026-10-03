@@ -150,7 +150,7 @@ def invoke_learning_prompt(capability: str, **values: Any) -> PromptCall:
         learning_context = {field: learning_context[field] for field in (
             "goal", "goals", "stage", "daily_minutes", "study_days", "target_date", "adaptations", "support"
         ) if field in learning_context}
-    if learning_context and not key.startswith("assessment.") and key not in {"image.one_page_observe", "image.one_page_check", "doc.one_page_scope", "doc.one_page_topic_check"}:
+    if learning_context and not key.startswith("assessment.") and key not in {"image.one_page_observe", "image.one_page_check", "doc.one_page_scope", "doc.one_page_topic_check", "english.word_lesson"}:
         prompt += "\n\n" + _render(_read_prompt("shared/learner-context.md"),
             {"learning_context": json.dumps(learning_context, ensure_ascii=False)}, label="learning_context")
     return PromptCall(
