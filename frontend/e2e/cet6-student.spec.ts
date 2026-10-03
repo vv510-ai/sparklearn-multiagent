@@ -58,6 +58,8 @@ test("学生手机五词一轮：翻面、真实触屏滑动、刷新续学并�
       await expect(page.locator(".word-pronunciation a")).toHaveAttribute("href", /dictionary.cambridge.org/);
     }
     await page.getByRole("button", { name: "翻面看释义", exact: true }).click();
+    // Raw CDP gestures do not wait for the reveal request like Playwright clicks do.
+    await expect(page.getByRole("button", { name: /^想起来了/ })).toBeEnabled();
     if (i === 0) {
       await page.locator(".word-flash-face h3").scrollIntoViewIfNeeded();
       const box = (await page.locator(".word-flash-face h3").boundingBox())!;
