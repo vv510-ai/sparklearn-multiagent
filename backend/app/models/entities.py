@@ -308,6 +308,15 @@ class Cet6Profile(Base):
     revision: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class Cet6Advice(Base):
+    """Course-private onboarding advice with a frozen input and generation claim."""
+    __tablename__ = "cet6_advice"
+    notebook_id: Mapped[str] = mapped_column(String(64), ForeignKey("notebooks.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class VocabularyCard(Base):
     __tablename__ = "vocabulary_cards"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

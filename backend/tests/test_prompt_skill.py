@@ -48,6 +48,7 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
     sample_values = {
         "title": "示例课程",
         "survey": "{}",
+        "learner_input": "{}", "facts": "{}", "references": "[]",
         "base_request": "依据资料准备课程题目",
         "draft": "{}",
         "validation_issue": "多选题至少两个正确选项",

@@ -12,9 +12,10 @@ async function register(page: Page) {
   await expect(dialog).toBeVisible();
   const catalogue = await (await page.request.get("/api/notebooks/learning/catalogue")).json();
   await dialog.getByRole("radio", { name: catalogue.items.find((c: { id: string }) => c.id === "cet6").title, exact: true }).check();
+  const created = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/notebooks");
   await dialog.getByRole("button", { name: "创建并进入", exact: true }).click();
   await expect(page.getByRole("heading", { name: "六级备考中心" })).toBeVisible();
-  const notebook = await page.getByRole("combobox", { name: "切换科目书本" }).inputValue();
+  const notebook = (await (await created).json()).id;
   return { notebook, base: `/api/notebooks/${notebook}/cet6` };
 }
 
@@ -29,7 +30,9 @@ test("可选目标、全量词汇、回忆记录与新对话恢复", async ({ pa
   await preferences.getByLabel("每天可用分钟").fill("10");
   await preferences.getByLabel("学习侧重点").selectOption("foundation");
   await preferences.getByRole("checkbox", { name: "阅读", exact: true }).check();
-  await preferences.getByRole("button", { name: "保存学习偏好" }).click();
+  await preferences.getByRole("button", { name: "保存并查看建议" }).click();
+  await expect(page.getByRole("heading", { name: "你的六级备考建议" })).toBeVisible();
+  await page.locator(".cet6-main-nav").getByRole("button", { name: "今天", exact: true }).click();
   await expect(page.locator(".cet6-today")).toContainText("阅读时能区分转折与因果");
   await page.reload(); await expect(page.locator(".cet6-today")).toContainText("10 分钟");
   await page.locator(".cet6-main-nav").getByRole("button", { name: "背单词", exact: true }).click();

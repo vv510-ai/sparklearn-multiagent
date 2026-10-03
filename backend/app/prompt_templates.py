@@ -142,7 +142,9 @@ def invoke_learning_prompt(capability: str, **values: Any) -> PromptCall:
         label=key,
     )
     from .services.course_learning_service import context_summary
-    learning_context = context_summary()
+    # This report already carries a frozen intake. Appending the latest profile
+    # could mix two revisions when another page edits preferences mid-generation.
+    learning_context = None if key == "english.cet6_advice" else context_summary()
     if learning_context and "one_page" in key:
         # The explicit request and selected evidence define infographic content.
         # Old course exam records/mastery must not leak through the generic

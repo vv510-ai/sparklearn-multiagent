@@ -4,6 +4,8 @@ export type Cet6Preferences = {
   goal: string; target_score: number | null; exam_date: string | null; daily_minutes: number; daily_new_words: number;
   mode: "foundation" | "balanced" | "exam"; focus: Cet6Kind[];
   total_score: number | null; listening_score: number | null; reading_score: number | null; writing_translation_score: number | null;
+  preparation: "unknown" | "none" | "irregular" | "regular";
+  reading_completion: "unknown" | "finished" | "unfinished" | "not_taken";
 };
 export type Cet6Overview = {
   revision: number; preferences: Cet6Preferences; server_time: string; daily_new_limit: number; review_minutes: number;

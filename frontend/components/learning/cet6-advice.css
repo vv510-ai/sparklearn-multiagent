@@ -1,0 +1,58 @@
+.cet6-advice { max-width: 850px; margin: 0 auto 40px; padding: clamp(18px, 3.4vw, 42px); border: 1px solid #d8e2d7; border-radius: 16px; background: #fffefa; min-width: 0; }
+.cet6-advice p { font-size: 16px; line-height: 1.95; margin: 12px 0; }
+.cet6-advice h2 { font-size: clamp(25px, 3vw, 34px); line-height: 1.4; margin: 10px 0 14px; }
+.cet6-advice h3 { font-size: 21px; line-height: 1.55; margin: 8px 0 14px; }
+.cet6-advice h4 { font-size: 16px; font-weight: 650; }
+.advice-heading { margin-bottom: 28px; }
+.advice-heading > p { color: #627367; font-size: 14px; }
+.advice-intake { padding: 20px; background: #f3f6ef; border-radius: 12px; }
+.advice-intake-title { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 18px; }
+.advice-intake-title h3 { font-size: 16px; margin: 0; }
+.advice-goal { white-space: pre-wrap; }
+.advice-constraints, .advice-scores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.advice-scores { grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #dce5d7; padding-top: 18px; }
+.advice-intake dt { color: #5d7363; font-size: 12px; line-height: 1.7; }
+.advice-intake dd { font-size: 17px; font-weight: 650; margin-top: 6px; overflow-wrap: anywhere; }
+.advice-intake a, .advice-inline-link { color: #23654a; text-decoration: underline; text-underline-offset: 4px; }
+.advice-summary { padding: 28px 0 8px; }
+.advice-summary .advice-lead { font-size: 18px; line-height: 1.95; }
+.advice-boundary { padding: 12px 16px; border-inline-start: 3px solid #a0b391; background: #f5f7f1; font-size: 14px !important; }
+.advice-toc { display: flex; flex-wrap: wrap; gap: 10px; padding: 18px 0 24px; border-bottom: 1px solid #dce5d8; }
+.advice-toc a { font-size: 13px; padding: 9px 12px; border: 1px solid #d6e1d1; border-radius: 7px; background: #f8faf4; min-height: 40px; }
+.advice-section { padding: 32px 0; border-bottom: 1px solid #dce5d8; scroll-margin-top: 24px; }
+.advice-steps { padding-inline-start: 25px; list-style: decimal; margin: 20px 0; }
+.advice-steps li { padding-inline-start: 5px; margin: 14px 0; font-size: 16px; line-height: 1.95; }
+.advice-check { display: flex; align-items: flex-start; gap: 10px; padding: 12px 15px; border-radius: 8px; background: #eef5e8; }
+.advice-check svg { flex-shrink: 0; margin-top: 7px; }
+.advice-check p { font-size: 14px; margin: 0; }
+.advice-practice-link { display: inline-flex; align-items: center; gap: 7px; padding: 12px 0; margin-top: 10px; font-size: 14px; color: #23654a; text-decoration: underline; text-underline-offset: 4px; }
+.advice-week { display: grid; gap: 12px; margin: 22px 0; }
+.advice-day { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 18px; border: 1px solid #dce5d7; border-radius: 10px; padding: 18px; }
+.advice-day > div { display: flex; flex-direction: column; gap: 5px; }
+.advice-day > div span, .advice-day small { font-size: 12px; color: #5d7363; }
+.advice-day > div strong { font-size: 15px; }
+.advice-day li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 1.8; margin: 4px 0; }
+.advice-day li strong { font-weight: 500; white-space: nowrap; }
+.advice-stages { display: grid; gap: 15px; margin-top: 28px; }
+.advice-stages p { font-size: 14px; }
+.advice-followup ul { list-style: disc; padding-inline-start: 22px; line-height: 2; font-size: 15px; }
+.advice-next { margin-top: 32px; padding: 23px; background: #eff5e8; border-radius: 12px; }
+.advice-next > svg { margin-bottom: 12px; }
+.advice-next p { font-size: 14px; }
+.advice-loading { display: flex; align-items: flex-start; gap: 14px; padding: 24px 0; }
+.advice-loading svg { flex-shrink: 0; margin-top: 4px; }
+.advice-loading p { font-size: 14px; }
+.advice-notice { padding: 18px; margin: 20px 0; border: 1px solid #d9dfc8; border-radius: 9px; background: #faf9ed; }
+.advice-notice p { font-size: 14px; }
+.advice-previous ol { list-style: decimal; padding-inline-start: 22px; }
+.advice-spin { animation: advice-spin 1.4s linear infinite; }
+@keyframes advice-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .advice-spin { animation: none; } }
+@media (max-width: 520px) {
+  .cet6-advice { padding: 18px 15px; border-radius: 10px; }
+  .advice-intake { padding: 15px; }
+  .advice-constraints, .advice-scores { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+  .advice-day { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 15px; }
+  .advice-day > div { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 7px 12px; }
+  .advice-next { padding: 18px 15px; }
+}

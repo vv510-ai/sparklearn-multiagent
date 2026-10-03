@@ -14,15 +14,15 @@ async function createCourse(page: Page, key: string) {
   const title = catalogue.items.find((c: { id: string }) => c.id === key).title;
   const dialog = page.getByRole("dialog", { name: "新建课程" });
   await dialog.getByRole("radio", { name: title, exact: true }).check();
+  const created = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/notebooks");
   await dialog.getByRole("button", { name: "创建并进入", exact: true }).click();
+  const id = (await (await created).json()).id;
   await expect(dialog).not.toBeVisible();
   if (key === 'cet6') {
     await expect(page.getByRole('heading', { name: '六级备考中心' })).toBeVisible();
-    const notebook = await page.getByRole('combobox', { name: '切换科目书本' }).inputValue();
-    await page.goto(`/?notebook=${notebook}&cet6=references`);
+    await page.goto(`/?notebook=${id}&cet6=references`);
   }
   await expect(page.locator('.course-study-card h1')).toBeVisible();
-  const id = await page.getByRole("combobox", { name: "切换科目书本" }).inputValue();
   const result = await (await page.request.get(`/api/notebooks/${id}/study`)).json();
   return { id, ...result };
 }

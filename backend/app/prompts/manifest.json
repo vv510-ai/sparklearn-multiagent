@@ -12,6 +12,10 @@
     "learning_coach_rules": "shared/learning-coach.md"
   },
   "capabilities": {
+    "english.cet6_advice": {
+      "description": "根据首次填写的信息生成可保存的六级备考建议",
+      "file": "english/cet6-advice.md"
+    },
     "english.cet6_feedback": {
       "description": "基于六级原题要求、逐字引用学习者原稿的写作翻译练习反馈",
       "file": "english/cet6-feedback.md"

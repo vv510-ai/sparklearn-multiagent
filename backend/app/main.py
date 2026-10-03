@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .api import pilot
 from .api import settings as model_settings
-from .api import learning, jobs, library, materials, cet6
+from .api import learning, jobs, library, materials, cet6, cet6_advice
 from .auth import bind_request_user, decode_access_token, reset_request_user
 from .config import GEN_DIR, STATIC_DIR, auth_required, get_settings, is_demo
 from .models.db import init_db
@@ -107,7 +107,7 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 for r in (jobs.router, assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
-          tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router, materials.router, cet6.router):
+          tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router, materials.router, cet6.router, cet6_advice.router):
     app.include_router(r)
 
 

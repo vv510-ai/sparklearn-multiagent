@@ -11,10 +11,11 @@ class ProcessCleanupTests(unittest.TestCase):
         for mode in ("timeout", "lost-lock", "interrupt"):
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
                 folder = Path(tmp)
-                marker, started = folder / "must-not-appear", folder / "started"
+                marker, started = folder / "heartbeat", folder / "started"
                 child = ("from pathlib import Path; import time; "
                          + "Path(" + repr(str(started)) + ").write_text('started'); "
-                         + "time.sleep(2); Path(" + repr(str(marker)) + ").write_text('unsafe')")
+                         + "marker=Path(" + repr(str(marker)) + "); "
+                         + "\nwhile True:\n marker.write_text(str(time.monotonic_ns())); time.sleep(.05)")
                 parent = "import subprocess,sys,time; subprocess.Popen([sys.executable,'-c'," + repr(child) + "]); time.sleep(30)"
                 class LostLease:
                     def check(self):
@@ -27,8 +28,13 @@ class ProcessCleanupTests(unittest.TestCase):
                                     dict(os.environ), folder, None if mode == "timeout" else LostLease(),
                                     timeout=1)
                 self.assertTrue(started.exists(), "The child must start before the cleanup can be tested")
-                time.sleep(2.1)
-                self.assertFalse(marker.exists(), "Child continued after acceptance lost its lock")
+                # Windows taskkill may itself take longer than a fixed marker delay.
+                # The lease must remain held until cleanup returns; after that return
+                # the child must never write again, regardless of termination latency.
+                stopped = marker.read_bytes() if marker.exists() else None
+                time.sleep(.5)
+                after = marker.read_bytes() if marker.exists() else None
+                self.assertEqual(after, stopped, "Child continued after cleanup returned")
 
 if __name__ == "__main__":
     unittest.main()

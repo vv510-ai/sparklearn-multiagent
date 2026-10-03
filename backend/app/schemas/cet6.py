@@ -20,6 +20,8 @@ class Preferences(BaseModel):
     listening_score: int | None = Field(default=None, ge=0, le=249)
     reading_score: int | None = Field(default=None, ge=0, le=249)
     writing_translation_score: int | None = Field(default=None, ge=0, le=212)
+    preparation: Literal["unknown", "none", "irregular", "regular"] = "unknown"
+    reading_completion: Literal["unknown", "finished", "unfinished", "not_taken"] = "unknown"
 
     @model_validator(mode="after")
     def validate_scores(self):
