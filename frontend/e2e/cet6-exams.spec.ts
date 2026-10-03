@@ -25,8 +25,10 @@ async function register(page:Page) {
 }
 async function open(page:Page,kind:string) {
   await page.locator(".cet6-main-nav").getByRole("button",{name:"真题练习",exact:true}).click();
-  await page.locator(".exam-kind-grid").getByRole("button",{name:new RegExp(kind)}).click();
-  await page.getByRole("button",{name:"开始作答",exact:true}).click();
+  const reading=["选词填空","段落匹配","仔细阅读"].includes(kind);
+  await page.locator(".exam-kind-grid").getByRole("button",{name:new RegExp(reading?"阅读":kind)}).click();
+  if(reading)await page.getByRole("navigation",{name:"阅读题型"}).getByRole("button",{name:new RegExp(kind)}).click();
+  await page.locator(".exam-paper-card").filter({has:page.getByRole("heading",{name:"2026 年 6 月 · 第 1 套",exact:true})}).getByRole("button",{name:"开始作答",exact:true}).click();
   await expect(page.getByRole("heading",{name:`2026 年 6 月 · 第 1 套 · ${kind}`})).toBeVisible();
   await expect(page.locator(".notebook-layout")).toHaveAttribute("data-sources-collapsed","true");
 }
@@ -41,28 +43,28 @@ async function sourcePane(page:Page) {
   if(await button.isVisible())await button.click();
 }
 
-test("真实原卷、阅读30题、键盘作答、提交解析与重新作答",async({page},info)=>{
+test("仔细阅读10题、键盘作答、提交解析与重新作答",async({page},info)=>{
   test.setTimeout(240000);
   await page.setViewportSize({width:1500,height:980});
   const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
-  const {base}=await register(page);await open(page,"阅读");
-  await expect(page.locator(".exam-source-text")).toContainText("Part III",{timeout:60000});
+  const {base}=await register(page);await open(page,"仔细阅读");
+  await expect(page.locator(".exam-source-text")).toContainText("social media",{timeout:60000});
   await expect(page.locator(".exam-source-text")).not.toContainText("There has been a rise in attention");
-  await expect(page.locator('.exam-choice-list label').filter({has:page.locator('input[value="A"]')})).toContainText("anywhere");
+  await expect(page.locator('.exam-choice-list label').filter({has:page.locator('input[value="A"]')})).toContainText("unrealistic and inadvisable");
   expect(await page.locator(".exam-source-text").evaluate(e=>getComputedStyle(e).fontSize)).toBe("18px");
   await page.screenshot({path:info.outputPath("reading-source-desktop.png"),fullPage:true});
   await answersPane(page);
-  const key="J I D C F K B G A E D I F K B H L E M J A B C D A C B A D D".split(" ");
+  const key="A B C D A C B A D D".split(" ");
   for(let i=0;i<key.length;i++){
-    await page.getByRole("navigation",{name:"本板块题号"}).getByRole("button",{name:new RegExp(`^第 ${i+26} 题`)}).click();
-    const radio=page.locator(`input[name="exam-${i+26}"][value="${i===20?"B":key[i]}"]`);
+    await page.getByRole("navigation",{name:"本板块题号"}).getByRole("button",{name:new RegExp(`^第 ${i+46} 题`)}).click();
+    const radio=page.locator(`input[name="exam-${i+46}"][value="${i===0?"B":key[i]}"]`);
     if(i===0){await radio.focus();await page.keyboard.press("Space");}else await radio.check();
   }
   await expect(page.locator(".exam-save-state")).toContainText("已保存到账号");
   await page.reload();await answersPane(page);
-  await expect(page.locator(".exam-submit-bar")).toContainText("30 / 30");
+  await expect(page.locator(".exam-submit-bar")).toContainText("10 / 10");
   await page.getByRole("button",{name:"提交本板块",exact:true}).click();
-  await expect(page.getByText("答对 29 / 30 题",{exact:true})).toBeVisible();
+  await expect(page.getByText("答对 9 / 10 题",{exact:true})).toBeVisible();
   const wrong=page.locator(".exam-analysis").filter({has:page.locator("summary>span",{hasText:/^第 46 题$/})});
   await expect(wrong).toContainText("你的答案 B · 参考答案 A");
   await expect(wrong).toContainText("组织生活是背景信息");
@@ -71,11 +73,11 @@ test("真实原卷、阅读30题、键盘作答、提交解析与重新作答",a
   await wrong.getByRole("button",{name:"回到原卷第 10 页核对",exact:true}).click();
   await sourcePane(page);await expect(page.getByLabel("原卷页码",{exact:true})).toHaveValue("10");await answersPane(page);
   await page.screenshot({path:info.outputPath("reading-analysis-desktop.png"),fullPage:true});
-  const saved=await(await page.request.get(base+"/reading")).json();
-  expect(saved.first.correct).toBe(29);
+  const saved=await(await page.request.get(base+"/reading_careful")).json();
+  expect(saved.first.correct).toBe(9);
   await page.getByRole("button",{name:"保留记录，重新作答",exact:true}).click();
-  await expect(page.locator(".exam-submit-bar")).toContainText("0 / 30");
-  expect((await(await page.request.get(base+"/reading")).json()).history_count).toBe(1);
+  await expect(page.locator(".exam-submit-bar")).toContainText("0 / 10");
+  expect((await(await page.request.get(base+"/reading_careful")).json()).history_count).toBe(1);
   expect(errors).toEqual([]);
 });
 
@@ -93,7 +95,7 @@ test("手机原卷切换、离线恢复、漏题提交和版本固定的听力�
   await page.getByRole("navigation",{name:"本板块题号"}).getByRole("button",{name:/^第 18 题/}).click();
   await page.locator('input[name="exam-18"][value="B"]').check();
   await expect(page.locator(".exam-save-state")).toContainText("已保存到账号");
-  await sourcePane(page);await expect(page.getByLabel("原卷页码",{exact:true})).toHaveValue("4");await answersPane(page);
+  await sourcePane(page);await page.getByRole("button",{name:"原版排版",exact:true}).click();await expect(page.getByLabel("原卷页码",{exact:true})).toHaveValue("4");await answersPane(page);
   await expect(page.locator('input[name="exam-18"][value="B"]')).toBeChecked();
   await context.setOffline(true);
   await page.getByRole("navigation",{name:"本板块题号"}).getByRole("button",{name:/^第 1 题/}).click();
@@ -151,9 +153,12 @@ test("保存响应丢失后的幂等重试与双窗口冲突保留输入",async(
   await page.getByRole("button",{name:"重试保存／提交",exact:true}).click();
   await expect(page.locator(".exam-save-state")).toContainText("已保存到账号");
   expect((await(await page.request.get(base+"/writing")).json()).revision).toBe(acknowledged.revision);
+  await page.unroute("**/cet6/exams/cet6-2026-06-1/writing");
   const other=await context.newPage();await other.goto(page.url());await answersPane(other);
+  await page.bringToFront();
   await page.getByLabel("我的作答",{exact:true}).fill("A newer draft saved in the first window.");
   await expect(page.locator(".exam-save-state")).toContainText("已保存到账号");
+  await other.bringToFront();
   await other.getByLabel("我的作答",{exact:true}).fill("My second window draft must remain available after a conflict.");
   await expect(other.locator(".exam-conflict")).toBeVisible();
   await expect(other.getByLabel("我的作答",{exact:true})).toHaveValue("My second window draft must remain available after a conflict.");
@@ -163,18 +168,16 @@ test("保存响应丢失后的幂等重试与双窗口冲突保留输入",async(
   await other.close();
 });
 
-test("旧年份明确标记原站资料，200%布局与原卷答案区隐藏",async({page},info)=>{
+test("旧年份三套可答、200%布局与原卷答案区隐藏",async({page},info)=>{
   await page.setViewportSize({width:1440,height:980});await register(page);
   await page.locator(".cet6-main-nav").getByRole("button",{name:"真题练习",exact:true}).click();
   await page.locator(".exam-kind-grid").getByRole("button",{name:/阅读/}).click();
+  await page.getByRole("navigation",{name:"阅读题型"}).getByRole("button",{name:/仔细阅读/}).click();
   await page.getByLabel("真题年份").selectOption("2024");
-  await expect(page.getByRole("button",{name:"开始作答",exact:true})).toHaveCount(0);
-  await expect(page.getByRole("link",{name:"查看原站资料 ↗",exact:true})).toHaveCount(6);
-  await page.getByLabel("真题年份").selectOption("2026");await page.getByRole("button",{name:"开始作答",exact:true}).click();
-  await sourcePane(page);await page.getByLabel("原卷页码",{exact:true}).selectOption("14");
-  await expect(page.locator(".exam-source-text")).toContainText("54.",{timeout:60000});
-  await expect(page.locator(".exam-source-text")).not.toContainText("答案速查");
-  await page.getByRole("button",{name:"原版排版",exact:true}).click();
+  await expect(page.getByRole("button",{name:"开始作答",exact:true})).toHaveCount(6);
+  await page.getByLabel("真题年份").selectOption("2026");await page.getByRole("button",{name:"开始作答",exact:true}).first().click();
+  await sourcePane(page);await page.getByRole("button",{name:"原版排版",exact:true}).click();
+  await page.getByLabel("原卷页码",{exact:true}).selectOption("14");
   await expect.poll(()=>page.locator(".exam-canvas-scroll canvas").evaluate((c:HTMLCanvasElement)=>c.width)).toBeGreaterThan(100);
   await expect(page.locator(".exam-reader-body")).toHaveAttribute("aria-busy","false");
   await page.screenshot({path:info.outputPath("source-original-page.png"),fullPage:true});

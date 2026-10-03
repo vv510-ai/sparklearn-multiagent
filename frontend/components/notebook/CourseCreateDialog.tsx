@@ -63,7 +63,7 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
       }
       const key = selection === "upload" ? "custom" : selection;
       const sourceIds = files.map(file => uploaded.get(file)).filter((id): id is string => Boolean(id));
-      setNote(sourceIds.length ? "正在根据课本整理知识点和起点题，通常需要几十秒…" : key === "custom" ? "正在围绕主题准备课程范围与起点题，通常需要几十秒…" : "正在准备教材与学习章节…");
+      setNote(sourceIds.length ? "正在根据课本整理知识点和起点题，通常需要几十秒…" : key === "custom" ? "正在围绕主题准备课程范围与起点题，通常需要几十秒…" : key === "cet6" ? "正在准备六级备考中心…" : "正在准备教材与学习章节…");
       await apiPost<CourseScope>(`/notebooks/${notebook.id}/learning/prepare`, {
         title: title.trim(), course_key: key, source_ids: sourceIds,
         survey: { ...DEFAULT_SURVEY, notebook_id: notebook.id, course_key: key, course_title: title.trim(), source_ids: sourceIds,
@@ -86,7 +86,7 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
       <fieldset disabled={busy || created} className="course-create-options"><legend>选择课程起点</legend>
         {options.map(option => { const Icon = icons[option.id] || BookOpen; return <label key={option.id} className={selection === option.id ? "is-selected" : ""}>
           <input type="radio" name="new-course" aria-label={option.title} checked={selection === option.id} onChange={() => choose(option.id, option.title)} />
-          <Icon size={22} aria-hidden="true" /><span><strong>{option.title}</strong><small>{option.description}</small></span><Check size={17} className="course-choice-check" aria-hidden="true" />
+          <Icon size={22} aria-hidden="true" /><span><strong>{option.title}</strong><small>{option.id === "cet6" ? "真题按题型练习 · 五词一轮 · 到期复习" : option.description}</small></span><Check size={17} className="course-choice-check" aria-hidden="true" />
         </label>; })}
       </fieldset>
       {catalogueError && <div role="status"><p className="course-create-hint">{catalogueError}</p><button type="button" disabled={busy} className="secondary-action" onClick={loadCatalogue}>重新加载课程</button></div>}
@@ -96,7 +96,7 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
         <input type="file" aria-label="上传课程课本" multiple accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg" disabled={busy} onChange={e => { addFiles(Array.from(e.target.files || [])); e.target.value = ""; }} /></label>
         {files.map((file, i) => <div className="course-create-file" key={`${file.name}-${i}`}><span>{file.name}</span><button type="button" aria-label={`移除 ${file.name}`} disabled={busy} onClick={() => setFiles(current => current.filter((_, index) => index !== i))}><X size={16} /></button></div>)}
       </div>
-      <p className="course-create-hint">{files.length ? "创建时会读取所选资料，并显示实际使用的范围。生成题目的答案与难度仍需核对。" : selection === "custom" ? "没有课本也可以开始：围绕主题生成初步课程，之后可以补充资料。" : "创建后直接进入第一节，可随时选择其他章节。"}</p>
+      <p className="course-create-hint">{files.length ? "创建时会读取所选资料，并显示实际使用的范围。生成题目的答案与难度仍需核对。" : selection === "custom" ? "没有课本也可以开始：围绕主题生成初步课程，之后可以补充资料。" : selection === "cet6" ? "创建后进入六级备考中心，自由选择真题题型或开始一轮背词。" : "创建后进入课程，选择今天想学的内容。"}</p>
       {note && <p role="status" className="course-create-status">{note}</p>}
       {error && <p role="alert" className="course-create-error">{error}</p>}
       <footer><button type="button" className="secondary-action" onClick={onClose} disabled={busy}>取消</button><button type="submit" className="primary-action" disabled={busy || !selection || !title.trim() || (selection === "upload" && !files.length)}>{busy ? "正在准备课程…" : created ? "继续准备课程" : "创建并进入"}</button></footer>

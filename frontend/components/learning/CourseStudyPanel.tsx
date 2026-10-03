@@ -105,7 +105,7 @@ export default function CourseStudyPanel({ notebookId, userId, requestedUnit, on
   const due = data.path.units.filter(u => data.progress.units[u.id]?.next_review && data.progress.units[u.id].next_review! <= today);
   const canComplete = draft.read && draft.practiced && draft.checked && draft.notes.trim().length >= 3;
   const completedCount = data.path.units.filter(u => data.progress.units[u.id]?.completed).length;
-  if (data.path.course === "cet6" && !showReferences) return <div className="course-study-scroll"><Cet6Dashboard key={requestedUnit.request} notebookId={notebookId} userId={userId} onChat={onChat} onFocus={setReadingActive} onReviews={onReviews} chapterDue={due.map(u => ({ id: u.id, title: u.title }))} onReference={id => { if (id) pick(data, id); cet6Route(notebookId, "references"); setShowReferences(true); setReadingActive(false); }} /></div>;
+  if (data.path.course === "cet6") return <div className={`course-study-scroll ${readingActive ? "cet6-study-focus" : ""}`}><Cet6Dashboard key={requestedUnit.request} notebookId={notebookId} userId={userId} onChat={onChat} onFocus={setReadingActive} onReviews={onReviews} chapterDue={[]} onReference={() => { cet6Route(notebookId, "home"); setReadingActive(false); }} /></div>;
   return <div className="course-study-scroll" aria-label="当前课程学习">
     {data.path.course === "cet6" && <button className="secondary-action" onClick={() => { cet6Route(notebookId, "home"); setShowReferences(false); setReadingActive(false); }}>返回六级学习首页</button>}
     <header className="course-study-top" hidden={readingActive}><div><span>{data.path.title}</span><p>已完成 {completedCount} / {data.path.units.length} 节</p></div><button className="secondary-action" onClick={() => onChat("")}>学习对话</button></header>

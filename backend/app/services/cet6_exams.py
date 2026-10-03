@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..config import get_settings, is_demo
 from ..data.cet6_exam_pilot import pilot, VERSION, REPOSITORY, COMMIT, SYLLABUS
+from ..data.cet6_exam_catalogue import catalogue_data
 from ..llm.spark_client import llm_complete, parse_json
 from ..llm.failures import ModelFailure, failure_code
 from ..models.db import session
@@ -21,12 +22,12 @@ from ..models.entities import Cet6PaperAttempt
 from ..prompt_templates import invoke_learning_prompt
 from . import cet6_learning as learning
 
-KINDS = {"listening", "reading", "writing", "translation"}
+KINDS = {"listening", "reading", "reading_cloze", "reading_matching", "reading_careful", "writing", "translation"}
 
 
 def _pack(paper_id, kind):
-    paper = pilot()
-    if paper_id != paper["id"] or kind not in KINDS:
+    paper = catalogue_data().get(paper_id)
+    if not paper or kind not in paper["blocks"]:
         raise HTTPException(404, "这套题的本板块尚未接入本站答题。")
     return paper, paper["blocks"][kind]
 
@@ -40,43 +41,45 @@ def _find(db, user, notebook, paper, kind):
         Cet6PaperAttempt.user_id == user, Cet6PaperAttempt.notebook_id == notebook))
 
 
-def _initial():
-    return dict(version=VERSION, phase="answer", answers={}, text="", history=[], started_at=learning.now().isoformat())
+def _initial(version=VERSION):
+    return dict(version=version, phase="answer", answers={}, text="", history=[], started_at=learning.now().isoformat())
 
 
 def _public(row, paper, block, kind):
-    data = copy.deepcopy(row.data) if row else _initial()
+    data = copy.deepcopy(row.data) if row else _initial(paper["version"])
     data.pop("operations", None)
     history = data.pop("history", [])
-    material = {k: copy.deepcopy(v) for k,v in paper.items() if k not in {"blocks", "crosscheck_url"}}
+    material = {k: copy.deepcopy(v) for k,v in paper.items() if k not in {"blocks", "crosscheck_url", "answer_url", "answer_sha256", "answer_pages"}}
     material.update({k: copy.deepcopy(v) for k,v in block.items() if k not in {"questions", "rubric"}})
     material["kind"] = kind
     material["paper_title"] = paper["title"]
     feedback = data["phase"] == "feedback"
     material["questions"] = [copy.deepcopy(q) if feedback else {k:copy.deepcopy(q[k]) for k in ("number","choices","page","group")} for q in block["questions"]]
     if feedback:
-        material["crosscheck_url"] = paper["crosscheck_url"]
+        material.update({k:paper[k] for k in ["crosscheck_url", "answer_url", "answer_sha256", "answer_pages"] if k in paper})
     return {**data, "revision": row.revision if row else 0, "material": material, "history_count":len(history)}
 
 
 def catalogue(user, notebook):
     learning.check(user, notebook)
-    paper = pilot()
+    papers = catalogue_data()
     with session() as db:
-        progress = {}
-        for kind in KINDS:
-            row = _find(db, user, notebook, paper["id"], kind)
-            progress[kind] = None if row is None else {"phase":row.data["phase"], "answered":len(row.data["answers"]), "updated_at":row.data.get("updated_at")}
+        rows = db.scalars(select(Cet6PaperAttempt).where(Cet6PaperAttempt.user_id==user,
+            Cet6PaperAttempt.notebook_id==notebook)).all()
+        progress = {r.paper_id:{"phase":r.data["phase"],"answered":len(r.data["answers"]),"updated_at":r.data.get("updated_at")} for r in rows}
     items = []
     for year, month in [(2026,6),(2025,12),(2025,6),(2024,12),(2024,6)]:
         for number in [1,2,3]:
             item = dict(id=f"cet6-{year}-{month:02}-{number}", year=year, month=month, set=number,
-                title=f"{year} 年 {month} 月 · 第 {number} 套", ready=(year,month,number)==(2026,6,1),
+                title=f"{year} 年 {month} 月 · 第 {number} 套", ready=False,
                 source_url=f"{REPOSITORY}/tree/{COMMIT}/{quote(f'六级真题/{year}.{month:02}')}")
-            if item["ready"]:
-                item.update(progress=progress, source_url=paper["source_url"], counts={k:len(v["questions"]) or 1 for k,v in paper["blocks"].items()})
+            paper = papers.get(item['id'])
+            if paper:
+                item.update(ready=bool(paper['blocks']), progress={k:progress.get(f"exam:{paper['id']}:{k}") for k in KINDS},
+                    source_url=paper["source_url"], counts={k:len(v["questions"]) or 1 for k,v in paper["blocks"].items()},
+                    unavailable=paper.get('unavailable',{}),source_note=paper['source_note'])
             items.append(item)
-    return {"items":items,"version":VERSION,"years":[2026,2025,2024],"note":"本站答题样板：2026年6月第1套。其他套次保留原站入口，未标为已接入。"}
+    return {"items":items,"version":"cet6-catalogue-20261004-v2","years":[2026,2025,2024],"note":"按实际板块开放。第三方整理资料，不代表官方发布或评分。"}
 
 
 def detail(user, notebook, paper_id, kind):
@@ -89,7 +92,7 @@ def detail(user, notebook, paper_id, kind):
 def act(user, notebook, paper_id, kind, req):
     learning.check(user, notebook)
     paper, block = _pack(paper_id, kind)
-    if req.version != VERSION:
+    if req.version != paper['version']:
         raise HTTPException(409, "题卷版本已变化，请保留输入并重新读取。")
     questions = {str(q["number"]):q for q in block["questions"]}
     if any(n not in questions or a not in questions[n]["choices"] for n,a in req.answers.items()):
@@ -102,7 +105,7 @@ def act(user, notebook, paper_id, kind, req):
             if req.revision:
                 raise HTTPException(409, "作答记录已变化，请重新读取。")
             row = Cet6PaperAttempt(id=_id(user,notebook,paper_id,kind), user_id=user, notebook_id=notebook,
-                paper_id=f"exam:{paper_id}:{kind}", revision=0, data=_initial())
+                paper_id=f"exam:{paper_id}:{kind}", revision=0, data=_initial(paper['version']))
             db.add(row)
             try:
                 db.commit()
@@ -112,12 +115,12 @@ def act(user, notebook, paper_id, kind, req):
         data = copy.deepcopy(row.data)
         if learning.receipt(data,req,row.revision):
             return _public(row,paper,block,kind)
-        if data["version"] != VERSION:
+        if data["version"] != paper['version']:
             raise HTTPException(409, "旧作答对应另一题卷版本，请保留记录后联系维护者。")
         if req.action == "restart":
             if data["phase"] != "feedback":
                 raise HTTPException(409,"请先完成本轮提交。")
-            data = {**_initial(),"history":(data["history"]+[data["first"]])[-20:],"operations":data["operations"]}
+            data = {**_initial(paper['version']),"history":(data["history"]+[data["first"]])[-20:],"operations":data["operations"]}
         else:
             if data["phase"] != "answer":
                 raise HTTPException(409,"本轮已提交，首次作答已保留；请使用重新作答。")
@@ -132,7 +135,7 @@ def act(user, notebook, paper_id, kind, req):
                 elif len(req.text.strip()) < 10:
                     raise HTTPException(422,"请先输入自己的作答，再提交分析。")
                 first = dict(answers=dict(req.answers),text=req.text,submission_id=str(req.request_id),
-                    submitted_at=learning.now().isoformat(),version=VERSION)
+                    submitted_at=learning.now().isoformat(),version=paper['version'])
                 if questions:
                     first.update(correct=sum(req.answers.get(n)==q["answer"] for n,q in questions.items()),
                         answered=len(req.answers),total=len(questions))

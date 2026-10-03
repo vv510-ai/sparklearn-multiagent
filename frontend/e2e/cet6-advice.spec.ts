@@ -88,6 +88,10 @@ test("首次填写即获得完整建议，刷新恢复并进入实际练习", as
   if (action.kind !== "vocabulary") {
     await expect(page.locator(".exam-workspace")).toBeVisible();
     expect(new URL(page.url()).searchParams.get("exam_paper")).toBe(action.paper_id);
+    if (action.kind === "reading") {
+      expect(new URL(page.url()).searchParams.get("exam_kind")).toBe("reading_careful");
+      await expect(page.locator(".exam-number-grid button")).toHaveCount(10);
+    }
   } else await expect(page.getByRole("region", { name: "六级词汇学习" })).toBeVisible();
   await page.getByRole("button", { name: "新对话", exact: true }).click();
   await page.goto(`/?notebook=${book}&cet6=advice`);

@@ -49,11 +49,11 @@ export default function Cet6Dashboard({ notebookId, userId, onChat, onFocus, onR
   const navigate = (next: View, id = "", review = false) => { introChecked.current = true; setView(next); setTarget(id); skipIntake(); setReadingFocus(false); if (next !== "advice") setAdviceRevision(null); cet6Route(notebookId, next, id, review); setRefresh(n => n + 1); if (next === "reading") setReadingKey(n => n + 1); requestAnimationFrame(() => heading.current?.focus()); };
   const startAdviceAction = (action: AdviceAction) => {
     if (action.kind === "vocabulary") { navigate("vocabulary"); return; }
-    setPracticeKind(action.kind); navigate("exams");
-    const url = new URL(window.location.href); url.searchParams.set("exam_kind", action.kind); url.searchParams.set("exam_paper", action.paper_id);
+    setPracticeKind(action.kind === "reading" ? "all" : action.kind); navigate("exams");
+    const url = new URL(window.location.href); url.searchParams.set("exam_kind", action.kind === "reading" ? "reading_careful" : action.kind); url.searchParams.set("exam_paper", action.paper_id);
     window.history.replaceState(null, "", url.pathname + url.search);
   };
-  const choose = (kind: Cet6Kind, id = "") => { if (kind === "vocabulary") navigate(kind, id, true); else { setPracticeKind(kind); navigate("exams"); } };
+  const choose = (kind: Cet6Kind, id = "") => { if (kind === "vocabulary") navigate(kind); else { setPracticeKind(kind); navigate("exams"); } };
   return <div className="cet6-dashboard" aria-label="六级学习首页">
     <header className="cet6-header" hidden={readingFocus}><div><span className="cet6-eyebrow">大学英语六级 · CET-6</span><h1 ref={heading} tabIndex={-1}>六级备考中心</h1><p className="cet6-subtitle">原卷精练 · 词汇精学 · 个性化复习</p></div><button className="secondary-action" onClick={() => setSettings(true)} aria-expanded={settings}><Settings2 size={15} />学习偏好</button></header>
     {!readingFocus && <nav className="cet6-main-nav" aria-label="六级学习入口">{([["home", "今天"], ["advice", "备考建议"], ["exams", "真题练习"], ["vocabulary", "背单词"], ["examinfo", "考试与目标"]] as const).map(([id, label]) => <button key={id} aria-current={view === id && !settings ? "page" : undefined} onClick={() => { if (id === "exams") setPracticeKind("all"); if (id === "advice") setAdviceRevision(null); navigate(id); }}>{label}</button>)}<button onClick={() => onChat("")}><MessageCircle size={14} />问小知</button></nav>}
@@ -72,7 +72,7 @@ export default function Cet6Dashboard({ notebookId, userId, onChat, onFocus, onR
       </>}
     </>}
     {view === "reading" && <ReadingTraining key={`${notebookId}:${readingKey}`} notebookId={notebookId} userId={userId} onFocus={setReadingFocus} onChat={onChat} chapterDue={chapterDue} onChapter={onReference} onReviews={onReviews} />}
-    {view === "vocabulary" && <Cet6Vocabulary key={`${notebookId}:${target}`} notebookId={notebookId} initialWord={target} onChat={onChat} onChanged={() => setRefresh(n => n + 1)} />}
+    {view === "vocabulary" && <Cet6Vocabulary key={`${notebookId}:${target}`} notebookId={notebookId} initialWord={target} onChat={onChat} onChanged={() => setRefresh(n => n + 1)} onFocus={setReadingFocus} />}
     {view === "practice" && (target ? <Cet6Practice key={`${notebookId}:${target}`} notebookId={notebookId} userId={userId} taskId={target} onChat={onChat} onExit={() => navigate("practice")} /> : <PracticePicker notebookId={notebookId} kind={practiceKind} onKind={setPracticeKind} onReading={() => navigate("reading")} onOpen={id => navigate("practice", id)} />)}
     {view === "papers" && <Cet6Papers key={`${notebookId}:${target}`} notebookId={notebookId} initialPaper={target} />}
     {view === "exams" && <Cet6Exams key={`${notebookId}:${practiceKind}`} notebookId={notebookId} userId={userId} onFocus={setReadingFocus} initialKind={practiceKind !== "all" && practiceKind !== "vocabulary" ? practiceKind as ExamKind : undefined} />}

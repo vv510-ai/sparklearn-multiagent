@@ -147,9 +147,10 @@ export default function SourcePanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-        {course?.study_path && <section className="course-source-path">
+        {course?.study_path?.course === "cet6" && <section className="course-source-cet6"><button type="button" className="source-add-button" onClick={() => onStudy?.()}>进入六级备考中心</button></section>}
+        {course?.study_path && course.study_path.course !== "cet6" && <section className="course-source-path">
           <button type="button" className="source-add-button" onClick={() => onStudy?.()}>继续课程学习</button>
-          <details><summary>{course.study_path.course === "cet6" ? "备考参考" : "学习章节"} · {course.study_path.units.length} 节</summary>
+          <details><summary>学习章节 · {course.study_path.units.length} 节</summary>
             {[...new Set(course.study_path.units.map(u => u.group))].map(group => <details key={group}>
               <summary>{group}</summary>{course.study_path!.units.filter(u => u.group === group).map(u => <button type="button" key={u.id} onClick={() => onStudy?.(u.id)}>{u.title}</button>)}
             </details>)}
@@ -197,7 +198,7 @@ export default function SourcePanel({
           <div className="source-empty source-empty-compact">
             <UploadCloud size={20} />
             <strong>添加资料后可引用原文讲解</strong>
-            <span>先学习本课章节；需要讲解原题时，可上传题目或教材。</span>
+            <span>{course?.study_path?.course === "cet6" ? "从真题或词卡开始；需要讲解原题时，可上传题目。" : "先学习本课章节；需要讲解原题时，可上传题目或教材。"}</span>
           </div>
         )}
 

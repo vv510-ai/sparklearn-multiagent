@@ -89,6 +89,13 @@ class ExamAction(BaseModel):
     allow_incomplete: bool = False
 
 
+class WordRoundStart(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: str | None = Field(default=None, max_length=64, exclude=True)
+    request_id: UUID
+    kind: Literal["new", "review"]
+
+
 class PracticeAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
     user_id: str | None = Field(default=None, max_length=64, exclude=True)

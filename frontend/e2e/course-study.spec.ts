@@ -20,7 +20,9 @@ async function createCourse(page: Page, key: string) {
   await expect(dialog).not.toBeVisible();
   if (key === 'cet6') {
     await expect(page.getByRole('heading', { name: '六级备考中心' })).toBeVisible();
-    await page.goto(`/?notebook=${id}&cet6=references`);
+    await page.getByRole("button", { name: "先开始学习", exact: true }).click();
+    const result = await (await page.request.get(`/api/notebooks/${id}/study`)).json();
+    return { id, ...result };
   }
   await expect(page.locator('.course-study-card h1')).toBeVisible();
   const result = await (await page.request.get(`/api/notebooks/${id}/study`)).json();
@@ -35,7 +37,7 @@ async function pickSide(page: Page, unit: { title: string; group: string }) {
   await group.getByRole('button', { name: unit.title, exact: true }).click();
 }
 
-test('五门课程直接进入章节，来源明确、右侧工具齐全、入口合并', async ({ page }, info) => {
+test('其他课程保留章节，六级移除全部28课时入口并保留工具', async ({ page }, info) => {
   await page.setViewportSize({ width: 1560, height: 980 });
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await register(page);
@@ -44,26 +46,21 @@ test('五门课程直接进入章节，来源明确、右侧工具齐全、入�
     if (key !== 'cet6') await page.getByRole('button', { name: '新建课程', exact: true }).click();
     const course = await createCourse(page, key);
     expect(course.path.units).toHaveLength(count);
+    if(key==='cet6'){
+      await expect(page.locator('.course-source-path')).toHaveCount(0);
+      await expect(page.getByText(/备考参考 · 28/)).toHaveCount(0);
+      for(const title of ['互动讲解','学习笔记','记忆闪卡']) await expect(page.locator('.studio-tile').filter({has:page.locator('strong',{hasText:title})})).toBeVisible();
+      await page.goto(`/?notebook=${course.id}&cet6=references`);
+      await expect(page.getByRole('heading',{name:'六级备考中心'})).toBeVisible();
+      await expect(page.locator('.course-study-card')).toHaveCount(0);
+      await page.screenshot({path:info.outputPath('cet6-no-28-lessons.png'),fullPage:true});
+      continue;
+    }
     await expect(page.locator('.course-study-card h1')).toHaveText(course.path.units[0].title);
     await expect(page.getByRole('link', { name: '打开本节材料' })).toHaveAttribute('href', course.path.units[0].source.url);
     await expect(page.locator('.notebook-topbar a[href="/materials"], .notebook-topbar a[href="/library"]')).toHaveCount(0);
     await expect(page.locator('.course-study-card')).not.toContainText('小知六级指南');
     await expect(page.locator('.course-source-path')).toContainText(`${key === 'cet6' ? '备考参考' : '学习章节'} · ${count} 节`);
-    if (key === 'cet6') {
-      for (const title of ['互动讲解', '一图看懂', '框架导图', '学习笔记', '易错易混', '巩固测验', '记忆闪卡', '学习信息图', '知识数据表', '复习PPT', '讲解视频'])
-        await expect(page.locator('.studio-tile').filter({ has: page.locator('strong', { hasText: title }) })).toBeVisible();
-      await page.screenshot({ path: info.outputPath('course-study-desktop.png'), fullPage: true });
-      await page.getByRole('button', { name: '打开起点测评', exact: true }).click();
-      await page.getByText('查看已有测评记录', { exact: true }).click();
-      await expect(page.getByText('这门课还没有历史测评记录。请继续当前章节学习。', { exact: true })).toBeVisible();
-      await expect(page.locator('.entry-question-card')).toHaveCount(0);
-      const unchanged = await (await page.request.get(`/api/notebooks/${course.id}/learning`)).json();
-      expect(unchanged.course.kind).toBe('cet6');
-      await page.locator('.course-source-path').getByRole('button', { name: '继续课程学习' }).click();
-      await page.goto(`/?notebook=${course.id}&cet6=references`);
-      await page.getByText('本课更多教材与真题', { exact: true }).click();
-      await expect(page.locator('.course-study-more details')).toHaveCount(33);
-    }
     if (key === 'python') {
       await page.getByText('直接阅读相关 Python 官方原文', { exact: true }).click();
       await expect(page.locator('.course-study-excerpts')).toContainText('PSF');
@@ -83,19 +80,19 @@ test('五门课程直接进入章节，来源明确、右侧工具齐全、入�
 test('保存、完成下一节、刷新恢复、冲突草稿与失败时章节导航', async ({ page }, info) => {
   await page.setViewportSize({ width: 1560, height: 980 });
   await register(page);
-  const course = await createCourse(page, 'cet6');
+  const course = await createCourse(page, 'python');
   const units = course.path.units;
   const notes = page.getByLabel('题号、学习结果或还不懂的地方');
-  await notes.fill('核对官方考试结构；下一步练习选词。');
+  await notes.fill('读完 Python 官方介绍；下一步练习列表。');
   await page.getByLabel('下次复习', { exact: true }).fill('2026-01-01');
   await page.getByRole('button', { name: '保存进度', exact: true }).click();
   await expect(page.locator('.course-study-notice')).toContainText(/进度已保存|已记录本节完成/);
   await page.reload();
-  await expect(notes).toHaveValue('核对官方考试结构；下一步练习选词。');
+  await expect(notes).toHaveValue('读完 Python 官方介绍；下一步练习列表。');
   for (const label of ['已读 / 已听材料', '已完成本节任务', '已核对与订正']) await page.getByLabel(label, { exact: true }).check();
   await page.getByRole('button', { name: '完成本节，继续下一节', exact: true }).click();
   await expect(page.locator('.course-study-card h1')).toHaveText(units[1].title);
-  await expect(page.locator('.course-study-top')).toContainText('已完成 1 / 28 节');
+  await expect(page.locator('.course-study-top')).toContainText('已完成 1 / 10 节');
   await page.reload();
   await expect(page.locator('.course-study-card h1')).toHaveText(units[1].title);
   await pickSide(page, units[0]);
@@ -104,7 +101,7 @@ test('保存、完成下一节、刷新恢复、冲突草稿与失败时章节�
   await page.getByLabel('下次复习', { exact: true }).fill('2026-01-02');
   await page.getByRole('button', { name: '保存进度', exact: true }).click();
   await expect(page.locator('.course-study-notice')).toContainText(/进度已保存|已记录本节完成/);
-  await expect(page.locator('.course-study-top')).toContainText('已完成 1 / 28 节');
+  await expect(page.locator('.course-study-top')).toContainText('已完成 1 / 10 节');
   await notes.fill('我当前还没保存的订正');
   const saved = await (await page.request.get(`/api/notebooks/${course.id}/study`)).json();
   const other = await page.request.post(`/api/notebooks/${course.id}/study/${units[0].id}`, { data: { ...saved.progress.units[units[0].id], notes: '另一页面已保存的订正', revision: saved.progress.revision, version: saved.path.version } });

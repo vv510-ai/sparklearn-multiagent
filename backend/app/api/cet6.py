@@ -7,7 +7,8 @@ from ..services import cet6_word_plan as word_plan
 from ..services import vocabulary_lessons
 from ..services import cet6_papers as papers
 from ..services import cet6_exams as exams
-from ..schemas.cet6 import ExamAction
+from ..schemas.cet6 import ExamAction, WordRoundStart
+from ..services import cet6_word_rounds as word_rounds
 
 router = APIRouter(prefix="/api/notebooks/{notebook_id}/cet6", tags=["cet6"])
 
@@ -62,6 +63,16 @@ def word_target(notebook_id: str, req: WordTargetSave):
 @router.get("/words/{entry_id}")
 def word(notebook_id: str, entry_id: str):
     return vocabulary.detail(require_current_user_id(), notebook_id, entry_id)
+
+
+@router.post("/word-rounds")
+def start_word_round(notebook_id: str, req: WordRoundStart):
+    return word_rounds.start(require_current_user_id(), notebook_id, req.kind, req.request_id)
+
+
+@router.get("/word-rounds/{round_id}")
+def get_word_round(notebook_id: str, round_id: str):
+    return word_rounds.detail(require_current_user_id(), notebook_id, round_id)
 
 
 @router.post("/words/{entry_id}")

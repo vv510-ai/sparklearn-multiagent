@@ -23,9 +23,46 @@ def test_catalogue_does_not_present_unreviewed_sets_or_future_papers_as_ready(le
     client,_,_,base=setup(learner)
     result=client.get(base+"/exams").json()
     assert len(result["items"])==15
-    assert [p["id"] for p in result["items"] if p["ready"]]==[PAPER]
+    assert all(p["ready"] for p in result["items"])
+    assert all(p["counts"]["reading_cloze"] == p["counts"]["reading_matching"] == p["counts"]["reading_careful"] == 10 for p in result["items"])
+    assert all(p["counts"]["writing"] == p["counts"]["translation"] == 1 for p in result["items"])
+    assert [p["id"] for p in result["items"] if p["counts"].get("listening")]==[PAPER]
     assert all(p["year"]<2026 or p["month"]==6 for p in result["items"])
     assert client.get(base+"/exams/cet6-2025-12-1/reading").status_code==404
+
+
+@pytest.mark.parametrize("paper_id", ["cet6-2024-06-2", "cet6-2024-12-3", "cet6-2025-06-3", "cet6-2025-12-1", "cet6-2026-06-2"])
+def test_subtypes_have_independent_records_and_hide_source_answers_until_submission(learner, paper_id):
+    client, _, _, base = setup(learner)
+    path=base+f"/exams/{paper_id}/reading_cloze"
+    state=client.get(path).json()
+    assert [q['number'] for q in state['material']['questions']]==list(range(26,36))
+    assert 'answer_url' not in state['material']
+    body=action(state,'submit',allow_incomplete=True)
+    body['answers']={'26':'A'}
+    result=client.post(path,json=body).json()
+    assert result['first']['total']==10
+    assert result['material']['answer_url'].startswith('https://raw.githubusercontent.com/')
+    assert all(q['reference_page']>=1 for q in result['material']['questions'])
+    matching=client.get(base+f"/exams/{paper_id}/reading_matching").json()
+    careful=client.get(base+f"/exams/{paper_id}/reading_careful").json()
+    assert matching['phase']==careful['phase']=='answer'
+    assert matching['answers']==careful['answers']=={}
+    invalid=action(matching);invalid['answers']={'26':'A'}
+    assert client.post(base+f"/exams/{paper_id}/reading_matching",json=invalid).status_code==422
+
+
+def test_reviewed_source_conflicts_are_bound_to_the_displayed_edition():
+    from app.data.cet6_exam_catalogue import catalogue_data
+    papers=catalogue_data()
+    expected=[('cet6-2024-12-3','reading_cloze',32,'G'),('cet6-2025-06-3','reading_cloze',34,'O'),
+        ('cet6-2025-12-1','reading_cloze',30,'E'),('cet6-2025-12-1','reading_careful',50,'B'),
+        ('cet6-2025-12-1','reading_careful',53,'C'),('cet6-2026-06-2','reading_careful',54,'B')]
+    for p,k,n,key in expected:
+        q=next(q for q in papers[p]['blocks'][k]['questions'] if q['number']==n)
+        assert q['answer']==key and len(q['explanation'])>50
+    assert '人工智能' in papers['cet6-2025-06-1']['blocks']['writing']['rubric']
+    assert '南水北调' in papers['cet6-2025-06-3']['blocks']['translation']['rubric']
 
 
 @pytest.mark.parametrize("kind,count",[("listening",25),("reading",30)])

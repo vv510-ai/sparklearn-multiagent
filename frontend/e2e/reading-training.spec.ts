@@ -17,9 +17,10 @@ async function register(page: Page) {
   await expect(dialog).toBeVisible();
   const catalogue = await (await page.request.get("/api/notebooks/learning/catalogue")).json();
   await dialog.getByRole("radio", { name: catalogue.items.find((c: { id: string }) => c.id === "cet6").title, exact: true }).check();
+  const created = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/notebooks");
   await dialog.getByRole("button", { name: "创建并进入", exact: true }).click();
   await expect(page.getByRole("heading", { name: "六级备考中心" })).toBeVisible();
-  const notebook = await page.getByRole("combobox", { name: "切换科目书本" }).inputValue();
+  const notebook = (await (await created).json()).id;
   await page.goto(`/?notebook=${notebook}&cet6=reading`);
   await expect(page.getByRole("region", { name: "今日阅读任务" })).toBeVisible();
   return { notebook, base: `/api/notebooks/${notebook}/reading` };
@@ -178,7 +179,7 @@ test("并发冲突与保存失败都保留当前草稿，可核对后恢复", as
 });
 
 
-test("阅读可返回课程章节；一页保存不删除另一页的新草稿", async ({ page, context }) => {
+test("阅读可返回六级中心；一页保存不删除另一页的新草稿", async ({ page, context }) => {
   const { base } = await register(page); const id = await openExample(page); const url = `${base}/${id}`;
   const other = await context.newPage(); await other.goto(page.url());
   await expect(other.locator(".reading-options")).toBeVisible();
@@ -200,7 +201,7 @@ test("阅读可返回课程章节；一页保存不删除另一页的新草稿",
   await expect(other.locator(".reading-options").getByRole("radio").nth(0)).toBeChecked();
   await other.close(); await page.unroute(`**${url}`);
   await page.getByRole("button", { name: "学习对话", exact: true }).click();
-  await page.locator(".course-source-path").getByRole("button", { name: "继续课程学习", exact: true }).click();
+  await page.getByRole("button", { name: "进入六级备考中心", exact: true }).click();
   await expect(page.getByRole("heading", { name: "六级备考中心" })).toBeVisible();
   await expect(page.locator(".reading-player")).toHaveCount(0);
   expect(new URL(page.url()).searchParams.has("reading")).toBe(false);

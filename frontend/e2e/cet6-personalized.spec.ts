@@ -36,7 +36,7 @@ test("可选目标、全量词汇、回忆记录与新对话恢复", async ({ pa
   await expect(page.locator(".cet6-today")).toContainText("阅读时能区分转折与因果");
   await page.reload(); await expect(page.locator(".cet6-today")).toContainText("10 分钟");
   await page.locator(".cet6-main-nav").getByRole("button", { name: "背单词", exact: true }).click();
-  await page.getByRole("button", { name: "全部词汇", exact: true }).click();
+  await page.getByRole("button", { name: "查词与全部词汇", exact: true }).click();
   await expect(page.getByRole("region", { name: "六级词汇学习" })).toContainText("8014 个结果");
   await page.getByRole("textbox", { name: "搜索单词或派生词" }).fill("evidence");
   await page.locator(".cet6-word-list button").filter({ has: page.locator("strong", { hasText: /^evidence$/ }) }).click();
@@ -156,35 +156,47 @@ test("阅读生词连同原句保存，返回原题并恢复同一学生记录",
   expect((await (await page.request.get(base + "/words?view=mine")).json()).total).toBe(1);
 });
 
-test("今日词卡先回忆，四档间隔与未完成恢复", async ({ page }) => {
+test("五个新词固定结束、暂停刷新恢复与到期复习分开", async ({ page }, info) => {
   const { base } = await register(page);
-  await page.locator(".cet6-main-nav").getByRole("button", { name: "背单词", exact: true }).click();
-  await page.locator(".cet6-word-list button").first().click();
-  await expect(page.getByLabel("我的回忆", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("本次义项")).toHaveCount(0);
-  await expect(page.locator(".cet6-feedback")).toHaveCount(0);
-  const word = new URL(page.url()).searchParams.get("cet6_word")!;
-  await page.locator(".cet6-main-nav").getByRole("button", { name: "今天", exact: true }).click();
-  await expect(page.locator(".cet6-today")).toContainText("接着完成上次的词卡");
-  await page.getByRole("button", { name: "开始 / 继续", exact: true }).click();
-  await page.getByLabel("我的回忆", { exact: true }).fill("自行回忆后对照释义");
-  await page.getByRole("button", { name: "核对答案", exact: true }).click();
-  await expect(page.locator(".cet6-ratings button")).toHaveCount(4);
-  const revealed = await (await page.request.get(`${base}/words/${word}`)).json();
-  const options = revealed.cards.find((c: { active: unknown }) => c.active).rating_options;
-  expect(Date.parse(options.easy)).toBeGreaterThan(Date.parse(options.good));
-  const [ratingSaved] = await Promise.all([
-    page.waitForResponse(response => response.url().endsWith(`${base}/words/${word}`)
-      && response.request().method() === "POST" && response.request().postDataJSON().action === "rate"),
-    page.getByRole("button", { name: /^正常想起/ }).click(),
-  ]);
-  expect(ratingSaved.ok()).toBe(true);
-  await expect.poll(() => new URL(page.url()).searchParams.get("cet6_word")).not.toBe(word);
-  await expect(page.getByLabel("我的回忆", { exact: true })).toBeVisible();
-  const rated = await (await page.request.get(`${base}/words/${word}`)).json();
-  expect(rated.cards.find((c: { last: unknown }) => c.last).tracks.meaning.scheduler).toContain("fsrs-6/");
-  await page.reload();
-  await expect(page.getByLabel("我的回忆", { exact: true })).toBeVisible();
+  await page.locator(".cet6-main-nav").getByRole("button",{name:"背单词",exact:true}).click();
+  await page.getByRole("button",{name:/开始 \/ 继续新词/}).click();
+  const region=page.getByRole("region",{name:"有限词卡练习"});
+  await expect(region).toContainText("0 / 5");
+  await expect(page.getByLabel("我的回忆",{exact:true})).toHaveCount(0);
+  const id=new URL(page.url()).searchParams.get("cet6_round")!;
+  const initial=await(await page.request.get(base+"/word-rounds/"+encodeURIComponent(id))).json();
+  for(let i=0;i<5;i++){
+    const word=page.locator(".word-flash-face h3");await expect(word).toBeVisible();
+    if(i===1){
+      const old=await word.innerText();await page.getByRole("button",{name:"暂停，返回背词"}).click();
+      await page.getByRole("button",{name:/开始 \/ 继续新词/}).click();
+      await expect.poll(()=>new URL(page.url()).searchParams.get("cet6_round")).toBe(id);
+      await page.reload();await expect(word).toHaveText(old);
+    }
+    await page.getByRole("button",{name:"翻面看释义",exact:true}).click();
+    await expect(page.locator(".word-rating-grid button")).toHaveCount(4);
+    if(i===0)await page.screenshot({path:info.outputPath("word-round-desktop.png"),fullPage:true});
+    await page.getByRole("button",{name:i===0?/忘记了/:/想起来了/}).click();
+    await expect(region).toContainText(`${i+1} / 5`);
+  }
+  await expect(page.getByRole("heading",{name:"这一轮完成了"})).toBeVisible();
+  await expect(page.locator(".word-flashcard")).toHaveCount(0);
+  const finished=await(await page.request.get(base+"/word-rounds/"+encodeURIComponent(id))).json();
+  expect(finished.items.map((v:{entry_id:string})=>v.entry_id)).toEqual(initial.items.map((v:{entry_id:string})=>v.entry_id));
+  expect(finished.finished).toBe(true);
+  expect((await(await page.request.get(base+"/word-plan")).json()).new_done).toBe(5);
+  await page.reload();await expect(page.getByRole("heading",{name:"这一轮完成了"})).toBeVisible();
+  await page.getByRole("button",{name:"完成，回到背词",exact:true}).click();
+  const reviewResponse=page.waitForResponse(r=>r.request().method()==="POST"&&new URL(r.url()).pathname===base+"/word-rounds");
+  await page.getByRole("button",{name:/开始 \/ 继续到期复习/}).click();
+  const nextRound=await(await reviewResponse).json();
+  if(nextRound.total){
+    await expect(page.getByRole("region",{name:"有限词卡练习"})).toContainText("本轮到期复习");
+    const reviewId=new URL(page.url()).searchParams.get("cet6_round")!;
+    const review=await(await page.request.get(base+"/word-rounds/"+encodeURIComponent(reviewId))).json();
+    expect(review.kind).toBe("review");expect(review.total).toBeLessThanOrEqual(20);
+  }else await expect(page.locator(".cet6-notice[role=status]")).toContainText("目前没有到期复习卡");
+  expect((await(await page.request.get(base+"/word-plan")).json()).new_done).toBe(5);
 });
 
 test("跨阶段草稿可恢复，提交期间不丢输入", async ({ page }) => {
@@ -226,37 +238,34 @@ test("跨阶段草稿可恢复，提交期间不丢输入", async ({ page }) => 
   expect(saved.revision_text).toBe("Students can organize a weekly reading group in their communities.");
 });
 
-test("每日固定新词目标、翻面精讲、连续下一张与手机布局", async ({ page }, info) => {
-  const { base } = await register(page);
-  await page.locator(".cet6-main-nav").getByRole("button", { name: "背单词", exact: true }).click();
-  const plan = page.getByRole("region", { name: "每日背词计划" });
-  await plan.getByRole("button", { name: "调整每日目标" }).click();
-  await plan.getByLabel("每日新词数", { exact: true }).fill("2");
-  await plan.getByRole("button", { name: "保存每日目标" }).click();
+test("小目标两张即停、可选精讲与手机词卡布局", async ({ page }, info) => {
+  const {base}=await register(page);
+  await page.locator(".cet6-main-nav").getByRole("button",{name:"背单词",exact:true}).click();
+  const plan=page.getByRole("region",{name:"每日背词计划"});
+  await plan.getByRole("button",{name:"调整每日目标"}).click();
+  await plan.getByLabel("每日新词数",{exact:true}).fill("2");
+  await plan.getByRole("button",{name:"保存每日目标"}).click();
   await expect(plan).toContainText("/ 2 个");
-  const ids = (await (await page.request.get(base + "/word-plan")).json()).new_ids;
-  await page.reload();
-  await expect(plan).toContainText("/ 2 个");
-  expect((await (await page.request.get(base + "/word-plan")).json()).new_ids).toEqual(ids);
-  await plan.getByRole("button", { name: "开始今日词卡" }).click();
-  await expect(page.getByLabel("我的回忆", { exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "单词精讲" })).toHaveCount(0);
-  await page.getByLabel("我的回忆", { exact: true }).fill("先按自己的理解回忆");
-  await page.getByRole("button", { name: "核对答案", exact: true }).click();
-  const lesson = page.getByRole("region", { name: "单词精讲" });
-  await expect(lesson).toContainText("常见搭配与用法");
-  await expect(lesson).toContainText("自编例句 · 非真题");
-  await expect(lesson).toContainText("容易混淆的地方");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: info.outputPath("cet6-word-lesson-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: /^正常想起/ }).click();
-  await expect.poll(() => new URL(page.url()).searchParams.get("cet6_word")).toBe(ids[1]);
-  await expect(page.getByLabel("我的回忆", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "返回词汇列表", exact: true }).click();
-  await expect(plan).toContainText("1 / 2 个");
-  expect((await (await page.request.get(base + "/word-plan")).json()).new_done).toBe(1);
-  await page.screenshot({ path: info.outputPath("cet6-daily-plan-mobile.png"), fullPage: true });
+  const ids=(await(await page.request.get(base+"/word-plan")).json()).new_ids;
+  await page.reload();expect((await(await page.request.get(base+"/word-plan")).json()).new_ids).toEqual(ids);
+  await plan.getByRole("button",{name:/开始 \/ 继续新词/}).click();
+  await expect(page.getByRole("region",{name:"有限词卡练习"})).toContainText("0 / 2");
+  await page.getByRole("button",{name:"翻面看释义",exact:true}).click();
+  await expect(page.getByRole("region",{name:"单词精讲"})).toHaveCount(0);
+  await page.getByRole("button",{name:/看用法与例句/}).click();
+  await expect(page.getByRole("region",{name:"单词精讲"})).toContainText("常见搭配与用法");
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:info.outputPath("cet6-word-lesson-mobile.png"),fullPage:true});
+  await page.getByRole("button",{name:/想起来了/}).click();
+  await expect(page.getByRole("region",{name:"有限词卡练习"})).toContainText("1 / 2");
+  await page.getByRole("button",{name:"翻面看释义",exact:true}).click();
+  await page.getByRole("button",{name:/想起来了/}).click();
+  await expect(page.getByRole("heading",{name:"这一轮完成了"})).toBeVisible();
+  await page.getByRole("button",{name:"完成，回到背词",exact:true}).click();
+  await expect(plan).toContainText("2 / 2 个");
+  await plan.getByRole("button",{name:/开始 \/ 继续新词/}).click();
+  await expect(page.locator(".cet6-notice[role=status]")).toContainText("今天的新词计划已完成");
 });
 
 test("官方样卷站内作答、草稿恢复、核对、订正与生词回链", async ({ page }, info) => {
