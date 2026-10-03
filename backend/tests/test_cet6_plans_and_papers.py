@@ -152,15 +152,23 @@ def test_generated_lesson_is_cached_and_invalid_output_does_not_poison_cache(lea
     assert client.get(url).json()["status"] == "missing"
     source = lessons.curated()["entries"][0]
     payload = {k: v for k, v in source.items() if k not in {"word", "sense_index", "exam_occurrences"}}
+    monkeypatch.setattr("app.services.course_learning_service.context_summary", lambda: {"goal": "PRIVATE_LEARNER_GOAL"})
+    async def invalid_review(prompt, **kwargs):
+        return '{}' if "TASK=english_word_lesson_review" in prompt else json.dumps(payload)
+    monkeypatch.setattr(lessons, "llm_complete", invalid_review)
+    assert client.post(url, json={}).status_code == 503
+    assert client.get(url).json()["status"] == "missing"
     async def fake(prompt, **kwargs):
         calls.append(prompt)
+        assert "PRIVATE_LEARNER_GOAL" not in prompt
         assert not kwargs["allow_mock_fallback"] and not kwargs["allow_model_fallback"]
-        return json.dumps(payload)
+        return json.dumps({**payload, "focus": "审校后保留的重点"} if "TASK=english_word_lesson_review" in prompt else payload)
     monkeypatch.setattr(lessons, "llm_complete", fake)
     assert client.post(url, json={}).json()["origin"] == "generated"
     assert client.get(url).json()["status"] == "ready"
+    assert client.get(url).json()["focus"] == "审校后保留的重点"
     assert "尚未人工校核" in client.get(url).json()["source_note"]
-    assert client.post(url, json={}).status_code == 200 and len(calls) == 1
+    assert client.post(url, json={}).status_code == 200 and len(calls) == 2
 
 
 def paper_action(client, url, state, action, **patch):

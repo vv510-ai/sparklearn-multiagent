@@ -20,7 +20,7 @@ from ..prompt_templates import invoke_learning_prompt
 from .english_learning import Check
 from . import cet6_learning as learning
 
-LESSON_VERSION = "word-lesson-v1"
+LESSON_VERSION = "word-lesson-v2"
 _locks: WeakValueDictionary = WeakValueDictionary()
 
 
@@ -106,11 +106,20 @@ async def generate(user, notebook, item, sense_id):
             raise HTTPException(503, "当前演示环境未连接词汇讲解服务。可先学习已整理词条，或稍后重试。")
         # No learner notes or conversation enter this globally shared cache.
         call = invoke_learning_prompt("english.word_lesson", word=entry["word"], definition=sense["definition"])
+        async def build_and_review():
+            async def complete(invocation):
+                raw = await llm_complete(invocation.prompt, system=invocation.system, json_object=True,
+                    max_tokens=2300, reasoning_mode="disabled", allow_mock_fallback=False,
+                    allow_model_fallback=False)
+                return Lesson.model_validate(parse_json(raw)).model_dump()
+
+            draft = await complete(call)
+            review = invoke_learning_prompt("english.word_lesson_review", word=entry["word"],
+                definition=sense["definition"], draft=json.dumps(draft, ensure_ascii=False))
+            return await complete(review)
+
         try:
-            raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, json_object=True,
-                max_tokens=2300, reasoning_mode="disabled", allow_mock_fallback=False,
-                allow_model_fallback=False), timeout=85)
-            lesson = Lesson.model_validate(parse_json(raw)).model_dump()
+            lesson = await asyncio.wait_for(build_and_review(), timeout=110)
             if any(not u.strip() or len(u) > 600 for u in lesson["usage"]):
                 raise ValueError("invalid usage")
         except asyncio.CancelledError:
@@ -118,7 +127,7 @@ async def generate(user, notebook, item, sense_id):
         except Exception:
             raise HTTPException(503, "这次精讲暂未生成完整，释义与复习记录仍保留，请重试。") from None
         result = {**lesson, "status": "ready", "origin": "generated", "version": LESSON_VERSION,
-            "source_note": "AI学习讲解，尚未人工校核；例句与练习为自编，助记不是真实词源。",
+            "source_note": "AI生成并自动复核的学习讲解，尚未人工校核；例句与练习为自编，助记不是真实词源。",
             "sources": [{"title": "ECDICT 社区词典", "url": entry["dictionary_url"],
                 "supports": "本次输入的词义记录；不证明生成讲解已经逐项核验。"}], "exam_occurrences": []}
         with session() as db:

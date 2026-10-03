@@ -626,7 +626,10 @@
       "evidence": [
         "docs/2026-10-03-cet6-word-plan-and-papers.md：功能范围、原卷逐题核验、词典补充义与未解决来源缺口。",
         ".tmp/acceptance/20261003T060431Z-local/backend.log：完整后端709项通过。",
-        ".tmp/acceptance/20261003T061246Z-local/report.json：前端构建与15条浏览器流程通过；手机和桌面截图已查看。"
+        ".tmp/acceptance/20261003T061246Z-local/report.json：前端构建与15条浏览器流程通过；手机和桌面截图已查看。",
+        ".tmp/acceptance/20261003T062818Z-live/report.json：2899b8d生产9条流程通过；官方PDF第176页已在有界面的Chrome中实看。",
+        ".tmp/acceptance/20261003T064514Z-word-prompt-review/lessons.json：按生成与审校两步抽查allocate、adapt，已逐句检查；不是全词库内容验收。",
+        ".tmp/acceptance/20261003T064529Z-local/report.json：词汇生成审校补强后完整后端709项通过。"
       ],
       "next_action": "本地回归通过；部署后以同提交生产验收与实际PDF、生成讲解核验为准。官方听力原音待核验，机构整卷未批量导入；不得标记为全部内容已解决。"
     },

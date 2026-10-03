@@ -140,6 +140,10 @@
       "file": "english/word-lesson.md",
       "description": "按选定义项生成可保存的词汇精讲与应用练习"
     },
+    "english.word_lesson_review": {
+      "file": "english/word-lesson-review.md",
+      "description": "保存词汇讲解前复核词性、语法说明、近义边界与单选题唯一性"
+    },
     "tutor.next_step": {
       "file": "tutor/next-step.md",
       "description": "依据本轮答案实时生成下一步问题"
