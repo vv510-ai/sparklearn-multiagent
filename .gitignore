@@ -25,3 +25,4 @@ runs/
 frontend/playwright-report/
 frontend/test-results/
 frontend/blob-report/
+frontend/public/vendor/pdf.worker.min.mjs

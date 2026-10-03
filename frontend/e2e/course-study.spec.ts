@@ -16,7 +16,11 @@ async function createCourse(page: Page, key: string) {
   await dialog.getByRole("radio", { name: title, exact: true }).check();
   await dialog.getByRole("button", { name: "创建并进入", exact: true }).click();
   await expect(dialog).not.toBeVisible();
-  if (key === 'cet6') await page.getByRole('button', { name: '备考参考', exact: true }).click();
+  if (key === 'cet6') {
+    await expect(page.getByRole('heading', { name: '六级备考中心' })).toBeVisible();
+    const notebook = await page.getByRole('combobox', { name: '切换科目书本' }).inputValue();
+    await page.goto(`/?notebook=${notebook}&cet6=references`);
+  }
   await expect(page.locator('.course-study-card h1')).toBeVisible();
   const id = await page.getByRole("combobox", { name: "切换科目书本" }).inputValue();
   const result = await (await page.request.get(`/api/notebooks/${id}/study`)).json();
@@ -56,7 +60,7 @@ test('五门课程直接进入章节，来源明确、右侧工具齐全、入�
       const unchanged = await (await page.request.get(`/api/notebooks/${course.id}/learning`)).json();
       expect(unchanged.course.kind).toBe('cet6');
       await page.locator('.course-source-path').getByRole('button', { name: '继续课程学习' }).click();
-      await page.getByRole('button', { name: '备考参考', exact: true }).click();
+      await page.goto(`/?notebook=${course.id}&cet6=references`);
       await page.getByText('本课更多教材与真题', { exact: true }).click();
       await expect(page.locator('.course-study-more details')).toHaveCount(33);
     }

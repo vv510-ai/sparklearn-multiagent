@@ -6,8 +6,30 @@ from ..services import cet6_learning as learning, cet6_vocabulary as vocabulary,
 from ..services import cet6_word_plan as word_plan
 from ..services import vocabulary_lessons
 from ..services import cet6_papers as papers
+from ..services import cet6_exams as exams
+from ..schemas.cet6 import ExamAction
 
 router = APIRouter(prefix="/api/notebooks/{notebook_id}/cet6", tags=["cet6"])
+
+
+@router.get("/exams")
+def exam_catalogue(notebook_id: str):
+    return exams.catalogue(require_current_user_id(), notebook_id)
+
+
+@router.get("/exams/{paper_id}/{kind}")
+def exam_detail(notebook_id: str, paper_id: str, kind: str):
+    return exams.detail(require_current_user_id(), notebook_id, paper_id, kind)
+
+
+@router.post("/exams/{paper_id}/{kind}")
+def exam_action(notebook_id: str, paper_id: str, kind: str, req: ExamAction):
+    return exams.act(require_current_user_id(), notebook_id, paper_id, kind, req)
+
+
+@router.post("/exams/{paper_id}/{kind}/review")
+async def exam_review(notebook_id: str, paper_id: str, kind: str):
+    return await exams.review(require_current_user_id(), notebook_id, paper_id, kind)
 
 
 @router.get("")

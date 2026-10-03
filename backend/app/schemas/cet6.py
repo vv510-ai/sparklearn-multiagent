@@ -75,6 +75,18 @@ class PaperAction(BaseModel):
     used_help: bool = False
 
 
+class ExamAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_id: str | None = Field(default=None, max_length=64, exclude=True)
+    request_id: UUID
+    revision: int = Field(ge=0)
+    version: str = Field(min_length=1, max_length=64)
+    action: Literal["save", "submit", "restart"]
+    answers: dict[str, str] = Field(default_factory=dict, max_length=30)
+    text: str = Field(default="", max_length=10000)
+    allow_incomplete: bool = False
+
+
 class PracticeAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
     user_id: str | None = Field(default=None, max_length=64, exclude=True)

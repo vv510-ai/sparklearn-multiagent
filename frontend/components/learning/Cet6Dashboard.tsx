@@ -9,17 +9,19 @@ import ReadingTraining from "./ReadingTraining";
 import Cet6Vocabulary from "./Cet6Vocabulary";
 import Cet6Practice from "./Cet6Practice";
 import Cet6Papers from "./Cet6Papers";
+import Cet6Exams from "./Cet6Exams";
+import type { ExamKind } from "@/lib/cet6-exams";
 import "./cet6-learning.css";
 
 const kinds: Cet6Kind[] = ["listening", "reading", "writing", "translation", "vocabulary"];
 const descriptions = { listening: "先听，再定位没听懂的地方", reading: "先做，再核对原文证据", writing: "保留初稿，自己修改一遍", translation: "先译，再检查信息与表达", vocabulary: "联系原句，分开练词义与拼写" };
-type View = "home" | "reading" | "practice" | "vocabulary" | "papers";
+type View = "home" | "reading" | "practice" | "vocabulary" | "papers" | "exams" | "examinfo";
 const initialRoute = (notebook: string) => {
   if (typeof window === "undefined") return { view: "home" as View, target: "" };
   const params = new URLSearchParams(window.location.search);
   if (params.get("notebook") !== notebook) return { view: "home" as View, target: "" };
   const view = params.get("reading") ? "reading" : params.get("cet6");
-  return { view: (["home", "reading", "practice", "vocabulary", "papers"].includes(view || "") ? view : "home") as View,
+  return { view: (["home", "reading", "practice", "vocabulary", "papers", "exams", "examinfo"].includes(view || "") ? view : "home") as View,
     target: params.get("cet6_word") || params.get("cet6_task") || params.get("cet6_paper") || params.get("reading") || "" };
 };
 
@@ -35,19 +37,19 @@ export default function Cet6Dashboard({ notebookId, userId, onChat, onFocus, onR
   useEffect(() => { alive.current = true; void apiGet<Cet6Overview>(`/notebooks/${notebookId}/cet6`).then(r => { if (alive.current) { setData(r); setError(""); } }).catch(e => { if (alive.current) setError(readingError(e)); }); return () => { alive.current = false; }; }, [notebookId, refresh]);
   useEffect(() => { onFocus(readingFocus); return () => onFocus(false); }, [readingFocus, onFocus]);
   const navigate = (next: View, id = "", review = false) => { setView(next); setTarget(id); setSettings(false); setReadingFocus(false); cet6Route(notebookId, next, id, review); setRefresh(n => n + 1); if (next === "reading") setReadingKey(n => n + 1); requestAnimationFrame(() => heading.current?.focus()); };
-  const choose = (kind: Cet6Kind, id = "") => { if (kind === "vocabulary" || kind === "reading") navigate(kind, id, kind === "vocabulary"); else { setPracticeKind(kind); navigate("practice", id); } };
+  const choose = (kind: Cet6Kind, id = "") => { if (kind === "vocabulary") navigate(kind, id, true); else { setPracticeKind(kind); navigate("exams"); } };
   return <div className="cet6-dashboard" aria-label="六级学习首页">
     <header className="cet6-header" hidden={readingFocus}><div><span className="cet6-eyebrow">大学英语六级 · CET-6</span><h1 ref={heading} tabIndex={-1}>六级备考中心</h1><p className="cet6-subtitle">原卷精练 · 词汇精学 · 个性化复习</p></div><button className="secondary-action" onClick={() => setSettings(v => !v)} aria-expanded={settings}><Settings2 size={15} />学习偏好</button></header>
-    {!readingFocus && <nav className="cet6-main-nav" aria-label="六级学习入口">{([["home", "今天"], ["practice", "专项练习"], ["vocabulary", "背单词"], ["papers", "真题与模拟"]] as const).map(([id, label]) => <button key={id} aria-current={view === id || (id === "practice" && view === "reading") ? "page" : undefined} onClick={() => { if (id === "practice") setPracticeKind("all"); navigate(id); }}>{label}</button>)}<button onClick={() => onReference()}>备考参考</button><button onClick={() => onChat("")}><MessageCircle size={14} />问小知</button></nav>}
+    {!readingFocus && <nav className="cet6-main-nav" aria-label="六级学习入口">{([["home", "今天"], ["exams", "真题练习"], ["vocabulary", "背单词"], ["examinfo", "考试与目标"]] as const).map(([id, label]) => <button key={id} aria-current={view === id ? "page" : undefined} onClick={() => { if (id === "exams") setPracticeKind("all"); navigate(id); }}>{label}</button>)}<button onClick={() => onChat("")}><MessageCircle size={14} />问小知</button></nav>}
     {error && <p role="alert" className="cet6-error">{error}<button onClick={() => setRefresh(n => n + 1)}>重试首页</button></p>}
     {settings && data && <Preferences key={`${notebookId}:${data.revision}`} notebookId={notebookId} initial={data} onSaved={() => { setSettings(false); setRefresh(n => n + 1); }} onCancel={() => setSettings(false)} />}
     {view === "home" && !settings && <>
       {!data ? <p role="status">正在整理你的学习安排…</p> : <>
-        <div className="cet6-entry-grid"><button onClick={() => navigate("vocabulary")}><BookOpen size={23} /><strong>背单词</strong><span>每天新学 {data.preferences.daily_new_words} 个 · 闪卡回忆与精讲</span><ArrowRight size={18} /></button><button onClick={() => navigate("papers")}><PenLine size={23} /><strong>练真题</strong><span>官方样卷站内打开 · 阅读答题与订正</span><ArrowRight size={18} /></button></div>
-        <section className="cet6-today" aria-label="今天的学习建议"><div className="cet6-today-meta"><span>今天先做一件事</span><span>你设置了 {data.preferences.daily_minutes} 分钟 / 天</span></div><h2>{data.recommendation.title}</h2><p>{data.recommendation.reason}</p><div className="cet6-actions"><button className="primary-action" onClick={() => choose(data.recommendation.kind, data.recommendation.id)}>开始 / 继续<ArrowRight size={17} /></button><button className="cet6-link-button" onClick={() => { setPracticeKind("all"); navigate("practice"); }}>我想自己选</button></div><p className="cet6-muted">{data.preferences.goal || "目标还未填写，也可以直接开始。"}{data.preferences.target_score !== null ? ` · 目标 ${data.preferences.target_score} 分` : ""}{data.preferences.exam_date ? ` · 考试日期 ${data.preferences.exam_date}` : ""}</p></section>
-        <div className="cet6-overview"><button onClick={() => navigate("vocabulary")}><strong>{data.stats.word_due}</strong><span>词卡到期 · 建议先用 {data.review_minutes} 分钟</span></button><button onClick={() => navigate("reading")}><strong>{data.stats.reading_due}</strong><span>阅读待复习</span></button><button onClick={() => navigate("vocabulary")}><strong>{data.stats.collected}</strong><span>已收藏的词汇义项</span></button></div>
+        <div className="cet6-entry-grid"><button onClick={() => navigate("vocabulary")}><BookOpen size={23} /><strong>背单词</strong><span>每天新学 {data.preferences.daily_new_words} 个 · 闪卡回忆与精讲</span><ArrowRight size={18} /></button><button onClick={() => { setPracticeKind("all"); navigate("exams"); }}><PenLine size={23} /><strong>练真题</strong><span>先选板块与套卷 · 提交后查看逐题解析</span><ArrowRight size={18} /></button></div>
+        <section className="cet6-today" aria-label="今天的学习建议"><div className="cet6-today-meta"><span>今天先做一件事</span><span>你设置了 {data.preferences.daily_minutes} 分钟 / 天</span></div><h2>{data.recommendation.kind === "vocabulary" ? data.recommendation.title : `选择一套${cet6Labels[data.recommendation.kind]}真题`}</h2><p>{data.recommendation.kind === "vocabulary" ? data.recommendation.reason : "先独立作答，再对照原卷理解答案。时间不够可以暂停，已保存的作答能够继续。"}</p><div className="cet6-actions"><button className="primary-action" onClick={() => choose(data.recommendation.kind, data.recommendation.id)}>开始 / 继续<ArrowRight size={17} /></button><button className="cet6-link-button" onClick={() => { setPracticeKind("all"); navigate("exams"); }}>我想自己选</button></div><p className="cet6-muted">{data.preferences.goal || "目标还未填写，也可以直接开始。"}{data.preferences.target_score !== null ? ` · 目标 ${data.preferences.target_score} 分` : ""}{data.preferences.exam_date ? ` · 考试日期 ${data.preferences.exam_date}` : ""}</p></section>
+        <div className="cet6-overview"><button onClick={() => navigate("vocabulary")}><strong>{data.stats.word_due}</strong><span>词卡到期 · 建议先用 {data.review_minutes} 分钟</span></button><button onClick={() => navigate("vocabulary")}><strong>{data.stats.collected}</strong><span>已收藏的词汇义项</span></button></div>
         <h2 className="cet6-small-title">今天更想练什么？</h2><div className="cet6-skill-grid">{kinds.map((kind, i) => { const Icon = [Headphones, BookOpen, PenLine, Type, BookOpen][i]; return <button key={kind} onClick={() => choose(kind)}><Icon size={21} /><strong>{cet6Labels[kind]}</strong><span>{descriptions[kind]}</span><ArrowRight size={16} /></button>; })}</div>
-        {data.preferences.mode === "exam" && <p className="cet6-muted">考前练习可在专项中选择计时；官方样卷请从“真题与模拟”进入，具体可练范围在材料卡中说明。</p>}
+        {data.preferences.mode === "exam" && <p className="cet6-muted">每个真题板块标注原卷参考用时。练习结果只描述这次作答，不预测考试分数。</p>}
         {!!data.recent.length && <details className="cet6-source"><summary>最近的学习记录</summary>{data.recent.map((r, i) => <p key={i}>{cet6Labels[r.kind]} · {readingDate(r.at)} · {r.independent ? "自述独立作答" : "借助提示"}{r.ratio !== undefined ? ` · 本次正确率 ${Math.round(r.ratio * 100)}%` : ""}</p>)}<p>这里只描述这些练习，不预测考试分数；写作和翻译的自查不计为掌握度。</p></details>}
         <p className="cet6-footnote">新对话开启新话题，目标、生词与练习记录仍保留在本课程。学习偏好随时可改。</p>
       </>}
@@ -56,6 +58,8 @@ export default function Cet6Dashboard({ notebookId, userId, onChat, onFocus, onR
     {view === "vocabulary" && <Cet6Vocabulary key={`${notebookId}:${target}`} notebookId={notebookId} initialWord={target} onChat={onChat} onChanged={() => setRefresh(n => n + 1)} />}
     {view === "practice" && (target ? <Cet6Practice key={`${notebookId}:${target}`} notebookId={notebookId} userId={userId} taskId={target} onChat={onChat} onExit={() => navigate("practice")} /> : <PracticePicker notebookId={notebookId} kind={practiceKind} onKind={setPracticeKind} onReading={() => navigate("reading")} onOpen={id => navigate("practice", id)} />)}
     {view === "papers" && <Cet6Papers key={`${notebookId}:${target}`} notebookId={notebookId} initialPaper={target} />}
+    {view === "exams" && <Cet6Exams key={`${notebookId}:${practiceKind}`} notebookId={notebookId} userId={userId} onFocus={setReadingFocus} initialKind={practiceKind !== "all" && practiceKind !== "vocabulary" ? practiceKind as ExamKind : undefined} />}
+    {view === "examinfo" && <section className="cet6-source" aria-label="六级考试与目标"><h2>考试与目标</h2><h3>报考资格</h3><p>通常须符合在校生等报名条件，且大学英语四级成绩达到 425 分。具体报名范围、名额与时间以所在学校当次通知为准。</p><h3>成绩与高分要求</h3><p>六级报道分数满分 710，听力与阅读各 249，写作与翻译合计 212。报道分数经过转换，本站练习正确率不能直接换算成六级分数。</p><p>提高表现需要听懂关键信息与关系、用原文证据判断阅读选项，并在写作翻译中完整、准确、连贯地表达。</p><h3>结合你的情况</h3><p>{data?.preferences.goal || "尚未填写具体目标，可直接开始真题练习。"}</p><p>{data?.preferences.listening_score != null && data?.preferences.reading_score != null ? `你填写的听力为 ${data.preferences.listening_score}，阅读为 ${data.preferences.reading_score}。可以先检查${data.preferences.listening_score < data.preferences.reading_score ? "听力" : "阅读"}中最常出现的错误，再通过未做过的真题复测。` : "没有分项成绩时，先分别完成一份听力和阅读，结合实际错题决定练习重点。"}</p><button className="secondary-action" onClick={() => setSettings(true)}>填写或调整我的目标</button><p><a href="https://cet.neea.edu.cn/html1/folder/16113/1588-1.htm" target="_blank" rel="noreferrer">官方考试大纲 ↗</a> · <a href="https://www.neea.edu.cn/html1/folder/19081/5124-1.htm" target="_blank" rel="noreferrer">官方分数解释 ↗</a></p></section>}
   </div>;
 }
 

@@ -201,7 +201,7 @@ def main(argv=None):
     p.add_argument("--python", default=os.environ.get("PLAYWRIGHT_PYTHON", sys.executable))
     p.add_argument("--node", default=shutil.which("node") or "node")
     p.add_argument("--markdown", action="store_true", help="status: refresh the readable ledger from JSON")
-    p.add_argument("--suite", choices=["feedback", "trusted-course", "english-scenes", "english-generation", "materials", "course-study", "reading-training", "cet6-personalized"], default="feedback")
+    p.add_argument("--suite", choices=["feedback", "trusted-course", "english-scenes", "english-generation", "materials", "course-study", "reading-training", "cet6-personalized", "cet6-exams"], default="feedback")
     p.add_argument("--scope", choices=["all", "backend", "ui"], default="all")
     p.add_argument("--backend-port", type=int, default=18480)
     p.add_argument("--frontend-port", type=int, default=13480)
@@ -251,9 +251,10 @@ def main(argv=None):
             if args.scope in {"all", "ui"}:
                 env.update(PLAYWRIGHT_BACKEND_PORT=str(args.backend_port),
                            PLAYWRIGHT_FRONTEND_PORT=str(args.frontend_port), PLAYWRIGHT_PRODUCTION="true")
+                step("pdf-worker", [args.node, "scripts/copy-pdf-worker.mjs"], ROOT / "frontend")
                 step("build", [args.node, "node_modules/next/dist/bin/next", "build", "--webpack"], ROOT / "frontend")
                 step("browser", [args.node, cli, "test", "--config", "frontend/playwright.config.ts",
-                     *["frontend/e2e/" + name + ".spec.ts" for name in (["study-materials"] if args.suite == "materials" else ["course-study"] if args.suite == "course-study" else ["cet6-personalized", "reading-training", "course-study"] if args.suite == "cet6-personalized" else ["reading-training", "course-study"] if args.suite == "reading-training" else UI_SPECS)], "--reporter=list,json"])
+                     *["frontend/e2e/" + name + ".spec.ts" for name in (["study-materials"] if args.suite == "materials" else ["course-study"] if args.suite == "course-study" else ["cet6-exams", "cet6-personalized", "reading-training", "course-study"] if args.suite == "cet6-exams" else ["cet6-personalized", "reading-training", "course-study"] if args.suite == "cet6-personalized" else ["reading-training", "course-study"] if args.suite == "reading-training" else UI_SPECS)], "--reporter=list,json"])
                 report["browser"] = validate_browser_report(out / "playwright.json")
         else:
             env.update(PLAYWRIGHT_BASE_URL=args.base_url, PLAYWRIGHT_REAL_MODE="1",
@@ -263,7 +264,7 @@ def main(argv=None):
                 report["release_lock"] = {"expected_commit": args.expected_commit, "ttl_seconds": args.lease_seconds}
                 print("[LOCKED] auto-deploy is excluded during this acceptance window", flush=True)
                 step("live-browser", [args.node, cli, "test", "--config", "frontend/playwright.config.ts",
-                     "frontend/e2e/" + {"cet6-personalized": "cet6-personalized.spec.ts", "reading-training": "reading-training.spec.ts", "course-study": "course-study.spec.ts", "materials": "study-materials.spec.ts", "trusted-course": "trusted-course-library.spec.ts", "english-scenes": "english-scenes.spec.ts", "english-generation": "english-generation-live.spec.ts", "feedback": "feedback-live.spec.ts"}[args.suite], "--reporter=list,json"], lease=lease)
+                     "frontend/e2e/" + {"cet6-exams": "cet6-exams.spec.ts", "cet6-personalized": "cet6-personalized.spec.ts", "reading-training": "reading-training.spec.ts", "course-study": "course-study.spec.ts", "materials": "study-materials.spec.ts", "trusted-course": "trusted-course-library.spec.ts", "english-scenes": "english-scenes.spec.ts", "english-generation": "english-generation-live.spec.ts", "feedback": "feedback-live.spec.ts"}[args.suite], "--reporter=list,json"], lease=lease)
                 lease.check()
                 report["browser"] = validate_browser_report(out / "playwright.json")
         report["passed"] = True

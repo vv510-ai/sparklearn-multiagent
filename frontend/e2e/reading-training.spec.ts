@@ -18,9 +18,10 @@ async function register(page: Page) {
   const catalogue = await (await page.request.get("/api/notebooks/learning/catalogue")).json();
   await dialog.getByRole("radio", { name: catalogue.items.find((c: { id: string }) => c.id === "cet6").title, exact: true }).check();
   await dialog.getByRole("button", { name: "创建并进入", exact: true }).click();
-  await page.locator(".cet6-skill-grid").getByRole("button", { name: /阅读/ }).click();
-  await expect(page.getByRole("region", { name: "今日阅读任务" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "六级备考中心" })).toBeVisible();
   const notebook = await page.getByRole("combobox", { name: "切换科目书本" }).inputValue();
+  await page.goto(`/?notebook=${notebook}&cet6=reading`);
+  await expect(page.getByRole("region", { name: "今日阅读任务" })).toBeVisible();
   return { notebook, base: `/api/notebooks/${notebook}/reading` };
 }
 

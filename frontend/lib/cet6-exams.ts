@@ -1,0 +1,13 @@
+export type ExamKind = "listening" | "reading" | "writing" | "translation";
+export const examLabels: Record<ExamKind, string> = { listening: "听力", reading: "阅读", writing: "写作", translation: "翻译" };
+export type ExamSummary = { id: string; title: string; year: number; month: number; set: number; ready: boolean; source_url: string;
+  counts?: Record<ExamKind, number>; progress?: Record<ExamKind, null | { phase: string; answered: number }> };
+export type ExamQuestion = { number: number; page: number; evidence_page?: number; group: string; choices: string[]; answer?: string; explanation?: string; location?: string; tip?: string; option_reasons?: Record<string, string> };
+export type ExamReview = { status: "pending" | "running" | "ready" | "failed" | "unavailable"; started_at?: string; model?: string; note?: string; message?: string;
+  content?: { summary: string; strengths: string[]; priorities: string[]; dimensions: { name: string; comment: string }[]; suggestions: { quote: string; replacement: string; reason: string }[] } };
+export type ExamSession = { version: string; revision: number; phase: "answer" | "feedback"; answers: Record<string, string>; text: string; history_count: number;
+  first?: { answers: Record<string, string>; text: string; submission_id: string; submitted_at: string; correct?: number; answered?: number; total?: number }; review?: ExamReview;
+  material: { id: string; title: string; paper_title: string; kind: ExamKind; version: string; questions: ExamQuestion[]; pages: number[]; minutes: number; source_url: string; source_note: string; pdf_url: string; pdf_sha256: string; checked_on: string; audio_url?: string; audio_note?: string; crosscheck_url?: string; dimensions?: string[] } };
+export type ExamDraft = { answers: Record<string, string>; text: string };
+export type ExamRequest = ExamDraft & { request_id: string; revision: number; version: string; action: "save" | "submit" | "restart"; allow_incomplete: boolean };
+export const draftEquals = (a: ExamDraft, b: ExamDraft) => a.text === b.text && JSON.stringify(Object.entries(a.answers).sort()) === JSON.stringify(Object.entries(b.answers).sort());

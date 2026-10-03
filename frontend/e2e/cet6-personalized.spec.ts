@@ -69,7 +69,7 @@ test("可选目标、全量词汇、回忆记录与新对话恢复", async ({ pa
 
 test("写作与翻译保留初稿、刷新恢复、修改后独立复习", async ({ page }, info) => {
   const { notebook, base } = await register(page);
-  await page.locator(".cet6-skill-grid").getByRole("button", { name: /翻译/ }).click();
+  await page.goto(`/?notebook=${notebook}&cet6=practice&cet6_kind=translation`);
   await page.getByRole("button", { name: /先保留信息，再调整表达/ }).click();
   await expect(page.getByRole("button", { name: "提交我的作答", exact: true })).toBeDisabled();
   await page.getByLabel("我的初稿").fill("Many public libraries have extended their opening hours.");
@@ -105,8 +105,8 @@ test("写作与翻译保留初稿、刷新恢复、修改后独立复习", async
 
 test("听力先播放后提交，文本按需展开，手机无横向溢出", async ({ page }, info) => {
   test.setTimeout(180000);
-  const { base } = await register(page);
-  await page.locator(".cet6-skill-grid").getByRole("button", { name: /听力/ }).click();
+  const { notebook, base } = await register(page);
+  await page.goto(`/?notebook=${notebook}&cet6=practice&cet6_kind=listening`);
   await page.getByRole("button", { name: /听出方案调整的原因/ }).click();
   const audio = page.getByLabel("听力短练音频");
   await expect.poll(() => audio.evaluate((a: HTMLAudioElement) => a.readyState)).toBeGreaterThanOrEqual(1);
@@ -131,7 +131,7 @@ test("听力先播放后提交，文本按需展开，手机无横向溢出", as
 
 test("阅读生词连同原句保存，返回原题并恢复同一学生记录", async ({ page }) => {
   const { notebook, base } = await register(page);
-  await page.locator(".cet6-skill-grid").getByRole("button", { name: /阅读/ }).click();
+  await page.goto(`/?notebook=${notebook}&cet6=reading`);
   await page.getByRole("button", { name: "开始阅读体验", exact: true }).click();
   await page.getByRole("button", { name: "第 2 题", exact: true }).click();
   await page.getByText("保存题中生词", { exact: true }).click();
@@ -258,7 +258,7 @@ test("每日固定新词目标、翻面精讲、连续下一张与手机布局",
 
 test("官方样卷站内作答、草稿恢复、核对、订正与生词回链", async ({ page }, info) => {
   const { notebook, base } = await register(page);
-  await page.locator(".cet6-main-nav").getByRole("button", { name: "真题与模拟", exact: true }).click();
+  await page.goto(`/?notebook=${notebook}&cet6=papers`);
   await page.getByRole("button", { name: "打开原卷并作答" }).click();
   const workspace = page.getByRole("region", { name: "官方样卷训练" });
   await expect(workspace).toContainText("官方听力音频待核验");

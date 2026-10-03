@@ -80,6 +80,7 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "dialog": "user: 我想学",
         "events": "（无）",
         "answer": "示例回答",
+        "kind": "翻译", "rubric": "核对信息与表达", "dimensions": "信息、句法、术语、自然度",
     }
     prompt_root = Path(__file__).resolve().parents[1] / "app" / "prompts"
     system_text = (prompt_root / "system.md").read_text(encoding="utf-8").strip()
