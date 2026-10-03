@@ -144,22 +144,44 @@ def test_model_feedback_is_cached_and_cites_actual_learner_text(learner,monkeypa
     assert reviewed["review"]["status"]=="ready"
     assert reviewed["first"]==first["first"]
     assert calls[0][1]["allow_mock_fallback"] is False
+    assert calls[0][1]["max_tokens"] == 10000
     assert client.post(path+"/review").json()["review"]["status"]=="ready" and len(calls)==1
 
 
-@pytest.mark.parametrize("failure",["invented_quote","provider_error","wrong_rubric"])
+@pytest.mark.parametrize("failure",["invented_quote","provider_error","wrong_rubric","truncated","timeout"])
 def test_invalid_model_output_never_becomes_feedback_and_original_is_retained(learner,monkeypatch,failure):
     client,_,_,path,first=submitted_translation(learner)
     monkeypatch.setattr(exams,"is_demo",lambda:False)
     async def complete(*args,**kwargs):
         if failure=="provider_error":raise RuntimeError("synthetic provider failure")
+        if failure=="truncated":raise exams.ModelFailure("truncated")
+        if failure=="timeout":raise TimeoutError()
         value=model_reply("A sentence absent from the original." if failure=="invented_quote" else "Technology improve medical care.")
         if failure=="wrong_rubric":value["dimensions"][0]["name"]="unrelated"
         return json.dumps(value)
     monkeypatch.setattr(exams,"llm_complete",complete)
     response=client.post(path+"/review").json()
     assert response["review"]["status"]=="failed" and "content" not in response["review"]
+    if failure in {"truncated","timeout"}:
+        assert response["review"]["reason_code"]==failure
     assert client.get(path).json()["first"]==first["first"]
+
+
+def test_truncated_feedback_can_retry_without_replacing_the_first_answer(learner,monkeypatch):
+    client,_,_,path,first=submitted_translation(learner)
+    monkeypatch.setattr(exams,"is_demo",lambda:False)
+    calls=[]
+    async def complete(*args,**kwargs):
+        calls.append(1)
+        if len(calls)==1:raise exams.ModelFailure("truncated")
+        return json.dumps(model_reply())
+    monkeypatch.setattr(exams,"llm_complete",complete)
+    failed=client.post(path+"/review").json()
+    assert failed["review"]["reason_code"]=="truncated"
+    retried=client.post(path+"/review").json()
+    assert retried["review"]["status"]=="ready"
+    assert retried["first"]==first["first"]
+    assert retried["history_count"]==0
 
 
 def test_late_model_result_cannot_attach_to_restarted_attempt(learner,monkeypatch):

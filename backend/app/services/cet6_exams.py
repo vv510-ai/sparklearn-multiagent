@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from ..config import get_settings, is_demo
 from ..data.cet6_exam_pilot import pilot, VERSION, REPOSITORY, COMMIT, SYLLABUS
 from ..llm.spark_client import llm_complete, parse_json
+from ..llm.failures import ModelFailure, failure_code
 from ..models.db import session
 from ..models.entities import Cet6PaperAttempt
 from ..prompt_templates import invoke_learning_prompt
@@ -197,8 +198,9 @@ async def review(user, notebook, paper_id, kind):
         route = resolve(call.prompt)
         settings = get_settings()
         model = route.get("model") if route else (settings.deepseek_model if settings.llm_provider=="deepseek" else settings.llm_provider)
+        # DeepSeek's thinking and final JSON share the completion allowance.
         raw = await asyncio.wait_for(llm_complete(call.prompt,system=call.system,temperature=.2,json_mode=True,
-            max_tokens=6000,allow_model_fallback=False,allow_mock_fallback=False),timeout=100)
+            max_tokens=10000,allow_model_fallback=False,allow_mock_fallback=False),timeout=120)
         checked = Review.model_validate(parse_json(raw))
         normalize = lambda value: " ".join(value.split())
         if any(normalize(s.quote) not in normalize(learner_text) for s in checked.suggestions):
@@ -208,8 +210,11 @@ async def review(user, notebook, paper_id, kind):
         result = {"status":"ready","model":model,"content":checked.model_dump(),"rubric_source":SYLLABUS,
             "generated_at":learning.now().isoformat(),"note":"AI 练习反馈，非官方评分；建议逐项对照原题与原稿。"}
     except (Exception, asyncio.CancelledError) as exc:
-        logging.getLogger(__name__).warning("CET6 review rejected (%s)", type(exc).__name__)
-        result = {"status":"failed","message":"本次分析未通过检查或服务暂不可用。原稿已保存，可以重试分析。"}
+        code = failure_code(exc) if isinstance(exc,(ModelFailure,TimeoutError)) else "feedback_validation" if isinstance(exc,ValueError) else "generation_failed"
+        logging.getLogger(__name__).warning("CET6 review rejected (%s, %s)", type(exc).__name__,code)
+        reason = {"truncated":"本次反馈未完整生成。","timeout":"本次分析等待超时。",
+            "feedback_validation":"本次分析未通过原稿或格式检查。"}.get(code,"批改服务暂不可用。")
+        result = {"status":"failed","reason_code":code,"message":reason+"原稿已保存，可以重试分析。"}
     with session() as db:
         row = _find(db,user,notebook,paper_id,kind)
         # A new attempt, submission, or a timed-out claim supersedes this one.

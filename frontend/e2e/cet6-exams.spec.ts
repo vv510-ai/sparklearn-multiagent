@@ -128,11 +128,13 @@ for (const kind of ["writing","translation"] as const) test(`${kind} 原稿恢�
   const saved=await(await page.request.get(base+"/"+kind)).json();
   expect(saved.first.text).toBe(text);
   if(process.env.PLAYWRIGHT_REAL_MODE==="1"){
+    await info.attach(`${kind}-review`,{body:JSON.stringify(saved.review,null,2),contentType:"application/json"});
     expect(saved.review.status).toBe("ready");
     expect(saved.review.model).toBeTruthy();
     for(const correction of saved.review.content.suggestions)expect(text).toContain(correction.quote);
-    await info.attach(`${kind}-review`,{body:JSON.stringify(saved.review,null,2),contentType:"application/json"});
+    await expect(page.getByRole("region",{name:"原稿分析"})).toContainText(saved.review.content.summary);
   }else expect(saved.review.status).toBe("unavailable");
+  await page.getByRole("region",{name:"原稿分析"}).scrollIntoViewIfNeeded();
   await page.screenshot({path:info.outputPath(`${kind}-feedback.png`),fullPage:true});
 });
 
