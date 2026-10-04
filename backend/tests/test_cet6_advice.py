@@ -30,6 +30,7 @@ def model(monkeypatch, prefs, transform=None):
     async def complete(prompt, **kwargs):
         calls.append((prompt, kwargs))
         text = advice.basic_text(prefs)
+        text.pop("followup_keys")  # Optional questions are now derived from saved inputs.
         text["summary"] = "根据你填写的情况，先围绕自己的学习目标安排短练，再保留首次答案与卡点。可以从阅读证据、听力理解和表达修改逐步检查，不必一开始给能力定级。"
         if transform:
             transform(text)
@@ -105,13 +106,12 @@ def test_report_revisions_keep_previous_and_ignore_word_quota(learner, monkeypat
     assert updated["input"]["daily_minutes"] == 90
 
 
-@pytest.mark.parametrize("bad", ["link", "unknown_reference", "known_question", "wrong_time", "promise", "made_up_target", "missing_section", "extra_daily", "wrong_listening", "old_answers", "invented_self_report", "wrong_translation"])
+@pytest.mark.parametrize("bad", ["link", "unknown_reference", "wrong_time", "promise", "made_up_target", "missing_section", "extra_daily", "wrong_listening", "old_answers", "invented_self_report", "wrong_translation"])
 def test_reject_untrusted_or_inconsistent_model_output_with_recovery(learner, monkeypatch, bad):
     client, _, _, base, saved = setup(learner, preparation="regular", reading_completion="unfinished")
     def corrupt(text):
         if bad == "link": text["summary"] += " 访问 https://not-a-course.invalid/ 获取练习。"
         if bad == "unknown_reference": text["summary"] += " 参见[ref:invented]。"
-        if bad == "known_question": text["followup_keys"] = ["preparation"]
         if bad == "wrong_time": text["summary"] += " 每天学习90分钟。"
         if bad == "promise": text["summary"] += " 保证通过考试。"
         if bad == "made_up_target": text["summary"] += " 目标设为450分。"
@@ -141,17 +141,19 @@ def test_correct_listening_exclusion_is_not_rejected(learner, monkeypatch):
     assert client.get(base + "/advice").json()["status"] == "ready"
 
 
-def test_model_cannot_replace_the_program_schedule(learner, monkeypatch):
-    client, _, _, base, saved = setup(learner, daily_minutes=20)
+def test_model_cannot_replace_program_schedule_or_ask_known_questions(learner, monkeypatch):
+    client, _, _, base, saved = setup(learner, daily_minutes=20, preparation="regular", reading_completion="finished")
     def conflicting_schedule(text):
         text["week_note"] = "每天再额外做一篇作文，并增加90分钟训练。"
         text["stages"] = [{"title": "八到十周冲刺", "text": "考试日期未填，也要按这个固定周期准备。"}]
+        text["followup_keys"] = ["preparation", "你做阅读时能完成多少？"]
     model(monkeypatch, saved["preferences"], conflicting_schedule)
     client.post(base + "/advice", json={"profile_revision": 1})
     report = client.get(base + "/advice").json()
     assert report["status"] == "ready"
     assert report["content"]["week_note"] == advice.schedule_text(saved["preferences"])["week_note"]
     assert report["content"]["stages"] == advice.schedule_text(saved["preferences"])["stages"]
+    assert report["content"]["followup_keys"] == []
     assert all(day["minutes"] == 20 for day in report["week"])
 
 
@@ -204,15 +206,19 @@ def test_method_does_not_replace_rotating_schedule(learner, monkeypatch):
     assert client.get(base + "/advice").json()["status"] == "failed"
 
 
-@pytest.mark.parametrize("reference_style", ["label", "id"])
+@pytest.mark.parametrize("reference_style", ["label", "id", "url"])
 def test_bare_citations_and_missing_progress_note_are_completed(learner, monkeypatch, reference_style):
     client, _, _, base, saved = setup(learner)
+    def reference(label, key):
+        if reference_style == "url":
+            return f"[{label}]({next(source['url'] for source in advice.REFERENCES if source['id'] == key)})"
+        return f"[{label}]" if reference_style == "label" else f"[ref:{key}]"
     def partial(text):
         text["score_analysis"] = text["score_analysis"].replace("[官方分数解释](ref:scores)",
-            "[官方分数解释]" if reference_style == "label" else "[ref:scores]")
+            reference("官方分数解释", "scores"))
         text["sections"][0]["body"] = "先独立完成阅读，记录不确定的地方；核对时回到原文找到依据。" * 4
-        text["sections"][0]["body"] += "[六级笔试结构]" if reference_style == "label" else "[ref:structure]"
-        text["sections"][4]["body"] += "[回忆练习研究]" if reference_style == "label" else "[ref:retrieval]"
+        text["sections"][0]["body"] += reference("六级笔试结构", "structure")
+        text["sections"][4]["body"] += reference("回忆练习研究", "retrieval")
     model(monkeypatch, saved["preferences"], partial)
     client.post(base + "/advice", json={"profile_revision": 1})
     report = client.get(base + "/advice").json()
@@ -223,6 +229,28 @@ def test_bare_citations_and_missing_progress_note_are_completed(learner, monkeyp
     assert "请用未做过的材料" in report["content"]["sections"][0]["body"]
 
 
+def test_failure_diagnostics_do_not_include_generated_text():
+    with pytest.raises(advice.ValidationError) as caught:
+        advice.AdviceText.model_validate({"priority_kind": "private-generated-text"})
+    reason = advice.failure_reason(caught.value)
+    assert "literal_error" in reason and "private-generated-text" not in reason
+    assert advice.failure_reason(ValueError("private-generated-text")) == "ValueError"
+
+
+def test_double_escaped_paragraphs_are_kept_as_paragraphs(learner, monkeypatch):
+    client, _, _, base, saved = setup(learner)
+    def double_escape(text):
+        text["score_analysis"] += r"\n\n" + "先用未做过的材料留下练习样本，再观察具体卡点。"
+        text["sections"][0]["body"] += r"\r\n\r\n" + "核对时比较自己的判断和原文依据，记录具体错因。"
+    model(monkeypatch, saved["preferences"], double_escape)
+    client.post(base + "/advice", json={"profile_revision": 1})
+    report = client.get(base + "/advice").json()
+    assert report["status"] == "ready"
+    assert "\n\n先用未做过" in report["content"]["score_analysis"]
+    assert "\n\n核对时比较" in report["content"]["sections"][0]["body"]
+    assert r"\n" not in report["content"]["score_analysis"]
+
+
 def test_running_claim_expiry_and_late_result_cannot_replace_new_report(learner, monkeypatch):
     client, user, book, base, saved = setup(learner)
     monkeypatch.setattr(advice, "is_demo", lambda: False)
@@ -231,7 +259,7 @@ def test_running_claim_expiry_and_late_result_cannot_replace_new_report(learner,
     assert duplicate["status"] == "running" and no_claim is None
     with session() as db:
         row = db.get(Cet6Advice, book)
-        row.data = {**row.data, "started_at": (learning.now() - dt.timedelta(seconds=181)).isoformat()}
+        row.data = {**row.data, "started_at": (learning.now() - dt.timedelta(seconds=advice.CLAIM_TTL + 1)).isoformat()}
         db.commit()
     assert client.get(base + "/advice").json()["status"] == "failed"
     _, replacement = advice.request(user, book, 1)

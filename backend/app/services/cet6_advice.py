@@ -11,6 +11,7 @@ import re
 from uuid import uuid4
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -24,9 +25,23 @@ from ..tenant import current_user_context
 from . import cet6_learning as learning
 from .learning_scope import course_scope
 
-VERSION = "cet6-advice-v3-20261005"
-TIMEOUT = 120
-CLAIM_TTL = 180
+VERSION = "cet6-advice-v3-20261005b"
+TIMEOUT = 180
+CLAIM_TTL = 240
+
+
+class AdviceValidationError(ValueError):
+    """A fixed reason that can be logged without exposing learner/model text."""
+
+
+def failure_reason(exc: BaseException) -> str:
+    if isinstance(exc, AdviceValidationError):
+        return str(exc)
+    if isinstance(exc, ValidationError):
+        return "schema: " + ", ".join(sorted({e["type"] for e in exc.errors(include_input=False)}))
+    return type(exc).__name__
+
+
 LABELS = learning.LABELS
 REFERENCES = [
     {"id": "scores", "title": "中国教育考试网 · 分数解释", "url": "https://www.neea.edu.cn/html1/folder/19081/5124-1.htm",
@@ -286,14 +301,18 @@ def request(user: str, notebook: str, profile_revision: int) -> tuple[dict, str 
 def validate_text(raw: str, prefs: dict) -> dict:
     payload = parse_json(raw)
     if not isinstance(payload, dict):
-        raise ValueError("Advice must be an object")
+        raise AdviceValidationError("Advice must be an object")
     # The model cannot rewrite the budget or invent an exam timeline.
-    checked = AdviceText.model_validate({**payload, **schedule_text(prefs)}).model_dump()
-    if set(checked["followup_keys"]) - set(facts(prefs)["unknown_fields"]):
-        raise ValueError("Repeated known intake question")
-    # Resolve only the supplied citation labels, including reference-style labels
-    # without a destination. The model never supplies an external URL.
+    checked = AdviceText.model_validate({**payload, **schedule_text(prefs),
+        "followup_keys": facts(prefs)["unknown_fields"]}).model_dump()
+    # Persist canonical markers for supplied labels or exact trusted URLs.
+    # Unknown destinations remain subject to the checks below.
     def citation_links(text: str) -> str:
+        # Some JSON answers double-escape paragraph separators.
+        text = text.replace("\\r\\n", "\n").replace("\\n", "\n")
+        for source in REFERENCES:
+            text = re.sub(r"\]\(\s*" + re.escape(source["url"]) + r"\s*\)",
+                f"](ref:{source['id']})", text)
         for label, key in (("官方分数解释", "scores"), ("六级笔试结构", "structure"), ("回忆练习研究", "retrieval")):
             text = text.replace(f"[ref:{key}]", f"[{label}](ref:{key})")
             text = re.sub(r"\[" + label + r"\](?!\()", f"[{label}](ref:{key})", text)
@@ -317,41 +336,41 @@ def validate_text(raw: str, prefs: dict) -> dict:
     if breakdown:
         keys = ("listening", "reading", "writing_translation")
         if prefs.get("target_score") is None or any(prefs.get(k + "_score") is None for k in keys):
-            raise ValueError("Target breakdown needs a selected target and all section scores")
+            raise AdviceValidationError("Target breakdown needs a selected target and all section scores")
         if sum(breakdown[k] for k in keys) != prefs["target_score"]:
-            raise ValueError("Target breakdown does not add up to the selected target")
+            raise AdviceValidationError("Target breakdown does not add up to the selected target")
         if prefs.get("total_score") is not None and prefs["target_score"] <= prefs["total_score"]:
-            raise ValueError("An already reached target does not need an increase breakdown")
+            raise AdviceValidationError("An already reached target does not need an increase breakdown")
     familiar_words = re.search(r"认识.{0,8}(?:词|单词)|词.{0,8}(?:认识|眼熟|都懂)|单词.{0,5}(?:懂|会)", prefs.get("goal", ""))
     if not familiar_words and re.search(r"你(?:自述|提到|表示|说).{0,8}(?:认识单词|词都认识)", model_prose):
-        raise ValueError("Invented learner statement about vocabulary")
+        raise AdviceValidationError("Invented learner statement about vocabulary")
     if prefs["daily_minutes"] < 45 and re.search(r"每天.{0,50}(?:还要额外|另加)", model_prose):
-        raise ValueError("Methods add work outside the short daily budget")
+        raise AdviceValidationError("Methods add work outside the short daily budget")
     for section in checked["sections"]:
         # Referring to the saved budget is different from assigning this subject
         # every day. Keep the former, reject a competing recurring task.
         method = re.sub(r"(?:每天|每日)(?:可用|只有|有|能投入|可投入|可用时间是|可用时间为)?\s*"
                         + str(prefs["daily_minutes"]) + r"\s*分钟", "", section["body"])
         if re.search(r"每天|每日|每周", method):
-            raise ValueError("Methods must follow the shared schedule, not add recurring assignments")
+            raise AdviceValidationError("Methods must follow the shared schedule, not add recurring assignments")
     listening = next(s for s in checked["sections"] if s["kind"] == "listening")
     listening_prose = json.dumps(listening, ensure_ascii=False)
     # A correct exclusion (e.g. 不混入四级短篇新闻) is not a recommendation.
     listening_claims = re.sub(r"(?:不要|不应|不能|不)(?:混入|包括|包含|涉及|考|练|选择|使用)(?:四级的?)?(?:短篇新闻|短对话|新闻)", "", listening_prose)
     if re.search(r"短对话|短篇新闻|新闻", listening_claims):
-        raise ValueError("Unsupported CET6 listening type")
+        raise AdviceValidationError("Unsupported CET6 listening type")
     translation = next(s for s in checked["sections"] if s["kind"] == "translation")
     if re.search(r"中文自然|汉语自然|译成(?:中文|汉语)|英译汉", json.dumps(translation, ensure_ascii=False)):
-        raise ValueError("CET6 translation must be Chinese to English")
+        raise AdviceValidationError("CET6 translation must be Chinese to English")
     if re.search(r"(?:旧题|记住.{0,4}答案).{0,15}(?:就说明|就代表|足以证明).{0,10}(?:能力|进步)", reading["body"]):
-        raise ValueError("Remembered answers cannot demonstrate independent progress")
+        raise AdviceValidationError("Remembered answers cannot demonstrate independent progress")
     if re.search(r"https?://|www\.|<[^>]+>|!\[|javascript:|data:", prose):
-        raise ValueError("Unverified URL, image or HTML")
+        raise AdviceValidationError("Unverified URL, image or HTML")
     allowed_refs = {r["id"] for r in REFERENCES}
     if any(key not in allowed_refs for key in re.findall(r"ref:([a-zA-Z0-9_-]+)", model_prose)):
-        raise ValueError("Unknown reference marker")
+        raise AdviceValidationError("Unknown reference marker")
     if any(url not in {f"ref:{key}" for key in allowed_refs} for url in re.findall(r"\]\(([^)]+)\)", model_prose)):
-        raise ValueError("Unknown reference")
+        raise AdviceValidationError("Unknown reference")
     return checked
 
 
@@ -366,23 +385,23 @@ def validate_claims(text: str, prefs: dict) -> None:
         for label, key in labels.items():
             for match in re.finditer(re.escape(label) + r"(?:成绩|得分)?(?:是|为|[:：])?\s*(\d{2,3})(?!\d|\s*(?:分钟|%|％|题|天|次))", sentence):
                 if "满分" not in sentence and not hypothetical and int(match[1]) != prefs.get(key):
-                    raise ValueError("Reported score differs from saved input")
+                    raise AdviceValidationError("Reported score differs from saved input")
         for match in re.finditer(r"(?:目标(?:分数)?(?:设为|定为|放在|为|是)?|争取|冲刺)\s*(\d{3})\s*分?", sentence):
             if not hypothetical and int(match[1]) != prefs.get("target_score"):
-                raise ValueError("Invented score target")
+                raise AdviceValidationError("Invented score target")
         for match in re.finditer(r"每天(?:可用|学习|安排|用|投入|有|能投入)?(?:时间(?:是|为)?)?\s*(\d+)\s*分钟", sentence):
             if not hypothetical and int(match[1]) != prefs["daily_minutes"]:
-                raise ValueError("Daily time differs from saved input")
+                raise AdviceValidationError("Daily time differs from saved input")
         if re.search(r"(?:保证|必定|确保)(?:能|可以|会)?(?:通过|过级|提分|达到\d)", sentence) and not re.search(r"不(?:能|会|可)?(?:保证|确保)|无法保证", sentence):
-            raise ValueError("Unsupported score promise")
+            raise AdviceValidationError("Unsupported score promise")
         if re.search(r"425\s*分?(?:的)?及格线|及格线(?:为|是)\s*425", sentence) and not re.search(r"不是|并非|没有|不设", sentence):
-            raise ValueError("CET has no official pass line")
+            raise AdviceValidationError("CET has no official pass line")
         if re.search(r"(?:你的问题|问题本质|根本原因).{0,10}(?:就是|是|在于)词汇量(?:不够|不足)", sentence) and not re.search(r"不能|无法|不应|未能", sentence):
-            raise ValueError("A score cannot diagnose vocabulary size")
+            raise AdviceValidationError("A score cannot diagnose vocabulary size")
         if re.search(r"(?:同等|相同).{0,6}(?:分差|报道分).{0,40}影响更大", sentence) and not re.search(r"不能|不应|并非|不是", sentence):
-            raise ValueError("Reported-score points must not be weighted twice")
+            raise AdviceValidationError("Reported-score points must not be weighted twice")
     if re.search(r"满分.{0,20}248\.5|(?:写译|写作和翻译|写作与翻译).{0,8}满分.{0,3}213", clean):
-        raise ValueError("Incorrect reported-score maximum")
+        raise AdviceValidationError("Incorrect reported-score maximum")
 
 
 async def generate(user: str, notebook: str, claim: str) -> None:
@@ -411,7 +430,7 @@ async def generate(user: str, notebook: str, claim: str) -> None:
                 content = validate_text(raw, prefs)
             data.update(status="ready", content=content, model=model, generated_at=learning.now().isoformat(), prompt_skill=call.metadata())
         except (Exception, asyncio.CancelledError) as exc:
-            logging.getLogger(__name__).warning("CET6 onboarding advice failed (%s)", type(exc).__name__)
+            logging.getLogger(__name__).warning("CET6 onboarding advice failed (%s)", failure_reason(exc))
             data.update(status="failed", message="AI 建议暂未生成成功。你的信息已保存，可先使用下面的基础安排，或重试生成。")
         with session() as db:
             row = _find(db, user, notebook)

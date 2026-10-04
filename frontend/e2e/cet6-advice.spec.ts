@@ -34,14 +34,15 @@ async function completed(page: Page, base: string): Promise<Cet6AdviceData> {
   let state: Cet6AdviceData;
   await expect.poll(async () => {
     state = await (await page.request.get(base + "/advice")).json();
-    return state.status;
-  }, { timeout: 155000, intervals: [1000, 2000, 3000] }).toBe(live ? "ready" : "unavailable");
+    return ["ready", "failed", "unavailable"].includes(state.status) ? "finished" : "pending";
+  }, { timeout: 215000, intervals: [1000, 2000, 3000] }).toBe("finished");
+  expect(state!.status).toBe(live ? "ready" : "unavailable");
   await expect(page.locator(".advice-summary")).toBeVisible({ timeout: 10000 });
   return state!;
 }
 
 test("首次填写即获得完整建议，刷新恢复并进入实际练习", async ({ page }, info) => {
-  test.setTimeout(260000);
+  test.setTimeout(330000);
   await page.setViewportSize({ width: 1440, height: 1000 });
   const errors: string[] = []; page.on("pageerror", e => errors.push(e.message));
   const { book, base } = await register(page);
