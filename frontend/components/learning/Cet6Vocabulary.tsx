@@ -9,16 +9,6 @@ import WordLesson from "./WordLesson";
 import WordRound, { type RecallRound } from "./WordRound";
 import WordPronunciation from "./WordPronunciation";
 
-export function speakEnglish(text: string, onError: (message: string) => void, onEnd?: () => void) {
-  if (!("speechSynthesis" in window)) { onError("当前浏览器不支持朗读，请使用有音频的资料或换支持朗读的浏览器。"); return false; }
-  const voice = window.speechSynthesis.getVoices().find(v => /^en(-|_)/i.test(v.lang));
-  if (!voice) { onError("当前设备尚未提供英语语音。请安装英语语音或使用资料中心的原站音频。"); return false; }
-  window.speechSynthesis.cancel();
-  const speech = new SpeechSynthesisUtterance(text); speech.lang = voice.lang; speech.voice = voice; speech.rate = .9;
-  speech.onerror = e => { if (e.error !== "canceled" && e.error !== "interrupted") onError("这次朗读未成功，请重试或使用原站音频。"); onEnd?.(); };
-  speech.onend = () => onEnd?.(); window.speechSynthesis.speak(speech); return true;
-}
-
 export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChanged, onFocus }: {
   notebookId: string; onChat: (prompt: string) => void; initialWord?: string; onChanged: () => void; onFocus: (active: boolean) => void;
 }) {
@@ -137,7 +127,7 @@ function VocabularyWord({ notebookId, wordId, review, onExit, onChat, onNext }: 
       }
       if (current) { setData(r); setSenseId(r.cards.find(c => c.active)?.sense_id || r.cards.filter(c => c.last).sort((a, b) => b.last!.submitted_at.localeCompare(a.last!.submitted_at))[0]?.sense_id || r.preferred_sense_id || r.entry.senses[0]?.id || ""); setError(""); }
     })().catch(e => { if (current) setError(readingError(e)); }).finally(() => { if (current) setBusy(false); });
-    return () => { current = false; alive.current = false; window.speechSynthesis?.cancel(); };
+    return () => { current = false; alive.current = false; };
   }, [url, loadCount, review]);
   const card = data?.cards.find(c => c.sense_id === senseId), sense = data?.entry.senses.find(s => s.id === senseId), active = card?.active;
   const action = async (kind: string, rating?: string) => {
@@ -154,7 +144,7 @@ function VocabularyWord({ notebookId, wordId, review, onExit, onChat, onNext }: 
     {!data ? <p role="status">{error || "正在恢复词卡…"}</p> : <>
       <p className="cet6-eyebrow">{data.entry.level === "cet6" ? "六级标记词" : "基础词汇"} · {active ? active.used_help ? "看过参考后的练习" : "先独立回忆" : "词义与拼写分别练习"}</p>
       <h2 lang="en">{active?.mode === "spelling" && !active.revealed ? "根据词义回忆拼写" : data.entry.word}</h2>
-      {(!active || active.revealed || active.mode === "meaning") && <><p className="cet6-pronunciation">{data.entry.phonetic && <span>/{data.entry.phonetic}/</span>}</p><WordPronunciation word={data.entry.word} /></>}
+      {(!active || active.revealed || active.mode === "meaning") && <><p className="cet6-pronunciation">{data.entry.phonetic && <span>/{data.entry.phonetic}/</span>}</p><WordPronunciation word={data.entry.word} entryId={data.entry.id} /></>}
       {!active && <><label className="cet6-field">本次义项<select value={senseId} disabled={busy} onChange={e => { setSenseId(e.target.value); setAnswer(""); }}>{data.entry.senses.map((s, i) => <option key={s.id} value={s.id}>义项 {i + 1} · {s.definition}</option>)}</select></label>{!sense && <p>这个词的释义尚待补充，请先查看来源原页。</p>}
         <div className="cet6-actions"><button className="secondary-action" disabled={busy || !sense} onClick={() => void action("collect")}>{card?.collected ? "已收藏" : "加入我的生词"}</button><button className="secondary-action" disabled={!sense} onClick={ask}>讲清楚一点</button></div>
         <p className="cet6-muted">当前页已展示参考，从这里练习会按借助提示记录。独立复习请从“今日词卡”打开。</p><div className="cet6-recall-start"><label className="cet6-field">这次练什么<select value={mode} onChange={e => setMode(e.target.value as typeof mode)}><option value="meaning">看词回忆词义（自己核对）</option><option value="spelling">看释义回忆拼写</option></select></label><button className="primary-action" disabled={busy || !sense} onClick={() => { setAnswer(""); setHelp(false); void action("start"); }}>开始回忆</button></div>

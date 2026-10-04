@@ -122,7 +122,7 @@ test("学生手机五词一轮：翻面、真实触屏滑动、刷新续学并�
     if (i === 0) {
       await page.getByLabel("发音口音", { exact: true }).selectOption("en-GB");
       await page.getByText("发音来源与声音", { exact: true }).click();
-      await expect(page.locator(".word-pronunciation")).toContainText("设备合成语音");
+      await expect(page.locator(".word-pronunciation")).toContainText("本站合成音频");
       await expect(page.locator(".word-pronunciation a")).toHaveAttribute("href", /dictionary.cambridge.org/);
     }
     await page.getByRole("button", { name: "翻面看释义", exact: true }).click();

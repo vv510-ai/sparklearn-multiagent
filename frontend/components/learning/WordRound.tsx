@@ -53,7 +53,7 @@ function RecallCard({ notebookId, item, onAdvance }: { notebookId: string; item:
       } else if (card.active.mode !== item.mode) throw new Error("这个词的另一种回忆尚未结束，请先完成已开启的词卡。");
       if (current) setData(next);
     })().catch(e => { if (current) setError(readingError(e)); }).finally(() => { if (current) setBusy(false); });
-    return () => { current = false; alive.current = false; window.speechSynthesis?.cancel(); };
+    return () => { current = false; alive.current = false; };
   }, [url, item.sense_id, item.mode, item.attempts, retry]); // eslint-disable-line react-hooks/exhaustive-deps
   const card = data?.cards.find(c => c.sense_id === item.sense_id), active = card?.active, sense = data?.entry.senses.find(s => s.id === item.sense_id);
   const act = async (action: "reveal" | "rate", rating?: string) => {
@@ -73,7 +73,7 @@ function RecallCard({ notebookId, item, onAdvance }: { notebookId: string; item:
   return <>
     <div className="word-flashcard" tabIndex={0} role="group" aria-label="单词闪卡" data-revealed={!!active?.revealed} aria-busy={busy}
       onKeyDown={e => { if (e.target !== e.currentTarget || busy) return; if ([" ", "Enter"].includes(e.key) && active && !active.revealed) { e.preventDefault(); void act("reveal"); } if (active?.revealed && ["ArrowLeft", "ArrowRight"].includes(e.key)) { e.preventDefault(); rate(e.key === "ArrowLeft" ? "again" : "good"); } }}
-      onPointerDown={e => { if ((e.target as HTMLElement).closest("button,input,select,a,summary") || !active?.revealed || busy) return; pointer.current = { x: e.clientX, y: e.clientY }; }}
+      onPointerDown={e => { if ((e.target as HTMLElement).closest("button,input,select,a,summary,audio") || !active?.revealed || busy) return; pointer.current = { x: e.clientX, y: e.clientY }; }}
       onPointerMove={e => { if (pointer.current && Math.abs(e.clientY - pointer.current.y) < 50) setSwipe(Math.max(-80, Math.min(80, e.clientX - pointer.current.x))); }}
       onPointerCancel={() => { pointer.current = null; setSwipe(0); }}
       onPointerUp={e => { const p = pointer.current; pointer.current = null; setSwipe(0); if (!p || busy || Math.abs(e.clientY - p.y) > 60) return; if (e.clientX - p.x > 65) rate("good"); else if (e.clientX - p.x < -65) rate("again"); }}>
@@ -81,7 +81,7 @@ function RecallCard({ notebookId, item, onAdvance }: { notebookId: string; item:
         <div className="word-flash-face" style={{ transform: `translateX(${swipe}px)` }}>
           <p className="word-card-prompt">{item.mode === "meaning" ? active?.revealed ? "对照释义，回想翻面前的表现" : "先在心里想一想：这个词是什么意思？" : "根据词义，写出英文单词"}</p>
           <h3 lang={item.mode === "spelling" && !active?.revealed ? "zh-CN" : "en"}>{item.mode === "spelling" && !active?.revealed ? sense?.definition : data.entry.word}</h3>
-          {(item.mode === "meaning" || active?.revealed) && <>{data.entry.phonetic && <p className="word-card-phonetic">/{data.entry.phonetic}/</p>}<WordPronunciation word={data.entry.word} /></>}
+          {(item.mode === "meaning" || active?.revealed) && <>{data.entry.phonetic && <p className="word-card-phonetic">/{data.entry.phonetic}/</p>}<WordPronunciation word={data.entry.word} entryId={data.entry.id} /></>}
           {active?.revealed && <div className="word-card-definition"><p>{sense?.definition}</p><small>{sense?.source_label || "ECDICT 社区词典释义"} · <a href={sense?.source_url || data.entry.dictionary_url} target="_blank" rel="noreferrer">核对来源 ↗</a></small>{item.mode === "spelling" && <p>你的拼写：{active.answer || "未填写"} · {active.correct ? "拼写一致" : "还需要再练"}</p>}</div>}
         </div>
         {active?.used_help && <p className="cet6-muted">{active.help_reason || "本次借助了提示，按重新学习安排。"}</p>}

@@ -6,3 +6,4 @@
 *.yaml text eol=lf
 frontend/e2e/fixtures/*.pdf binary
 frontend/e2e/fixtures/*.docx binary
+frontend/public/word-audio/**/*.mp3 binary
