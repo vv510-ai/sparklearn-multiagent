@@ -24,7 +24,7 @@ from ..tenant import current_user_context
 from . import cet6_learning as learning
 from .learning_scope import course_scope
 
-VERSION = "cet6-advice-v2-20261004"
+VERSION = "cet6-advice-v3-20261004"
 TIMEOUT = 120
 CLAIM_TTL = 180
 LABELS = learning.LABELS
@@ -33,6 +33,8 @@ REFERENCES = [
      "checked_on": "2026-10-04", "supports": "报道分采用常模转换，不设及格线；听力与阅读各 249，写作翻译合计 212。分项常模位置只作历史参照，不代表当前考生排名。"},
     {"id": "structure", "title": "中国教育考试网 · 六级笔试结构", "url": "https://cet.neea.edu.cn/html1/report/16123/201-1.htm",
      "checked_on": "2026-10-04", "supports": "听力和阅读各占 35%，写作与翻译各占 15%；阅读参考用时 40 分钟，听力、写作、翻译各 30 分钟。"},
+    {"id": "retrieval", "title": "Karpicke 与 Roediger（2008）· 回忆练习研究", "url": "https://profiles.wustl.edu/en/publications/the-critical-importance-of-retrieval-for-learning/",
+     "checked_on": "2026-10-04", "supports": "外语词汇实验中，学会后继续进行回忆测试有助于延迟记忆。支持先回忆再核对的学习建议，不能据此预测六级提分或断定某人的词汇量。"},
 ]
 # Official CET6 historical norm table. Use enclosing ranges, never invented interpolation.
 NORMS = {
@@ -58,6 +60,15 @@ METHODS = {
 def snapshot(prefs: dict) -> dict:
     # Vocabulary quota has a separate save flow; changing it must not invalidate advice.
     return {k: v for k, v in prefs.items() if k != "daily_new_words"}
+
+
+def learner_context(prefs: dict) -> dict:
+    """Translate internal choices before the model writes student-facing prose."""
+    return {**prefs,
+            "mode": {"balanced": "均衡备考", "foundation": "巩固基础", "exam": "考前冲刺"}[prefs["mode"]],
+            "focus": [LABELS[k] for k in prefs["focus"]],
+            "preparation": {"unknown": "尚未填写", "none": "上次未专门准备", "irregular": "上次零散准备", "regular": "上次有规律准备"}[prefs["preparation"]],
+            "reading_completion": {"unknown": "尚未填写", "finished": "上次阅读已做完", "unfinished": "上次阅读未做完", "not_taken": "尚未参加过考试"}[prefs["reading_completion"]]}
 
 
 def fingerprint(prefs: dict) -> str:
@@ -96,11 +107,28 @@ def initial_priority(prefs: dict) -> str:
 def basic_text(prefs: dict) -> dict:
     priority = initial_priority(prefs)
     return {"summary": "先从你选择的重点和每天能投入的时间开始。下面提供可立即使用的基础安排；具体卡点还需要通过独立作答和核对来了解。",
+            "score_analysis": basic_score_analysis(prefs),
             "priority_kind": priority, "rationale": "优先参考你勾选的内容；有多个分项时结合历史常模参照选择起点。信息不足时先尝试一项短练。",
             "uncertainty": "目前还不能确定主要困难来自词句理解、时间分配还是答题判断。保留首次作答和卡点，再逐步调整安排。",
-            "sections": [{"kind": k, "title": v[0], "analysis": v[1], "steps": list(v[2]), "check": v[3]} for k, v in METHODS.items()],
+            "sections": [{"kind": k, "title": v[0], "body": v[1] + "\n\n" + "\n".join(f"{i}. {step}" for i, step in enumerate(v[2], 1)) + "\n\n**怎样检查**：" + v[3]} for k, v in METHODS.items()],
+            "target_breakdown": None,
+            "plan_explanation": f"你填写的每天可用时间是 {prefs['daily_minutes']} 分钟。先在这个预算内完成练习与核对，未完成的材料可在后续分配的时段内继续；完整模拟需要另外留出完整时段。",
+            "closing": "先完成一个能核对的小步骤，再观察相同问题是否还会出现。成绩单帮助你安排起点，后续独立练习留下的证据，才是继续调整重点的依据。",
             **schedule_text(prefs),
             "followup_keys": facts(prefs)["unknown_fields"]}
+
+
+def basic_score_analysis(prefs: dict) -> str:
+    labels = {"total_score": "总分", "listening_score": "听力", "reading_score": "阅读", "writing_translation_score": "写作与翻译合计"}
+    entered = "，".join(f"{label}{prefs[key]}分" for key, label in labels.items() if prefs.get(key) is not None)
+    text = f"你填写的历史成绩是：{entered}。" if entered else "你尚未填写历史成绩，可以先了解题型并从一小段独立练习开始。"
+    text += "听力和阅读的报道分满分各为249，写作与翻译合计为212；这些分数经过常模转换，不能当作答题正确率。[官方分数解释](ref:scores)"
+    gap = facts(prefs)["score_gap"]
+    if gap is not None:
+        text += f"\n\n你填写的目标是{prefs['target_score']}分，与历史总分相差{abs(gap)}分。目标用于讨论复习方向，不是对下一次成绩的预测。"
+    else:
+        text += "\n\n暂不替你补设目标或分项短板。先留下自己的作答和具体卡点，再判断应该把更多时间放在哪里。"
+    return text
 
 
 def schedule_text(prefs: dict) -> dict:
@@ -125,8 +153,19 @@ def schedule_text(prefs: dict) -> dict:
 
 
 def generation_facts(prefs: dict, available: list[dict]) -> dict:
+    # The model may change the starting priority. Explain the budget without
+    # precommitting its prose to a different subject-by-day timetable.
+    slots = week_plan(prefs, initial_priority(prefs))[0]["tasks"]
+    roles = ["当天主项练习", "核对与修改"] if len(slots) == 2 else ["当天主项练习", "另一项短练", "词卡与原句回忆", "核对与复盘"]
     return {**facts(prefs), "available_actions": available,
             "schedule": schedule_text(prefs),
+            "budget_slots": [{"role": role, "minutes": slot["minutes"]} for role, slot in zip(roles, slots)],
+            "starting_priority": initial_priority(prefs),
+            "exam_structure": {"listening": {"weight_percent": 35, "max_reported_score": 249, "exam_minutes": 30},
+                "reading": {"weight_percent": 35, "max_reported_score": 249, "exam_minutes": 40,
+                            "parts": {"仔细阅读": 20, "长篇匹配": 10, "选词填空": 5}},
+                "writing": {"weight_percent": 15, "exam_minutes": 30},
+                "translation": {"weight_percent": 15, "exam_minutes": 30}, "writing_translation_max": 212},
             "schedule_style": "按天轮换一个主项与复盘" if prefs["daily_minutes"] < 45 else "按时段组合主项、短练、词卡与复盘",
             "cet6_listening_types": ["长对话", "听力篇章", "讲话/报道/讲座"],
             "translation_direction": "汉译英：把中文原文译成英文，译文应保持原意并符合英语表达。",
@@ -191,6 +230,7 @@ def _public(user: str, notebook: str, data: dict, current: dict) -> dict:
     if value.get("status") == "running" and not _running(value):
         value.update(status="failed", message="上次生成未完成，已填信息保留。可以重试生成建议。")
     return {**value, "status": value.get("status", "empty"), "input": prefs,
+            "stale_reason": "profile" if snapshot(prefs) != snapshot(current["preferences"]) else "report_update",
             "profile_revision": current["revision"], "stale": bool(value.get("input_hash") and value["input_hash"] != fingerprint(current["preferences"])),
             "facts": facts(prefs), "content": text, "week": week_plan(prefs, text["priority_kind"]),
             "actions": actions(user, notebook, text["priority_kind"]), "sources": REFERENCES}
@@ -252,15 +292,48 @@ def validate_text(raw: str, prefs: dict) -> dict:
     checked = AdviceText.model_validate({**payload, **schedule_text(prefs)}).model_dump()
     if set(checked["followup_keys"]) - set(facts(prefs)["unknown_fields"]):
         raise ValueError("Repeated known intake question")
+    # Resolve only the supplied citation labels, including reference-style labels
+    # without a destination. The model never supplies an external URL.
+    def citation_links(text: str) -> str:
+        for label, key in (("官方分数解释", "scores"), ("六级笔试结构", "structure"), ("回忆练习研究", "retrieval")):
+            text = re.sub(r"\[" + label + r"\](?!\()", f"[{label}](ref:{key})", text)
+        return text
+    for field in ("summary", "score_analysis", "rationale", "uncertainty", "plan_explanation", "closing"):
+        checked[field] = citation_links(checked[field])
+    for section in checked["sections"]:
+        section["body"] = citation_links(section["body"])
+    if checked["target_breakdown"]:
+        checked["target_breakdown"]["reason"] = citation_links(checked["target_breakdown"]["reason"])
+    reading = next(s for s in checked["sections"] if s["kind"] == "reading")
+    if not re.search(r"(?:未|没)做过|未见过|新(?:的)?(?:题|材料|文章)|陌生(?:材料|文章)", reading["body"]):
+        reading["body"] += "\n\n**进步检查**：旧题用于复习；请用未做过的材料检查能否独立找到依据，不把记住旧题答案当作能力提高。"
     prose = json.dumps(checked, ensure_ascii=False)
-    model_prose = json.dumps({k: v for k, v in checked.items() if k not in {"week_note", "stages"}}, ensure_ascii=False)
-    if re.search(r"\d", model_prose):
-        raise ValueError("Numeric advice belongs to the verified interface")
+    model_prose = "\n".join([checked["summary"], checked["score_analysis"], checked["rationale"], checked["uncertainty"],
+                            checked["plan_explanation"], checked["closing"],
+                            *(s["title"] + "\n" + s["body"] for s in checked["sections"]),
+                            (checked["target_breakdown"] or {}).get("reason", "")])
+    validate_claims(model_prose, prefs)
+    breakdown = checked["target_breakdown"]
+    if breakdown:
+        keys = ("listening", "reading", "writing_translation")
+        if prefs.get("target_score") is None or any(prefs.get(k + "_score") is None for k in keys):
+            raise ValueError("Target breakdown needs a selected target and all section scores")
+        if sum(breakdown[k] for k in keys) != prefs["target_score"]:
+            raise ValueError("Target breakdown does not add up to the selected target")
+        if prefs.get("total_score") is not None and prefs["target_score"] <= prefs["total_score"]:
+            raise ValueError("An already reached target does not need an increase breakdown")
     familiar_words = re.search(r"认识.{0,8}(?:词|单词)|词.{0,8}(?:认识|眼熟|都懂)|单词.{0,5}(?:懂|会)", prefs.get("goal", ""))
     if not familiar_words and re.search(r"你(?:自述|提到|表示|说).{0,8}(?:认识单词|词都认识)", model_prose):
         raise ValueError("Invented learner statement about vocabulary")
-    if any(re.search(r"每天|每日|每周", json.dumps(s, ensure_ascii=False)) for s in checked["sections"]):
-        raise ValueError("Methods must not add a competing schedule")
+    if prefs["daily_minutes"] < 45 and re.search(r"每天.{0,50}(?:还要额外|另加)", model_prose):
+        raise ValueError("Methods add work outside the short daily budget")
+    for section in checked["sections"]:
+        # Referring to the saved budget is different from assigning this subject
+        # every day. Keep the former, reject a competing recurring task.
+        method = re.sub(r"(?:每天|每日)(?:可用|只有|有|能投入|可投入|可用时间是|可用时间为)?\s*"
+                        + str(prefs["daily_minutes"]) + r"\s*分钟", "", section["body"])
+        if re.search(r"每天|每日|每周", method):
+            raise ValueError("Methods must follow the shared schedule, not add recurring assignments")
     listening = next(s for s in checked["sections"] if s["kind"] == "listening")
     listening_prose = json.dumps(listening, ensure_ascii=False)
     # A correct exclusion (e.g. 不混入四级短篇新闻) is not a recommendation.
@@ -270,20 +343,44 @@ def validate_text(raw: str, prefs: dict) -> dict:
     translation = next(s for s in checked["sections"] if s["kind"] == "translation")
     if re.search(r"中文自然|汉语自然|译成(?:中文|汉语)|英译汉", json.dumps(translation, ensure_ascii=False)):
         raise ValueError("CET6 translation must be Chinese to English")
-    reading = next(s for s in checked["sections"] if s["kind"] == "reading")
-    if not re.search(r"未做过|新(?:的)?(?:题|材料|文章)|陌生(?:材料|文章)", reading["check"]):
-        raise ValueError("Reading progress needs unfamiliar material")
-    if re.search(r"https?://|www\.|<[^>]+>|\]\(", prose):
-        raise ValueError("Unverified URL or markup")
-    for minutes in re.findall(r"每天(?:学习|安排|用|投入)?\s*(\d+)\s*分钟", prose):
-        if int(minutes) != prefs["daily_minutes"]:
-            raise ValueError("Daily time differs from saved input")
-    if re.search(r"(?:保证|一定|必定|确保)(?:能|可以|会)?(?:通过|过级|提分|达到\d)|及格线(?:为|是)?\s*425", prose):
-        raise ValueError("Unsupported score promise")
-    for target in re.findall(r"(?:目标(?:分数)?(?:设为|定为|放在|为|是)?|争取|冲刺)\s*(\d{3})\s*分?", prose):
-        if prefs.get("target_score") is None or int(target) != prefs["target_score"]:
-            raise ValueError("Invented score target")
+    if re.search(r"(?:旧题|记住.{0,4}答案).{0,15}(?:就说明|就代表|足以证明).{0,10}(?:能力|进步)", reading["body"]):
+        raise ValueError("Remembered answers cannot demonstrate independent progress")
+    if re.search(r"https?://|www\.|<[^>]+>|!\[|javascript:|data:", prose):
+        raise ValueError("Unverified URL, image or HTML")
+    allowed_refs = {r["id"] for r in REFERENCES}
+    if any(url not in {f"ref:{key}" for key in allowed_refs} for url in re.findall(r"\]\(([^)]+)\)", model_prose)):
+        raise ValueError("Unknown reference")
     return checked
+
+
+def validate_claims(text: str, prefs: dict) -> None:
+    """Check concrete claims, without prohibiting ordinary numerical explanations."""
+    clean = re.sub(r"[*_`]", "", text)
+    labels = {"总分": "total_score", "听力": "listening_score", "阅读": "reading_score", "写作与翻译合计": "writing_translation_score",
+              "写作和翻译": "writing_translation_score", "写译": "writing_translation_score"}
+    for sentence in re.split(r"[。！？\n]", clean):
+        # Explicit examples may discuss hypothetical values, but cannot become saved goals.
+        hypothetical = bool(re.search(r"假设|例如|示例|如果|假如|若", sentence))
+        for label, key in labels.items():
+            for match in re.finditer(re.escape(label) + r"(?:成绩|得分)?(?:是|为|[:：])?\s*(\d{2,3})(?!\d|\s*(?:分钟|%|％|题|天|次))", sentence):
+                if "满分" not in sentence and not hypothetical and int(match[1]) != prefs.get(key):
+                    raise ValueError("Reported score differs from saved input")
+        for match in re.finditer(r"(?:目标(?:分数)?(?:设为|定为|放在|为|是)?|争取|冲刺)\s*(\d{3})\s*分?", sentence):
+            if not hypothetical and int(match[1]) != prefs.get("target_score"):
+                raise ValueError("Invented score target")
+        for match in re.finditer(r"每天(?:可用|学习|安排|用|投入|有|能投入)?(?:时间(?:是|为)?)?\s*(\d+)\s*分钟", sentence):
+            if not hypothetical and int(match[1]) != prefs["daily_minutes"]:
+                raise ValueError("Daily time differs from saved input")
+        if re.search(r"(?:保证|必定|确保)(?:能|可以|会)?(?:通过|过级|提分|达到\d)", sentence) and not re.search(r"不(?:能|会|可)?(?:保证|确保)|无法保证", sentence):
+            raise ValueError("Unsupported score promise")
+        if re.search(r"425\s*分?(?:的)?及格线|及格线(?:为|是)\s*425", sentence) and not re.search(r"不是|并非|没有|不设", sentence):
+            raise ValueError("CET has no official pass line")
+        if re.search(r"(?:你的问题|问题本质|根本原因).{0,10}(?:就是|是|在于)词汇量(?:不够|不足)", sentence) and not re.search(r"不能|无法|不应|未能", sentence):
+            raise ValueError("A score cannot diagnose vocabulary size")
+        if re.search(r"(?:同等|相同).{0,6}(?:分差|报道分).{0,40}影响更大", sentence) and not re.search(r"不能|不应|并非|不是", sentence):
+            raise ValueError("Reported-score points must not be weighted twice")
+    if re.search(r"满分.{0,20}248\.5|(?:写译|写作和翻译|写作与翻译).{0,8}满分.{0,3}213", clean):
+        raise ValueError("Incorrect reported-score maximum")
 
 
 async def generate(user: str, notebook: str, claim: str) -> None:
@@ -298,7 +395,7 @@ async def generate(user: str, notebook: str, claim: str) -> None:
         prefs = data["input"]
         try:
             with course_scope(user, notebook):
-                call = invoke_learning_prompt("english.cet6_advice", learner_input=json.dumps(prefs, ensure_ascii=False),
+                call = invoke_learning_prompt("english.cet6_advice", learner_input=json.dumps(learner_context(prefs), ensure_ascii=False),
                     facts=json.dumps(generation_facts(prefs, actions(user, notebook, initial_priority(prefs))), ensure_ascii=False),
                     references=json.dumps(REFERENCES, ensure_ascii=False))
                 from .model_preferences import resolve
@@ -306,7 +403,7 @@ async def generate(user: str, notebook: str, claim: str) -> None:
                 settings = get_settings()
                 provider = active_provider()
                 model = route["model"] if route else getattr(settings, provider + "_model", provider)
-                raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, max_tokens=10000,
+                raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, max_tokens=12000,
                     temperature=.25, reasoning_mode="enabled", json_mode=True, json_object=True,
                     allow_model_fallback=False, allow_mock_fallback=False), timeout=TIMEOUT)
                 content = validate_text(raw, prefs)

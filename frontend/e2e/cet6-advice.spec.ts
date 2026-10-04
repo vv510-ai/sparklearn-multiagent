@@ -4,6 +4,8 @@ import type { Cet6AdviceData } from "../lib/cet6-advice";
 
 const live = process.env.PLAYWRIGHT_REAL_MODE === "1";
 
+const visibleMarkdown = (text: string) => text.replace(/\[([^\]]+)\]\(ref:[^)]+\)/g, "$1").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+
 async function register(page: Page) {
   if (live) {
     const health = await (await page.request.get("/api/health")).json();
@@ -56,16 +58,30 @@ test("首次填写即获得完整建议，刷新恢复并进入实际练习", as
   const state = await completed(page, base);
   expect(state.input.total_score).toBe(353); expect(state.facts.score_gap).toBe(97);
   expect(state.content.followup_keys).toEqual([]);
+  await expect(page.locator(".advice-summary")).toContainText("353");
+  await expect(page.locator(".advice-summary")).toContainText("97");
+  await expect(page.getByRole("region", { name: "成绩解读", exact: true }).getByRole("link").first()).toHaveAttribute("href", state.sources[0].url);
+  if (state.content.target_breakdown) {
+    await expect(page.getByRole("region", { name: "讨论用目标组合" })).toContainText("450");
+    expect(Object.entries(state.content.target_breakdown).filter(([key]) => key !== "reason").reduce((sum, [, score]) => sum + Number(score), 0)).toBe(450);
+  }
   for (const day of state.week) expect(day.tasks.reduce((sum, t) => sum + t.minutes, 0)).toBe(20);
   for (const kind of ["阅读", "听力", "写作", "翻译", "词汇"]) await expect(page.getByRole("region", { name: `${kind}学习方法`, exact: true })).toBeVisible();
   await info.attach("saved-advice", { body: JSON.stringify(state, null, 2), contentType: "application/json" });
   await page.screenshot({ path: info.outputPath("advice-desktop-top.png") });
   await page.screenshot({ path: info.outputPath("advice-desktop.png"), fullPage: true });
+  await page.getByRole("region", { name: "成绩解读", exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("advice-score-desktop.png") });
+  if (state.content.target_breakdown) {
+    await page.getByRole("region", { name: "讨论用目标组合" }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath("advice-target-desktop.png") });
+  }
   await page.getByRole("region", { name: "阅读学习方法", exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("advice-reading-desktop.png") });
   await page.getByRole("region", { name: "近期学习安排" }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("advice-week-desktop.png") });
-  await page.reload(); await expect(page.locator(".advice-summary")).toContainText(state.content.summary);
+  await page.reload(); await expect(page.locator(".advice-lead")).toContainText(visibleMarkdown(state.content.summary));
+  expect((await (await page.request.get(base + "/advice")).json()).content).toEqual(state.content);
   expect((await (await page.request.get(base + "/advice")).json()).generated_at).toBe(state.generated_at);
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
@@ -74,6 +90,10 @@ test("首次填写即获得完整建议，刷新恢复并进入实际练习", as
     await expect(page.getByRole("button", { name: "调整我的情况", exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath(`advice-${width}-top.png`) });
     await page.screenshot({ path: info.outputPath(`advice-${width}.png`), fullPage: true });
+    if (state.content.target_breakdown) {
+      await page.getByRole("region", { name: "讨论用目标组合" }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: info.outputPath(`advice-target-${width}.png`) });
+    }
     await page.getByRole("region", { name: "阅读学习方法", exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath(`advice-reading-${width}.png`) });
     await page.getByRole("region", { name: "近期学习安排" }).scrollIntoViewIfNeeded();
@@ -95,7 +115,7 @@ test("首次填写即获得完整建议，刷新恢复并进入实际练习", as
   } else await expect(page.getByRole("region", { name: "六级词汇学习" })).toBeVisible();
   await page.getByRole("button", { name: "新对话", exact: true }).click();
   await page.goto(`/?notebook=${book}&cet6=advice`);
-  await expect(page.locator(".advice-summary")).toContainText(state.content.summary);
+  await expect(page.locator(".advice-lead")).toContainText(visibleMarkdown(state.content.summary));
   expect(errors).toEqual([]);
 });
 
@@ -123,6 +143,25 @@ test("可跳过入门填写，只有总分时按90分钟安排且修改后提示
   await expect(page.getByText("你的学习情况已更新", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "按最新情况更新建议", exact: true })).toBeVisible();
   expect((await (await page.request.get(base + "/advice")).json()).input.daily_minutes).toBe(90);
+});
+
+test("阅读较强听力较弱时，成绩分析与起步重点转向听力", async ({ page }, info) => {
+  test.setTimeout(240000);
+  const { base } = await register(page);
+  const form = page.getByRole("form", { name: "学习偏好设置" });
+  await form.getByLabel("每天可用分钟").fill("90");
+  await form.getByLabel("目标分数（选填）").fill("500");
+  await form.getByLabel("我现在最想解决的问题").fill("想提高总分，找到现在最值得投入的方向。");
+  await form.getByText("参考历史成绩（选填）", { exact: true }).click();
+  for (const [label, score] of [["历史总分", "420"], ["听力成绩", "100"], ["阅读成绩", "210"], ["写作与翻译合计", "110"]]) await form.getByLabel(label, { exact: true }).fill(score);
+  await form.getByRole("button", { name: "保存并查看建议" }).click();
+  const state = await completed(page, base);
+  expect(state.content.priority_kind).toBe("listening");
+  expect(state.facts.score_gap).toBe(80);
+  await expect(page.locator(".advice-summary")).toContainText("210");
+  for (const day of state.week) expect(day.tasks.reduce((sum, t) => sum + t.minutes, 0)).toBe(90);
+  await info.attach("listening-priority-advice", { body: JSON.stringify(state, null, 2), contentType: "application/json" });
+  await page.screenshot({ path: info.outputPath("listening-priority.png"), fullPage: true });
 });
 
 if (!live) test("无成绩也能生成起步安排，网络失败保留输入且可恢复", async ({ page }) => {

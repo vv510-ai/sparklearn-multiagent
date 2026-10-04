@@ -15,7 +15,24 @@
 .advice-intake dd { font-size: 17px; font-weight: 650; margin-top: 6px; overflow-wrap: anywhere; }
 .advice-intake a, .advice-inline-link { color: #23654a; text-decoration: underline; text-underline-offset: 4px; }
 .advice-summary { padding: 28px 0 8px; }
-.advice-summary .advice-lead { font-size: 18px; line-height: 1.95; }
+.advice-summary .advice-lead p { font-size: 18px; line-height: 1.95; }
+.advice-score-analysis, .advice-target { margin: 30px 0; scroll-margin-top: 24px; }
+.advice-prose { min-width: 0; overflow-wrap: anywhere; }
+.advice-prose strong { font-weight: 650; color: #183f2c; }
+.advice-prose ul, .advice-prose ol { padding-inline-start: 24px; margin: 18px 0; font-size: 16px; line-height: 1.95; }
+.advice-prose ul { list-style: disc; }
+.advice-prose ol { list-style: decimal; }
+.advice-prose li { padding-inline-start: 4px; margin: 10px 0; }
+.advice-prose blockquote { margin: 20px 0; padding: 4px 18px; border-inline-start: 3px solid #87a38b; background: #f4f7ee; }
+.advice-prose a { color: #23654a; text-decoration: underline; text-underline-offset: 4px; font-size: .9em; }
+.advice-table-scroll { max-width: 100%; overflow-x: auto; margin: 18px 0; }
+.advice-table-scroll table { border-collapse: collapse; width: 100%; min-width: 340px; font-size: 14px; line-height: 1.8; font-variant-numeric: tabular-nums; }
+.advice-table-scroll caption { text-align: left; font-weight: 600; margin-bottom: 10px; }
+.advice-table-scroll th, .advice-table-scroll td { padding: 12px 14px; border-bottom: 1px solid #dce5d8; text-align: left; vertical-align: top; }
+.advice-table-scroll thead { background: #f3f6ef; }
+.advice-table-scroll th { font-weight: 600; }
+.advice-boundary .advice-prose p { font-size: 14px; }
+.advice-closing { border-bottom: 0; }
 .advice-boundary { padding: 12px 16px; border-inline-start: 3px solid #a0b391; background: #f5f7f1; font-size: 14px !important; }
 .advice-toc { display: flex; flex-wrap: wrap; gap: 10px; padding: 18px 0 24px; border-bottom: 1px solid #dce5d8; }
 .advice-toc a { font-size: 13px; padding: 9px 12px; border: 1px solid #d6e1d1; border-radius: 7px; background: #f8faf4; min-height: 40px; }
