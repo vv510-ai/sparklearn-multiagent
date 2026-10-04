@@ -90,7 +90,7 @@ def test_report_revisions_keep_previous_and_ignore_word_quota(learner, monkeypat
     calls = model(monkeypatch, saved["preferences"])
     client.post(base + "/advice", json={"profile_revision": 1})
     original = client.get(base + "/advice").json()
-    saved = client.post(base + "/preferences", json={"revision": 1, "preferences": {**saved["preferences"], "daily_new_words": 5}}).json()
+    saved = client.post(base + "/preferences", json={"revision": 1, "preferences": {**saved["preferences"], "daily_new_words": 5, "word_order": "family"}}).json()
     assert not client.get(base + "/advice").json()["stale"]
     client.post(base + "/advice", json={"profile_revision": saved["revision"]})
     assert len(calls) == 1

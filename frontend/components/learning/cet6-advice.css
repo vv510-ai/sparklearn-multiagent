@@ -1,7 +1,8 @@
 .cet6-advice { max-width: 850px; margin: 0 auto 40px; padding: clamp(18px, 3.4vw, 42px); border: 1px solid #d8e2d7; border-radius: 16px; background: #fffefa; min-width: 0; }
 .cet6-advice p { font-size: 16px; line-height: 1.95; margin: 12px 0; }
-.cet6-advice h2 { font-size: clamp(25px, 3vw, 34px); line-height: 1.4; margin: 10px 0 14px; }
-.cet6-advice h3 { font-size: 21px; line-height: 1.55; margin: 8px 0 14px; }
+.cet6-advice .advice-prose p { font-size: 16px; line-height: 1.95; }
+.cet6-advice .advice-heading h2 { font-size: clamp(25px, 3vw, 34px); line-height: 1.4; margin: 10px 0 14px; }
+.cet6-advice .advice-section h3, .cet6-advice .advice-summary h3 { font-size: 21px; line-height: 1.55; margin: 8px 0 14px; }
 .cet6-advice h4 { font-size: 16px; font-weight: 650; }
 .advice-heading { margin-bottom: 28px; }
 .advice-heading > p { color: #627367; font-size: 14px; }

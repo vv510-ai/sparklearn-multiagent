@@ -13,12 +13,12 @@ export type AdviceText = {
 };
 export type Cet6AdviceData = {
   status: "empty" | "running" | "ready" | "failed" | "unavailable";
-  stale: boolean; input: Omit<Cet6Preferences, "daily_new_words">; profile_revision: number; message?: string;
+  stale: boolean; input: Omit<Cet6Preferences, "daily_new_words" | "word_order">; profile_revision: number; message?: string;
   stale_reason?: "profile" | "report_update";
   generated_at?: string; model?: string; content: AdviceText;
   facts: { today: string; days_to_exam: number | null; date_state: "missing" | "past" | "today" | "upcoming"; score_gap: number | null; basis: string; daily_minutes: number };
   week: { day: number; kind: Cet6Kind; minutes: number; tasks: { kind: Cet6Kind; title: string; minutes: number }[] }[];
   actions: AdviceAction[];
   sources: AdviceSource[];
-  previous?: { input: Omit<Cet6Preferences, "daily_new_words">; content: AdviceText; generated_at?: string; model?: string };
+  previous?: { input: Omit<Cet6Preferences, "daily_new_words" | "word_order">; content: AdviceText; generated_at?: string; model?: string };
 };

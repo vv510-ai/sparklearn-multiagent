@@ -58,8 +58,8 @@ METHODS = {
 
 
 def snapshot(prefs: dict) -> dict:
-    # Vocabulary quota has a separate save flow; changing it must not invalidate advice.
-    return {k: v for k, v in prefs.items() if k != "daily_new_words"}
+    # Vocabulary settings have a separate flow; changing them must not invalidate advice.
+    return {k: v for k, v in prefs.items() if k not in {"daily_new_words", "word_order"}}
 
 
 def learner_context(prefs: dict) -> dict:
