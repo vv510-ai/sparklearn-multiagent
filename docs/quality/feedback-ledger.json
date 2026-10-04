@@ -626,7 +626,9 @@
         ".tmp/advice-v3-quality-3/rechecked-*.json：三组合成档案的真实模型返回经修正后的校验可保存，保留先前失败记录。不能代替发布后同版本内容核验。",
         ".tmp/acceptance/20261004T161215Z-live/report.json及verified-*.json：8a36a72上三类真实模型流程通过；全文复核发现引用短标记、内部优先级被写成理由及从低分推断答对题量，已做针对性修正。",
         ".tmp/acceptance/20261004T163518Z-live/report.json：c0d3d14上三次生成失败，不能视为验收通过；随后合成档案诊断定位枚举、补充问题结构及官方原网址兼容问题。",
-        ".tmp/acceptance/20261004T175554Z-local/report.json及.tmp/advice-v3-ui-release/playwright.json：恢复修正后完整后端777项、独立页面5项通过；三份真实网关样本及最终规范化结果见.tmp/advice-v3-diagnostics-2/。新提交部署后仍需同版本真实模型验收。"
+        ".tmp/acceptance/20261004T175554Z-local/report.json及.tmp/advice-v3-ui-release/playwright.json：恢复修正后完整后端777项、独立页面5项通过；三份真实网关样本及最终规范化结果见.tmp/advice-v3-diagnostics-2/。新提交部署后仍需同版本真实模型验收。",
+        ".tmp/acceptance/20261004T181334Z-live/report.json：27b7fbc固定版本为1通过、2失败；后续复现官方满分说明被误判为学生成绩，以及真实模型输出截断。增加精确上限识别和思考输出额度；直接输出恢复候选质量不合格，未采用。不能将这轮失败视为功能已全部验收。",
+        ".tmp/acceptance/20261004T183920Z-local/report.json：最终候选完整后端784项通过，保留失败后输入、手动重试和真实内容校验。前端应用未改，复用已核验构建和页面证据；新提交仍需固定版本生产验收。"
       ],
       "next_action": "本条跟踪第三版：按完整分项、仅总分及听力偏弱三类合成档案逐段检查真实模型输出，并以对应固定生产版本的验收记录为线上结论。单次通过不代表所有输出质量。"
     },

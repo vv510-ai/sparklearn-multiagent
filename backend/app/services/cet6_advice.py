@@ -16,6 +16,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from ..config import get_settings, is_demo
+from ..llm.failures import ModelFailure
 from ..llm.spark_client import active_provider, llm_complete, parse_json
 from ..models.db import session
 from ..models.entities import Cet6Advice
@@ -25,7 +26,7 @@ from ..tenant import current_user_context
 from . import cet6_learning as learning
 from .learning_scope import course_scope
 
-VERSION = "cet6-advice-v3-20261005b"
+VERSION = "cet6-advice-v3-20261005c"
 TIMEOUT = 180
 CLAIM_TTL = 240
 
@@ -35,6 +36,8 @@ class AdviceValidationError(ValueError):
 
 
 def failure_reason(exc: BaseException) -> str:
+    if isinstance(exc, ModelFailure):
+        return "model: " + exc.code
     if isinstance(exc, AdviceValidationError):
         return str(exc)
     if isinstance(exc, ValidationError):
@@ -321,6 +324,8 @@ def validate_text(raw: str, prefs: dict) -> dict:
         checked[field] = citation_links(checked[field])
     for section in checked["sections"]:
         section["body"] = citation_links(section["body"])
+        if re.search(r"[:：]\s*(?:\.{2,}|…+)\s*$", section["title"]):
+            section["title"] = METHODS[section["kind"]][0]
     if checked["target_breakdown"]:
         checked["target_breakdown"]["reason"] = citation_links(checked["target_breakdown"]["reason"])
     reading = next(s for s in checked["sections"] if s["kind"] == "reading")
@@ -379,12 +384,19 @@ def validate_claims(text: str, prefs: dict) -> None:
     clean = re.sub(r"[*_`]", "", text)
     labels = {"总分": "total_score", "听力": "listening_score", "阅读": "reading_score", "写作与翻译合计": "writing_translation_score",
               "写作和翻译": "writing_translation_score", "写译": "writing_translation_score"}
+    maxima = {"total_score": 710, "listening_score": 249, "reading_score": 249, "writing_translation_score": 212}
     for sentence in re.split(r"[。！？\n]", clean):
         # Explicit examples may discuss hypothetical values, but cannot become saved goals.
         hypothetical = bool(re.search(r"假设|例如|示例|如果|假如|若", sentence))
         for label, key in labels.items():
             for match in re.finditer(re.escape(label) + r"(?:成绩|得分)?(?:是|为|[:：])?\s*(\d{2,3})(?!\d|\s*(?:分钟|%|％|题|天|次))", sentence):
-                if "满分" not in sentence and not hypothetical and int(match[1]) != prefs.get(key):
+                # A known exam maximum is not a learner result. However, a
+                # correct maximum elsewhere must not conceal an invented score.
+                clause_prefix = re.split(r"[，,；;：:]", sentence[:match.start()])[-1]
+                learner_result = bool(re.search(r"你|这次|本次|历史|填写|已填|考了|考得|实际", clause_prefix))
+                exam_maximum = (int(match[1]) == maxima[key] and not learner_result
+                    and bool(re.search(r"满分|上限|六级(?:考试)?总分|考试(?:的)?总分", sentence)))
+                if not hypothetical and not exam_maximum and int(match[1]) != prefs.get(key):
                     raise AdviceValidationError("Reported score differs from saved input")
         for match in re.finditer(r"(?:目标(?:分数)?(?:设为|定为|放在|为|是)?|争取|冲刺)\s*(\d{3})\s*分?", sentence):
             if not hypothetical and int(match[1]) != prefs.get("target_score"):
@@ -424,7 +436,7 @@ async def generate(user: str, notebook: str, claim: str) -> None:
                 settings = get_settings()
                 provider = active_provider()
                 model = route["model"] if route else getattr(settings, provider + "_model", provider)
-                raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, max_tokens=12000,
+                raw = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, max_tokens=16000,
                     temperature=.25, reasoning_mode="enabled", json_mode=True, json_object=True,
                     allow_model_fallback=False, allow_mock_fallback=False), timeout=TIMEOUT)
                 content = validate_text(raw, prefs)

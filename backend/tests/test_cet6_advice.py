@@ -106,6 +106,24 @@ def test_report_revisions_keep_previous_and_ignore_word_quota(learner, monkeypat
     assert updated["input"]["daily_minutes"] == 90
 
 
+def test_cutoff_keeps_input_and_can_be_retried_without_changing_model_mode(learner, monkeypatch):
+    client, _, _, base, saved = setup(learner)
+    calls = []
+    monkeypatch.setattr(advice, "is_demo", lambda: False)
+    async def interrupted(prompt, **kwargs):
+        calls.append(kwargs)
+        raise advice.ModelFailure("truncated")
+    monkeypatch.setattr(advice, "llm_complete", interrupted)
+    client.post(base + "/advice", json={"profile_revision": 1})
+    report = client.get(base + "/advice").json()
+    assert report["status"] == "failed" and report["input"]["daily_minutes"] == 20
+    assert len(calls) == 1 and calls[0]["reasoning_mode"] == "enabled"
+    recovered = model(monkeypatch, saved["preferences"])
+    client.post(base + "/advice", json={"profile_revision": 1})
+    assert client.get(base + "/advice").json()["status"] == "ready"
+    assert recovered[0][1]["reasoning_mode"] == "enabled"
+
+
 @pytest.mark.parametrize("bad", ["link", "unknown_reference", "wrong_time", "promise", "made_up_target", "missing_section", "extra_daily", "wrong_listening", "old_answers", "invented_self_report", "wrong_translation"])
 def test_reject_untrusted_or_inconsistent_model_output_with_recovery(learner, monkeypatch, bad):
     client, _, _, base, saved = setup(learner, preparation="regular", reading_completion="unfinished")
@@ -183,9 +201,29 @@ def test_reject_false_claims_without_banning_all_numbers(statement):
     advice.validate_claims("如果填出来是阅读210、听力100、写译110，则优先级会不同。", prefs)
 
 
+@pytest.mark.parametrize("statement", [
+    "六级考试总分710分，听力249、阅读249、写译212为分项上限。",
+    "分项报道分的上限是听力249、阅读249、写作和翻译212。",
+    "听力报道分满分249，你的总分353，阅读112。",
+])
+def test_exam_maxima_are_distinct_from_learner_scores(statement):
+    advice.validate_claims(statement, {"total_score": 353, "reading_score": 112, "daily_minutes": 90})
+
+
+@pytest.mark.parametrize("statement", [
+    "六级总分710分，你这次总分400分。",
+    "听力报道分满分249，你的听力249分。",
+    "听力报道分满分249，你的阅读112分。",
+])
+def test_correct_exam_fact_does_not_hide_invented_learner_score(statement):
+    with pytest.raises(advice.AdviceValidationError, match="Reported score differs"):
+        advice.validate_claims(statement, {"total_score": 353, "daily_minutes": 90})
+
+
 def test_extra_metadata_and_equivalent_unfamiliar_material_keep_report(learner, monkeypatch):
     client, _, _, base, saved = setup(learner, preparation="regular", reading_completion="finished")
     def explain(text):
+        text["sections"][0]["title"] = "阅读：..."
         text["sections"][0]["title_hint"] = None
         text["sections"][0]["body"] = text["sections"][0]["body"].replace("未做过", "没做过")
         text["sections"][0]["body"] += "你每天只有20分钟，因此轮到阅读时可以分段完成。"
@@ -194,6 +232,7 @@ def test_extra_metadata_and_equivalent_unfamiliar_material_keep_report(learner, 
     report = client.get(base + "/advice").json()
     assert report["status"] == "ready"
     assert "title_hint" not in report["content"]["sections"][0]
+    assert report["content"]["sections"][0]["title"] == advice.METHODS["reading"][0]
     assert "上次阅读已做完" in calls[0][0] and "上次有规律准备" in calls[0][0]
 
 
@@ -235,6 +274,7 @@ def test_failure_diagnostics_do_not_include_generated_text():
     reason = advice.failure_reason(caught.value)
     assert "literal_error" in reason and "private-generated-text" not in reason
     assert advice.failure_reason(ValueError("private-generated-text")) == "ValueError"
+    assert advice.failure_reason(advice.ModelFailure("truncated")) == "model: truncated"
 
 
 def test_double_escaped_paragraphs_are_kept_as_paragraphs(learner, monkeypatch):

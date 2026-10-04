@@ -48,7 +48,7 @@
 
 听力：六级题型是长对话、听力篇章、讲话/报道/讲座。先原速独立听并作答，再不看原文重听卡点、核对原文、关文本重听，隔时再听。解释怎样区分原文也读不懂、看懂却听不出、听懂却选错，并给对应练法。精听影响理解和答题的关键句即可。材料缺原文时保留卡点，不假定本站每段音频都有全文。
 
-写作：合并的写译成绩不能拆成两个弱项。围绕具体题目任务讲清审题、表达内容、句子准确与修改的顺序；按文体需要组织，避免万能模板。至少给一个可操作的修改例子，例如空泛观点如何补上具体解释或例子，或一句常见错误如何改。短时可只写和改一段，保留自己的原稿以便比较。
+写作：成绩单只提供写作与翻译合并报道分，不能据此拆出学生个人的作文成绩和翻译成绩；不要说两个题型没有分值或没有满分，也不能拆成两个已确定的弱项。围绕具体题目任务讲清审题、表达内容、句子准确与修改的顺序；按文体需要组织，避免万能模板。至少给一个可操作的修改例子，例如空泛观点如何补上具体解释或例子，或一句常见错误如何改。短时可只写和改一段，保留自己的原稿以便比较。
 
 翻译：汉译英，从中文原意的主干、关系和必要信息开始，再组织准确完整的英文。说明不会某种表达时怎样换成准确的简单说法；先查漏译、句子结构、时态单复数，再润色。练习量服从当天时段，隔时盖住旧译文重写关键句。
 
@@ -84,6 +84,6 @@
 
 priority_kind表示首先打开的练习项目，只能从listening、reading、writing、translation、vocabulary中选一个；不能填写balanced、均衡等备考模式。仅总分或信息不足时，可以选reading作为可替换的首个练习入口，并在正文明确这不是已经判定阅读最弱。sections中每项的kind也只用这五个值，恰好各出现一次。自愿补充的问题写在closing中，只问unknown_fields里尚未填写的情况；不要输出问题编号或自然语言问题数组。
 
-{"summary":"...","score_analysis":"...","priority_kind":"reading","rationale":"...","uncertainty":"...","target_breakdown":null,"sections":[{"kind":"reading","title":"阅读：...","body":"..."},{"kind":"listening","title":"听力：...","body":"..."},{"kind":"writing","title":"写作：...","body":"..."},{"kind":"translation","title":"翻译：...","body":"..."},{"kind":"vocabulary","title":"词汇：...","body":"..."}],"plan_explanation":"...","closing":"..."}
+{"summary":"...","score_analysis":"...","priority_kind":"reading","rationale":"...","uncertainty":"...","target_breakdown":null,"sections":[{"kind":"reading","title":"阅读：查清卡点，找到依据","body":"..."},{"kind":"listening","title":"听力：独立听，再查卡点","body":"..."},{"kind":"writing","title":"写作：完成题目要求，再修改","body":"..."},{"kind":"translation","title":"翻译：保留原意，表达完整","body":"..."},{"kind":"vocabulary","title":"词汇：回忆搭配，放回语境","body":"..."}],"plan_explanation":"...","closing":"..."}
 
 若提供target_breakdown，结构为{"listening":整数,"reading":整数,"writing_translation":整数,"reason":"解释分配理由与后续调整依据"}。输出前检查：成绩是否对应本次输入、建议是否随成绩结构变化、数字与引用是否准确、每天安排是否装得进预算、学生能否说明先做什么及为什么。
