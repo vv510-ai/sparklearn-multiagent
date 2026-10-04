@@ -24,7 +24,7 @@ from ..tenant import current_user_context
 from . import cet6_learning as learning
 from .learning_scope import course_scope
 
-VERSION = "cet6-advice-v3-20261004"
+VERSION = "cet6-advice-v3-20261005"
 TIMEOUT = 120
 CLAIM_TTL = 180
 LABELS = learning.LABELS
@@ -160,7 +160,6 @@ def generation_facts(prefs: dict, available: list[dict]) -> dict:
     return {**facts(prefs), "available_actions": available,
             "schedule": schedule_text(prefs),
             "budget_slots": [{"role": role, "minutes": slot["minutes"]} for role, slot in zip(roles, slots)],
-            "starting_priority": initial_priority(prefs),
             "exam_structure": {"listening": {"weight_percent": 35, "max_reported_score": 249, "exam_minutes": 30},
                 "reading": {"weight_percent": 35, "max_reported_score": 249, "exam_minutes": 40,
                             "parts": {"仔细阅读": 20, "长篇匹配": 10, "选词填空": 5}},
@@ -296,6 +295,7 @@ def validate_text(raw: str, prefs: dict) -> dict:
     # without a destination. The model never supplies an external URL.
     def citation_links(text: str) -> str:
         for label, key in (("官方分数解释", "scores"), ("六级笔试结构", "structure"), ("回忆练习研究", "retrieval")):
+            text = text.replace(f"[ref:{key}]", f"[{label}](ref:{key})")
             text = re.sub(r"\[" + label + r"\](?!\()", f"[{label}](ref:{key})", text)
         return text
     for field in ("summary", "score_analysis", "rationale", "uncertainty", "plan_explanation", "closing"):
@@ -348,6 +348,8 @@ def validate_text(raw: str, prefs: dict) -> dict:
     if re.search(r"https?://|www\.|<[^>]+>|!\[|javascript:|data:", prose):
         raise ValueError("Unverified URL, image or HTML")
     allowed_refs = {r["id"] for r in REFERENCES}
+    if any(key not in allowed_refs for key in re.findall(r"ref:([a-zA-Z0-9_-]+)", model_prose)):
+        raise ValueError("Unknown reference marker")
     if any(url not in {f"ref:{key}" for key in allowed_refs} for url in re.findall(r"\]\(([^)]+)\)", model_prose)):
         raise ValueError("Unknown reference")
     return checked

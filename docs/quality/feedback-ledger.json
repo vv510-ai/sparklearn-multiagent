@@ -612,7 +612,7 @@
       "title": "入门建议缺少具体成绩解读，教学内容过于模板化",
       "status": "partial",
       "group": "六级备考建议",
-      "checked_commit": "",
+      "checked_commit": "8a36a72c5cf8272d456e5c5cff0acf6dca154125",
       "source_feedback": [
         "希望先分析成绩，讲清当前情况、复习重点和理由，让学生开始练习前心里有底。",
         "希望得到完整、有例子、有依据的初步建议，不是泛泛的固定操作清单。"
@@ -623,7 +623,8 @@
         ".tmp/acceptance/20261004T152246Z-local/report.json：前端生产构建、15项浏览器流程通过，桌面与手机截图已检查。",
         ".tmp/acceptance/20261004T153800Z-local/report.json：最终后端完整回归766项通过。",
         ".tmp/acceptance/20261004T154455Z-local/report.json：接入词汇更新后，773项后端回归、生产构建和15条浏览器流程通过；最后排版局部复核见.tmp/advice-v3-ui-final/playwright.json。",
-        ".tmp/advice-v3-quality-3/rechecked-*.json：三组合成档案的真实模型返回经修正后的校验可保存，保留先前失败记录。不能代替发布后同版本内容核验。"
+        ".tmp/advice-v3-quality-3/rechecked-*.json：三组合成档案的真实模型返回经修正后的校验可保存，保留先前失败记录。不能代替发布后同版本内容核验。",
+        ".tmp/acceptance/20261004T161215Z-live/report.json及verified-*.json：8a36a72上三类真实模型流程通过；全文复核发现引用短标记、内部优先级被写成理由及从低分推断答对题量，已做针对性修正，待新版本复验。"
       ],
       "next_action": "本条跟踪第三版：按完整分项、仅总分及听力偏弱三类合成档案逐段检查真实模型输出，并以对应固定生产版本的验收记录为线上结论。单次通过不代表所有输出质量。"
     },

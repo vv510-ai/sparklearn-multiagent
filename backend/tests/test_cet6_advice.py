@@ -105,11 +105,12 @@ def test_report_revisions_keep_previous_and_ignore_word_quota(learner, monkeypat
     assert updated["input"]["daily_minutes"] == 90
 
 
-@pytest.mark.parametrize("bad", ["link", "known_question", "wrong_time", "promise", "made_up_target", "missing_section", "extra_daily", "wrong_listening", "old_answers", "invented_self_report", "wrong_translation"])
+@pytest.mark.parametrize("bad", ["link", "unknown_reference", "known_question", "wrong_time", "promise", "made_up_target", "missing_section", "extra_daily", "wrong_listening", "old_answers", "invented_self_report", "wrong_translation"])
 def test_reject_untrusted_or_inconsistent_model_output_with_recovery(learner, monkeypatch, bad):
     client, _, _, base, saved = setup(learner, preparation="regular", reading_completion="unfinished")
     def corrupt(text):
         if bad == "link": text["summary"] += " 访问 https://not-a-course.invalid/ 获取练习。"
+        if bad == "unknown_reference": text["summary"] += " 参见[ref:invented]。"
         if bad == "known_question": text["followup_keys"] = ["preparation"]
         if bad == "wrong_time": text["summary"] += " 每天学习90分钟。"
         if bad == "promise": text["summary"] += " 保证通过考试。"
@@ -203,16 +204,22 @@ def test_method_does_not_replace_rotating_schedule(learner, monkeypatch):
     assert client.get(base + "/advice").json()["status"] == "failed"
 
 
-def test_bare_citations_and_missing_progress_note_are_completed(learner, monkeypatch):
+@pytest.mark.parametrize("reference_style", ["label", "id"])
+def test_bare_citations_and_missing_progress_note_are_completed(learner, monkeypatch, reference_style):
     client, _, _, base, saved = setup(learner)
     def partial(text):
-        text["score_analysis"] = text["score_analysis"].replace("(ref:scores)", "")
+        text["score_analysis"] = text["score_analysis"].replace("[官方分数解释](ref:scores)",
+            "[官方分数解释]" if reference_style == "label" else "[ref:scores]")
         text["sections"][0]["body"] = "先独立完成阅读，记录不确定的地方；核对时回到原文找到依据。" * 4
+        text["sections"][0]["body"] += "[六级笔试结构]" if reference_style == "label" else "[ref:structure]"
+        text["sections"][4]["body"] += "[回忆练习研究]" if reference_style == "label" else "[ref:retrieval]"
     model(monkeypatch, saved["preferences"], partial)
     client.post(base + "/advice", json={"profile_revision": 1})
     report = client.get(base + "/advice").json()
     assert report["status"] == "ready"
     assert "[官方分数解释](ref:scores)" in report["content"]["score_analysis"]
+    assert "[六级笔试结构](ref:structure)" in report["content"]["sections"][0]["body"]
+    assert "[回忆练习研究](ref:retrieval)" in report["content"]["sections"][4]["body"]
     assert "请用未做过的材料" in report["content"]["sections"][0]["body"]
 
 
