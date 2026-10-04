@@ -46,8 +46,10 @@ def preferences(notebook_id: str, req: ProfileSave):
 @router.get("/words")
 def words(notebook_id: str, q: str = Query(default="", max_length=100),
           group: Literal["all", "foundation", "cet6"] = "all", view: Literal["all", "today", "mine"] = "all",
-          offset: int = Query(default=0, ge=0, le=20000), limit: int = Query(default=30, ge=1, le=60)):
-    return vocabulary.catalogue(require_current_user_id(), notebook_id, q, group, view, offset, limit)
+          offset: int = Query(default=0, ge=0, le=20000), limit: int = Query(default=30, ge=1, le=60),
+          order: Literal["priority", "family", "alphabetical", "random"] | None = None,
+          family: str = Query(default="", max_length=64)):
+    return vocabulary.catalogue(require_current_user_id(), notebook_id, q, group, view, offset, limit, order, family)
 
 
 @router.get("/word-plan")
@@ -57,7 +59,7 @@ def daily_word_plan(notebook_id: str):
 
 @router.post("/word-plan")
 def word_target(notebook_id: str, req: WordTargetSave):
-    return word_plan.save_target(require_current_user_id(), notebook_id, req.revision, req.daily_new_words)
+    return word_plan.save_target(require_current_user_id(), notebook_id, req.revision, req.daily_new_words, req.word_order)
 
 
 @router.get("/words/{entry_id}")

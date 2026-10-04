@@ -53,13 +53,13 @@
 .cet6-source a { color: #276b4d; text-decoration: underline; text-underline-offset: 3px; }
 .cet6-source blockquote { border-inline-start: 3px solid #a1bda0; padding: 12px; background: #f3f6ee; margin: 12px 0; line-height: 1.9; }
 .cet6-source article + article { margin-top: 18px; border-top: 1px solid #dce4d7; padding-top: 12px; }
-.cet6-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin: 20px 0; }
+.cet6-search { display: grid; grid-template-columns: minmax(160px, 1fr) auto auto; gap: 10px; margin: 20px 0; }
 .cet6-search > label:first-child { position: relative; }
 .cet6-search svg { position: absolute; left: 12px; top: 13px; color: #718775; }
 .cet6-search input { padding-left: 36px; }
 .cet6-word-list { margin-top: 14px; }
-.cet6-word-list button { display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.5fr) auto; gap: 14px; align-items: center; width: 100%; padding: 16px 8px; border-bottom: 1px solid #dde6d8; text-align: left; font-size: 13px; }
-.cet6-word-list button:hover { background: #f0f5e9; }
+.cet6-word-row > button { display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.5fr) auto; gap: 14px; align-items: center; width: 100%; padding: 16px 8px; border-bottom: 1px solid #dde6d8; text-align: left; font-size: 13px; }
+.cet6-word-row > button:hover { background: #f0f5e9; }
 .cet6-word-list strong { font-family: Georgia, serif; font-size: 18px; font-weight: 650; }
 .cet6-word-list small { display: block; margin-top: 5px; font-size: 11px; color: #688067; line-height: 1.8; }
 .cet6-word-meaning { line-height: 1.7; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -92,9 +92,9 @@
   .cet6-header .secondary-action { padding: 8px; font-size: 12px; flex-shrink: 0; }
   .cet6-today { padding: 19px; }
   .cet6-skill-grid { grid-template-columns: 1fr; }
-  .cet6-word-list button { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; }
+  .cet6-word-row > button { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; }
   .cet6-word-meaning { grid-column: 1; grid-row: 2; }
-  .cet6-word-list button > small { grid-row: 1 / 3; grid-column: 2; }
+  .cet6-word-row > button > small { grid-row: 1 / 3; grid-column: 2; }
   .cet6-preferences, .cet6-word-detail, .cet6-practice { padding: 16px; }
   .cet6-overview button { padding: 0 9px; }
   .cet6-main-nav { gap: 3px; }
@@ -162,3 +162,24 @@
   .cet6-plan-progress strong { font-size: 25px; }
   .cet6-lesson-example { padding: 15px; }
 }
+
+/* Syllabus coverage stays separate from today's small recall workload. */
+.cet6-coverage { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #d1dec9; }
+.cet6-coverage h3 { font-size: 16px; margin: 0 0 16px; }
+.cet6-coverage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.cet6-coverage-grid > div { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.cet6-coverage-grid strong { font-size: 25px; }
+.cet6-coverage-grid small { font-size: 12px; font-weight: 400; color: #596e5d; }
+.cet6-coverage progress { width: 100%; height: 7px; accent-color: #305c44; }
+.cet6-coverage p, .cet6-coverage summary { font-size: 12px; color: #596e5d; line-height: 1.8; }
+.cet6-coverage summary { cursor: pointer; }
+.cet6-family-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 12px; margin-top: 18px; background: #edf3e7; border-radius: 8px; color: #305c44; font-size: 12px; }
+.cet6-family-heading .cet6-link-button { width: auto; margin-inline-start: auto; padding: 10px 0; min-height: 40px; }
+.cet6-family-filter, .cet6-family-preview { background: #f0f5e9; padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.cet6-family-preview p { margin: 6px 0; }
+.cet6-family-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cet6-advice-goal { padding: 14px 20px; background: #f0f5e9; border-radius: 10px; font-size: 14px; line-height: 1.7; margin-bottom: 16px; }
+.cet6-advice-goal p { margin: 6px 0 0; }
+.cet6-target-form select { max-width: 340px; }
+@media (max-width: 700px) { .cet6-search { grid-template-columns: minmax(0, 1fr); } .cet6-coverage-grid { gap: 16px; } }
+@media (max-width: 420px) { .cet6-coverage-grid { grid-template-columns: minmax(0, 1fr); } }

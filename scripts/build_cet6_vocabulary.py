@@ -20,6 +20,8 @@ DICTIONARY = f"https://github.com/skywind3000/ECDICT/tree/{COMMIT}"
 
 def variants(form):
     """Expand only notations actually printed in this source, not inflections."""
+    if form == "connection/-xion":
+        return ["connection", "connexion"]
     result = []
     base = ""
     for part in form.split("/"):

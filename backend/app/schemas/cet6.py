@@ -14,6 +14,7 @@ class Preferences(BaseModel):
     exam_date: dt.date | None = None
     daily_minutes: int = Field(default=20, ge=5, le=180)
     daily_new_words: int = Field(default=20, ge=0, le=200)
+    word_order: Literal["priority", "family", "alphabetical", "random"] = "priority"
     mode: Literal["foundation", "balanced", "exam"] = "balanced"
     focus: list[Skill] = Field(default_factory=list, max_length=5)
     total_score: int | None = Field(default=None, ge=0, le=710)
@@ -42,6 +43,7 @@ class WordTargetSave(BaseModel):
     user_id: str | None = Field(default=None, max_length=64, exclude=True)
     revision: int = Field(ge=0)
     daily_new_words: int = Field(ge=0, le=200)
+    word_order: Literal["priority", "family", "alphabetical", "random"] | None = None
 
 
 class WordAction(BaseModel):

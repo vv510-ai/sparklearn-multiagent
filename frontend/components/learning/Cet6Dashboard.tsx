@@ -22,7 +22,8 @@ const initialRoute = (notebook: string) => {
   if (typeof window === "undefined") return { view: "home" as View, target: "" };
   const params = new URLSearchParams(window.location.search);
   if (params.get("notebook") !== notebook) return { view: "home" as View, target: "" };
-  const view = params.get("reading") ? "reading" : params.get("cet6");
+  const requested = params.get("reading") ? "reading" : params.get("cet6");
+  const view = requested === "examinfo" ? "advice" : requested;
   return { view: (["home", "reading", "practice", "vocabulary", "papers", "exams", "examinfo", "advice"].includes(view || "") ? view : "home") as View,
     target: params.get("cet6_word") || params.get("cet6_task") || params.get("cet6_paper") || params.get("reading") || "" };
 };
@@ -32,6 +33,7 @@ export default function Cet6Dashboard({ notebookId, userId, onChat, onFocus, onR
   onReference: (id?: string) => void; onReviews: () => void; chapterDue: { id: string; title: string }[];
 }) {
   const initial = useRef(initialRoute(notebookId));
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("cet6") === "examinfo") cet6Route(notebookId, "advice"); }, [notebookId]);
   const [view, setView] = useState<View>(initial.current.view), [target, setTarget] = useState(initial.current.target), [practiceKind, setPracticeKind] = useState<Cet6Kind | "all">("all");
   const [data, setData] = useState<Cet6Overview | null>(null), [settings, setSettings] = useState(false), [error, setError] = useState("");
   const [readingFocus, setReadingFocus] = useState(false), [refresh, setRefresh] = useState(0), [readingKey, setReadingKey] = useState(0);
@@ -56,14 +58,18 @@ export default function Cet6Dashboard({ notebookId, userId, onChat, onFocus, onR
   const choose = (kind: Cet6Kind, id = "") => { if (kind === "vocabulary") navigate(kind); else { setPracticeKind(kind); navigate("exams"); } };
   return <div className="cet6-dashboard" aria-label="六级学习首页">
     <header className="cet6-header" hidden={readingFocus}><div><span className="cet6-eyebrow">大学英语六级 · CET-6</span><h1 ref={heading} tabIndex={-1}>六级备考中心</h1><p className="cet6-subtitle">原卷精练 · 词汇精学 · 个性化复习</p></div><button className="secondary-action" onClick={() => setSettings(true)} aria-expanded={settings}><Settings2 size={15} />学习偏好</button></header>
-    {!readingFocus && <nav className="cet6-main-nav" aria-label="六级学习入口">{([["home", "今天"], ["advice", "备考建议"], ["exams", "真题练习"], ["vocabulary", "背单词"], ["examinfo", "考试与目标"]] as const).map(([id, label]) => <button key={id} aria-current={view === id && !settings ? "page" : undefined} onClick={() => { if (id === "exams") setPracticeKind("all"); if (id === "advice") setAdviceRevision(null); navigate(id); }}>{label}</button>)}<button onClick={() => onChat("")}><MessageCircle size={14} />问小知</button></nav>}
+    {!readingFocus && <nav className="cet6-main-nav" aria-label="六级学习入口">{([["home", "今天"], ["advice", "备考建议"], ["exams", "真题练习"], ["vocabulary", "背单词"]] as const).map(([id, label]) => <button key={id} aria-current={view === id && !settings ? "page" : undefined} onClick={() => { if (id === "exams") setPracticeKind("all"); if (id === "advice") setAdviceRevision(null); navigate(id); }}>{label}</button>)}<button onClick={() => onChat("")}><MessageCircle size={14} />问小知</button></nav>}
     {error && <p role="alert" className="cet6-error">{error}<button onClick={() => setRefresh(n => n + 1)}>重试首页</button></p>}
     {settings && data && <Preferences key={`${notebookId}:${data.revision}`} notebookId={notebookId} initial={data} onSaved={saved => { setData(d => d ? { ...d, ...saved } : d); setAdviceRevision(saved.revision); navigate("advice"); }} onCancel={skipIntake} />}
-    {view === "advice" && !settings && <Cet6Advice key={notebookId} notebookId={notebookId} autoRevision={adviceRevision} onEdit={() => setSettings(true)} onStart={startAdviceAction} />}
+    {view === "advice" && !settings && <>
+      {data && <section className="cet6-advice-goal" aria-label="当前备考目标"><strong>当前目标</strong><p>{goalSummary(data.preferences)}</p></section>}
+      <Cet6Advice key={notebookId} notebookId={notebookId} autoRevision={adviceRevision} onEdit={() => setSettings(true)} onStart={startAdviceAction} />
+      <details className="cet6-source"><summary>考试说明与成绩要求</summary><h3>报考资格</h3><p>通常须符合在校生等报名条件，且大学英语四级成绩达到 425 分。具体报名范围、名额与时间以所在学校当次通知为准。</p><h3>成绩与练习</h3><p>六级报道分数满分 710，听力与阅读各 249，写作与翻译合计 212。报道分数经过转换，本站练习正确率不能直接换算成六级分数。</p><p>练习时分别检查听力关键信息、阅读原文依据，以及写作翻译中的信息、准确性与连贯性；再结合实际错题调整备考安排。</p><p><a href="https://cet.neea.edu.cn/html1/folder/16113/1588-1.htm" target="_blank" rel="noreferrer">官方考试大纲 ↗</a> · <a href="https://www.neea.edu.cn/html1/folder/19081/5124-1.htm" target="_blank" rel="noreferrer">官方分数解释 ↗</a></p></details>
+    </>}
     {view === "home" && !settings && <>
       {!data ? <p role="status">正在整理你的学习安排…</p> : <>
         <div className="cet6-entry-grid"><button onClick={() => navigate("vocabulary")}><BookOpen size={23} /><strong>背单词</strong><span>每天新学 {data.preferences.daily_new_words} 个 · 闪卡回忆与精讲</span><ArrowRight size={18} /></button><button onClick={() => { setPracticeKind("all"); navigate("exams"); }}><PenLine size={23} /><strong>练真题</strong><span>先选板块与套卷 · 提交后查看逐题解析</span><ArrowRight size={18} /></button></div>
-        <section className="cet6-today" aria-label="今天的学习建议"><div className="cet6-today-meta"><span>今天先做一件事</span><span>你设置了 {data.preferences.daily_minutes} 分钟 / 天</span></div><h2>{data.recommendation.kind === "vocabulary" ? data.recommendation.title : `选择一套${cet6Labels[data.recommendation.kind]}真题`}</h2><p>{data.recommendation.kind === "vocabulary" ? data.recommendation.reason : "先独立作答，再对照原卷理解答案。时间不够可以暂停，已保存的作答能够继续。"}</p><div className="cet6-actions"><button className="primary-action" onClick={() => choose(data.recommendation.kind, data.recommendation.id)}>开始 / 继续<ArrowRight size={17} /></button><button className="cet6-link-button" onClick={() => { setPracticeKind("all"); navigate("exams"); }}>我想自己选</button></div><p className="cet6-muted">{data.preferences.goal || "目标还未填写，也可以直接开始。"}{data.preferences.target_score !== null ? ` · 目标 ${data.preferences.target_score} 分` : ""}{data.preferences.exam_date ? ` · 考试日期 ${data.preferences.exam_date}` : ""}</p></section>
+        <section className="cet6-today" aria-label="今天的学习建议"><div className="cet6-today-meta"><span>今天先做一件事</span><span>你设置了 {data.preferences.daily_minutes} 分钟 / 天</span></div><h2>{data.recommendation.kind === "vocabulary" ? data.recommendation.title : `选择一套${cet6Labels[data.recommendation.kind]}真题`}</h2><p>{data.recommendation.kind === "vocabulary" ? data.recommendation.reason : "先独立作答，再对照原卷理解答案。时间不够可以暂停，已保存的作答能够继续。"}</p><div className="cet6-actions"><button className="primary-action" onClick={() => choose(data.recommendation.kind, data.recommendation.id)}>开始 / 继续<ArrowRight size={17} /></button><button className="cet6-link-button" onClick={() => { setPracticeKind("all"); navigate("exams"); }}>我想自己选</button></div><p className="cet6-muted">{goalSummary(data.preferences)}</p></section>
         <div className="cet6-overview"><button onClick={() => navigate("vocabulary")}><strong>{data.stats.word_due}</strong><span>词卡到期 · 建议先用 {data.review_minutes} 分钟</span></button><button onClick={() => navigate("vocabulary")}><strong>{data.stats.collected}</strong><span>已收藏的词汇义项</span></button></div>
         <h2 className="cet6-small-title">今天更想练什么？</h2><div className="cet6-skill-grid">{kinds.map((kind, i) => { const Icon = [Headphones, BookOpen, PenLine, Type, BookOpen][i]; return <button key={kind} onClick={() => choose(kind)}><Icon size={21} /><strong>{cet6Labels[kind]}</strong><span>{descriptions[kind]}</span><ArrowRight size={16} /></button>; })}</div>
         {data.preferences.mode === "exam" && <p className="cet6-muted">每个真题板块标注原卷参考用时。练习结果只描述这次作答，不预测考试分数。</p>}
@@ -76,8 +82,12 @@ export default function Cet6Dashboard({ notebookId, userId, onChat, onFocus, onR
     {view === "practice" && (target ? <Cet6Practice key={`${notebookId}:${target}`} notebookId={notebookId} userId={userId} taskId={target} onChat={onChat} onExit={() => navigate("practice")} /> : <PracticePicker notebookId={notebookId} kind={practiceKind} onKind={setPracticeKind} onReading={() => navigate("reading")} onOpen={id => navigate("practice", id)} />)}
     {view === "papers" && <Cet6Papers key={`${notebookId}:${target}`} notebookId={notebookId} initialPaper={target} />}
     {view === "exams" && <Cet6Exams key={`${notebookId}:${practiceKind}`} notebookId={notebookId} userId={userId} onFocus={setReadingFocus} initialKind={practiceKind !== "all" && practiceKind !== "vocabulary" ? practiceKind as ExamKind : undefined} />}
-    {view === "examinfo" && <section className="cet6-source" aria-label="六级考试与目标"><h2>考试与目标</h2><h3>报考资格</h3><p>通常须符合在校生等报名条件，且大学英语四级成绩达到 425 分。具体报名范围、名额与时间以所在学校当次通知为准。</p><h3>成绩与高分要求</h3><p>六级报道分数满分 710，听力与阅读各 249，写作与翻译合计 212。报道分数经过转换，本站练习正确率不能直接换算成六级分数。</p><p>提高表现需要听懂关键信息与关系、用原文证据判断阅读选项，并在写作翻译中完整、准确、连贯地表达。</p><h3>结合你的情况</h3><p>{data?.preferences.goal || "尚未填写具体目标，可直接开始真题练习。"}</p><p>{data?.preferences.listening_score != null && data?.preferences.reading_score != null ? `你填写的听力为 ${data.preferences.listening_score}，阅读为 ${data.preferences.reading_score}。可以先检查${data.preferences.listening_score < data.preferences.reading_score ? "听力" : "阅读"}中最常出现的错误，再通过未做过的真题复测。` : "没有分项成绩时，先分别完成一份听力和阅读，结合实际错题决定练习重点。"}</p><button className="secondary-action" onClick={() => setSettings(true)}>填写或调整我的目标</button><p><a href="https://cet.neea.edu.cn/html1/folder/16113/1588-1.htm" target="_blank" rel="noreferrer">官方考试大纲 ↗</a> · <a href="https://www.neea.edu.cn/html1/folder/19081/5124-1.htm" target="_blank" rel="noreferrer">官方分数解释 ↗</a></p></section>}
   </div>;
+}
+
+function goalSummary(preferences: Cet6Preferences) {
+  return [preferences.goal, preferences.target_score !== null ? `目标 ${preferences.target_score} 分` : "",
+    preferences.exam_date ? `考试日期 ${preferences.exam_date}` : ""].filter(Boolean).join(" · ") || "可以先开始学习，之后再补充目标。";
 }
 
 function Preferences({ notebookId, initial, onSaved, onCancel }: { notebookId: string; initial: Cet6Overview; onSaved: (saved: Pick<Cet6Overview, "revision" | "preferences">) => void; onCancel: () => void }) {

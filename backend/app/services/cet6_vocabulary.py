@@ -17,6 +17,7 @@ from ..schemas.cet6 import WordAction
 from . import cet6_learning as learning
 from . import vocabulary_scheduler
 from . import cet6_word_plan
+from . import cet6_word_groups as groups
 
 
 @lru_cache(maxsize=1)
@@ -25,9 +26,43 @@ def corpus():
 
 
 @lru_cache(maxsize=1)
+def corrections():
+    return json.loads((Path(__file__).parents[1] / "data" / "cet6_vocabulary_corrections_v1.json").read_text(encoding="utf-8"))
+
+
+def manifest():
+    result = copy.deepcopy(corpus()["manifest"])
+    result.update(entry_count=len(entries()), missing_definitions=[], title="六级完整备考词表（含基础与派生词）")
+    result["scope"] = "按官方2016版词表的全部可见行整理，包含基础词、六级新增词及派生词。合并4个待核异体后，共8,010个学习词条。"
+    result["notes"] = result["notes"][:3] + [
+        "4个待核异体并入已核实的常用拼写；1处程序展开拼写已修正，5个原缺失释义已补充。原表原行仍保留用于核对。",
+        "重点词指大纲标星的六级新增词及其派生词；同组按通用词频排序，不代表六级真题考频。"]
+    return result
+
+
+@lru_cache(maxsize=1)
 def entries():
     from .vocabulary_lessons import curated
     result = {e["id"]: copy.deepcopy(e) for e in corpus()["entries"]}
+    by_word = {e["word"]: e for e in result.values()}
+    fixes = corrections()
+    for alias, target in fixes["aliases"].items():
+        original, canonical = by_word[alias], by_word[target]
+        canonical.setdefault("source_variants", []).append(alias)
+        result.pop(original["id"])
+    for old, new in fixes["spellings"].items():
+        if old in by_word:
+            by_word[old]["word"] = new  # Keep the existing opaque entry identity.
+    for e in result.values():
+        e["variants"] = [fixes["spellings"].get(v, v) for v in e["variants"] if v not in fixes["aliases"]]
+        for sense in e["senses"]:
+            # Clean rendering without changing the persisted sense identity.
+            sense["definition"] = re.sub(r"\\[rnt]|[\r\n\t]", " ", sense["definition"]).strip()
+    for fix in fixes["senses"]:
+        e = next(e for e in result.values() if e["word"] == fix["word"])
+        sense_id = "sense-" + hashlib.sha256(f"verified-20261004:{fix['word']}:{fix['definition']}".encode()).hexdigest()[:24]
+        e["senses"].insert(0, {"id": sense_id, "definition": fix["definition"],
+            "source_label": "Merriam-Webster依据 · 本站概括", "source_url": fix["url"]})
     supplements = {r["word"]: r for r in curated()["entries"] if r.get("sense_definition")}
     for e in result.values():
         if e["word"] in supplements:
@@ -39,11 +74,15 @@ def entries():
 
 
 def version():
-    return corpus()["version"] + "+sense-v1"
+    return corpus()["version"] + "+review-v2"
 
 
 def entry(item):
     if item not in entries():
+        old = next((e for e in corpus()["entries"] if e["id"] == item), None)
+        target = corrections()["aliases"].get(old["word"]) if old else None
+        if target:
+            return next(e for e in entries().values() if e["word"] == target)
         raise HTTPException(404, "词条不存在，请重新搜索词库。")
     return entries()[item]
 
@@ -72,6 +111,7 @@ def _public(row, sense):
 def detail(user, notebook, item):
     learning.check(user, notebook)
     e = entry(item)
+    item = e["id"]
     from .vocabulary_lessons import preferred_sense
     with session() as db:
         cards = [_public(_find(db, user, notebook, item, s["id"]), s["id"]) for s in e["senses"]]
@@ -80,10 +120,11 @@ def detail(user, notebook, item):
         next_review = {"sense_id": due[0][1], "mode": due[0][2]} if due else {
             "sense_id": next((c["sense_id"] for c in cards if not c["tracks"] and c["sense_id"] == preferred_sense(e)),
                 next((c["sense_id"] for c in cards if not c["tracks"]), cards[0]["sense_id"] if cards else "")), "mode": "meaning"}
-        return {"entry": e, "version": version(), "cards": cards, "next_review": next_review, "preferred_sense_id": preferred_sense(e)}
+        return {"entry": e, "version": version(), "cards": cards, "next_review": next_review,
+            "preferred_sense_id": preferred_sense(e), "family": groups.family(e["id"])}
 
 
-def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit=30):
+def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit=30, order=None, family_id=""):
     learning.check(user, notebook)
     current = learning.now().isoformat()
     prefs = learning.profile(user, notebook)["preferences"]
@@ -95,8 +136,11 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
         due = {c.entry_id for c in cards if any(t.get("due_at", "z") <= current for t in c.data.get("tracks", {}).values())}
         active = {c.entry_id for c in cards if c.data.get("active")}
     q = query.strip().casefold()
+    selected_order = order or prefs["word_order"]
     values = [e for e in entries().values() if (group == "all" or e["level"] == group)
+        and (not family_id or groups.families()[e["id"]]["id"] == family_id)
         and (not q or q in (e["word"] + " " + " ".join(e.get("variants", [])) + " " + " ".join(e.get("derivatives", []))).casefold())]
+    values = groups.ordered(values, selected_order, f"{user}:{notebook}")
     if q:
         values.sort(key=lambda e: (e["word"].casefold() != q, not e["word"].casefold().startswith(q), e["word"].casefold()))
     if view == "mine":
@@ -105,16 +149,19 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
         order = {key: i for i, key in enumerate(plan["new_ids"])}
         values = [e for e in values if e["senses"] and (e["id"] in active or e["id"] in due or e["id"] in order)]
         values.sort(key=lambda e: (e["id"] not in active, e["id"] not in due, order.get(e["id"], 999999), e["id"]))
-    return {"version": version(), "manifest": corpus()["manifest"], "total": len(values), "offset": offset, "plan": plan,
+    return {"version": version(), "manifest": manifest(), "total": len(values), "offset": offset, "plan": plan,
+        "order": selected_order, "coverage": groups.coverage(entries(), learnt),
         "items": [{k: e[k] for k in ("id", "word", "level", "phonetic", "variants", "derivatives")} |
             {"meaning": "" if view == "today" else e["senses"][0]["definition"] if e["senses"] else "释义待补，可查看词表原页", "collected": e["id"] in collected,
-             "status": "回忆未完成" if e["id"] in active else "到期复习" if e["id"] in due else "复习中" if e["id"] in learnt else "未练习"} |
+             "status": "回忆未完成" if e["id"] in active else "到期复习" if e["id"] in due else "复习中" if e["id"] in learnt else "未练习",
+             "family": groups.family(e["id"], learnt)} |
             ({"word": "", "phonetic": "", "variants": [], "derivatives": []} if view == "today" and e["id"] in due | active else {}) for e in values[offset:offset + limit]]}
 
 
 def act(user: str, notebook: str, item: str, req: WordAction):
     learning.check(user, notebook)
     e = entry(item)
+    item = e["id"]
     sense = next((s for s in e["senses"] if s["id"] == req.sense_id), None)
     if req.version != version() or not sense:
         raise HTTPException(409, "词库版本或义项已变化，请重新打开词条。")

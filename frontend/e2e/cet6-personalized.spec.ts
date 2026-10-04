@@ -37,7 +37,7 @@ test("可选目标、全量词汇、回忆记录与新对话恢复", async ({ pa
   await page.reload(); await expect(page.locator(".cet6-today")).toContainText("10 分钟");
   await page.locator(".cet6-main-nav").getByRole("button", { name: "背单词", exact: true }).click();
   await page.getByRole("button", { name: "查词与全部词汇", exact: true }).click();
-  await expect(page.getByRole("region", { name: "六级词汇学习" })).toContainText("8014 个结果");
+  await expect(page.getByRole("region", { name: "六级词汇学习" })).toContainText("8010 个结果");
   await page.getByRole("textbox", { name: "搜索单词或派生词" }).fill("evidence");
   await page.locator(".cet6-word-list button").filter({ has: page.locator("strong", { hasText: /^evidence$/ }) }).click();
   await page.getByRole("button", { name: "加入我的生词", exact: true }).click();
@@ -238,13 +238,13 @@ test("跨阶段草稿可恢复，提交期间不丢输入", async ({ page }) => 
   expect(saved.revision_text).toBe("Students can organize a weekly reading group in their communities.");
 });
 
-test("小目标两张即停、可选精讲与手机词卡布局", async ({ page }, info) => {
+test("小目标两张即停、可选精讲或离线提示与手机词卡布局", async ({ page }, info) => {
   const {base}=await register(page);
   await page.locator(".cet6-main-nav").getByRole("button",{name:"背单词",exact:true}).click();
   const plan=page.getByRole("region",{name:"每日背词计划"});
-  await plan.getByRole("button",{name:"调整每日目标"}).click();
+  await plan.getByRole("button",{name:"背词设置"}).click();
   await plan.getByLabel("每日新词数",{exact:true}).fill("2");
-  await plan.getByRole("button",{name:"保存每日目标"}).click();
+  await plan.getByRole("button",{name:"保存背词设置"}).click();
   await expect(plan).toContainText("/ 2 个");
   const ids=(await(await page.request.get(base+"/word-plan")).json()).new_ids;
   await page.reload();expect((await(await page.request.get(base+"/word-plan")).json()).new_ids).toEqual(ids);
@@ -253,7 +253,10 @@ test("小目标两张即停、可选精讲与手机词卡布局", async ({ page 
   await page.getByRole("button",{name:"翻面看释义",exact:true}).click();
   await expect(page.getByRole("region",{name:"单词精讲"})).toHaveCount(0);
   await page.getByRole("button",{name:/看用法与例句/}).click();
-  await expect(page.getByRole("region",{name:"单词精讲"})).toContainText("常见搭配与用法");
+  // Priority order now begins with a syllabus-marked word rather than the
+  // small curated lesson sample. Offline QA must show the real unavailable state.
+  await expect(page.getByRole("region",{name:"单词精讲"})).toContainText(
+    process.env.PLAYWRIGHT_REAL_MODE === "1" ? "常见搭配与用法" : "当前演示环境未连接词汇讲解服务");
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:info.outputPath("cet6-word-lesson-mobile.png"),fullPage:true});

@@ -35,6 +35,74 @@ async function pane(page: Page, source = false) {
   if (await button.isVisible()) await button.click();
 }
 
+test("词表覆盖进度、背词顺序与词族分组保存，备考入口合并", async ({ page }, info) => {
+  await page.setViewportSize({ width: 1500, height: 980 });
+  const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+  const { notebook, base } = await student(page);
+  const nav = page.getByRole("navigation", { name: "六级学习入口" });
+  await expect(nav.getByRole("button", { name: "考试与目标", exact: true })).toHaveCount(0);
+  await expect(nav.getByRole("button", { name: "备考建议", exact: true })).toHaveCount(1);
+  await nav.getByRole("button", { name: "背单词", exact: true }).click();
+  const coverage = page.getByRole("region", { name: "大纲词表学习进度" });
+  await expect(coverage).toContainText("8010 个已学");
+  await expect(page.getByRole("progressbar", { name: "完整备考词表进度", exact: true })).toHaveAttribute("value", "0");
+  let plan = await (await page.request.get(base + "/word-plan")).json();
+  expect(plan.word_order).toBe("priority");
+  const all = await (await page.request.get(base + "/words")).json();
+  expect(all.items.every((item: {level: string}) => item.level === "cet6")).toBe(true);
+  await page.getByRole("button", { name: "背词设置", exact: true }).click();
+  await page.getByRole("combobox", { name: "背词顺序", exact: true }).selectOption("family");
+  await page.getByLabel("每日新词数", { exact: true }).fill("5");
+  await page.getByRole("button", { name: "保存背词设置", exact: true }).click();
+  await expect(page.locator(".cet6-daily-plan")).toContainText("学习方式：词族一起背");
+  await page.reload();
+  await expect(page.locator(".cet6-daily-plan")).toContainText("学习方式：词族一起背");
+  await expect(page.getByRole("combobox", { name: "词表排序", exact: true })).toHaveValue("family");
+  await page.getByLabel("搜索单词或派生词", { exact: true }).fill("able");
+  const able = page.locator(".cet6-family-heading").filter({ has: page.locator("strong", { hasText: /^able$/ }) });
+  await expect(able).toContainText("词族");
+  await able.getByRole("button", { name: "查看整个词族", exact: true }).click();
+  await expect(page.locator(".cet6-word-row > button")).toHaveCount(2);
+  await expect(page.locator(".cet6-word-list")).toContainText("ability");
+  await page.screenshot({ path: info.outputPath("vocabulary-family-desktop.png"), fullPage: true });
+  await page.getByRole("button", { name: "返回全部词表", exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await coverage.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("vocabulary-coverage-mobile.png") });
+  await page.getByRole("button", { name: /开始 \/ 继续新词/ }).click();
+  await page.getByRole("button", { name: "翻面看释义", exact: true }).click();
+  await page.getByRole("button", { name: /^想起来了/ }).click();
+  await expect(page.getByRole("region", { name: "有限词卡练习" })).toContainText("1 / 5");
+  await page.getByRole("button", { name: "暂停，返回背词", exact: true }).click();
+  await expect(page.getByRole("progressbar", { name: "完整备考词表进度", exact: true })).toHaveAttribute("value", "1");
+  await page.getByRole("button", { name: "背词设置", exact: true }).click();
+  await page.getByRole("combobox", { name: "背词顺序", exact: true }).selectOption("random");
+  await page.getByRole("button", { name: "保存背词设置", exact: true }).click();
+  plan = await (await page.request.get(base + "/word-plan")).json();
+  await page.reload();
+  const restored = await (await page.request.get(base + "/word-plan")).json();
+  expect(restored.new_ids).toEqual(plan.new_ids);
+  expect(restored.coverage.learned).toBe(1);
+  expect(restored.word_order).toBe("random");
+  const profile = await (await page.request.get(base)).json();
+  expect((await page.request.post(base + "/preferences", { data: { revision: profile.revision,
+    preferences: { ...profile.preferences, target_score: 520, exam_date: "2026-12-12" } } })).ok()).toBe(true);
+  await page.goto(`/?notebook=${notebook}&cet6=examinfo`);
+  await expect(page.getByRole("heading", { name: "你的六级备考建议", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "当前备考目标" })).toContainText("目标 520 分");
+  await expect(page).toHaveURL(/cet6=advice/);
+  await page.getByRole("region", { name: "当前备考目标" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("merged-advice-goal-mobile.png") });
+  await page.getByText("考试说明与成绩要求", { exact: true }).click();
+  await expect(page.getByText("报考资格", { exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("merged-advice-mobile.png"), fullPage: true });
+  await nav.getByRole("button", { name: "今天", exact: true }).click();
+  await expect(page.locator(".cet6-today")).toContainText("目标 520 分");
+  await expect(page.locator(".cet6-today")).not.toContainText("目标还未填写");
+  expect(errors).toEqual([]);
+});
+
 test("学生手机五词一轮：翻面、真实触屏滑动、刷新续学并到点停止", async ({ page, context }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const { base } = await student(page);
