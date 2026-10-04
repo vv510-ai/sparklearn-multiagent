@@ -25,8 +25,8 @@ export type WordEntry = Omit<WordSummary, "meaning" | "collected" | "status" | "
 };
 export type WordAttempt = { mode: "meaning" | "spelling"; started_at: string; revealed: boolean; early: boolean; used_help: boolean; help_reason?: string; answer?: string; correct?: boolean };
 export type WordCard = {
-  revision: number; sense_id: string; collected: boolean;
-  contexts: { text: string; note: string; reading_id: string; source: string; saved_at: string; question_id?: string; question_number?: number; question_prompt?: string; paper_id?: string; paper_question?: number }[];
+  revision: number; sense_id: string; collected: boolean; queued_at?: string | null;
+  contexts: { text: string; note: string; reading_id: string; source: string; saved_at: string; question_id?: string; question_number?: number; question_prompt?: string; paper_id?: string; paper_question?: number; exam_id?: string; exam_kind?: string; exam_question?: number; exam_version?: string }[];
   tracks: Record<string, { scheduler?: string; due_at: string; attempts: number; independent_due_reviews: number }>;
   rating_options?: Record<string, string>;
   active?: WordAttempt | null; last?: WordAttempt & { rating: string; basis: string; due_at: string; submitted_at: string; scheduling_reason?: string };
@@ -58,7 +58,7 @@ export function cet6Route(notebook: string, view: string, target?: string, revie
   url.searchParams.delete("cet6_paper");
   url.searchParams.delete("cet6_paper_question");
   url.searchParams.delete("cet6_round");
-  if (view !== "exams") { url.searchParams.delete("exam_kind"); url.searchParams.delete("exam_paper"); }
+  if (view !== "exams") { url.searchParams.delete("exam_kind"); url.searchParams.delete("exam_paper"); url.searchParams.delete("exam_question"); }
   if (view !== "reading") { url.searchParams.delete("reading"); url.searchParams.delete("reading_question"); }
   if (target && view === "vocabulary") url.searchParams.set("cet6_word", target);
   if (target && view === "vocabulary" && review) url.searchParams.set("cet6_review", "1");

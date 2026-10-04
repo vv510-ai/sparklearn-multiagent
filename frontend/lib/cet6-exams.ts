@@ -6,9 +6,9 @@ export type ExamSummary = { id: string; title: string; year: number; month: numb
 export type ExamQuestion = { number: number; page: number; evidence_page?: number; reference_page?: number; group: string; choices: string[]; answer?: string; explanation?: string; location?: string; tip?: string; option_reasons?: Record<string, string> };
 export type ExamReview = { status: "pending" | "running" | "ready" | "failed" | "unavailable"; started_at?: string; model?: string; note?: string; message?: string;
   content?: { summary: string; strengths: string[]; priorities: string[]; dimensions: { name: string; comment: string }[]; suggestions: { quote: string; replacement: string; reason: string }[] } };
-export type ExamSession = { version: string; revision: number; phase: "answer" | "feedback"; answers: Record<string, string>; text: string; history_count: number;
-  first?: { answers: Record<string, string>; text: string; submission_id: string; submitted_at: string; correct?: number; answered?: number; total?: number }; review?: ExamReview;
+export type ExamSession = { version: string; revision: number; phase: "answer" | "feedback"; answers: Record<string, string>; text: string; history_count: number; used_help?: boolean;
+  first?: { answers: Record<string, string>; text: string; submission_id: string; submitted_at: string; used_help?: boolean; correct?: number; answered?: number; total?: number }; review?: ExamReview;
   material: { id: string; title: string; paper_title: string; kind: ExamKind; version: string; questions: ExamQuestion[]; pages: number[]; minutes: number; source_url: string; source_note: string; pdf_url: string; pdf_sha256: string; checked_on: string; audio_url?: string; audio_note?: string; crosscheck_url?: string; dimensions?: string[]; source_format?: "pdf" | "docx"; answer_url?: string; answer_sha256?: string; answer_pages?: number; verification?: string; analysis_origin?: string; scanned?: boolean } };
-export type ExamDraft = { answers: Record<string, string>; text: string };
+export type ExamDraft = { answers: Record<string, string>; text: string; used_help?: boolean };
 export type ExamRequest = ExamDraft & { request_id: string; revision: number; version: string; action: "save" | "submit" | "restart"; allow_incomplete: boolean };
-export const draftEquals = (a: ExamDraft, b: ExamDraft) => a.text === b.text && JSON.stringify(Object.entries(a.answers).sort()) === JSON.stringify(Object.entries(b.answers).sort());
+export const draftEquals = (a: ExamDraft, b: ExamDraft) => !!a.used_help === !!b.used_help && a.text === b.text && JSON.stringify(Object.entries(a.answers).sort()) === JSON.stringify(Object.entries(b.answers).sort());

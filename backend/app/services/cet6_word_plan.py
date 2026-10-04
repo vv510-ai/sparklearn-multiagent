@@ -49,6 +49,7 @@ def today(user, notebook):
             cards = db.scalars(select(VocabularyCard).where(
                 VocabularyCard.user_id == user, VocabularyCard.notebook_id == notebook)).all()
             learnt = {c.entry_id for c in cards if c.data.get("tracks")}
+            queued = {c.entry_id for c in cards if c.data.get("queued_at")}
             days = db.scalars(select(VocabularyDay).where(VocabularyDay.user_id == user,
                 VocabularyDay.notebook_id == notebook).order_by(VocabularyDay.day.desc())).all()
             # Already opened rounds are immutable snapshots, including yesterday's.
@@ -89,9 +90,10 @@ def today(user, notebook):
                     db.rollback()
                     continue
                 db.commit()
-            remaining = [i for i in pool if i not in learnt][:max(0, target - len(completed))]
+            remaining = [i for i in pool if i not in learnt and i not in queued][:max(0, target - len(completed))]
             review_due = sum(t.get("due_at", "z") <= current.isoformat()
                 for c in cards for t in c.data.get("tracks", {}).values())
+            review_due += sum(c.data.get("queued_at", "z") <= current.isoformat() for c in cards)
             review_done = sum(bool(h.get("is_review")) and day_key(dt.datetime.fromisoformat(h["submitted_at"])) == day
                 for c in cards for h in c.data.get("history", []) if h.get("submitted_at"))
             return {"day": day, "timezone": "Asia/Shanghai", "target": target,

@@ -55,6 +55,7 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "topic": "示例主题",
         "level": "入门", "words": "example", "scene": "日常", "subtitles": "",
         "word": "evidence", "definition": "n. 证据",
+        "sentence": "Practice helps learners.", "paragraph": "Practice helps learners.",
         "plan": "{}", "evidence": "[]",
         "goal": "从零学习",
         "persona": "循序渐进",

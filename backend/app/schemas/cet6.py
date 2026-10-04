@@ -64,6 +64,19 @@ class WordAction(BaseModel):
     question_id: str = Field(default="", max_length=64)
     paper_id: str = Field(default="", max_length=64)
     paper_question: int | None = Field(default=None, ge=26, le=55)
+    exam_id: str = Field(default="", max_length=64)
+    exam_kind: Literal["", "reading", "reading_cloze", "reading_matching", "reading_careful"] = ""
+    exam_question: int | None = Field(default=None, ge=26, le=55)
+    exam_version: str = Field(default="", max_length=64)
+
+
+class ExamSentenceRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    user_id: str | None = Field(default=None, max_length=64, exclude=True)
+    version: str = Field(min_length=1, max_length=64)
+    question: int = Field(ge=26, le=55)
+    sentence: str = Field(min_length=10, max_length=1500)
+    paragraph: str = Field(min_length=10, max_length=4000)
 
 
 class PaperAction(BaseModel):
@@ -89,6 +102,7 @@ class ExamAction(BaseModel):
     answers: dict[str, str] = Field(default_factory=dict, max_length=30)
     text: str = Field(default="", max_length=10000)
     allow_incomplete: bool = False
+    used_help: bool = False
 
 
 class WordRoundStart(BaseModel):

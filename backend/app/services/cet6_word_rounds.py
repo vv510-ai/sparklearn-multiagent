@@ -68,7 +68,7 @@ def start(user, notebook, kind, request_id):
                 for entry_id in today['new_ids']:
                     e = vocabulary.entry(entry_id)
                     siblings = [c for (item, _), c in cards.items() if item == entry_id]
-                    if any(c.data.get('tracks') for c in siblings):
+                    if any(c.data.get('tracks') or c.data.get('queued_at') for c in siblings):
                         continue
                     active = next((c for c in siblings if c.data.get('active')), None)
                     sense = active.sense_id if active else preferred_sense(e)
@@ -82,6 +82,10 @@ def start(user, notebook, kind, request_id):
                     for c in cards.values() for mode, track in c.data.get('tracks', {}).items()
                     if track.get('due_at', 'z') <= now
                     and (not c.data.get('active') or c.data['active']['mode'] == mode))
+                due += [(c.data['queued_at'], c.entry_id, c.sense_id, 'meaning', {}) for c in cards.values()
+                    if c.data.get('queued_at', 'z') <= now and not c.data.get('tracks', {}).get('meaning')
+                    and (not c.data.get('active') or c.data['active']['mode'] == 'meaning')]
+                due.sort(key=lambda item: item[:4])
                 for _, entry_id, sense, mode, track in due[:20]:
                     items.append(dict(entry_id=entry_id, sense_id=sense, mode=mode, attempts=track.get('attempts', 0)))
             value = dict(id=round_id, kind=kind, created_at=learning.now().isoformat(), items=items)

@@ -7,6 +7,7 @@ import { cet6Route } from "@/lib/cet6";
 import { readingError, readingRequestId } from "@/lib/reading";
 import { draftEquals, examLabels, isReading, type ExamDraft, type ExamKind, type ExamRequest, type ExamSession, type ExamSummary } from "@/lib/cet6-exams";
 import { sourceQuestion } from "@/lib/exam-source";
+import ExamReadingTools from "./ExamReadingTools";
 import SourcePaperReader from "./SourcePaperReader";
 import "./cet6-exams.css";
 
@@ -20,6 +21,7 @@ function initialSelection() {
 }
 function route(notebook: string, kind: ExamKind | null, paper = "") {
   cet6Route(notebook,"exams");
+  const clean = new URL(window.location.href); clean.searchParams.delete("exam_question"); window.history.replaceState(null,"",clean.pathname+clean.search);
   const url = new URL(window.location.href);
   if (kind) url.searchParams.set("exam_kind",kind); else url.searchParams.delete("exam_kind");
   if (paper) url.searchParams.set("exam_paper",paper); else url.searchParams.delete("exam_paper");
@@ -58,7 +60,7 @@ function ExamAttempt({notebookId,userId,paperId,kind,onExit}:{notebookId:string;
   const [referenceRequest,setReferenceRequest]=useState<{page:number;sequence:number}>();
   const [pageRequest,setPageRequest] = useState(0);
   const active=useRef(true),stateRef=useRef<ExamSession|null>(null),draftRef=useRef<ExamDraft>(draft),busyRef=useRef(false),pending=useRef<ExamRequest|null>(null),errorRef=useRef(false),reviewStarted=useRef("");
-  const saveRef=useRef<(action:ExamRequest["action"],allow?:boolean)=>Promise<void>>(async()=>{}),heading=useRef<HTMLHeadingElement>(null);
+  const saveRef=useRef<(action:ExamRequest["action"],allow?:boolean)=>Promise<void>>(async()=>{}),heading=useRef<HTMLHeadingElement>(null), located=useRef(false);
   const feedback=state?.phase==="feedback",questions=state?.material.questions||[],objective=isReading(kind)||kind==="listening";
   const persist=useCallback(()=>{const saved=stateRef.current;if(!saved)return;try{localStorage.setItem(key,JSON.stringify({...draftRef.current,version:saved.version,base_revision:saved.revision,pending:pending.current}));}catch{if(active.current)setNotice("浏览器暂不能保留离线副本，请等待保存到账号后再离开。");}},[key]);
   const accept=useCallback((next:ExamSession)=>{stateRef.current=next;setState(next);},[]);
@@ -66,9 +68,15 @@ function ExamAttempt({notebookId,userId,paperId,kind,onExit}:{notebookId:string;
     try{
       const next=await apiGet<ExamSession>(base);if(!active.current)return;
       let local:LocalCopy|null=null;try{local=JSON.parse(localStorage.getItem(key)||"null");}catch{/* malformed local copy */}
-      accept(next);setSourcePage(next.material.pages[0]);let restored:ExamDraft={answers:next.answers,text:next.text};
+      accept(next);setSourcePage(next.material.pages[0]);
+      if(!located.current){
+        located.current=true;
+        const target=Number(new URLSearchParams(window.location.search).get("exam_question"));
+        const at=next.material.questions.findIndex(q=>q.number===target);
+        if(at>=0){setIndex(at);setSourcePage(next.material.questions[at].page);setMobilePane("source");}
+      }let restored:ExamDraft={answers:next.answers,text:next.text,used_help:next.used_help};
       if(next.phase==="answer"&&local?.version===next.version){
-        restored={answers:local.answers,text:local.text};pending.current=local.pending;
+        restored={answers:local.answers,text:local.text,used_help:!!local.used_help || !!next.used_help};pending.current=local.pending;
         const acknowledged=local.pending&&next.revision===local.pending.revision+1&&draftEquals(next,local.pending);
         if(acknowledged)pending.current=null;
         if(local.base_revision!==next.revision&&!acknowledged){setConflict(true);setError("另一页面保存了不同版本。你的本地输入已保留，请比较后选择。");}
@@ -85,14 +93,14 @@ function ExamAttempt({notebookId,userId,paperId,kind,onExit}:{notebookId:string;
     const current=stateRef.current;if(!current||busyRef.current||conflict)return;
     // Resolve an uncertain request using exactly the same id/body before any later action.
     if(pending.current&&pending.current.action!==action){await saveRef.current(pending.current.action);if(pending.current||errorRef.current)return;await saveRef.current(action,allow);return;}
-    const snapshot={answers:{...draftRef.current.answers},text:draftRef.current.text};
+    const snapshot={answers:{...draftRef.current.answers},text:draftRef.current.text,used_help:draftRef.current.used_help};
     const request=pending.current||{...snapshot,request_id:readingRequestId(),revision:current.revision,version:current.version,action,allow_incomplete:allow};
     pending.current=request;persist();busyRef.current=true;setBusy(true);setError("");errorRef.current=false;
     try{
       const result=await apiPost<ExamSession>(base,request);if(!active.current)return;
       accept(result);pending.current=null;
-      if(action!=="save"){draftRef.current={answers:result.answers,text:result.text};setDraft(draftRef.current);setDirty(false);setShowMissed(false);setIndex(0);setMobilePane("answer");try{localStorage.removeItem(key);}catch{}requestAnimationFrame(()=>heading.current?.focus());}
-      else{const changed=!draftEquals(draftRef.current,result);setDirty(changed);persist();if(changed)setTimeout(()=>void saveRef.current("save"),650);}
+      if(action!=="save"){draftRef.current={answers:result.answers,text:result.text,used_help:result.used_help};setDraft(draftRef.current);setDirty(false);setShowMissed(false);setIndex(0);setMobilePane("answer");try{localStorage.removeItem(key);}catch{}requestAnimationFrame(()=>heading.current?.focus());}
+      else{if(result.used_help && !draftRef.current.used_help){draftRef.current={...draftRef.current,used_help:true};setDraft(draftRef.current);}const changed=!draftEquals(draftRef.current,result);setDirty(changed);persist();if(changed)setTimeout(()=>void saveRef.current("save"),650);}
       setNotice(action==="submit"?"提交成功，首次作答已保存。":action==="restart"?"已开启新一轮，上一轮记录已保留。":"已保存到账号");
     }catch(e){if(!active.current)return;const message=readingError(e),raw=e instanceof Error?e.message:"";setError(message);errorRef.current=true;
       if(raw.includes("→ 409")){pending.current=null;setConflict(true);}
@@ -119,17 +127,18 @@ function ExamAttempt({notebookId,userId,paperId,kind,onExit}:{notebookId:string;
   const select=(letter:string)=>{if(!q)return;edit({answers:{...draftRef.current.answers,[q.number]:letter}});};
   const feedbackQuestions=onlyWrong?questions.filter(item=>state.first?.answers[String(item.number)]!==item.answer):questions;
   return <section className="cet6-exams exam-active" aria-label={`${examLabels[kind]}真题作答`}>
-    <div className="exam-attempt-top"><button className="exam-back" onClick={onExit}><ArrowLeft size={16}/>返回套卷</button><span className="exam-muted">{material.minutes} 分钟参考用时</span></div>
+    <div className="exam-attempt-top"><button className="exam-back" onClick={onExit}><ArrowLeft size={16}/>返回套卷</button><span className="exam-muted">{material.minutes} 分钟参考用时</span><a href={`/?notebook=${encodeURIComponent(notebookId)}&cet6=home`}>今日复习</a></div>
     <h1 ref={heading} tabIndex={-1}>{material.paper_title} · {examLabels[kind]}</h1><p className="exam-source-status">第三方整理 · 官方发布身份未核实 · {material.verification || "已核对当前文件的题号与参考键，尚无独立教师复核"}</p>
+    {(draft.used_help || state.first?.used_help) && <p className="exam-muted">本轮使用过查词或拆句帮助，结果按借助帮助的练习记录。</p>}
     {objective&&feedback&&<div className="exam-result-summary"><Check size={25}/><div><strong>答对 {state.first?.correct} / {state.first?.total} 题</strong><p>已答 {state.first?.answered} 题 · 未答 {(state.first?.total||0)-(state.first?.answered||0)} 题 · 这是本板块练习结果，不换算六级成绩。</p></div></div>}
     {material.audio_url&&<div className="exam-audio"><label htmlFor="exam-original-audio">本套原站听力录音</label><audio id="exam-original-audio" aria-label="本套原站听力录音" controls preload="metadata" src={material.audio_url} onError={()=>setAudioError(true)}/><p className="exam-muted">{material.audio_note}</p>{audioError&&<p role="alert">原站录音暂不可用。你的作答仍会保存。<a href={material.audio_url} target="_blank" rel="noreferrer">在原站打开录音 ↗</a></p>}</div>}
     <div className="exam-mobile-tabs" role="group" aria-label="原卷与作答切换"><button aria-pressed={mobilePane==="source"} onClick={()=>setMobilePane("source")}>阅读原卷</button><button aria-pressed={mobilePane==="answer"} onClick={()=>setMobilePane("answer")}>{feedback?"结果与解析":"我的作答"}{objective?` · ${Object.keys(draft.answers).length}/${questions.length}`:""}</button></div>
     <div className="exam-workspace">
-      <div className="exam-source-pane" data-mobile-visible={mobilePane==="source"}><SourcePaperReader url={material.pdf_url} sourceUrl={material.source_url} pages={material.pages} page={sourcePage} onPage={setSourcePage} expectedHash={material.pdf_sha256} feedback={!!feedback} onSourceText={sourceCallback} kind={kind} question={q?.number} answerUrl={material.answer_url} answerHash={material.answer_sha256} answerPages={material.answer_pages} referenceRequest={referenceRequest} pageRequest={pageRequest} scanned={material.scanned}/></div>
+      <div className="exam-source-pane" data-mobile-visible={mobilePane==="source"}><SourcePaperReader url={material.pdf_url} sourceUrl={material.source_url} pages={material.pages} page={sourcePage} onPage={setSourcePage} expectedHash={material.pdf_sha256} feedback={!!feedback} onSourceText={sourceCallback} kind={kind} question={q?.number} answerUrl={material.answer_url} answerHash={material.answer_sha256} answerPages={material.answer_pages} referenceRequest={referenceRequest} pageRequest={pageRequest} scanned={material.scanned} renderPassage={isReading(kind) && q ? paragraphs => <ExamReadingTools key={`${paperId}:${kind}:${q.number}`} notebookId={notebookId} paperId={paperId} kind={kind} question={q.number} version={state.version} paragraphs={paragraphs} duringAttempt={!feedback} onHelp={()=>edit({used_help:true})} /> : undefined}/></div>
       <div className="exam-answer-pane" data-mobile-visible={mobilePane==="answer"}>
         <div className="exam-save-state" role="status">{busy?"正在保存…":dirty?"有新输入；离线副本保留在本账号的浏览器中":notice}</div>
         {error&&<div className="exam-error" role="alert"><p>{error}</p>{!conflict&&<button disabled={busy} onClick={()=>{errorRef.current=false;void save(pending.current?.action||"save");}}>重试保存／提交</button>}</div>}
-        {conflict&&<div className="exam-conflict"><h3>核对另一页面的记录</h3><p>账号版本：已答 {Object.keys(state.answers).length} 题{state.text?`；原稿：${state.text.slice(0,200)}`:""}。</p><p>本页版本：已答 {Object.keys(draft.answers).length} 题{draft.text?`；原稿：${draft.text.slice(0,200)}`:""}。</p><button onClick={async()=>{const latest=await apiGet<ExamSession>(base);if(!active.current)return;accept(latest);draftRef.current={answers:latest.answers,text:latest.text};setDraft(draftRef.current);pending.current=null;setConflict(false);setDirty(false);setError("");persist();}}>使用账号版本</button><button onClick={async()=>{try{const latest=await apiGet<ExamSession>(base);if(!active.current)return;accept(latest);if(latest.phase!=="answer"){setError("另一页面已提交，本页草稿仍保留。请使用账号版本查看结果。");return;}pending.current=null;setConflict(false);setDirty(true);setError("");errorRef.current=false;persist();}catch(e){setError(readingError(e));}}}>保留本页输入，准备保存</button></div>}
+        {conflict&&<div className="exam-conflict"><h3>核对另一页面的记录</h3><p>账号版本：已答 {Object.keys(state.answers).length} 题{state.text?`；原稿：${state.text.slice(0,200)}`:""}。</p><p>本页版本：已答 {Object.keys(draft.answers).length} 题{draft.text?`；原稿：${draft.text.slice(0,200)}`:""}。</p><button onClick={async()=>{const latest=await apiGet<ExamSession>(base);if(!active.current)return;accept(latest);draftRef.current={answers:latest.answers,text:latest.text,used_help:latest.used_help};setDraft(draftRef.current);pending.current=null;setConflict(false);setDirty(false);setError("");persist();}}>使用账号版本</button><button onClick={async()=>{try{const latest=await apiGet<ExamSession>(base);if(!active.current)return;accept(latest);if(latest.phase!=="answer"){setError("另一页面已提交，本页草稿仍保留。请使用账号版本查看结果。");return;}draftRef.current={...draftRef.current,used_help:!!draftRef.current.used_help || !!latest.used_help};setDraft(draftRef.current);pending.current=null;setConflict(false);setDirty(true);setError("");errorRef.current=false;persist();}catch(e){setError(readingError(e));}}}>保留本页输入，准备保存</button></div>}
         {showMissed&&<div id="exam-missing" tabIndex={-1} className="exam-missing" role="alert"><h3>还有 {missing.length} 题未作答</h3><p>点击题号返回检查，也可以保留空题提交。</p><div className="exam-number-grid">{missing.map(item=><button key={item.number} onClick={()=>{move(questions.indexOf(item));setShowMissed(false);}}>{item.number}</button>)}</div><div className="exam-actions"><button onClick={()=>{move(questions.indexOf(missing[0]));setShowMissed(false);}}>返回第一道漏题</button><button disabled={busy||!Object.keys(draft.answers).length} onClick={()=>void save("submit",true)}>仍然提交本板块</button></div></div>}
         {objective&&!feedback&&q&&<><nav className="exam-number-grid" aria-label="本板块题号">{questions.map((item,i)=><button key={item.number} aria-label={`第 ${item.number} 题${draft.answers[String(item.number)]?"，已答":"，未答"}`} aria-current={i===index?"step":undefined} data-answered={!!draft.answers[String(item.number)]} onClick={()=>move(i)}>{item.number}{draft.answers[String(item.number)]&&<span aria-hidden="true">✓</span>}</button>)}</nav>
           <fieldset className="exam-question" disabled={conflict||pending.current?.action==="submit"}><legend>第 {q.number} 题 · {q.group}</legend><p lang={isReading(kind)&&q.number<36?"zh-CN":"en"} className="exam-question-stem">{copy?.stem}</p><button className="exam-context-link" type="button" onClick={()=>{setSourcePage(q.page);setPageRequest(n=>n+1);setMobilePane("source");}}>{material.source_format === "docx" ? "查看题目材料" : `查看原卷第 ${q.page} 页`}</button><div className={`exam-choice-list ${q.choices.length>4?"exam-many-choices":""}`}>{q.choices.map(letter=><label key={letter} data-selected={draft.answers[String(q.number)]===letter}><input type="radio" name={`exam-${q.number}`} value={letter} checked={draft.answers[String(q.number)]===letter} onChange={()=>select(letter)}/><span><b>{letter}</b>{copy?.options[letter]&&<span lang="en">{copy.options[letter]}</span>}</span></label>)}</div></fieldset>

@@ -7,8 +7,9 @@ from ..services import cet6_word_plan as word_plan
 from ..services import vocabulary_lessons
 from ..services import cet6_papers as papers
 from ..services import cet6_exams as exams
-from ..schemas.cet6 import ExamAction, WordRoundStart
+from ..schemas.cet6 import ExamAction, WordRoundStart, ExamSentenceRequest
 from ..services import cet6_word_rounds as word_rounds
+from ..services import exam_sentence
 
 router = APIRouter(prefix="/api/notebooks/{notebook_id}/cet6", tags=["cet6"])
 
@@ -36,6 +37,11 @@ async def exam_review(notebook_id: str, paper_id: str, kind: str):
 @router.get("")
 def overview(notebook_id: str):
     return learning.overview(require_current_user_id(), notebook_id)
+
+
+@router.post("/exams/{paper_id}/{kind}/sentence")
+async def explain_exam_sentence(notebook_id: str, paper_id: str, kind: str, req: ExamSentenceRequest):
+    return await exam_sentence.explain(require_current_user_id(), notebook_id, paper_id, kind, req)
 
 
 @router.post("/preferences")

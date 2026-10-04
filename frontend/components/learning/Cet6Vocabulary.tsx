@@ -6,6 +6,7 @@ import { apiGet, apiPost } from "@/lib/api";
 import { readingDate, readingError, readingRequestId } from "@/lib/reading";
 import { cet6Route, wordOrders, type WordOrder, type WordCatalogue, type WordDetail, type WordCard, type WordPlan } from "@/lib/cet6";
 import WordLesson from "./WordLesson";
+import WordContexts from "./WordContexts";
 import WordRound, { type RecallRound } from "./WordRound";
 import WordPronunciation from "./WordPronunciation";
 
@@ -160,7 +161,7 @@ function VocabularyWord({ notebookId, wordId, review, onExit, onChat, onNext }: 
       {!active && sense && <WordLesson notebookId={notebookId} wordId={wordId} senseId={senseId} />}
       {!active && reviewDone.current && <button className="primary-action" disabled={busy} onClick={() => void onNext().catch(e => setError(readingError(e)))}>继续今日词卡</button>}
       {!active && card?.last && <p className="cet6-next-review">下次{card.last.mode === "meaning" ? "词义" : "拼写"}复习：{readingDate(card.last.due_at)} · {card.last.basis}。{card.last.scheduling_reason}。关闭网站后不会发送通知。</p>}
-      {!active && !!card?.contexts.length && <details open className="cet6-source"><summary>这个义项的原句与笔记</summary>{card.contexts.map((c, i) => <article key={i}><blockquote lang="en">{c.text}</blockquote><p>{c.note && `我记的意思：${c.note} · `}{c.source}</p>{c.question_prompt && <p>第 {c.question_number} 题：{c.question_prompt}</p>}{c.reading_id && <a href={`/?notebook=${encodeURIComponent(notebookId)}&reading=${encodeURIComponent(c.reading_id)}${c.question_id ? `&reading_question=${encodeURIComponent(c.question_id)}` : ""}`}>回到原阅读</a>}{c.paper_id && <a href={`/?notebook=${encodeURIComponent(notebookId)}&cet6=papers&cet6_paper=${encodeURIComponent(c.paper_id)}&cet6_paper_question=${c.paper_question || ""}`}>回到原卷 · 第{c.paper_question}题</a>}</article>)}</details>}
+      {!active && card && <WordContexts notebookId={notebookId} contexts={card.contexts} />}
       {!active && <details className="cet6-source"><summary>词形、派生关系与来源</summary><p>异体：{data.entry.variants.join(" / ") || "无另列异体"}</p><p>原词表派生词：{data.entry.derivatives.join(" · ") || "未另列"}</p><p><a href={data.entry.source_url} target="_blank" rel="noreferrer">官方词表原页</a>（PDF 第 {data.entry.source_pages.join("、")} 页）；原始释义与读音：<a href={data.entry.dictionary_url} target="_blank" rel="noreferrer">ECDICT 社区词典</a>。核验后的补充义单独列出出处与复习记录；原词典记录可能有误，遇到疑问需核验。</p></details>}
     </>}
     {notice && <p role="status" className="cet6-notice">{notice}</p>}{error && <div role="alert" className="cet6-error"><p>{error}</p><button disabled={busy} onClick={() => setLoadCount(n => n + 1)}>重新读取词卡</button></div>}

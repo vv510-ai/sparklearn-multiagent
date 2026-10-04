@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
 import { isReading, type ExamKind } from "@/lib/cet6-exams";
@@ -23,9 +23,10 @@ const readableText = pdfPageText;
 const ignoreText = () => {};
 
 /** The browser reads the original URL directly. No server proxy, upload or persisted paper copy. */
-export default function SourcePaperReader({ url, sourceUrl, pages, page, onPage, expectedHash, feedback, onSourceText, kind, question=26, answerUrl, answerHash, answerPages=1, referenceRequest, pageRequest, analysisOnly=false, scanned=false }: {
+export default function SourcePaperReader({ url, sourceUrl, pages, page, onPage, expectedHash, feedback, onSourceText, kind, question=26, answerUrl, answerHash, answerPages=1, referenceRequest, pageRequest, analysisOnly=false, scanned=false, renderPassage }: {
   url: string; sourceUrl: string; pages: number[]; page: number; onPage: (page: number) => void; expectedHash: string; feedback: boolean; onSourceText: (text: string) => void; kind: ExamKind;
   question?: number; answerUrl?: string; answerHash?: string; answerPages?: number; referenceRequest?: {page:number;sequence:number}; pageRequest?: number; analysisOnly?: boolean; scanned?: boolean;
+  renderPassage?: (paragraphs: string[]) => ReactNode;
 }) {
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null), [error, setError] = useState("");
   const [mode, setMode] = useState<"text" | "page">(analysisOnly || scanned ? "page" : "text"), [text, setText] = useState("");
@@ -125,7 +126,7 @@ export default function SourcePaperReader({ url, sourceUrl, pages, page, onPage,
     {error && <div className="exam-error" role="alert"><p>{error}</p><button onClick={() => { setDocument(null); setRetry(n => n + 1); }}>重试读取原卷</button><a href={sourceUrl} target="_blank" rel="noreferrer">在原站打开试卷 ↗</a></div>}
     <div ref={container} className="exam-reader-body" aria-busy={loading}>
       {loading && <p role="status">正在读取原卷第 {page} 页…</p>}
-      {mode === "text" ? <>{view.directions&&<details className="exam-directions"><summary>查看本题型说明</summary><p lang="en">{view.directions}</p></details>}<div lang="en" className="exam-source-text">{(analysisOnly ? (fullText||text).split(/\n\n/) : view.paragraphs).map((p,i)=><p key={i}>{p}</p>)}</div></> : <div className="exam-canvas-scroll"><canvas ref={canvas} aria-label={`原卷第 ${page} 页；可切换清晰文字阅读`} /></div>}
+      {mode === "text" ? <>{view.directions&&<details className="exam-directions"><summary>查看本题型说明</summary><p lang="en">{view.directions}</p></details>}{renderPassage && !analysisOnly ? renderPassage(view.paragraphs) : <div lang="en" className="exam-source-text">{(analysisOnly ? (fullText||text).split(/\n\n/) : view.paragraphs).map((p,i)=><p key={i}>{p}</p>)}</div>}</> : <div className="exam-canvas-scroll"><canvas ref={canvas} aria-label={`原卷第 ${page} 页；可切换清晰文字阅读`} /></div>}
     </div>
     <div className="exam-reader-toolbar">{mode === "page"&&<><button disabled={index <= 0} onClick={() => onPage(pages[index-1])}>上一页</button><span>{index+1} / {pages.length}</span><button disabled={index >= pages.length-1} onClick={() => onPage(pages[index+1])}>下一页</button></>}<a href={sourceUrl} target="_blank" rel="noreferrer">第三方来源文件 ↗</a></div>
   </section>;

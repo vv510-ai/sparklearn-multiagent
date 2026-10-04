@@ -12,6 +12,10 @@
     "learning_coach_rules": "shared/learning-coach.md"
   },
   "capabilities": {
+    "english.exam_sentence": {
+      "description": "基于用户选中的阅读原句拆解结构并提供理解自查，不接收真题参考答案",
+      "file": "english/exam-sentence.md"
+    },
     "english.cet6_advice": {
       "description": "根据首次填写的信息生成可保存的六级备考建议",
       "file": "english/cet6-advice.md"

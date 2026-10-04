@@ -104,7 +104,7 @@ def overview(user: str, notebook: str) -> dict:
         pending = sorted([r for r in readings if r.data["phase"] != "done"], key=lambda r: r.data.get("updated_at", ""), reverse=True)
         unfinished = sorted([p for p in practices if p.data.get("phase") != "done"], key=lambda r: r.data.get("updated_at", ""), reverse=True)
         active_words = sorted([w for w in words if w.data.get("active")], key=lambda w: w.data.get("updated_at", ""), reverse=True)
-        word_due = sum(any(t.get("due_at", "z") <= current for t in w.data.get("tracks", {}).values()) for w in words)
+        word_due = sum(w.data.get("queued_at", "z") <= current or any(t.get("due_at", "z") <= current for t in w.data.get("tracks", {}).values()) for w in words)
         reading_due = [r for r in readings if r.data.get("review", {}).get("due_at", "z") and r.data.get("review", {}).get("due_at", "z") <= current]
         practice_due = [p for p in practices if p.data.get("due_at", "z") <= current]
         recent = sorted([{"kind": "reading", "at": r.data["first"]["submitted_at"], "independent": not r.data["first"].get("used_help"),

@@ -124,7 +124,7 @@ def act(user, notebook, paper_id, kind, req):
         else:
             if data["phase"] != "answer":
                 raise HTTPException(409,"本轮已提交，首次作答已保留；请使用重新作答。")
-            data.update(answers=dict(req.answers),text=req.text)
+            data.update(answers=dict(req.answers),text=req.text, used_help=bool(data.get("used_help") or req.used_help))
             if req.action == "submit":
                 if questions:
                     missing = len(questions)-len(req.answers)
@@ -135,7 +135,7 @@ def act(user, notebook, paper_id, kind, req):
                 elif len(req.text.strip()) < 10:
                     raise HTTPException(422,"请先输入自己的作答，再提交分析。")
                 first = dict(answers=dict(req.answers),text=req.text,submission_id=str(req.request_id),
-                    submitted_at=learning.now().isoformat(),version=paper['version'])
+                    submitted_at=learning.now().isoformat(),version=paper['version'],used_help=data["used_help"])
                 if questions:
                     first.update(correct=sum(req.answers.get(n)==q["answer"] for n,q in questions.items()),
                         answered=len(req.answers),total=len(questions))

@@ -99,7 +99,7 @@ def _find(db, user, notebook, item, sense):
 def _public(row, sense):
     data = row.data if row else {}
     result = {"revision": row.revision if row else 0, "sense_id": sense, "collected": bool(data.get("collected")),
-        "contexts": data.get("contexts", []), "tracks": data.get("tracks", {}), "active": data.get("active"), "last": data.get("last")}
+        "contexts": data.get("contexts", []), "queued_at": data.get("queued_at"), "tracks": data.get("tracks", {}), "active": data.get("active"), "last": data.get("last")}
     active = data.get("active")
     if active and active["revealed"]:
         old = data.get("tracks", {}).get(active["mode"], {})
@@ -133,7 +133,7 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
         cards = db.scalars(select(VocabularyCard).where(VocabularyCard.user_id == user, VocabularyCard.notebook_id == notebook)).all()
         collected = {c.entry_id for c in cards if c.data.get("collected")}
         learnt = {c.entry_id for c in cards if c.data.get("tracks")}
-        due = {c.entry_id for c in cards if any(t.get("due_at", "z") <= current for t in c.data.get("tracks", {}).values())}
+        due = {c.entry_id for c in cards if c.data.get("queued_at", "z") <= current or any(t.get("due_at", "z") <= current for t in c.data.get("tracks", {}).values())}
         active = {c.entry_id for c in cards if c.data.get("active")}
     q = query.strip().casefold()
     selected_order = order or prefs["word_order"]
@@ -184,6 +184,10 @@ def act(user: str, notebook: str, item: str, req: WordAction):
         current = learning.now()
         tracks = data.setdefault("tracks", {})
         if req.action == "collect":
+            if req.exam_id and (req.paper_id or req.reading_id or req.question_id):
+                raise HTTPException(422, "一次收藏只能关联一份材料。")
+            if not req.exam_id and (req.exam_kind or req.exam_question or req.exam_version):
+                raise HTTPException(422, "请提供生词对应的真题套卷。")
             if req.paper_id and (req.reading_id or req.question_id):
                 raise HTTPException(422, "一次收藏只能关联一份材料。")
             if req.paper_question and not req.paper_id:
@@ -192,6 +196,18 @@ def act(user: str, notebook: str, item: str, req: WordAction):
                 raise HTTPException(422, "题目定位需要对应的原阅读。")
             data["collected"] = True
             context = {"text": req.context.strip(), "note": req.context_note.strip(), "reading_id": req.reading_id, "source": "自己提供的语境", "saved_at": current.isoformat()}
+            if req.exam_id:
+                from .cet6_exams import _pack
+                paper, block = _pack(req.exam_id, req.exam_kind)
+                if req.exam_version != paper["version"]:
+                    raise HTTPException(409, "原卷版本已变化，请重新打开原卷后收藏。")
+                if req.exam_question not in {q["number"] for q in block["questions"]} or not context["text"]:
+                    raise HTTPException(422, "请保留原句，并选择本板块内的题号。")
+                context.update(exam_id=req.exam_id, exam_kind=req.exam_kind, exam_question=req.exam_question,
+                    exam_version=req.exam_version, source=paper["title"] + " · 浏览器摘录，尚未独立核验原文")
+                # Pending practice is separate from actual recall history.
+                if not tracks.get("meaning"):
+                    data.setdefault("queued_at", current.isoformat())
             if req.paper_id:
                 from .cet6_papers import _paper
                 paper = _paper(req.paper_id)
@@ -215,7 +231,7 @@ def act(user: str, notebook: str, item: str, req: WordAction):
                     context.update(question_id=req.question_id, question_number=index + 1, question_prompt=questions[index]["prompt"])
             if context["text"] or context["note"]:
                 previous = data.setdefault("contexts", [])
-                if not any(all(c.get(k, "") == context.get(k, "") for k in ("text", "note", "reading_id", "question_id", "paper_id", "paper_question")) for c in previous):
+                if not any(all(c.get(k, "") == context.get(k, "") for k in ("text", "note", "reading_id", "question_id", "paper_id", "paper_question", "exam_id", "exam_kind", "exam_question", "exam_version")) for c in previous):
                     data["contexts"] = (previous + [context])[-20:]
         elif req.action == "start":
             if not data.get("active"):
@@ -258,6 +274,8 @@ def act(user: str, notebook: str, item: str, req: WordAction):
                 "is_review": bool(old),
                 "scheduler": track.get("scheduler", "legacy-fixed"), **scheduling}
             tracks[mode] = track
+            if mode == "meaning":
+                data.pop("queued_at", None)
             data["last"] = last
             data["history"] = (data.get("history", []) + [last])[-100:]
             data["active"] = None

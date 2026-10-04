@@ -7,6 +7,7 @@ import { readingDate, readingError, readingRequestId } from "@/lib/reading";
 import type { WordCard, WordDetail } from "@/lib/cet6";
 import WordLesson from "./WordLesson";
 import WordPronunciation from "./WordPronunciation";
+import WordContexts from "./WordContexts";
 import "./word-round.css";
 
 export type RoundItem = { entry_id: string; sense_id: string; mode: "meaning" | "spelling"; attempts: number; done: boolean };
@@ -84,6 +85,7 @@ function RecallCard({ notebookId, item, onAdvance }: { notebookId: string; item:
           {(item.mode === "meaning" || active?.revealed) && <>{data.entry.phonetic && <p className="word-card-phonetic">/{data.entry.phonetic}/</p>}<WordPronunciation word={data.entry.word} entryId={data.entry.id} /></>}
           {active?.revealed && <div className="word-card-definition"><p>{sense?.definition}</p><small>{sense?.source_label || "ECDICT 社区词典释义"} · <a href={sense?.source_url || data.entry.dictionary_url} target="_blank" rel="noreferrer">核对来源 ↗</a></small>{item.mode === "spelling" && <p>你的拼写：{active.answer || "未填写"} · {active.correct ? "拼写一致" : "还需要再练"}</p>}</div>}
         </div>
+        {card && (item.mode === "meaning" || active?.revealed) && <WordContexts notebookId={notebookId} contexts={card.contexts} revealed={!!active?.revealed} />}
         {active?.used_help && <p className="cet6-muted">{active.help_reason || "本次借助了提示，按重新学习安排。"}</p>}
         {active && !active.revealed && <div className="word-flip-actions">{item.mode === "spelling" && <label className="cet6-field">我的拼写<input value={answer} autoComplete="off" spellCheck={false} maxLength={500} onChange={e => setAnswer(e.target.value)} /></label>}<label className="cet6-check"><input type="checkbox" checked={help} onChange={e => setHelp(e.target.checked)} />这次看过提示</label><button className="primary-action" disabled={busy} onClick={() => void act("reveal")}>翻面看释义</button><p>可以口头回忆，无需抄写笔记。翻面后再记录回忆结果。</p></div>}
         {active?.revealed && <><p className="word-swipe-hint">左滑：忘记了 · 右滑：想起来了 · 也可使用下方按钮{item.mode === "spelling" && !active.correct ? "（拼写不一致时仅可选忘记了）" : ""}</p><div className="word-rating-grid">{([["again", "忘记了"], ["hard", "吃力想起"], ["good", "想起来了"], ["easy", "很轻松"]] as const).map(([rating, label]) => <button key={rating} disabled={busy || (rating !== "again" && item.mode === "spelling" && !active.correct)} onClick={() => rate(rating)}><strong>{label}</strong>{card?.rating_options?.[rating] && <small>{readingDate(card.rating_options[rating])}</small>}</button>)}</div><p className="cet6-muted">按翻面前的表现选择；下方时间是预计的下次复习时间。保存后进入下一张。</p></>}
