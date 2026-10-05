@@ -1,6 +1,66 @@
 import { expect, test, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 
+test("英语资料接入：争议题保留、语境义精讲与原句复习", async ({page}, info) => {
+  test.setTimeout(240000);
+  await page.setViewportSize({width:1440,height:1000});
+  const {notebook} = await register(page);
+  await page.goto(`/?notebook=${notebook}&cet6=exams&exam_kind=reading_careful&exam_paper=cet6-2024-06-1`);
+  await expect(page.getByRole("heading",{name:"2024 年 6 月 · 第 1 套 · 仔细阅读"})).toBeVisible();
+  await expect(page.locator(".exam-source-text")).toContainText("culture",{timeout:60000});
+  await expect(page.locator(".exam-analysis")).toHaveCount(0);
+  const choices = "B B A D C D C A B A".split(" ");
+  for(let i=0;i<choices.length;i++) {
+    await page.getByRole("navigation",{name:"本板块题号"}).getByRole("button",{name:new RegExp(`^第 ${i+46} 题`)}).click();
+    await page.locator(`input[name="exam-${i+46}"][value="${choices[i]}"]`).check();
+  }
+  await page.getByRole("button",{name:"提交本板块",exact:true}).click();
+  await expect(page.locator(".exam-result-summary")).toContainText("答对 9 / 9 题");
+  const pending=page.locator(".exam-analysis").filter({has:page.locator("summary span",{hasText:"第 47 题"})});
+  await expect(pending.locator(":scope > summary")).toContainText("选项区分待复核");
+  await expect(pending.locator(":scope > summary")).not.toContainText("需订正");
+  await page.getByRole("checkbox",{name:"只看需复核、错题与未答题"}).check();
+  await expect(page.locator(".exam-analysis")).toHaveCount(1);
+  await page.getByRole("checkbox",{name:"只看需复核、错题与未答题"}).uncheck();
+  const q50=page.locator(".exam-analysis").filter({has:page.locator("summary span",{hasText:"第 50 题"})});
+  await q50.locator(":scope > summary").click();
+  await q50.getByRole("button",{name:"climate",exact:true}).click();
+  await expect(q50.getByRole("region",{name:"单词精讲"})).toContainText("群体氛围");
+  await page.screenshot({path:info.outputPath("english-materials-desktop.png"),fullPage:true});
+  await q50.getByRole("button",{name:"回到原文点词，保留原句"}).click();
+  await page.locator(".exam-source-text").getByRole("button",{name:"查词 climate",exact:true}).first().click();
+  const dialog=page.getByRole("dialog",{name:"词句学习 · 第 50 题"});
+  await expect(dialog.getByLabel("选择本句对应义项")).toHaveValue("sense-material-v1-climate-atmosphere");
+  await dialog.getByRole("button",{name:"加入复习，保留原句",exact:true}).click();
+  await expect(dialog).toContainText("已加入今日待复习");
+  await dialog.getByRole("button",{name:"返回阅读",exact:true}).click();
+  await page.reload();
+  await expect(page.locator(".exam-result-summary")).toContainText("答对 9 / 9 题");
+  const detail=await(await page.request.get(`/api/notebooks/${notebook}/cet6/words/cet-10db699812d02cc570ad3bde`)).json();
+  const card=detail.cards.find((c:{sense_id:string})=>c.sense_id==="sense-material-v1-climate-atmosphere");
+  expect(card.contexts[0].exam_question).toBe(50);
+  expect(card.contexts[0].text).toContain("climate");
+  expect(card.queued_at).toBeTruthy();
+  await page.getByRole("link",{name:"今日复习",exact:true}).click();
+  await expect(page).toHaveURL(/cet6_round=/);
+  await expect(page.getByRole("region",{name:"原句复习"})).toContainText("climate");
+  await page.getByRole("button",{name:"翻面看释义",exact:true}).click();
+  await expect(page.getByText("n. 氛围；风气；社会环境",{exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("region",{name:"原句复习"})).toContainText("climate");
+  await page.goto(`/?notebook=${notebook}&cet6=exams&exam_kind=reading_careful&exam_paper=cet6-2024-06-1&exam_question=51`);
+  await expect(page.locator(".exam-source-text")).toContainText("climate change");
+  await page.locator(".exam-source-text").getByRole("button",{name:"查词 climate",exact:true}).first().click();
+  const second=page.getByRole("dialog",{name:"词句学习 · 第 51 题"});
+  await expect(second.getByLabel("选择本句对应义项")).toHaveValue("sense-93a04199ba27acc5a27b9dd3");
+  await second.getByRole("button",{name:"返回阅读",exact:true}).click();
+
+  await page.setViewportSize({width:390,height:844});
+  await answersPane(page);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  await page.screenshot({path:info.outputPath("english-materials-mobile.png"),fullPage:true});
+});
+
 async function register(page:Page) {
   if(process.env.PLAYWRIGHT_REAL_MODE==="1"){
     const health=await(await page.request.get("/api/health")).json();

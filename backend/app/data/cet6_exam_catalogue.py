@@ -4,6 +4,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 from .cet6_exam_pilot import pilot
+from .cet6_material_enrichment import enrich_papers
 
 READING_TYPES = {
     'reading_cloze': ('选词填空', 26, 35, 10),
@@ -42,4 +43,5 @@ def catalogue_data():
                 # Include the whole original reading section for reliable paragraph extraction.
                 paper['blocks'][kind] = dict(title=title, minutes=minutes,
                     pages=reading['pages'], questions=questions)
+    enrich_papers(papers)
     return papers

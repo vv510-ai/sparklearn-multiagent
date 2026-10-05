@@ -121,7 +121,7 @@ def test_supplemented_senses_keep_original_ids_and_separate_recall_target(learne
         selected = next(s for s in detail["entry"]["senses"] if s["id"] == detail["preferred_sense_id"])
         assert selected["id"] not in old_ids and meaning in selected["definition"]
         assert selected["source_url"].startswith("https://www.merriam-webster.com/")
-        assert detail["version"].endswith("+review-v2")
+        assert detail["version"].endswith("+review-v3")
 
 
 def test_curated_lessons_match_real_senses_and_do_not_claim_real_exam_examples(learner):

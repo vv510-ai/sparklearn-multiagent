@@ -19,6 +19,7 @@ from ..llm.spark_client import llm_complete, parse_json, is_demo
 from ..prompt_templates import invoke_learning_prompt
 from .english_learning import Check
 from . import cet6_learning as learning
+from ..data.cet6_material_enrichment import enrichment, word_additions
 
 LESSON_VERSION = "word-lesson-v2"
 _locks: WeakValueDictionary = WeakValueDictionary()
@@ -68,6 +69,15 @@ def _identity(item, sense_id):
 
 
 def _ready(entry, sense_id):
+    addition = next((r for r in word_additions() if r['word'] == entry['word'] and r['sense_id'] == sense_id), None)
+    if addition:
+        return {**Lesson.model_validate(addition['lesson']).model_dump(),
+            'status': 'ready', 'origin': 'curated', 'version': enrichment()['version'],
+            'source_note': '参考词典核对义项与搭配；本站重写讲解，例句、应用题与助记均为自编。',
+            'sources': [{'title': f"Oxford Learner’s Dictionaries · {entry['word']}",
+                'url': addition['source_url'], 'supports': '义项或搭配；本站例句与练习不是词典原文。',
+                'checked_on': enrichment()['checked_on']}],
+            'exam_occurrences': []}
     row = next((e for e in curated()["entries"] if e["word"].casefold() == entry["word"].casefold()), None)
     if not row or preferred_sense(entry) != sense_id:
         return None

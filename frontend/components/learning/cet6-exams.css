@@ -10,3 +10,9 @@
 @media(max-width:900px){.exam-active .exam-workspace{grid-template-columns:minmax(0,1fr);height:auto;min-height:0;}.exam-active .exam-source-pane,.exam-active .exam-answer-pane{height:68dvh;min-height:360px;}.exam-active:has(.exam-audio) .exam-workspace{height:auto;}.exam-active .exam-answer-pane{padding-inline:0 5px;}.exam-reading-types{gap:9px;}.exam-reading-types>button{padding:13px 10px;}.exam-reading-types span{font-size:13px;}}
 @media(max-width:480px){.exam-reading-types{grid-template-columns:minmax(0,1fr);}.exam-reading-types>button{grid-template-columns:100px minmax(0,1fr);align-items:center;}.exam-active .exam-source-pane,.exam-active .exam-answer-pane{height:66dvh;}.exam-active .exam-workspace{gap:0;}.exam-source-reader{padding:12px;}.cet6-dashboard .cet6-exams .exam-source-text p{font-size:18px;line-height:1.8;}}
 @container(max-width:780px){.exam-active .exam-workspace{grid-template-columns:minmax(0,1fr);height:auto;min-height:0;}.exam-active .exam-source-pane,.exam-active .exam-answer-pane{height:68dvh;min-height:350px;}}
+.exam-review-note { padding: 12px 14px; border-left: 3px solid #a67524; background: #fff8e8; color: #644810; line-height: 1.7; }
+.exam-vocabulary { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border, #dce3e5); }
+.exam-vocabulary .exam-actions { flex-wrap: wrap; }
+.exam-vocabulary button[aria-pressed="true"] { border-color: #246b59; background: #edf7f2; }
+.exam-vocabulary .reading-vocabulary label { display: grid; gap: 6px; margin: 10px 0; }
+.exam-vocabulary input, .exam-vocabulary select, .exam-vocabulary textarea { max-width: 100%; min-width: 0; box-sizing: border-box; }

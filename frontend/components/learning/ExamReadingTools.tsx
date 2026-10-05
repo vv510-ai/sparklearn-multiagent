@@ -11,7 +11,7 @@ import "./exam-reading-tools.css";
 type Selection = { id: string; word: string; sentence: string; paragraph: string };
 type Explanation = { note: string; content: { main_clause: string; clauses: { quote: string; role: string; explanation: string }[]; translation: string; connection: string; check_question: string; check_answer: string } };
 type ExcerptDraft = { notes: Record<string, string>; explanations: Record<string, Explanation>; answers: Record<string, string> };
-type Props = { notebookId: string; paperId: string; kind: string; question: number; version: string; paragraphs: string[]; duringAttempt: boolean; onHelp: () => void };
+type Props = { notebookId: string; paperId: string; kind: string; question: number; version: string; paragraphs: string[]; duringAttempt: boolean; onHelp: () => void; preferredSenses?: Record<string, string> };
 type Operation = "lookup" | "save" | "explain" | "reload";
 const sentences = (p: string) => p.match(/[^.!?]+(?:[.!?]+[”"']?|$)/g)?.map(s => s.trim()).filter(Boolean) || [p];
 
@@ -62,7 +62,7 @@ function ExcerptPanel({ selected, draft, open, onClose, ...props }: Props & { se
   const help = () => { if (props.duringAttempt) props.onHelp(); };
   const loadWord = async (id: string) => {
     const detail = await apiGet<WordDetail>(`${base}/words/${id}`);
-    if (alive.current) { setWord(detail); setSense(previous => detail.cards.some(c => c.sense_id === previous) ? previous : detail.preferred_sense_id); }
+    if (alive.current) { setWord(detail); setSense(previous => detail.cards.some(c => c.sense_id === previous) ? previous : props.preferredSenses?.[detail.entry.word] || detail.preferred_sense_id); }
   };
   const run = async (kind: Operation, task: () => Promise<void>) => {
     if (flight.current) return;

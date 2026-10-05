@@ -18,6 +18,7 @@ from . import cet6_learning as learning
 from . import vocabulary_scheduler
 from . import cet6_word_plan
 from . import cet6_word_groups as groups
+from ..data.cet6_material_enrichment import word_additions
 
 
 @lru_cache(maxsize=1)
@@ -70,11 +71,17 @@ def entries():
             sense_id = "sense-" + hashlib.sha256(f"mw-supplement-v1:{e['word']}:{definition}".encode()).hexdigest()[:24]
             e["senses"].append({"id": sense_id, "definition": definition,
                 "source_label": "Merriam-Webster依据 · 本站概括的补充义", "source_url": f"https://www.merriam-webster.com/dictionary/{e['word']}"})
+    for addition in word_additions():
+        if addition.get('definition'):
+            e = next(e for e in result.values() if e['word'] == addition['word'])
+            e['senses'].append({'id': addition['sense_id'], 'definition': addition['definition'],
+                'source_label': 'Oxford Learner’s Dictionaries 依据 · 本站概括',
+                'source_url': addition['source_url']})
     return result
 
 
 def version():
-    return corpus()["version"] + "+review-v2"
+    return corpus()["version"] + "+review-v3"
 
 
 def entry(item):
@@ -115,8 +122,12 @@ def detail(user, notebook, item):
     from .vocabulary_lessons import preferred_sense
     with session() as db:
         cards = [_public(_find(db, user, notebook, item, s["id"]), s["id"]) for s in e["senses"]]
-        due = sorted((t["due_at"], c["sense_id"], mode) for c in cards for mode, t in c["tracks"].items()
-                     if t.get("due_at", "z") <= learning.now().isoformat())
+        current = learning.now().isoformat()
+        due = [(t["due_at"], c["sense_id"], mode) for c in cards for mode, t in c["tracks"].items()
+               if t.get("due_at", "z") <= current]
+        due.extend((c['queued_at'], c['sense_id'], 'meaning') for c in cards
+                   if c.get('queued_at') and c['queued_at'] <= current)
+        due.sort()
         next_review = {"sense_id": due[0][1], "mode": due[0][2]} if due else {
             "sense_id": next((c["sense_id"] for c in cards if not c["tracks"] and c["sense_id"] == preferred_sense(e)),
                 next((c["sense_id"] for c in cards if not c["tracks"]), cards[0]["sense_id"] if cards else "")), "mode": "meaning"}

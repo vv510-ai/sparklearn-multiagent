@@ -1,0 +1,377 @@
+{
+  "version": "english-materials-20261006-v1",
+  "checked_on": "2026-10-06",
+  "reading": [
+    {
+      "paper_id": "cet6-2024-06-1",
+      "source_sha256": "26a0c9c7f3fdec00b8306095ecac6880085a96fe454063cd14bc104dc4759c28",
+      "questions": [
+        {
+          "number": 46,
+          "answer": "B",
+          "location": "第一篇阅读第 2 段（按当前原卷分段）",
+          "explanation": "原文说，公司文化需要让员工敢于开口。不利的工作场所文化会阻碍员工提出问题，因此 B 与这一条件最直接对应。",
+          "tip": "回到第 2 段，列出察觉风险、表达技能、文化支持三个条件，再核对选项说的是哪一个。",
+          "option_reasons": {
+            "A": "后文确实谈到管理者不干预，但不能直接将一次未干预概括成松散的管理风格。B 与列出的文化条件更直接对应。",
+            "B": "不利的工作场所文化，使员工不敢开口，与第 2 段的条件直接对应。",
+            "C": "原文说员工需要察觉正在发生的风险，没有断言风险本身无法预见。",
+            "D": "缺少有效表达的技能，不等于沟通渠道客观上被阻断。"
+          },
+          "vocabulary": [
+            {
+              "word": "intervene",
+              "word_id": "cet-95661f9fc2c369e587453388",
+              "sense_id": "sense-2605cccfd7147a7bf7fb4c92",
+              "meaning": "intervene：介入并影响正在发生的事"
+            }
+          ]
+        },
+        {
+          "number": 47,
+          "answer": "D",
+          "location": "第一篇阅读第 3 段（按当前原卷分段）",
+          "explanation": "人越多，每个人越容易以为别人会处理，于是实际出面干预的可能性下降。D 明确写出了“出面干预”，最贴近文中的结果。",
+          "tip": "先复述“以为别人会处理 → 没人主动干预”的机制。保留参考键 D；本题不进入答对题数比较。",
+          "option_reasons": {
+            "A": "原文讨论谁承担行动责任，没有提出旁观者越多，个人安全忧虑越大。",
+            "B": "与 D 接近。“参与”范围较宽，没有明确帮助或干预。公开第三方解析以此区分两项，但尚不足以作官方裁定。",
+            "C": "把旁观者是否行动，改成旁观者是否需要照顾，对象关系发生变化。",
+            "D": "与原文中无人出面干预的结果对应。理解时还要补上“以为别人会处理”的中间原因。"
+          },
+          "review_note": "选项区分待复核：B、D 的表述接近。D 的“干预”比 B 的“参与”更明确，但不能据此断言 B 是参与危险行为。本题保留参考答案，不用于判定是否掌握。",
+          "review_status": "pending",
+          "vocabulary": [
+            {
+              "word": "intervene",
+              "word_id": "cet-95661f9fc2c369e587453388",
+              "sense_id": "sense-2605cccfd7147a7bf7fb4c92",
+              "meaning": "intervene：介入并影响正在发生的事"
+            }
+          ]
+        },
+        {
+          "number": 48,
+          "answer": "A",
+          "location": "第一篇阅读第 5 段（按当前原卷分段）",
+          "explanation": "员工看到管理者不处理危险行为，会把这种做法看成先例。A 所说的继续不干预，在四项中最贴近这种影响。",
+          "tip": "连起“管理者未处理 → 成为先例 → 影响团队行为”，同时检查选项是否把倾向扩大成绝对结论。",
+          "option_reasons": {
+            "A": "与不干预成为先例的方向一致；保留 No one 范围过于绝对的提示。",
+            "B": "原文没有把是否最容易作为员工效仿的判断标准。",
+            "C": "这一段未推出员工会因此更加谨慎。",
+            "D": "把重点变成员工独自处理紧急事件，偏离集体惯例如何形成。"
+          },
+          "review_note": "措辞提示：A 的 “No one” 比原文形成先例、影响文化的说法更绝对。这里选择最贴近的一项，不把它推广成必然规律。",
+          "vocabulary": [
+            {
+              "word": "address",
+              "word_id": "cet-d80c9bf910f144738ef98372",
+              "sense_id": "sense-0c97cb20f39cb0bc65e30a45",
+              "meaning": "address：把问题纳入处理"
+            },
+            {
+              "word": "precedent",
+              "word_id": "cet-aac6f77508eb3000f7cf83cc",
+              "sense_id": "sense-cee8ce32ef554b64c8a324dd",
+              "meaning": "precedent：现在的做法可能成为以后的先例"
+            }
+          ]
+        },
+        {
+          "number": 49,
+          "answer": "D",
+          "location": "第一篇阅读第 6 段（按当前原卷分段）",
+          "explanation": "根本因素是“恐惧”。D 的“担心工作变多”是原文明确列出的表现之一，与怕被惩罚并列；它不是唯一原因。",
+          "tip": "先找 fear 这个总括原因，再区分具体表现与过去失败产生的后续行为。",
+          "option_reasons": {
+            "A": "推给别人确实出现在原文，但属于过去干预失败后的一种结果，不是本段点明的根本因素。",
+            "B": "本段没有把期待领导行动列为根本原因。",
+            "C": "虽然同样写了 fear，原文没有给出被同事孤立这一具体担忧。",
+            "D": "原文明确给出的恐惧表现之一。不要把这一例子当成所有恐惧的全部。"
+          },
+          "vocabulary": []
+        },
+        {
+          "number": 50,
+          "answer": "C",
+          "location": "第一篇阅读第 8 段（按当前原卷分段）",
+          "explanation": "第 8 段强调管理者营造支持干预和交流的安全氛围。C 保留了环境如何支持干预的关系；D 只抓住了沟通相关词。",
+          "tip": "把环境、支持干预、开放交流连成完整关系，避免只对齐 communication 一个词。",
+          "option_reasons": {
+            "A": "文章涉及设备和安全教育，但没有将正确操作设备的培训表述为本题的关键措施。",
+            "B": "文章提到害怕受惩罚会阻碍干预，没有主张严惩危险行为这一措施。",
+            "C": "安全环境对应 safety climate，支持及时干预对应 supports intervening。",
+            "D": "把团队氛围缩成管理者与一线员工的特定沟通关系，没有保留原句强调的完整关系。"
+          },
+          "vocabulary": [
+            {
+              "word": "climate",
+              "word_id": "cet-10db699812d02cc570ad3bde",
+              "sense_id": "sense-material-v1-climate-atmosphere",
+              "meaning": "climate：从“气候”迁移到群体氛围"
+            },
+            {
+              "word": "intervene",
+              "word_id": "cet-95661f9fc2c369e587453388",
+              "sense_id": "sense-2605cccfd7147a7bf7fb4c92",
+              "meaning": "intervene：介入并影响正在发生的事"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "words": [
+    {
+      "word": "concern",
+      "sense_id": "sense-material-v1-concern-business",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/concern_2",
+      "definition": "n. 企业；公司（商业语境中的补充义）",
+      "lesson": {
+        "focus": "concern：看到商业语境，再考虑“企业”义",
+        "explanation": "concern 除了“担忧、关心”，也可指企业。先看词性和周围是否谈经营、雇员或业务，再确定这里是一个组织。这个补充义不会替代更基础的“担忧”义；不需要遇到 concern 就翻成公司。",
+        "usage": [
+          "a business concern：一家商业企业",
+          "a small concern：一家小企业"
+        ],
+        "example": {
+          "text": "The small concern employs thirty local people.",
+          "translation": "这家小企业雇用了三十名当地人。",
+          "note": "employs 的主语能雇人，支持把 concern 理解成企业。"
+        },
+        "contrast": "company 是更直接的公司表达；concern 的企业义依赖语境。a concern about costs 通常是在说对成本的担忧。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "The family owns a small manufacturing concern. 这里 concern 指什么？",
+          "options": [
+            "制造企业",
+            "担忧情绪",
+            "亲属关系",
+            "检查行为"
+          ],
+          "answer": "A",
+          "explanation": "manufacturing 和 owns 一起指向家族拥有的制造企业。"
+        }
+      }
+    },
+    {
+      "word": "climate",
+      "sense_id": "sense-material-v1-climate-atmosphere",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/climate",
+      "definition": "n. 氛围；风气；社会环境",
+      "lesson": {
+        "focus": "climate：从“气候”迁移到群体氛围",
+        "explanation": "climate 可以指一个群体或时期中的整体氛围。阅读时看它由什么构成、使什么行为更容易发生；安全相关语境中的 climate 可能指人们是否愿意交流、是否敢于干预。",
+        "usage": [
+          "a climate of trust：信任氛围",
+          "create a safety climate：营造安全氛围"
+        ],
+        "example": {
+          "text": "The new manager created a climate of trust in the team.",
+          "translation": "新任管理者在团队中营造了信任氛围。",
+          "note": "trust 描述人与人的关系，说明这里讨论的是团队氛围。"
+        },
+        "contrast": "climate 的自然气候义和群体氛围义要靠语境区分。atmosphere 也能谈氛围，两词有重叠，不能编造互不相容的使用规则。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "A climate of trust makes it easier to report mistakes. 这里 climate 的作用是什么？",
+          "options": [
+            "描述天气",
+            "指影响人们行为的整体氛围",
+            "指办公楼的位置",
+            "指报告的纸张"
+          ],
+          "answer": "B",
+          "explanation": "信任氛围使员工更容易报告错误；注意环境与行为的关系。"
+        }
+      }
+    },
+    {
+      "word": "intervene",
+      "sense_id": "sense-2605cccfd7147a7bf7fb4c92",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/intervene",
+      "lesson": {
+        "focus": "intervene：介入并影响正在发生的事",
+        "explanation": "intervene 强调出面介入某个局面；在安全语境里，常是为了阻止危险继续。辨析时看参与者做了什么，以及介入带来的改变，不能只凭中文里都有“参与”就认定等义。",
+        "usage": [
+          "intervene in a dispute：介入争端",
+          "intervene to prevent harm：介入以防止伤害"
+        ],
+        "example": {
+          "text": "A colleague intervened to stop the unsafe work.",
+          "translation": "一位同事出面制止了危险作业。",
+          "note": "to stop 说明介入的目的。"
+        },
+        "contrast": "participate in 是参加活动，范围更宽；intervene 通常强调介入局面。原题中表述很接近时仍须保留选项争议，不能硬造差异。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "A supervisor ___ to stop a dangerous operation yesterday. 选择正确动词形式。",
+          "options": [
+            "intervening",
+            "intervenes",
+            "intervened",
+            "intervene"
+          ],
+          "answer": "C",
+          "explanation": "yesterday 对应过去时，主句需要谓语 intervened。"
+        }
+      }
+    },
+    {
+      "word": "address",
+      "sense_id": "sense-0c97cb20f39cb0bc65e30a45",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/address_2",
+      "lesson": {
+        "focus": "address：把问题纳入处理",
+        "explanation": "address 作动词时可以指处理、设法应对问题。它强调对问题采取应对，不保证问题已经彻底解决。看到被动形式 addressed 时，要找清楚什么被处理、由谁处理。",
+        "usage": [
+          "address a problem：处理问题",
+          "address a concern：回应担忧"
+        ],
+        "example": {
+          "text": "The team addressed the safety problem before work began.",
+          "translation": "团队在开工前着手处理了安全问题。",
+          "note": "problem 是处理对象；句子没有单凭 address 就证明问题已彻底解决。"
+        },
+        "contrast": "address 的名词义“地址”不适合这里的动词结构；solve 更明确地表示解决，而 address 不自动包含解决成功。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "Several safety issues have been ___. 选择能完成被动结构的形式。",
+          "options": [
+            "address",
+            "addressing",
+            "addresses",
+            "addressed"
+          ],
+          "answer": "D",
+          "explanation": "have been 后接过去分词 addressed，表达问题已经得到应对。"
+        }
+      }
+    },
+    {
+      "word": "precedent",
+      "sense_id": "sense-cee8ce32ef554b64c8a324dd",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/precedent",
+      "lesson": {
+        "focus": "precedent：现在的做法可能成为以后的先例",
+        "explanation": "precedent 是可供后来相似情形参照的先例。读到 set 或 create a precedent，要接着问谁可能仿效，以及怎样影响后续行为；形成先例并不等于所有人必然照做。",
+        "usage": [
+          "set a precedent：开创先例",
+          "follow a precedent：沿用先例"
+        ],
+        "example": {
+          "text": "That decision set a precedent for future cases.",
+          "translation": "那个决定为之后的案例立下了先例。",
+          "note": "future cases 指明这项决定对后来相似情形的影响。"
+        },
+        "contrast": "precedent 重在可参照的过去做法；president 指总统或机构负责人。拼写接近不代表词义有关。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "The decision set a ___ for similar cases. 应填哪一项？",
+          "options": [
+            "precedent",
+            "president",
+            "preceding",
+            "presidential"
+          ],
+          "answer": "A",
+          "explanation": "set a precedent 表示立下先例，for 后说明适用的相似情形。"
+        }
+      }
+    },
+    {
+      "word": "blame",
+      "sense_id": "sense-f6f09050bcd3ca3b8466d5f7",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/blame_1",
+      "lesson": {
+        "focus": "blame：分别记住“责备谁”与“归因于谁”",
+        "explanation": "blame someone for something 把人放在 blame 后，把原因放在 for 后；blame something on someone 则先说问题，再说归因对象。先弄清角色，再选介词，比只背一个中文近义词更可靠。",
+        "usage": [
+          "blame someone for something：因某事责备某人",
+          "blame something on someone：把某事归咎于某人"
+        ],
+        "example": {
+          "text": "They blamed the delay on poor planning.",
+          "translation": "他们把延误归咎于规划不当。",
+          "note": "delay 是需要解释的问题，poor planning 是被认为的原因。"
+        },
+        "contrast": "accuse someone of 和 charge someone with 的结构不同。blame 可谈日常归责；charge 的控告义常见于正式语境，但不能据此把所有近义词划成绝对互斥。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "They blamed Alex ___ the delay. 选择符合此结构的介词。",
+          "options": [
+            "with",
+            "for",
+            "of",
+            "to"
+          ],
+          "answer": "B",
+          "explanation": "blame someone for something：Alex 是被责备的人，the delay 是缘由。"
+        }
+      }
+    },
+    {
+      "word": "accuse",
+      "sense_id": "sense-9d49517f9626e0353f41ef92",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/accuse",
+      "lesson": {
+        "focus": "accuse：指责对象后用 of 引出事项",
+        "explanation": "accuse someone of something 或 of doing something 表示指责某人做了某事。被指责不等于事实已获证明；先分清表达的是一项指控还是已经确认的事实。",
+        "usage": [
+          "accuse someone of something：指责某人某事",
+          "be accused of doing something：被指责做了某事"
+        ],
+        "example": {
+          "text": "She accused him of ignoring the warning.",
+          "translation": "她指责他无视警告。",
+          "note": "of 后可接 doing；这句话转述她的指责，本身不证明其为真。"
+        },
+        "contrast": "blame someone for 用 for；charge someone with 用 with。accuse 可用于日常或法律相关语境，不能简单规定它只用于其中一种。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "He was accused ___ copying the report. 选择介词。",
+          "options": [
+            "for",
+            "with",
+            "of",
+            "on"
+          ],
+          "answer": "C",
+          "explanation": "be accused of doing something，用 of 连接所指责的行为。"
+        }
+      }
+    },
+    {
+      "word": "charge",
+      "sense_id": "sense-faf4ef0968bd569740f4b4a2",
+      "source_url": "https://www.oxfordlearnersdictionaries.com/definition/english/charge_2",
+      "lesson": {
+        "focus": "charge：控告义要看 with 后的内容",
+        "explanation": "charge someone with something 的一个用法是正式控告某人某项行为。charge 还有收费、充电、委派任务等含义；with 结构本身也不能脱离后面的内容孤立判断。",
+        "usage": [
+          "charge someone with theft：控告某人盗窃",
+          "be charged with an offence：被控涉嫌某项违法行为"
+        ],
+        "example": {
+          "text": "The suspect was charged with theft.",
+          "translation": "这名嫌疑人被控盗窃。",
+          "note": "theft 支持“控告”义；被控与被判有罪不同。"
+        },
+        "contrast": "charge someone with a crime 与 accuse someone of a crime 可以指相关情形，但结构不同。charge someone with a task 则可指委派任务，不应强套控告义。",
+        "memory": "先遮住释义，用自己的话解释例句里这个词的作用，再根据搭配复述一句。这是学习方法，不是词源。",
+        "check": {
+          "stem": "The suspect was charged ___ theft. 选择介词。",
+          "options": [
+            "with",
+            "of",
+            "for",
+            "on"
+          ],
+          "answer": "A",
+          "explanation": "控告结构是 be charged with。此题只练搭配，不涉及真实个案。"
+        }
+      }
+    }
+  ]
+}

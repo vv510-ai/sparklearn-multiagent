@@ -3,10 +3,12 @@ export const examLabels: Record<ExamKind, string> = { listening: "听力", readi
 export const isReading = (kind: ExamKind) => kind.startsWith("reading");
 export type ExamSummary = { id: string; title: string; year: number; month: number; set: number; ready: boolean; source_url: string;
   counts?: Partial<Record<ExamKind, number>>; progress?: Partial<Record<ExamKind, null | { phase: string; answered: number }>>; unavailable?: Partial<Record<ExamKind,string>>; source_note?: string };
-export type ExamQuestion = { number: number; page: number; evidence_page?: number; reference_page?: number; group: string; choices: string[]; answer?: string; explanation?: string; location?: string; tip?: string; option_reasons?: Record<string, string> };
+export type ExamVocabularyHint = { word: string; word_id: string; sense_id: string; meaning: string };
+export type ExamQuestion = { number: number; page: number; evidence_page?: number; reference_page?: number; group: string; choices: string[]; answer?: string; explanation?: string; location?: string; tip?: string; option_reasons?: Record<string, string>; review_status?: "pending"; review_note?: string; vocabulary?: ExamVocabularyHint[] };
 export type ExamReview = { status: "pending" | "running" | "ready" | "failed" | "unavailable"; started_at?: string; model?: string; note?: string; message?: string;
   content?: { summary: string; strengths: string[]; priorities: string[]; dimensions: { name: string; comment: string }[]; suggestions: { quote: string; replacement: string; reason: string }[] } };
 export type ExamSession = { version: string; revision: number; phase: "answer" | "feedback"; answers: Record<string, string>; text: string; history_count: number; used_help?: boolean;
+  comparison?: { correct: number; total: number; excluded: number[] };
   first?: { answers: Record<string, string>; text: string; submission_id: string; submitted_at: string; used_help?: boolean; correct?: number; answered?: number; total?: number }; review?: ExamReview;
   material: { id: string; title: string; paper_title: string; kind: ExamKind; version: string; questions: ExamQuestion[]; pages: number[]; minutes: number; source_url: string; source_note: string; pdf_url: string; pdf_sha256: string; checked_on: string; audio_url?: string; audio_note?: string; crosscheck_url?: string; dimensions?: string[]; source_format?: "pdf" | "docx"; answer_url?: string; answer_sha256?: string; answer_pages?: number; verification?: string; analysis_origin?: string; scanned?: boolean } };
 export type ExamDraft = { answers: Record<string, string>; text: string; used_help?: boolean };
