@@ -58,6 +58,7 @@ export function cet6Route(notebook: string, view: string, target?: string, revie
   url.searchParams.delete("cet6_paper");
   url.searchParams.delete("cet6_paper_question");
   url.searchParams.delete("cet6_round");
+  url.searchParams.delete("cet6_start");
   if (view !== "exams") { url.searchParams.delete("exam_kind"); url.searchParams.delete("exam_paper"); url.searchParams.delete("exam_question"); }
   if (view !== "reading") { url.searchParams.delete("reading"); url.searchParams.delete("reading_question"); }
   if (target && view === "vocabulary") url.searchParams.set("cet6_word", target);

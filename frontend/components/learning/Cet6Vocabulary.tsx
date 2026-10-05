@@ -21,6 +21,8 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
   const [sessionNumber, setSessionNumber] = useState(0), [completion, setCompletion] = useState("");
   const [roundId, setRoundId] = useState(() => typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("cet6_round") || "");
   const [round, setRound] = useState<RecallRound | null>(null);
+  const [launching, setLaunching] = useState(() => typeof window !== "undefined" && !initialWord && !new URLSearchParams(window.location.search).get("cet6_round") && new URLSearchParams(window.location.search).get("cet6_start") === "review");
+  const directReview = useRef(launching);
   useEffect(() => { onFocus(!!roundId); return () => onFocus(false); }, [roundId, onFocus]);
   const starting = useRef(false), roundRequest = useRef<{kind:string;id:string} | null>(null);
   const leaveRound = () => { setRoundId(""); setRound(null); setRefresh(n => n + 1); onChanged(); cet6Route(notebookId, "vocabulary"); const url = new URL(location.href); url.searchParams.delete("cet6_round"); history.replaceState(null, "", url.pathname + url.search); };
@@ -34,11 +36,17 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
       if (!next.total) { leaveRound(); setCompletion(kind === "new" ? "今天的新词计划已完成。到期复习可以单独进行，也可调整每日新词目标。" : "目前没有到期复习卡。可以去练一组阅读，稍后再回来。"); return; }
       setWord(""); setRound(next); setRoundId(next.id); setCompletion(""); cet6Route(notebookId, "vocabulary");
       const url = new URL(location.href); url.searchParams.set("cet6_round",next.id); history.replaceState(null,"",url.pathname+url.search);
-    } catch(e) { setError(readingError(e)); } finally { starting.current=false; setBusy(false); }
+    } catch(e) { setError(readingError(e)); } finally { starting.current=false; setBusy(false); setLaunching(false); }
   };
+  useEffect(() => {
+    if (!directReview.current) return;
+    directReview.current = false;
+    const url = new URL(location.href); url.searchParams.delete("cet6_start"); history.replaceState(null, "", url.pathname + url.search);
+    void startRound("review");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const request = useRef(0);
   useEffect(() => {
-    if (word || roundId) return;
+    if (word || roundId || launching) return;
     const ticket = ++request.current; const timer = setTimeout(async () => {
       setBusy(true); setError("");
       try { const result = await apiGet<WordCatalogue>(`/notebooks/${notebookId}/cet6/words?view=${view}&group=${group}&q=${encodeURIComponent(query)}&offset=${offset}${order ? `&order=${order}` : ""}${family ? `&family=${encodeURIComponent(family.id)}` : ""}`); if (ticket === request.current) setData(result); }
@@ -46,10 +54,11 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
       finally { if (ticket === request.current) setBusy(false); }
     }, query ? 250 : 0);
     return () => { clearTimeout(timer); request.current++; };
-  }, [notebookId, view, query, group, offset, word, roundId, refresh, order, family]);
+  }, [notebookId, view, query, group, offset, word, roundId, refresh, order, family, launching]);
   const open = (id: string, fromPlan = view === "today") => { setWord(id); setReview(fromPlan); setSessionNumber(n => n + 1); setCompletion(""); cet6Route(notebookId, "vocabulary", id, fromPlan); };
   const next = async () => { setWord(""); leaveRound(); setCompletion("这张词卡已保存。可以从新词或复习入口开始一轮练习。"); };
   if (roundId) return <><WordRound key={roundId} notebookId={notebookId} roundId={roundId} initial={round} onExit={leaveRound} onAnother={kind => void startRound(kind)} onChanged={onChanged} />{error && <p role="alert" className="cet6-error">{error}</p>}</>;
+  if (launching) return <p role="status">正在打开到期复习，进度会随账号保存…</p>;
   if (word) return <VocabularyWord key={`${word}:${sessionNumber}`} notebookId={notebookId} wordId={word} review={review} onChat={onChat} onNext={next} onExit={() => { setWord(""); setRefresh(n => n + 1); onChanged(); cet6Route(notebookId, "vocabulary"); }} />;
   return <section className="cet6-vocabulary" aria-label="六级词汇学习">
     <div className="cet6-section-heading"><div><h2>词汇精学</h2><p>完整备考词表包含基础词和派生词。默认先学六级重点词，也可按自己的习惯分组。</p></div></div>

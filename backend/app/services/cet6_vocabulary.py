@@ -231,7 +231,11 @@ def act(user: str, notebook: str, item: str, req: WordAction):
                     context.update(question_id=req.question_id, question_number=index + 1, question_prompt=questions[index]["prompt"])
             if context["text"] or context["note"]:
                 previous = data.setdefault("contexts", [])
-                if not any(all(c.get(k, "") == context.get(k, "") for k in ("text", "note", "reading_id", "question_id", "paper_id", "paper_question", "exam_id", "exam_kind", "exam_question", "exam_version")) for c in previous):
+                identity = ("text", "reading_id", "question_id", "paper_id", "paper_question", "exam_id", "exam_kind", "exam_question", "exam_version")
+                if req.exam_id:
+                    # Editing a note replaces the same excerpt, not another review context.
+                    data["contexts"] = ([c for c in previous if not all(c.get(k, "") == context.get(k, "") for k in identity)] + [context])[-20:]
+                elif not any(all(c.get(k, "") == context.get(k, "") for k in (*identity, "note")) for c in previous):
                     data["contexts"] = (previous + [context])[-20:]
         elif req.action == "start":
             if not data.get("active"):

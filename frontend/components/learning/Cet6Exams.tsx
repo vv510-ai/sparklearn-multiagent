@@ -127,7 +127,7 @@ function ExamAttempt({notebookId,userId,paperId,kind,onExit}:{notebookId:string;
   const select=(letter:string)=>{if(!q)return;edit({answers:{...draftRef.current.answers,[q.number]:letter}});};
   const feedbackQuestions=onlyWrong?questions.filter(item=>state.first?.answers[String(item.number)]!==item.answer):questions;
   return <section className="cet6-exams exam-active" aria-label={`${examLabels[kind]}真题作答`}>
-    <div className="exam-attempt-top"><button className="exam-back" onClick={onExit}><ArrowLeft size={16}/>返回套卷</button><span className="exam-muted">{material.minutes} 分钟参考用时</span><a href={`/?notebook=${encodeURIComponent(notebookId)}&cet6=home`}>今日复习</a></div>
+    <div className="exam-attempt-top"><button className="exam-back" onClick={onExit}><ArrowLeft size={16}/>返回套卷</button><span className="exam-muted">{material.minutes} 分钟参考用时</span><a href={`/?notebook=${encodeURIComponent(notebookId)}&cet6=vocabulary&cet6_start=review`}>今日复习</a></div>
     <h1 ref={heading} tabIndex={-1}>{material.paper_title} · {examLabels[kind]}</h1><p className="exam-source-status">第三方整理 · 官方发布身份未核实 · {material.verification || "已核对当前文件的题号与参考键，尚无独立教师复核"}</p>
     {(draft.used_help || state.first?.used_help) && <p className="exam-muted">本轮使用过查词或拆句帮助，结果按借助帮助的练习记录。</p>}
     {objective&&feedback&&<div className="exam-result-summary"><Check size={25}/><div><strong>答对 {state.first?.correct} / {state.first?.total} 题</strong><p>已答 {state.first?.answered} 题 · 未答 {(state.first?.total||0)-(state.first?.answered||0)} 题 · 这是本板块练习结果，不换算六级成绩。</p></div></div>}

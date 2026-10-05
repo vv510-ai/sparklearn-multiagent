@@ -46,6 +46,22 @@ def test_collection_enters_review_without_learning_credit_and_preserves_due_date
     assert not find_word(client, other_base)["cards"][0]["contexts"]
 
 
+def test_editing_exam_note_keeps_one_excerpt_and_preserves_other_questions(learner):
+    client, _, _, base = setup(learner)
+    detail = find_word(client, base)
+    excerpt = context(client, base)
+    card, first_request = word_action(client, base, detail, detail["cards"][0], "collect", **excerpt)
+    queued = card["queued_at"]
+    card, _ = word_action(client, base, detail, card, "collect", **(excerpt | {"context_note": "修改后的笔记"}))
+    assert len(card["contexts"]) == 1 and card["contexts"][0]["note"] == "修改后的笔记"
+    assert card["queued_at"] == queued and card["tracks"] == {}
+    client.post(base + "/words/" + detail["entry"]["id"], json=first_request)
+    restored = client.get(base + "/words/" + detail["entry"]["id"]).json()["cards"][0]
+    assert restored["contexts"][0]["note"] == "修改后的笔记"
+    card, _ = word_action(client, base, detail, card, "collect", **(excerpt | {"exam_question": 47}))
+    assert {c["exam_question"] for c in card["contexts"]} == {46, 47}
+
+
 @pytest.mark.parametrize("patch,status", [({"exam_question": 26}, 422), ({"exam_version": "old"}, 409),
     ({"exam_id": "missing"}, 404), ({"context": ""}, 422), ({"reading_id": "other"}, 422), ({"exam_id": ""}, 422)])
 def test_invalid_excerpt_source_does_not_collect(learner, patch, status):
