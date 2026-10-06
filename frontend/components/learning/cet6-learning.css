@@ -178,8 +178,27 @@
 .cet6-family-filter, .cet6-family-preview { background: #f0f5e9; padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
 .cet6-family-preview p { margin: 6px 0; }
 .cet6-family-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cet6-topic-select { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; font-size: 14px; }
+.cet6-topic-select select { min-width: 0; max-width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: inherit; }
+.cet6-topic-help { padding: 16px; margin: 12px 0 18px; border: 1px solid var(--border); border-radius: 12px; line-height: 1.7; }
+.cet6-topic-help h3 { margin: 0; font-size: 16px; }
+.cet6-topic-help p { margin: 8px 0; }
+.cet6-topic-help details { margin-top: 10px; }
+.cet6-topic-help summary { cursor: pointer; }
+.cet6-topic-help fieldset { min-width: 0; border: 0; padding: 12px 0; margin: 0; }
+.cet6-topic-help legend { padding: 0; font-weight: 600; overflow-wrap: anywhere; }
+.cet6-topic-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.cet6-topic-options button { padding: 10px; border: 1px solid var(--border); border-radius: 8px; text-align: left; overflow-wrap: anywhere; background: var(--surface); color: inherit; }
+.cet6-topic-options button[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cet6-topic-feedback { margin-top: 10px; padding: 10px; background: var(--surface); border-radius: 8px; overflow-wrap: anywhere; }
+.cet6-topic-references { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+@media (max-width: 540px) { .cet6-topic-options { grid-template-columns: minmax(0,1fr); } }
 .cet6-advice-goal { padding: 14px 20px; background: #f0f5e9; border-radius: 10px; font-size: 14px; line-height: 1.7; margin-bottom: 16px; }
 .cet6-advice-goal p { margin: 6px 0 0; }
 .cet6-target-form select { max-width: 340px; }
 @media (max-width: 700px) { .cet6-search { grid-template-columns: minmax(0, 1fr); } .cet6-coverage-grid { gap: 16px; } }
 @media (max-width: 420px) { .cet6-coverage-grid { grid-template-columns: minmax(0, 1fr); } }
+.exam-study-guide { margin: 12px 0 18px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; }
+.exam-study-guide summary { cursor: pointer; font-weight: 600; }
+.exam-study-guide li { margin: 9px 0; line-height: 1.7; }
+.exam-study-guide p { line-height: 1.7; }

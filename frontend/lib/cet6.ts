@@ -40,7 +40,10 @@ export type WordLesson = { status: "ready"; origin: "curated" | "generated"; ver
   contrast: string; memory: string; check: { stem: string; options: string[]; answer: string; explanation: string };
   sources: { title: string; url: string; supports: string; checked_on?: string }[];
   exam_occurrences: { label: string; url: string; note: string }[] };
+export type VocabularyTopic = { id: string; title: string; focus: string; words: string[]; reference_words: string[];
+  checks: { id: string; prompt: string; options: string[]; answer: number; explanation: string; sources: { title: string; url: string }[] }[] };
 export type WordCatalogue = { version: string; total: number; offset: number; items: WordSummary[]; plan: WordPlan | null;
+  topics: { id: string; title: string; total: number }[]; topic: VocabularyTopic | null;
   order: WordOrder; coverage: VocabularyCoverage;
   manifest: { title: string; scope: string; notes: string[]; entry_count: number; headword_rows: number; declared_headword_rows: number; source_url: string; dictionary_url: string; license_url: string } };
 export type PracticeTask = { id: string; kind: Cet6Kind; title: string; minutes: number; source: string; prompt: string;

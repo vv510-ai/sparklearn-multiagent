@@ -5545,12 +5545,24 @@
               ],
               "page": 12,
               "group": "仔细阅读",
-              "answer": "D",
+              "answer": "A",
               "reference_page": 48,
               "location": "第三方解析文件第 48 页 · 第 52 题",
-              "explanation": "本题的详细推导见来源解析对应页。请结合当前卷面的题干、选项和原文核对；来源中的答案仍可能有误。",
+              "explanation": "A 对应正文 stunned 所表达的研究反应，随后具体谈及过劳与不平等的后果。D 的广泛流行来自下一段对社会现象的描述，不是作者通过研究产生的感受。",
               "tip": "回到题干的定位句及相邻句，区分原文陈述、作者态度与推断范围。",
-              "option_reasons": {}
+              "option_reasons": {},
+              "answer_correction": {
+                "from": "D",
+                "to": "A",
+                "checked_on": "2026-10-06",
+                "evidence_pages": [
+                  12,
+                  13
+                ],
+                "source_sha256": "0ea92cd19ce64d6857a9e33469a950a3bfe43ebb1f03908e1e507e84c28c4160",
+                "reason": "绑定卷第12页A为astonished by its consequences，正文stunned与后文后果对应；第13页D为struck by its broad popularity，非所问研究感受。"
+              },
+              "review_note": "参考答案更正：经核对当前原卷第12—13页，本题由D改为A。原文谈对研究发现的震惊；D谈广泛流行，未回答该问题。旧提交与原始成绩保留，下方按更正后的答案比较。"
             },
             {
               "number": 53,

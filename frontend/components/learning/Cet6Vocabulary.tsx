@@ -9,12 +9,14 @@ import WordLesson from "./WordLesson";
 import WordContexts from "./WordContexts";
 import WordRound, { type RecallRound } from "./WordRound";
 import WordPronunciation from "./WordPronunciation";
+import VocabularyTopicHelp from "./VocabularyTopicHelp";
 
 export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChanged, onFocus }: {
   notebookId: string; onChat: (prompt: string) => void; initialWord?: string; onChanged: () => void; onFocus: (active: boolean) => void;
 }) {
   const [view, setView] = useState("all"), [query, setQuery] = useState(""), [group, setGroup] = useState("all"), [offset, setOffset] = useState(0);
   const [order, setOrder] = useState<WordOrder | "">(""), [family, setFamily] = useState<{id:string;label:string} | null>(null);
+  const [topic, setTopic] = useState("");
   const [data, setData] = useState<WordCatalogue | null>(null), [word, setWord] = useState(initialWord || "");
   const [review, setReview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("cet6_review") === "1");
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [refresh, setRefresh] = useState(0);
@@ -49,12 +51,12 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
     if (word || roundId || launching) return;
     const ticket = ++request.current; const timer = setTimeout(async () => {
       setBusy(true); setError("");
-      try { const result = await apiGet<WordCatalogue>(`/notebooks/${notebookId}/cet6/words?view=${view}&group=${group}&q=${encodeURIComponent(query)}&offset=${offset}${order ? `&order=${order}` : ""}${family ? `&family=${encodeURIComponent(family.id)}` : ""}`); if (ticket === request.current) setData(result); }
+      try { const result = await apiGet<WordCatalogue>(`/notebooks/${notebookId}/cet6/words?view=${view}&group=${group}&q=${encodeURIComponent(query)}&offset=${offset}${order ? `&order=${order}` : ""}${family ? `&family=${encodeURIComponent(family.id)}` : ""}${topic ? `&topic=${encodeURIComponent(topic)}` : ""}`); if (ticket === request.current) setData(result); }
       catch (e) { if (ticket === request.current) setError(readingError(e)); }
       finally { if (ticket === request.current) setBusy(false); }
     }, query ? 250 : 0);
     return () => { clearTimeout(timer); request.current++; };
-  }, [notebookId, view, query, group, offset, word, roundId, refresh, order, family, launching]);
+  }, [notebookId, view, query, group, offset, word, roundId, refresh, order, family, topic, launching]);
   const open = (id: string, fromPlan = view === "today") => { setWord(id); setReview(fromPlan); setSessionNumber(n => n + 1); setCompletion(""); cet6Route(notebookId, "vocabulary", id, fromPlan); };
   const next = async () => { setWord(""); leaveRound(); setCompletion("这张词卡已保存。可以从新词或复习入口开始一轮练习。"); };
   if (roundId) return <><WordRound key={roundId} notebookId={notebookId} roundId={roundId} initial={round} onExit={leaveRound} onAnother={kind => void startRound(kind)} onChanged={onChanged} />{error && <p role="alert" className="cet6-error">{error}</p>}</>;
@@ -67,12 +69,14 @@ export default function Cet6Vocabulary({ notebookId, onChat, initialWord, onChan
     <details className="cet6-source"><summary>复习时间怎么安排？</summary><p>根据每张词卡的回忆记录安排间隔。新学数量按不同单词计算，词义和拼写的复习分别安排；到期词卡不会占用新词名额。</p><p>使用 FSRS 通用参数，目标保留率为90%，这是调度设置。记录随账号保存；每天按北京时间更新计划。</p></details>
     <nav className="cet6-tabs" aria-label="词汇范围">{[["all", "查词与全部词汇"], ["mine", "我的生词"]].map(([id, title]) => <button key={id} aria-pressed={view === id} onClick={() => { setView(id); setOffset(0); }}>{title}</button>)}</nav>
     <div className="cet6-search"><label><Search size={16} /><span className="sr-only">搜索单词或派生词</span><input value={query} onChange={e => { setQuery(e.target.value); setOffset(0); setFamily(null); }} placeholder="搜索单词或派生词" maxLength={100} /></label><label><span className="sr-only">词汇级别</span><select value={group} onChange={e => { setGroup(e.target.value); setOffset(0); }}><option value="all">完整备考词表</option><option value="foundation">基础词（备考范围内）</option><option value="cet6">六级重点词</option></select></label><label><span className="sr-only">词表排序</span><select value={order || data?.order || "priority"} onChange={e => { setOrder(e.target.value as WordOrder); setOffset(0); }}>{Object.entries(wordOrders).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
-    {family && <p className="cet6-family-filter">正在查看 <strong lang="en">{family.label}</strong> 词族 <button className="cet6-link-button" onClick={() => { setFamily(null); setOffset(0); }}>返回全部词表</button></p>}
+    {family && <p className="cet6-family-filter">正在查看 <strong lang="en">{family.label}</strong> 词族 <button className="cet6-link-button" onClick={() => { setFamily(null); setTopic(""); setOffset(0); }}>返回全部词表</button></p>}
+    {!!data?.topics?.length && <label className="cet6-topic-select">按需补学<select value={topic} onChange={e => { setTopic(e.target.value); setQuery(""); setGroup("all"); setFamily(null); setOffset(0); }}><option value="">全部词汇（不按专题筛选）</option>{data.topics.map(t => <option key={t.id} value={t.id}>{t.title} · {t.total} 词</option>)}</select></label>}
+    {data?.topic && data.topic.id === topic && <VocabularyTopicHelp key={data.topic.id} topic={data.topic} />}
     {busy && <p role="status">正在读取词库…</p>}{error && <p role="alert" className="cet6-error">{error}<button onClick={() => setRefresh(n => n + 1)}>重试</button></p>}
     {data && <><p className="cet6-muted">{view === "today" ? "先续上未完成的词卡和到期复习，再学习今天的新词。刷新或退出后，计划与进度会保留。" : view === "mine" ? "收藏来自词库或阅读中的生词，原句保存在对应义项里。" : "基础词与六级标记词都可学习；派生词单独查找，原词表关系保留。"} · 当前 {data.total} 个结果</p>
       {!data.items.length && !busy && <p className="cet6-empty">{view === "mine" ? "还没有符合条件的生词。打开词条或阅读中的“保存题中生词”即可收藏。" : "这组暂时没有待学词汇。可以清空搜索、切换级别或查看全部词汇。"}</p>}
       <div className="cet6-word-list" aria-busy={busy}>{data.items.map((item, index) => <div className="cet6-word-row" key={item.id}>
-        {data.order === "family" && item.family && item.family.id !== data.items[index - 1]?.family?.id && <div className="cet6-family-heading"><strong lang="en">{item.family.label}</strong><span>{item.family.total > 1 ? `词族 · 已学 ${item.family.learned} / ${item.family.total}` : "独立词条"}</span>{item.family.total > 1 && !family && <button className="cet6-link-button" onClick={() => { setFamily(item.family); setQuery(""); setGroup("all"); setView("all"); setOffset(0); }}>查看整个词族</button>}</div>}
+        {data.order === "family" && item.family && item.family.id !== data.items[index - 1]?.family?.id && <div className="cet6-family-heading"><strong lang="en">{item.family.label}</strong><span>{item.family.total > 1 ? `词族 · 已学 ${item.family.learned} / ${item.family.total}` : "独立词条"}</span>{item.family.total > 1 && !family && <button className="cet6-link-button" onClick={() => { setFamily(item.family); setTopic(""); setQuery(""); setGroup("all"); setView("all"); setOffset(0); }}>查看整个词族</button>}</div>}
         <button disabled={busy} onClick={() => open(item.id)}><span><strong lang={item.word ? "en" : "zh-CN"}>{item.word || `待回忆词卡 ${offset + index + 1}`}</strong><small>{item.level === "cet6" ? "六级重点" : "大纲基础词"}{item.collected ? " · 已收藏" : ""}</small></span><span className="cet6-word-meaning">{view === "today" ? "打开后先回忆，再显示答案" : item.meaning}</span><small>{item.status}</small></button>
       </div>)}</div>
       <div className="cet6-actions"><button className="secondary-action" disabled={busy || offset === 0} onClick={() => setOffset(Math.max(0, offset - 30))}>上一页</button><span>{data.total ? `${offset + 1}–${Math.min(offset + 30, data.total)} / ${data.total}` : "0 个结果"}</span><button className="secondary-action" disabled={busy || offset + 30 >= data.total} onClick={() => setOffset(offset + 30)}>下一页</button></div>

@@ -18,6 +18,7 @@ from . import cet6_learning as learning
 from . import vocabulary_scheduler
 from . import cet6_word_plan
 from . import cet6_word_groups as groups
+from . import cet6_vocabulary_topics as topics
 from ..data.cet6_material_enrichment import word_additions
 
 
@@ -135,8 +136,9 @@ def detail(user, notebook, item):
             "preferred_sense_id": preferred_sense(e), "family": groups.family(e["id"])}
 
 
-def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit=30, order=None, family_id=""):
+def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit=30, order=None, family_id="", topic_id=""):
     learning.check(user, notebook)
+    topic = topics.select(topic_id, entries())
     current = learning.now().isoformat()
     prefs = learning.profile(user, notebook)["preferences"]
     plan = cet6_word_plan.today(user, notebook) if view == "today" else None
@@ -149,6 +151,7 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
     q = query.strip().casefold()
     selected_order = order or prefs["word_order"]
     values = [e for e in entries().values() if (group == "all" or e["level"] == group)
+        and (not topic or e['word'] in topic['words'])
         and (not family_id or groups.families()[e["id"]]["id"] == family_id)
         and (not q or q in (e["word"] + " " + " ".join(e.get("variants", [])) + " " + " ".join(e.get("derivatives", []))).casefold())]
     values = groups.ordered(values, selected_order, f"{user}:{notebook}")
@@ -161,6 +164,7 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
         values = [e for e in values if e["senses"] and (e["id"] in active or e["id"] in due or e["id"] in order)]
         values.sort(key=lambda e: (e["id"] not in active, e["id"] not in due, order.get(e["id"], 999999), e["id"]))
     return {"version": version(), "manifest": manifest(), "total": len(values), "offset": offset, "plan": plan,
+        "topics": topics.catalogue(entries()), "topic": topic,
         "order": selected_order, "coverage": groups.coverage(entries(), learnt),
         "items": [{k: e[k] for k in ("id", "word", "level", "phonetic", "variants", "derivatives")} |
             {"meaning": "" if view == "today" else e["senses"][0]["definition"] if e["senses"] else "释义待补，可查看词表原页", "collected": e["id"] in collected,

@@ -61,6 +61,75 @@ test("英语资料接入：争议题保留、语境义精讲与原句复习", as
   await page.screenshot({path:info.outputPath("english-materials-mobile.png"),fullPage:true});
 });
 
+test("参考答案更正：按原卷计分并明确保留历史记录", async ({page}, info) => {
+  const {notebook}=await register(page);
+  await page.goto(`/?notebook=${notebook}&cet6=exams&exam_kind=reading_careful&exam_paper=cet6-2025-06-1`);
+  await expect(page.getByRole("navigation",{name:"本板块题号"})).toBeVisible();
+  const choices="C A B B C D A D C B".split(" ");
+  for(let i=0;i<choices.length;i++) {
+    await page.getByRole("navigation",{name:"本板块题号"}).getByRole("button",{name:new RegExp(`^第 ${i+46} 题`)}).click();
+    await page.locator(`input[name="exam-${i+46}"][value="${choices[i]}"]`).check();
+  }
+  await page.getByRole("button",{name:"提交本板块",exact:true}).click();
+  await expect(page.locator(".exam-result-summary")).toContainText("答对 10 / 10 题");
+  await expect(page.locator(".exam-result-summary")).toContainText("第 52 题参考答案已按原卷更正");
+  await expect(page.locator(".exam-result-summary")).not.toContainText("选项区分待复核");
+  const corrected=page.locator(".exam-analysis").filter({has:page.locator("summary span",{hasText:"第 52 题"})});
+  await corrected.locator(":scope > summary").click();
+  await expect(corrected).toContainText("本题由D改为A");
+  await expect(corrected.locator(":scope > summary")).toContainText("参考答案 A");
+  await page.screenshot({path:info.outputPath("english-answer-correction.png"),fullPage:true});
+  await page.reload();
+  await expect(page.locator(".exam-result-summary")).toContainText("答对 10 / 10 题");
+  await page.getByRole("checkbox",{name:"只看错题与未答题",exact:true}).check();
+  await expect(page.locator(".exam-analysis")).toHaveCount(0);
+});
+
+test("资料专题：查词、自测、收藏与完整词族保持连贯", async ({page}, info) => {
+  test.setTimeout(240000);
+  const {notebook}=await register(page);
+  await page.goto(`/?notebook=${notebook}&cet6=vocabulary`);
+  const topic=page.getByLabel("按需补学");
+  await expect(topic.locator("option")).toHaveCount(28);
+  await topic.selectOption("blame");
+  const help=page.getByRole("complementary",{name:"责备与指控学习提示"});
+  await expect(help).toBeVisible();
+  await help.locator("summary").click();
+  await help.getByRole("button",{name:"A. with",exact:true}).click();
+  await expect(help.getByRole("status")).toContainText("本题选 C");
+  await help.getByRole("button",{name:"C. on",exact:true}).click();
+  await expect(help.getByRole("status")).toContainText("这次分清了");
+  await expect(help.getByRole("link",{name:"Oxford · blame_1"})).toBeVisible();
+  await page.locator(".cet6-word-list button").filter({has:page.locator("strong",{hasText:/^blame$/})}).click();
+  await expect(page.getByRole("region",{name:"词汇回忆卡"})).toBeVisible();
+  await page.getByRole("button",{name:"加入我的生词",exact:true}).click();
+  await expect(page.getByRole("button",{name:"已收藏",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"返回词汇列表",exact:true}).click();
+  await expect(topic).toHaveValue("blame");
+  await topic.selectOption("generation");
+  await page.getByLabel("词表排序").selectOption("family");
+  const gene=page.locator(".cet6-family-heading").filter({has:page.locator("strong",{hasText:/^gene$/})});
+  await gene.getByRole("button",{name:"查看整个词族"}).click();
+  await expect(topic).toHaveValue("");
+  await expect(page.locator(".cet6-word-list")).toContainText("genetic");
+  await expect(page.locator(".cet6-word-list")).toContainText("genetically");
+  await page.getByRole("button",{name:"返回全部词表",exact:true}).click();
+  await topic.selectOption("auxiliary-600");
+  await page.getByText("相关延伸词",{exact:true}).click();
+  await expect(page.getByRole("link",{name:"inequality",exact:true})).toHaveAttribute("href","https://www.oxfordlearnersdictionaries.com/search/english/direct/?q=inequality");
+  await page.getByText("相关延伸词",{exact:true}).click();
+  await expect(page.getByRole("complementary",{name:"600词辅助表（去重）学习提示"})).toContainText("597个词");
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  await page.screenshot({path:info.outputPath("english-topics-mobile.png"),fullPage:true});
+  await page.goto(`/?notebook=${notebook}&cet6=exams&exam_kind=translation&exam_paper=cet6-2024-06-1`);
+  await page.locator(".exam-study-guide summary").click();
+  await expect(page.locator(".exam-study-guide")).toContainText("先写完整的主干");
+  await expect(page.locator(".exam-study-guide")).toContainText("参考译文通常不是唯一正确表达");
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  await page.screenshot({path:info.outputPath("english-guide-mobile.png"),fullPage:true});
+});
+
 async function register(page:Page) {
   if(process.env.PLAYWRIGHT_REAL_MODE==="1"){
     const health=await(await page.request.get("/api/health")).json();

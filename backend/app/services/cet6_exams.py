@@ -58,7 +58,8 @@ def _public(row, paper, block, kind):
     if feedback:
         material.update({k:paper[k] for k in ["crosscheck_url", "answer_url", "answer_sha256", "answer_pages"] if k in paper})
         excluded = [q['number'] for q in block['questions'] if q.get('review_status') == 'pending']
-        if excluded:
+        corrected = [q['number'] for q in block['questions'] if q.get('answer_correction')]
+        if excluded or corrected:
             # Derive a current comparison without rewriting any saved first attempt.
             answers = data.get('first', {}).get('answers', {})
             comparable = [q for q in block['questions'] if q['number'] not in excluded]
@@ -66,6 +67,8 @@ def _public(row, paper, block, kind):
                 'correct': sum(answers.get(str(q['number'])) == q['answer'] for q in comparable),
                 'total': len(comparable), 'excluded': excluded,
             }
+            if corrected:
+                data['comparison']['corrected'] = corrected
     return {**data, "revision": row.revision if row else 0, "material": material, "history_count":len(history)}
 
 

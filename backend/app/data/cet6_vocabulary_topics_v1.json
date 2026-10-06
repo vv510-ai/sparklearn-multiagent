@@ -1,0 +1,1700 @@
+{
+  "version": "cet6-material-topics-v1",
+  "scope": "从课程与参考资料中择取学习主题，词义与词卡沿用本站词库。专题不是完整考试范围或必背清单。",
+  "topics": [
+    {
+      "id": "perspective",
+      "title": "看法与观察",
+      "focus": "先辨别句中需要的是看法、观察动作，还是观看的人；相似拼写只作查词线索。",
+      "words": [
+        "respect",
+        "respective",
+        "inspect",
+        "suspect",
+        "aspect",
+        "prospect",
+        "perspective",
+        "objective",
+        "spectator",
+        "spectacular",
+        "speculate"
+      ],
+      "checks": [
+        {
+          "id": "view-in-context",
+          "prompt": "“We considered the issue from a different perspective.” 中 perspective 最接近哪一项？",
+          "options": [
+            "参赛者",
+            "观察角度",
+            "检查动作",
+            "预定的日期"
+          ],
+          "answer": 1,
+          "explanation": "from a different perspective 表示换一个角度理解问题。根据句中作用选义，不凭相似的 spect 字母串把几个词互换。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "recall",
+      "title": "分次回忆与词性",
+      "focus": "先遮住释义回忆，再核对词性和语境。用真实回忆记录安排复习；课程中的固定天数不作为所有人的统一要求。",
+      "words": [
+        "decide",
+        "decision",
+        "decisive",
+        "interest",
+        "interesting",
+        "interested",
+        "challenge",
+        "challenging",
+        "however",
+        "therefore"
+      ],
+      "checks": [
+        {
+          "id": "recall-method",
+          "prompt": "刚才看过词义，现在想判断自己是否真的记住，下一步更合适的是？",
+          "options": [
+            "再看一遍就记为掌握",
+            "遮住释义回忆，并核对语境",
+            "所有词立刻连续抄同样次数",
+            "只按词长判断难度"
+          ],
+          "answer": 1,
+          "explanation": "主动回忆后再核对，才有这一次是否记得的证据；一次成功仍需要后续复习。按实际回忆调整练习量。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "polysemy",
+      "title": "熟词的新用法",
+      "focus": "先看词性和所在句。一个词已有的熟悉义不能自动套进另一处语境。",
+      "words": [
+        "concern",
+        "address",
+        "vital",
+        "brave",
+        "voice",
+        "hide",
+        "rent",
+        "better"
+      ],
+      "checks": [
+        {
+          "id": "vital-meaning",
+          "prompt": "“Accurate records are vital to this project.” 中 vital 表示什么？",
+          "options": [
+            "至关重要的",
+            "必然致命的",
+            "暂时的",
+            "私人的"
+          ],
+          "answer": 0,
+          "explanation": "这里说记录对项目非常重要。不能从“关系到生命”联想后，把 vital 一律记成“致命的”；fatal 才常用于致命或灾难性的结果。",
+          "sources": [
+            {
+              "title": "Oxford · vital",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/vital"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lookalikes",
+      "title": "形近词对照",
+      "focus": "把相近拼写放在同一句法位置比较，注意多出的字母与具体含义。",
+      "words": [
+        "continual",
+        "continuous",
+        "vocation",
+        "vacation",
+        "commerce",
+        "commence",
+        "solar",
+        "lunar",
+        "avid",
+        "arid",
+        "acid"
+      ],
+      "checks": [
+        {
+          "id": "continuous-boundary",
+          "prompt": "关于 continual 与 continuous，哪项说法更准确？",
+          "options": [
+            "二者任何语境都不能重叠",
+            "continuous 常突出不中断；continual 常突出反复，但存在重叠",
+            "continual 只能形容人",
+            "continuous 只能描述声音"
+          ],
+          "answer": 1,
+          "explanation": "这是常见用法侧重，不是绝对互斥规则。continual 也可表示持续不断，具体仍要看搭配与语境。",
+          "sources": [
+            {
+              "title": "Oxford · continual",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/continual"
+            },
+            {
+              "title": "Oxford · continuous",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/continuous"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "blame",
+      "title": "责备与指控",
+      "focus": "记住完整的动词、宾语和介词结构，再比较语气与使用场合。",
+      "words": [
+        "blame",
+        "charge",
+        "accuse",
+        "appeal",
+        "discharge"
+      ],
+      "checks": [
+        {
+          "id": "blame-pattern",
+          "prompt": "“They blamed the delay ___ the storm.” 应填哪项？",
+          "options": [
+            "with",
+            "of",
+            "on",
+            "to"
+          ],
+          "answer": 2,
+          "explanation": "blame something on somebody/something 把某事归因于某人或某物；换个结构可以说 blame somebody for something。不能只背一个介词。",
+          "sources": [
+            {
+              "title": "Oxford · blame_1",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/blame_1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "generation",
+      "title": "产生、真实与巧思",
+      "focus": "把产生、真假与聪明分开辨认；同一课程中的词不一定能互相替换，也不必属于同一个词源。",
+      "words": [
+        "gene",
+        "generate",
+        "generation",
+        "generator",
+        "genuine",
+        "generous",
+        "genius",
+        "ingenious",
+        "ingenuous",
+        "homogeneous"
+      ],
+      "checks": [
+        {
+          "id": "ingenious-ingenuous",
+          "prompt": "“The engineer found an ingenious way to reuse the heat.” 最合适的理解是什么？",
+          "options": [
+            "工程师使用了一个巧妙的方法",
+            "工程师的方法很天真",
+            "工程师的方法具有遗传性",
+            "工程师的方法十分慷慨"
+          ],
+          "answer": 0,
+          "explanation": "ingenious 侧重巧妙、有创造性的想法；ingenuous 侧重坦率、天真，常含容易轻信的意思。先辨字形，再看对象。",
+          "sources": [
+            {
+              "title": "Oxford · ingenious",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/ingenious"
+            },
+            {
+              "title": "Oxford · ingenuous",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/ingenuous"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "people",
+      "title": "人物、感受与花费",
+      "focus": "把人物特征和选择放回具体情景，辨别节省资源与经济活动；谐音只作助记，读音以音频和词典为准。",
+      "words": [
+        "human",
+        "humble",
+        "humid",
+        "humiliate",
+        "insult",
+        "participant",
+        "amateur",
+        "ambitious",
+        "embrace",
+        "trivial",
+        "vigor",
+        "gloomy",
+        "economic",
+        "economical"
+      ],
+      "checks": [
+        {
+          "id": "economic-economical",
+          "prompt": "哪一句更直接表达“这种设备运行起来很省电”？",
+          "options": [
+            "The device is economical to run.",
+            "The device studies economic policy.",
+            "The device is an economist.",
+            "The device analyses the economy."
+          ],
+          "answer": 0,
+          "explanation": "economical 常说明节省钱、能源等资源；economic 常说明与经济有关。先想清楚要表达的意思，再选词。",
+          "sources": [
+            {
+              "title": "Cambridge · economic / economical",
+              "url": "https://dictionary.cambridge.org/grammar/british-grammar/economic-or-economical"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "together",
+      "title": "协作、分歧与居住",
+      "focus": "按实际用途联记：合作与争论一组，居住地点和居住者一组。",
+      "words": [
+        "compromise",
+        "commemorate",
+        "coincide",
+        "confront",
+        "contest",
+        "protest",
+        "combat",
+        "debate",
+        "dwell",
+        "reside",
+        "resident",
+        "residence",
+        "inhabit",
+        "habitat"
+      ],
+      "checks": [
+        {
+          "id": "resident-role",
+          "prompt": "“Local residents asked for a quieter street.” 中 residents 指谁？",
+          "options": [
+            "当地居民",
+            "住处建筑",
+            "一场争论",
+            "比赛规则"
+          ],
+          "answer": 0,
+          "explanation": "residents 是居住在当地的人；residence 可以指住处或居住，habitat 通常指生物的栖息地。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "form",
+      "title": "形式变化与专注",
+      "focus": "比较动作改变了什么，再核对动词的宾语与介词；不能由前缀推导出所有用法。",
+      "words": [
+        "conform",
+        "reform",
+        "transform",
+        "formula",
+        "formulate",
+        "format",
+        "coordinate",
+        "subordinate",
+        "adhere",
+        "coherent",
+        "collaborate",
+        "compile",
+        "concentrate",
+        "focus"
+      ],
+      "checks": [
+        {
+          "id": "concentrate-pattern",
+          "prompt": "“Please concentrate ___ the evidence.” 应填哪项？",
+          "options": [
+            "of",
+            "from",
+            "by",
+            "on"
+          ],
+          "answer": 3,
+          "explanation": "concentrate on something：把注意力集中到某事。这里要整体记 concentrate on，不能仅从 con- 推断介词。",
+          "sources": [
+            {
+              "title": "Oxford · concentrate",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/concentrate_1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sense",
+      "title": "感觉、判断与遵守",
+      "focus": "区分人的反应与理性判断；表达遵守时按具体动词学习完整结构。",
+      "words": [
+        "confirm",
+        "correlate",
+        "consent",
+        "consensus",
+        "sensation",
+        "sensitive",
+        "sensible",
+        "comply",
+        "observe",
+        "abide",
+        "explicit",
+        "implicit",
+        "apply",
+        "appliance"
+      ],
+      "checks": [
+        {
+          "id": "sensible-sensitive",
+          "prompt": "“It is sensible to compare prices before buying.” 中 sensible 最接近哪项？",
+          "options": [
+            "容易过敏的",
+            "明智合理的",
+            "刻薄的",
+            "轰动的"
+          ],
+          "answer": 1,
+          "explanation": "sensible 侧重作出合理判断。sensitive 常涉及对变化、刺激或他人感受的反应；它也可以表示体贴，不应统一当成贬义。",
+          "sources": [
+            {
+              "title": "Oxford · sensible",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/sensible"
+            },
+            {
+              "title": "Oxford · sensitive",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/sensitive"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "influence",
+      "title": "影响与表达",
+      "focus": "写影响时先确认词性，再判断句中是动作、结果还是感情。",
+      "words": [
+        "affect",
+        "effect",
+        "effective",
+        "affection",
+        "affectionate",
+        "influence",
+        "influential",
+        "depress",
+        "compress",
+        "impress",
+        "impressive",
+        "depict",
+        "portray"
+      ],
+      "checks": [
+        {
+          "id": "affect-structure",
+          "prompt": "表示“噪声影响了我的睡眠”，哪项结构最自然？",
+          "options": [
+            "The noise affected on my sleep.",
+            "The noise had an affect to my sleep.",
+            "The noise affected my sleep.",
+            "The noise was effect my sleep."
+          ],
+          "answer": 2,
+          "explanation": "表示“影响”时 affect 直接接宾语；也可用 have an effect on。这里比较常用的动词和名词用法，不声称 affect 永远只能是动词。",
+          "sources": [
+            {
+              "title": "Cambridge · affect 的搭配",
+              "url": "https://dictionary.cambridge.org/grammar/british-grammar/word-patterns-affect-someone-or-something"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cause",
+      "title": "来源、推断与引导",
+      "focus": "区分信息从哪里来、根据什么作推断，以及动作作用于谁；不把形近词混作同义词。",
+      "words": [
+        "derive",
+        "deprive",
+        "thrive",
+        "prosper",
+        "devastate",
+        "induce",
+        "deduce",
+        "infer",
+        "conduct",
+        "conductor",
+        "insulate",
+        "scorn",
+        "despise",
+        "stable"
+      ],
+      "checks": [
+        {
+          "id": "infer-evidence",
+          "prompt": "读到“Several measurements supported the inference.”，inference 更接近什么？",
+          "options": [
+            "由证据得出的推断",
+            "给他人的命令",
+            "电气绝缘材料",
+            "繁荣的状态"
+          ],
+          "answer": 0,
+          "explanation": "推断需要依据，不能把推断与直接观测混为一谈。复盘阅读时，先确认原文提供了什么，再判断选项能否推出。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "difference",
+      "title": "否定、区分与变化",
+      "focus": "先确认是否真的是否定义，再看宾语；区分、歧视、分配和干扰各有自己的语境。",
+      "words": [
+        "enable",
+        "disable",
+        "discard",
+        "disregard",
+        "regardless",
+        "distribute",
+        "attribute",
+        "discriminate",
+        "discourage",
+        "differ",
+        "dismiss",
+        "disrupt",
+        "distract",
+        "extract"
+      ],
+      "checks": [
+        {
+          "id": "enable-pattern",
+          "prompt": "“The new tool enables students ___ their recordings.” 应填哪项？",
+          "options": [
+            "reviewing",
+            "reviewed",
+            "to review",
+            "review"
+          ],
+          "answer": 2,
+          "explanation": "enable somebody to do something 表示使某人能够做某事。enable 与 disable 的作用方向不同，词形相近不意味着可以替换。",
+          "sources": [
+            {
+              "title": "Oxford · enable",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/enable"
+            }
+          ]
+        },
+        {
+          "id": "discriminate-context",
+          "prompt": "“The system can discriminate between the two signals.” 这里的 discriminate 表示什么？",
+          "options": [
+            "歧视某个群体",
+            "辨别两种信号",
+            "摧毁信号",
+            "分发信号"
+          ],
+          "answer": 1,
+          "explanation": "between A and B 的结构在这里表示辨别差异；谈不公平对待时常用 discriminate against。它并非只有“歧视”一个意思。",
+          "sources": [
+            {
+              "title": "Oxford · discriminate",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/discriminate"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rights",
+      "title": "参与、权利与数量",
+      "focus": "同一个词按句中的动作和对象选义；介词要随完整表达一起记。",
+      "words": [
+        "engage",
+        "enroll",
+        "enact",
+        "enrich",
+        "enclose",
+        "enforce",
+        "entitle",
+        "embody",
+        "embark",
+        "encounter",
+        "count",
+        "account",
+        "counter",
+        "counterpart"
+      ],
+      "checks": [
+        {
+          "id": "entitle-pattern",
+          "prompt": "“Membership entitles you ___ the archive.” 应填哪项？",
+          "options": [
+            "using",
+            "to use",
+            "use",
+            "of using"
+          ],
+          "answer": 1,
+          "explanation": "entitle somebody to do something 表示使某人有权做某事；后接名词可以用 entitle somebody to something。不能把 to 后一律写成 doing。",
+          "sources": [
+            {
+              "title": "Oxford · entitle",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/entitle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "intensity",
+      "title": "状态、程度与代价",
+      "focus": "区分程度大小、褒贬和可数性。写作选词首先要准确，不用长词单纯替换短词。",
+      "words": [
+        "drive",
+        "bleak",
+        "brisk",
+        "barren",
+        "leak",
+        "chaos",
+        "chaotic",
+        "extraordinary",
+        "enormous",
+        "numerous",
+        "significant",
+        "expense",
+        "compensate",
+        "indispensable"
+      ],
+      "checks": [
+        {
+          "id": "quantity-intensity",
+          "prompt": "要表达“许多小改动”，哪项最贴切？",
+          "options": [
+            "enormous changes",
+            "numerous small changes",
+            "a chaotic change",
+            "an indispensable change"
+          ],
+          "answer": 1,
+          "explanation": "numerous 说明数量多；enormous 说明体量或程度大。“多”和“大”可能同时成立，也可能完全不同。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "outside",
+      "title": "内外、出现与区别",
+      "focus": "把外在与内在、出现与消失、相同与不同放到实际句子中判断；不把所有词都拆成同一种前缀。",
+      "words": [
+        "external",
+        "internal",
+        "intrinsic",
+        "extrinsic",
+        "exaggerate",
+        "elaborate",
+        "excellent",
+        "outstanding",
+        "prominent",
+        "advent",
+        "venture",
+        "incident",
+        "distinguish",
+        "extinct",
+        "exhaust",
+        "exhaustive",
+        "exclude",
+        "preclude",
+        "invade",
+        "evade",
+        "valid",
+        "invalid"
+      ],
+      "checks": [
+        {
+          "id": "exhaust-forms",
+          "prompt": "“After the exhausting journey, they felt exhausted.” 前后两个形容词分别说明什么？",
+          "options": [
+            "旅程已结束；他们很全面",
+            "旅程令人疲惫；他们感到疲惫",
+            "旅程很精确；他们很兴奋",
+            "旅程有名；他们很独特"
+          ],
+          "answer": 1,
+          "explanation": "exhausting 描述令人疲惫的事物或经历，exhausted 描述疲惫的状态。根据意义和作用选择，不能套“人用 ed、物用 ing”的绝对规则。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "judgement",
+      "title": "疏忽、数量与体贴",
+      "focus": "先看形容词描述的是人、行为还是数量；相似后缀不能替代语境判断。",
+      "words": [
+        "accessible",
+        "notorious",
+        "resist",
+        "persist",
+        "consist",
+        "consistent",
+        "ignore",
+        "ignorant",
+        "negligible",
+        "negligent",
+        "considerate",
+        "considerable",
+        "thoughtful",
+        "moral",
+        "mortal"
+      ],
+      "checks": [
+        {
+          "id": "negligible-negligent",
+          "prompt": "“The difference was negligible.” 更接近哪一项？",
+          "options": [
+            "差异小到可以不予考虑",
+            "差异是不负责任的人",
+            "差异非常显著",
+            "差异不可获得"
+          ],
+          "answer": 0,
+          "explanation": "negligible 侧重大小或重要性很低；negligent 常形容缺乏应有注意或照顾的行为与责任方。不能把后缀相似当成意义相同。",
+          "sources": [
+            {
+              "title": "Oxford · negligible",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/negligible"
+            },
+            {
+              "title": "Oxford · negligent",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/negligent"
+            }
+          ]
+        },
+        {
+          "id": "considerate-considerable",
+          "prompt": "“She was considerate enough to lower her voice.” 最合适的理解是什么？",
+          "options": [
+            "她的数量可观",
+            "她很体贴，放低了声音",
+            "她已经死亡",
+            "她的声音无法听见"
+          ],
+          "answer": 1,
+          "explanation": "considerate 说明顾及他人的感受；considerable 常说明数量、程度等可观。先看形容词描述的对象。",
+          "sources": [
+            {
+              "title": "Oxford · considerate",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/considerate"
+            },
+            {
+              "title": "Oxford · considerable",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/considerable"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forward",
+      "title": "推进、促进与设施",
+      "focus": "区分动作、结果和提供条件的设施；只从原句确认是否存在进展或收益。",
+      "words": [
+        "proceed",
+        "progress",
+        "profit",
+        "profitable",
+        "benefit",
+        "beneficial",
+        "promote",
+        "promotion",
+        "facility",
+        "facilitate",
+        "manufacture",
+        "impose",
+        "compose",
+        "propose",
+        "deposit"
+      ],
+      "checks": [
+        {
+          "id": "facility-action",
+          "prompt": "“The new facilities will facilitate training.” 两个词的作用分别是什么？",
+          "options": [
+            "设施；促进训练",
+            "工作人员；推迟训练",
+            "利润；制造训练",
+            "前任；预测训练"
+          ],
+          "answer": 0,
+          "explanation": "facilities 是设施；facilitate 是使事情更容易开展。名词与动词的句法位置不同，不能机械互换。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "before",
+      "title": "先后、假设与感知",
+      "focus": "先后顺序要找时间线；假设与证据、感知与欺骗也要分开。",
+      "words": [
+        "precede",
+        "proceed",
+        "precaution",
+        "predecessor",
+        "unprecedented",
+        "presume",
+        "assume",
+        "resume",
+        "consume",
+        "predict",
+        "verify",
+        "perceive",
+        "conceive",
+        "deceive",
+        "receive"
+      ],
+      "checks": [
+        {
+          "id": "precede-proceed",
+          "prompt": "“A short introduction preceded the discussion.” 发生顺序是什么？",
+          "options": [
+            "先介绍，再讨论",
+            "先讨论，再介绍",
+            "两件事均未发生",
+            "介绍取消了讨论"
+          ],
+          "answer": 0,
+          "explanation": "A precedes B 表示 A 在 B 之前；B is preceded by A 也仍然是 A 在先。proceed 常表示继续进行或接着做。",
+          "sources": [
+            {
+              "title": "Oxford · precede",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/precede"
+            },
+            {
+              "title": "Oxford · proceed",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/proceed"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "motivation",
+      "title": "动力、模拟与人际关系",
+      "focus": "区分促成真实变化与模拟某种情境；人物评价要结合具体含义和语气。",
+      "words": [
+        "compete",
+        "competitive",
+        "impetus",
+        "incentive",
+        "appetite",
+        "petition",
+        "stimulate",
+        "simulate",
+        "innocent",
+        "naive",
+        "childish",
+        "childlike",
+        "intimate",
+        "imitate"
+      ],
+      "checks": [
+        {
+          "id": "simulate-stimulate",
+          "prompt": "“The model simulates traffic during rush hour.” 这里的模型在做什么？",
+          "options": [
+            "让真实交通必然增加",
+            "模拟高峰时段的交通状况",
+            "请求所有车辆停下",
+            "永久消除交通"
+          ],
+          "answer": 1,
+          "explanation": "simulate 表示模拟条件或情景；stimulate 常表示促进、激发真实活动。拼写多出的 t 对应的是另一个词。",
+          "sources": [
+            {
+              "title": "Oxford · simulate",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/simulate"
+            },
+            {
+              "title": "Oxford · stimulate",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/stimulate"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "structure",
+      "title": "条件、结构与比较",
+      "focus": "看到条件和比较关系时，检查比较对象、限制条件与介词，避免只记一个中文译词。",
+      "words": [
+        "subject",
+        "substance",
+        "substantial",
+        "conscious",
+        "confidential",
+        "project",
+        "reject",
+        "inject",
+        "infrastructure",
+        "superior",
+        "supreme",
+        "surpass",
+        "survive",
+        "revive"
+      ],
+      "checks": [
+        {
+          "id": "subject-condition",
+          "prompt": "“The date is subject to change.” 最准确的理解是什么？",
+          "options": [
+            "日期可能会改变",
+            "日期已经改变",
+            "日期永远不变",
+            "日期就是讨论主题"
+          ],
+          "answer": 0,
+          "explanation": "这里表达日期并未固定、存在变动可能。保留这种条件或不确定性，不能把“可能改变”改成“已经改变”。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "transfer",
+      "title": "运输、转变与传达",
+      "focus": "区分位置转移、形态改变和传达信息；授予权利、赋予特征与提供物品采用不同结构。",
+      "words": [
+        "transit",
+        "transition",
+        "transaction",
+        "transform",
+        "transfer",
+        "transcend",
+        "impart",
+        "endow",
+        "grant",
+        "transparent",
+        "opaque",
+        "integrity",
+        "modesty"
+      ],
+      "checks": [
+        {
+          "id": "impart-pattern",
+          "prompt": "“The guide imparted practical knowledge ___ the visitors.” 应填哪项？",
+          "options": [
+            "with",
+            "to",
+            "of",
+            "against"
+          ],
+          "answer": 1,
+          "explanation": "传授知识时用 impart something to somebody；宾语是所传授的内容，to 后是接受者。把内容、接受者和介词一起记。",
+          "sources": [
+            {
+              "title": "Oxford · impart",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/impart"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "writing",
+      "title": "记录、归因与多样性",
+      "focus": "把记录文字、订阅、归因和改变方向分开；同主题词也可能有不同的语法位置。",
+      "words": [
+        "transcribe",
+        "transcript",
+        "subscribe",
+        "subscriber",
+        "prescribe",
+        "ascribe",
+        "attribute",
+        "diverse",
+        "diversity",
+        "diversify",
+        "discrepancy",
+        "controversy",
+        "divert",
+        "diversion"
+      ],
+      "checks": [
+        {
+          "id": "diverse-forms",
+          "prompt": "“The team values cultural diversity.” diversity 在句中的作用是什么？",
+          "options": [
+            "动词，改变路线",
+            "形容词，修饰团队",
+            "名词，表示多样性",
+            "副词，说明速度"
+          ],
+          "answer": 2,
+          "explanation": "diverse 是形容词，diversity 是名词，diversify 是动词。学习词族时要同时记住句法位置，不能把派生词直接互换。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "return",
+      "title": "恢复、调和与揭示",
+      "focus": "结合动作的对象联记，辨认恢复什么、协调什么、揭示什么；派生词保留词性变化。",
+      "words": [
+        "resort",
+        "refresh",
+        "refreshment",
+        "indulge",
+        "reconcile",
+        "reinforce",
+        "redundant",
+        "recall",
+        "restore",
+        "retort",
+        "revise",
+        "recede",
+        "recession",
+        "reveal",
+        "conceal",
+        "renew",
+        "renewal",
+        "rehearse",
+        "rehearsal",
+        "survival",
+        "revival"
+      ],
+      "checks": [
+        {
+          "id": "reconcile-pattern",
+          "prompt": "“We need to reconcile the two requirements.” 重点是在做什么？",
+          "options": [
+            "找出兼顾两项要求的办法",
+            "把其中一个词重新拼写",
+            "公开一个秘密",
+            "给饮料降温"
+          ],
+          "answer": 0,
+          "explanation": "reconcile 两种需求或观点，常表示找到能够协调它们的办法；reconcile A with B 是常见结构。遇到 reconcile oneself to 时，要另看接受现实这一义项。",
+          "sources": [
+            {
+              "title": "Oxford · reconcile",
+              "url": "https://www.oxfordlearnersdictionaries.com/definition/english/reconcile"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reading-paraphrase",
+      "title": "阅读中的同义改写",
+      "focus": "把人物、动作、条件、数量和语气逐一对齐。词表里的近义关系只是候选，不能直接当作选项与原文等义的证明。",
+      "words": [
+        "apprehend",
+        "commence",
+        "consolidate",
+        "curb",
+        "discern",
+        "elicit",
+        "encompass",
+        "eradicate",
+        "impede",
+        "jeopardize",
+        "mitigate",
+        "scrutinize",
+        "supplant",
+        "undermine",
+        "ambiguous",
+        "empirical",
+        "plausible",
+        "prevalent",
+        "rigorous",
+        "subtle",
+        "tentative",
+        "viable"
+      ],
+      "checks": [
+        {
+          "id": "scope-in-paraphrase",
+          "prompt": "原句：“Some participants reported better sleep.” 哪项保持了原句的信息范围？",
+          "options": [
+            "All participants slept better.",
+            "The treatment cured insomnia.",
+            "A proportion of the participants said their sleep improved.",
+            "No participant slept badly."
+          ],
+          "answer": 2,
+          "explanation": "some 不能扩大成 all；reported 是参与者报告，不自动证明因果或治愈。匹配选项时同时检查范围、证据来源和语气，不能只找 sleep 的近义词。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "translation-phrases",
+      "title": "翻译中的结构与搭配",
+      "focus": "先写清主语和谓语，再补时间、地点和修饰语。搭配按完整句子核对；不把地点大小或看到 since 当成机械语法规则。",
+      "words": [
+        "locate",
+        "designate",
+        "recognize",
+        "embody",
+        "originate",
+        "derive",
+        "consist",
+        "associate",
+        "flourish",
+        "thrive",
+        "importance",
+        "role",
+        "sustainable",
+        "scenery",
+        "landscape",
+        "habitat",
+        "altitude",
+        "customary",
+        "diverse"
+      ],
+      "checks": [
+        {
+          "id": "preserve-information",
+          "prompt": "原意为“这个村庄因传统手工艺而闻名”，哪项更完整自然？",
+          "options": [
+            "The village is famous for its traditional crafts.",
+            "The village is famous as traditional crafts.",
+            "The village famous traditional crafts.",
+            "The village is located traditions."
+          ],
+          "answer": 0,
+          "explanation": "先保证主语、谓语和“因什么闻名”的关系完整。famous for 后接出名的原因；不能把地点、身份和原因混成同一个固定模板。",
+          "sources": []
+        }
+      ]
+    },
+    {
+      "id": "auxiliary-600",
+      "title": "600词辅助表（去重）",
+      "focus": "原资料列有600条，去重后为597个词。这里只用于按需查找；释义与读音使用本站词卡，不代表完整考试范围或历年考频，也不改变每日背词计划。",
+      "words": [
+        "transient",
+        "liable",
+        "linguistic",
+        "sustainability",
+        "innovation",
+        "motivation",
+        "collaboration",
+        "inequality",
+        "internalize",
+        "perpetuate",
+        "dominant",
+        "crucial",
+        "advocate",
+        "compelling",
+        "fulfillment",
+        "stability",
+        "priority",
+        "access",
+        "reveal",
+        "investigate",
+        "fascinate",
+        "academic",
+        "stagnation",
+        "counterintuitive",
+        "convergence",
+        "paradox",
+        "simulator",
+        "illusion",
+        "implement",
+        "transformation",
+        "infrastructure",
+        "immersive",
+        "aspire",
+        "deplore",
+        "chronic",
+        "intervene",
+        "paradigm",
+        "ruthless",
+        "vanity",
+        "condemn",
+        "slavish",
+        "acclaimed",
+        "assertive",
+        "symmetry",
+        "neuroscientist",
+        "categorically",
+        "bias",
+        "irresistible",
+        "orchestrate",
+        "retention",
+        "overhaul",
+        "bewilder",
+        "thorny",
+        "tranquil",
+        "desolation",
+        "intermittent",
+        "endorse",
+        "preservation",
+        "inevitable",
+        "renaissance",
+        "envisage",
+        "dazzling",
+        "prevalence",
+        "ecosystem",
+        "wickedness",
+        "fragmentation",
+        "migrate",
+        "thrive",
+        "ambiguity",
+        "terrific",
+        "strand",
+        "purist",
+        "contentious",
+        "volatile",
+        "instigate",
+        "fleet",
+        "obligation",
+        "detrimental",
+        "therapeutic",
+        "justified",
+        "dictate",
+        "legitimate",
+        "bizarre",
+        "embodiment",
+        "irrefutable",
+        "diffusion",
+        "evade",
+        "precedent",
+        "competent",
+        "alleviate",
+        "hazard",
+        "articulate",
+        "ubiquitous",
+        "aesthetic",
+        "hypothesis",
+        "adaptation",
+        "impose",
+        "cohesion",
+        "dilemma",
+        "scrutiny",
+        "facilitate",
+        "quota",
+        "void",
+        "warrant",
+        "weary",
+        "yield",
+        "zeal",
+        "deficiency",
+        "ponder",
+        "qualitative",
+        "reciprocal",
+        "sentiment",
+        "tangible",
+        "undermine",
+        "versatile",
+        "adjacent",
+        "bleak",
+        "foster",
+        "grim",
+        "hierarchy",
+        "indigenous",
+        "jeopardy",
+        "kinship",
+        "lapse",
+        "mediate",
+        "nuisance",
+        "overt",
+        "pertinent",
+        "relinquish",
+        "serene",
+        "trivial",
+        "unanimous",
+        "vulnerable",
+        "abide",
+        "comply",
+        "diligent",
+        "erratic",
+        "futile",
+        "hostile",
+        "intricate",
+        "jeopardize",
+        "lucrative",
+        "mitigate",
+        "negligible",
+        "rigorous",
+        "skeptical",
+        "tedious",
+        "linger",
+        "notorious",
+        "obscure",
+        "persistent",
+        "reluctant",
+        "spontaneous",
+        "tentative",
+        "eliminate",
+        "wary",
+        "abrupt",
+        "ambiguous",
+        "coherent",
+        "compatible",
+        "concurrent",
+        "conspicuous",
+        "prosperous",
+        "cumulative",
+        "decisive",
+        "deliberate",
+        "discrete",
+        "elusive",
+        "explicit",
+        "collapse",
+        "formidable",
+        "implicit",
+        "incompatible",
+        "indicative",
+        "conflict",
+        "inherent",
+        "transplant",
+        "mandatory",
+        "notable",
+        "causation",
+        "diagnose",
+        "cooperation",
+        "plastic",
+        "quit",
+        "selfish",
+        "internship",
+        "negotiate",
+        "solar",
+        "physician",
+        "feasible",
+        "wind",
+        "treatment",
+        "interfere",
+        "species",
+        "sacrifice",
+        "feasibility",
+        "habitat",
+        "prescribe",
+        "work",
+        "insect",
+        "hygienic",
+        "capable",
+        "trap",
+        "burnout",
+        "pursue",
+        "culture",
+        "festival",
+        "costume",
+        "peculiar",
+        "intellect",
+        "confucius",
+        "calligraphy",
+        "artwork",
+        "connotation",
+        "dedication",
+        "orchestra",
+        "town",
+        "suburb",
+        "gap",
+        "identify",
+        "secure",
+        "insure",
+        "stress",
+        "controversial",
+        "quirk",
+        "conduct",
+        "reflect",
+        "peer",
+        "submit",
+        "explore",
+        "object",
+        "wonder",
+        "observe",
+        "analyse",
+        "internal",
+        "define",
+        "vehicle",
+        "oblige",
+        "dismiss",
+        "accommodation",
+        "novelty",
+        "appropriate",
+        "reconcile",
+        "simultaneous",
+        "terminate",
+        "validate",
+        "adherence",
+        "coincidence",
+        "contemplation",
+        "deterioration",
+        "elaboration",
+        "fluctuation",
+        "initiative",
+        "lack",
+        "reparable",
+        "distinct",
+        "quantitative",
+        "unique",
+        "clause",
+        "resemble",
+        "surveillance",
+        "ornament",
+        "benevolent",
+        "consensus",
+        "deprive",
+        "empirical",
+        "facility",
+        "homogeneous",
+        "inclination",
+        "magnitude",
+        "seedling",
+        "offset",
+        "proposition",
+        "subordinate",
+        "transcend",
+        "neutral",
+        "viable",
+        "withstand",
+        "adjunct",
+        "coerce",
+        "delusion",
+        "eminent",
+        "fortitude",
+        "negligence",
+        "premise",
+        "resilient",
+        "subside",
+        "tolerate",
+        "universal",
+        "verge",
+        "witness",
+        "credibility",
+        "deterrent",
+        "eloquent",
+        "delayed",
+        "humane",
+        "indispensable",
+        "moderate",
+        "nullify",
+        "proliferate",
+        "affluent",
+        "astute",
+        "bolster",
+        "brevity",
+        "catastrophe",
+        "cherish",
+        "conceive",
+        "cordial",
+        "vague",
+        "cuisine",
+        "deduce",
+        "depict",
+        "deviate",
+        "dignity",
+        "endeavor",
+        "epoch",
+        "evoke",
+        "fabulous",
+        "flaw",
+        "furious",
+        "galaxy",
+        "gloomy",
+        "gossip",
+        "hamper",
+        "harmony",
+        "hideous",
+        "ignite",
+        "imminent",
+        "integrate",
+        "intuition",
+        "jostle",
+        "luminous",
+        "magnify",
+        "benchmark",
+        "mediocre",
+        "mimic",
+        "naive",
+        "nostalgia",
+        "opaque",
+        "persevere",
+        "pivotal",
+        "poignant",
+        "pristine",
+        "radiant",
+        "reckless",
+        "refrain",
+        "retort",
+        "sabotage",
+        "scarce",
+        "solitary",
+        "sporadic",
+        "stagnant",
+        "stereotype",
+        "sturdy",
+        "surpass",
+        "turbulent",
+        "utmost",
+        "vibrant",
+        "wither",
+        "complex",
+        "privilege",
+        "instinctive",
+        "invalidate",
+        "abstract",
+        "malpractice",
+        "amendment",
+        "charter",
+        "sanction",
+        "authorize",
+        "legitimacy",
+        "linguist",
+        "bilingual",
+        "calligrapher",
+        "artifact",
+        "compensated",
+        "orchestral",
+        "procrastination",
+        "willpower",
+        "quirky",
+        "semiconductor",
+        "conductive",
+        "chain",
+        "peerless",
+        "objectionable",
+        "redefine",
+        "refine",
+        "diversity",
+        "legislature",
+        "remote",
+        "lawful",
+        "mainstream",
+        "term",
+        "attachment",
+        "literacy",
+        "underestimate",
+        "objective",
+        "hard-wired",
+        "exterior",
+        "interior",
+        "outer",
+        "inner",
+        "charitable",
+        "norm",
+        "consistent",
+        "slacking",
+        "prosperity",
+        "restoration",
+        "venture",
+        "algorithm",
+        "fossil",
+        "inflation",
+        "saturated",
+        "adequate",
+        "currency",
+        "monetary",
+        "financial",
+        "dense",
+        "nutrition",
+        "vaccination",
+        "immune",
+        "retrospect",
+        "stringent",
+        "pervasive",
+        "equivocal",
+        "investment",
+        "autonomy",
+        "philanthropic",
+        "eccentric",
+        "commemorate",
+        "concise",
+        "consecutive",
+        "discount",
+        "pose",
+        "denote",
+        "replacement",
+        "diminish",
+        "discard",
+        "distinguish",
+        "conceal",
+        "duplicate",
+        "elevate",
+        "embody",
+        "enhance",
+        "enforce",
+        "ensure",
+        "exhibit",
+        "exploit",
+        "fluctuate",
+        "formulate",
+        "generate",
+        "illustrate",
+        "imitate",
+        "disruption",
+        "tablet",
+        "indicate",
+        "induce",
+        "infer",
+        "inhibit",
+        "reframe",
+        "justify",
+        "launch",
+        "maintain",
+        "manipulate",
+        "maximize",
+        "compromise",
+        "merge",
+        "foresight",
+        "monitor",
+        "motivate",
+        "neglect",
+        "obtain",
+        "occupy",
+        "oppose",
+        "originate",
+        "participate",
+        "perceive",
+        "perform",
+        "corruption",
+        "alliance",
+        "verifiable",
+        "wrath",
+        "allocation",
+        "coincidental",
+        "detriment",
+        "faculty",
+        "humanitarian",
+        "indisputable",
+        "philological",
+        "modification",
+        "numerous",
+        "prolong",
+        "replicate",
+        "subsidy",
+        "transition",
+        "harsh",
+        "vivid",
+        "withhold",
+        "commodity",
+        "notion",
+        "tender",
+        "entrepreneur",
+        "accountable",
+        "contradiction",
+        "genuine",
+        "highlight",
+        "incentive",
+        "durability",
+        "anecdotal",
+        "modify",
+        "impartial",
+        "overcome",
+        "phenomenon",
+        "quote",
+        "reluctance",
+        "infection",
+        "trigger",
+        "undergo",
+        "volunteer",
+        "welfare",
+        "expansion",
+        "zone",
+        "abundant",
+        "prejudice",
+        "deteriorate",
+        "distinctive",
+        "era",
+        "federal",
+        "grant",
+        "stern",
+        "mature",
+        "lease",
+        "strategy",
+        "entitlement",
+        "overseas",
+        "phase",
+        "revenue",
+        "scheme",
+        "procedure",
+        "impair",
+        "assumption",
+        "widespread",
+        "detach",
+        "mobility",
+        "consume",
+        "draft",
+        "exceed",
+        "frequent",
+        "guarantee",
+        "hinder",
+        "initial",
+        "justification",
+        "likewise",
+        "exaggerate",
+        "variation",
+        "overlook",
+        "portion",
+        "relieve",
+        "scope",
+        "tackle",
+        "ultimate",
+        "vital",
+        "withdraw",
+        "annual",
+        "bond",
+        "confine",
+        "diverse",
+        "prevalent",
+        "fundamental",
+        "hence",
+        "integral",
+        "manual",
+        "obstacle",
+        "fluency",
+        "extreme",
+        "sole",
+        "tremendous",
+        "nourishment",
+        "optimum",
+        "well-being",
+        "bulk",
+        "consult",
+        "dominate",
+        "exclude",
+        "cultivate",
+        "wander",
+        "incorporate",
+        "minimal",
+        "nonetheless",
+        "overwhelming",
+        "profound",
+        "renew",
+        "subsequent",
+        "nuclear",
+        "unify",
+        "verify",
+        "whereby",
+        "retain"
+      ],
+      "checks": [
+        {
+          "id": "auxiliary-scope",
+          "prompt": "把这份辅助词表背完，可以直接说明什么？",
+          "options": [
+            "已经覆盖全部六级词汇",
+            "这一份辅助表完成了一轮学习，仍需结合真题和后续回忆检验",
+            "所有词都已永久掌握",
+            "无需再做阅读"
+          ],
+          "answer": 1,
+          "explanation": "完成一份词表只说明该份任务的进度。复习、语境理解和考试范围是不同问题，不能由列表的标题推定。",
+          "sources": []
+        }
+      ]
+    }
+  ]
+}

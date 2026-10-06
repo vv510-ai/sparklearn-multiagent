@@ -54,8 +54,8 @@ def words(notebook_id: str, q: str = Query(default="", max_length=100),
           group: Literal["all", "foundation", "cet6"] = "all", view: Literal["all", "today", "mine"] = "all",
           offset: int = Query(default=0, ge=0, le=20000), limit: int = Query(default=30, ge=1, le=60),
           order: Literal["priority", "family", "alphabetical", "random"] | None = None,
-          family: str = Query(default="", max_length=64)):
-    return vocabulary.catalogue(require_current_user_id(), notebook_id, q, group, view, offset, limit, order, family)
+          family: str = Query(default="", max_length=64), topic: str = Query(default="", max_length=64)):
+    return vocabulary.catalogue(require_current_user_id(), notebook_id, q, group, view, offset, limit, order, family, topic)
 
 
 @router.get("/word-plan")

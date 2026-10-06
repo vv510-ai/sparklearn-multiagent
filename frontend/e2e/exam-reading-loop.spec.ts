@@ -40,8 +40,10 @@ test("真题点词、原句保存、待复习、刷新恢复、原题回链与�
   expect((await (await page.request.get(exam)).json()).revision).toBe(settled);
   const sourceWord = page.getByRole("button", { name: "查词 social", exact: true }).first();
   await sourceWord.scrollIntoViewIfNeeded();
-  const readingPosition = await page.locator(".exam-reader-body").evaluate(el => el.scrollTop);
   await sourceWord.focus();
+  // Focusing can legitimately bring a word into view. Opening and closing the
+  // dialog must preserve the reader position after that keyboard navigation.
+  const readingPosition = await page.locator(".exam-reader-body").evaluate(el => el.scrollTop);
   await page.keyboard.press("Enter");
   const panel = page.getByRole("dialog", { name: "词句学习 · 第 46 题", exact: true });
   const saveButton = panel.getByRole("button", { name: /^(加入复习，保留原句|保存笔记与原句|正在保存…|已加入复习)$/ });

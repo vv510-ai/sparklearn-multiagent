@@ -15,7 +15,7 @@ def enrich_papers(papers):
         if paper['pdf_sha256'] != addition['source_sha256']:
             raise ValueError('Teaching notes require a review against the new source edition')
         by_number = {q['number']: q for q in addition['questions']}
-        for kind in ('reading', 'reading_careful'):
+        for kind in ('reading', 'reading_cloze', 'reading_matching', 'reading_careful'):
             for question in paper['blocks'].get(kind, {}).get('questions', []):
                 note = by_number.get(question['number'])
                 if note:
