@@ -9,6 +9,7 @@ export default function WordContexts({ notebookId, contexts, revealed = true }: 
   return <section className="word-context-recall" aria-label="原句复习">
     <strong>{revealed ? "原句与出处" : "联系原句，回忆这个词的意思"}</strong>
     {items.map((c, i) => <article key={i}><blockquote lang="en">{c.text}</blockquote>{revealed && <>
+      {(c.surface_forms?.length || c.surface_form) && <p>原文词形：<span lang="en">{(c.surface_forms || [c.surface_form]).join(" / ")}</span></p>}
       {c.note && <p>我的语境理解：{c.note}</p>}<p>{c.source}</p>
       {c.question_prompt && <p>第 {c.question_number} 题：{c.question_prompt}</p>}
       {c.exam_id && <a href={`/?${new URLSearchParams({ notebook: notebookId, cet6: "exams", exam_paper: c.exam_id, exam_kind: c.exam_kind || "reading_careful", exam_question: String(c.exam_question || 46) })}`}>回到原题 · 第 {c.exam_question} 题</a>}

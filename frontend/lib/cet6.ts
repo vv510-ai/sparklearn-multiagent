@@ -26,12 +26,18 @@ export type WordEntry = Omit<WordSummary, "meaning" | "collected" | "status" | "
 export type WordAttempt = { mode: "meaning" | "spelling"; started_at: string; revealed: boolean; early: boolean; used_help: boolean; help_reason?: string; answer?: string; correct?: boolean };
 export type WordCard = {
   revision: number; sense_id: string; collected: boolean; queued_at?: string | null;
-  contexts: { text: string; note: string; reading_id: string; source: string; saved_at: string; question_id?: string; question_number?: number; question_prompt?: string; paper_id?: string; paper_question?: number; exam_id?: string; exam_kind?: string; exam_question?: number; exam_version?: string }[];
+  contexts: { text: string; note: string; surface_form?: string; surface_forms?: string[]; reading_id: string; source: string; saved_at: string; question_id?: string; question_number?: number; question_prompt?: string; paper_id?: string; paper_question?: number; exam_id?: string; exam_kind?: string; exam_question?: number; exam_version?: string }[];
   tracks: Record<string, { scheduler?: string; due_at: string; attempts: number; independent_due_reviews: number }>;
   rating_options?: Record<string, string>;
   active?: WordAttempt | null; last?: WordAttempt & { rating: string; basis: string; due_at: string; submitted_at: string; scheduling_reason?: string };
 };
 export type WordDetail = { version: string; entry: WordEntry; cards: WordCard[]; preferred_sense_id: string; next_review: { sense_id: string; mode: "meaning" | "spelling" }; family: WordFamily };
+export type WordLookup = {
+  query: string; normalized: string; status: "matched" | "ambiguous" | "not_found"; auto_entry_id: string | null;
+  usage_hint: string; dictionary_url: string; note: string;
+  matches: { entry_id: string | null; word: string; codes: string[]; forms: string[]; match_kind: string;
+    meaning: string; source_url: string; collectible: boolean; suggested_sense_id?: string | null }[];
+};
 export type WordPlan = { day: string; timezone: string; target: number; new_done: number; new_remaining: number;
   new_ids: string[]; completed_ids: string[]; review_due: number; review_done: number; profile_revision: number; available_new: number;
   word_order: WordOrder; coverage: VocabularyCoverage; next_family: WordFamily | null; protected_count: number };

@@ -60,6 +60,7 @@ class WordAction(BaseModel):
     used_help: bool = False
     context: str = Field(default="", max_length=1500)
     context_note: str = Field(default="", max_length=500)
+    surface_form: str = Field(default="", max_length=100)
     reading_id: str = Field(default="", max_length=64)
     question_id: str = Field(default="", max_length=64)
     paper_id: str = Field(default="", max_length=64)

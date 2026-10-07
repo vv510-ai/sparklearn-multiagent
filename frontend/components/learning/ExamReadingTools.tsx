@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiGet, apiPost } from "@/lib/api";
 import { readingError, readingRequestId } from "@/lib/reading";
-import type { WordCard, WordCatalogue, WordDetail } from "@/lib/cet6";
+import type { WordCard, WordDetail, WordLookup } from "@/lib/cet6";
 import StudyDialog from "../ui/StudyDialog";
 import WordPronunciation from "./WordPronunciation";
 import "./exam-reading-tools.css";
@@ -14,6 +14,8 @@ type ExcerptDraft = { notes: Record<string, string>; explanations: Record<string
 type Props = { notebookId: string; paperId: string; kind: string; question: number; version: string; paragraphs: string[]; duringAttempt: boolean; onHelp: () => void; preferredSenses?: Record<string, string> };
 type Operation = "lookup" | "save" | "explain" | "reload";
 const sentences = (p: string) => p.match(/[^.!?]+(?:[.!?]+[”"']?|$)/g)?.map(s => s.trim()).filter(Boolean) || [p];
+const normalizedForm = (text: string) => text.trim().toLowerCase().replaceAll("’", "'");
+const wordParts = (text: string) => text.split(/([A-Za-z]+(?:['’\-][A-Za-z]+)*(?:(?<=s)['’])?)/gi);
 
 export default function ExamReadingTools(props: Props) {
   const [selected, setSelected] = useState<Selection | null>(null), [open, setOpen] = useState(false);
@@ -26,7 +28,7 @@ export default function ExamReadingTools(props: Props) {
     <p className="exam-muted">点词查义，关闭后接着读；长难句可用段落下的“拆解句子”。{props.duringAttempt && "查词和拆句会记为借助帮助。"}</p>
     <div lang="en" className="exam-source-text">
       {props.paragraphs.map((paragraph, p) => <div key={p}>
-        <p>{paragraph.split(/([A-Za-z]+(?:['’\-][A-Za-z]+)*)/g).map((part, i, parts) => /^[A-Za-z]/.test(part) ? <button className="exam-word" key={i} aria-label={`查词 ${part}`} aria-haspopup="dialog" data-selected={selected?.id === `${p}:${i}`} onClick={() => {
+        <p>{wordParts(paragraph).map((part, i, parts) => /^[A-Za-z]/.test(part) ? <button className="exam-word" key={i} aria-label={`查词 ${part}`} aria-haspopup="dialog" data-selected={selected?.id === `${p}:${i}`} onClick={() => {
           const offset = parts.slice(0, i).join("").length;
           const sentence = sentences(paragraph).find(s => { const start = paragraph.indexOf(s); return start <= offset && offset < start + s.length; }) || paragraph;
           pick({ id: `${p}:${i}`, word: part, sentence: sentence.slice(0, 1500), paragraph });
@@ -45,7 +47,7 @@ export default function ExamReadingTools(props: Props) {
 function ExcerptPanel({ selected, draft, open, onClose, ...props }: Props & { selected: Selection; draft: ExcerptDraft; open: boolean; onClose: () => void }) {
   const [mode, setMode] = useState<"word" | "sentence">(selected.word ? "word" : "sentence");
   const [query, setQuery] = useState(selected.word), [sentence, setSentence] = useState(selected.sentence);
-  const [words, setWords] = useState<WordCatalogue | null>(null), [word, setWord] = useState<WordDetail | null>(null), [sense, setSense] = useState("");
+  const [words, setWords] = useState<WordLookup | null>(null), [word, setWord] = useState<WordDetail | null>(null), [sense, setSense] = useState("");
   const [operation, setOperation] = useState<Operation | null>(null), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [notes, setNotes] = useState(draft.notes), [answer, setAnswer] = useState(draft.answers[selected.sentence] || "");
   const [explanation, setExplanation] = useState<Explanation | null>(draft.explanations[selected.sentence] || null), [revealed, setRevealed] = useState(false);
@@ -54,15 +56,20 @@ function ExcerptPanel({ selected, draft, open, onClose, ...props }: Props & { se
   const base = `/notebooks/${props.notebookId}/cet6`, busy = operation !== null;
   const reviewUrl = `/?notebook=${encodeURIComponent(props.notebookId)}&cet6=vocabulary&cet6_start=review`;
   const card = word?.cards.find(c => c.sense_id === sense);
+  const surfaceForm = words?.query || selected.word;
+  const selectedMatch = words?.matches.find(m => m.entry_id === word?.entry.id);
+  const surfacePresent = wordParts(sentence).some(t => normalizedForm(t) === normalizedForm(surfaceForm));
   const existing = card?.contexts.filter(c => c.text === sentence.trim() && c.exam_id === props.paperId && c.exam_kind === props.kind && c.exam_question === props.question && c.exam_version === props.version).at(-1);
   const noteKey = `${word?.entry.id}:${sense}:${sentence}`;
   const note = notes[noteKey] ?? existing?.note ?? "";
-  const saved = !!card?.contexts.some(c => c.text === sentence.trim() && (c.note || "") === note.trim() && c.exam_id === props.paperId && c.exam_kind === props.kind && c.exam_question === props.question && c.exam_version === props.version);
+  const saved = !!card?.contexts.some(c => c.text === sentence.trim() && (c.note || "") === note.trim() && c.exam_id === props.paperId && c.exam_kind === props.kind && c.exam_question === props.question && c.exam_version === props.version && (c.surface_forms || [c.surface_form || ""]).some(f => normalizedForm(f) === normalizedForm(surfaceForm)));
   const changeNote = (value: string) => { const next = { ...notes, [noteKey]: value }; draft.notes = next; setNotes(next); setNotice(""); };
   const help = () => { if (props.duringAttempt) props.onHelp(); };
-  const loadWord = async (id: string) => {
+  const loadWord = async (id: string, match?: WordLookup["matches"][number]) => {
     const detail = await apiGet<WordDetail>(`${base}/words/${id}`);
-    if (alive.current) { setWord(detail); setSense(previous => detail.cards.some(c => c.sense_id === previous) ? previous : props.preferredSenses?.[detail.entry.word] || detail.preferred_sense_id); }
+    const preferred = props.preferredSenses?.[detail.entry.word];
+    const formSense = detail.entry.senses.find(s => s.id === match?.suggested_sense_id)?.id;
+    if (alive.current) { setWord(detail); setSense(previous => detail.cards.some(c => c.sense_id === previous) ? previous : preferred || formSense || detail.preferred_sense_id); }
   };
   const run = async (kind: Operation, task: () => Promise<void>) => {
     if (flight.current) return;
@@ -72,11 +79,10 @@ function ExcerptPanel({ selected, draft, open, onClose, ...props }: Props & { se
   };
   const lookup = () => run("lookup", async () => {
     help(); setWord(null); setWords(null); setNotice("");
-    const result = await apiGet<WordCatalogue>(`${base}/words?q=${encodeURIComponent(query.trim())}&limit=6`);
+    const result = await apiGet<WordLookup>(`${base}/word-lookup?${new URLSearchParams({ q: query.trim(), context: sentence })}`);
     if (!alive.current) return;
     setWords(result);
-    const exact = result.items.find(w => w.word.toLowerCase() === query.trim().toLowerCase() || w.variants.some(v => v.toLowerCase() === query.trim().toLowerCase()));
-    if (exact) await loadWord(exact.id);
+    if (result.auto_entry_id) await loadWord(result.auto_entry_id, result.matches.find(m => m.entry_id === result.auto_entry_id));
   });
   useEffect(() => {
     alive.current = true;
@@ -98,7 +104,7 @@ function ExcerptPanel({ selected, draft, open, onClose, ...props }: Props & { se
   const collect = () => run("save", async () => {
     if (!word || !card || saved) return;
     const body = { action: "collect", revision: card.revision, sense_id: sense, version: word.version,
-      context: sentence, context_note: note, exam_id: props.paperId, exam_kind: props.kind, exam_question: props.question, exam_version: props.version };
+      context: sentence, context_note: note, surface_form: surfaceForm, exam_id: props.paperId, exam_kind: props.kind, exam_question: props.question, exam_version: props.version };
     const key = JSON.stringify(body);
     if (pending.current?.key !== key) pending.current = { key, id: readingRequestId() };
     const result = await apiPost<WordCard>(`${base}/words/${word.entry.id}`, { ...body, request_id: pending.current.id });
@@ -108,13 +114,14 @@ function ExcerptPanel({ selected, draft, open, onClose, ...props }: Props & { se
       pending.current = null;
     }
   });
-  const chooseSentence = (value: string) => { setSentence(value); setExplanation(draft.explanations[value] || null); setNotice(""); setRevealed(false); setAnswer(draft.answers[value] || ""); };
+  const chooseSentence = (value: string) => { setSentence(value); setWords(previous => previous ? { ...previous, usage_hint: "" } : null); setExplanation(draft.explanations[value] || null); setNotice(""); setRevealed(false); setAnswer(draft.answers[value] || ""); };
   const options = [...new Set([selected.sentence, ...sentences(selected.paragraph)])].filter(s => s.length <= 1500);
-  const search = <form onSubmit={e => { e.preventDefault(); void lookup(); }}><label>查找本句单词<input value={query} maxLength={100} disabled={busy} onChange={e => setQuery(e.target.value)} placeholder="未找到时可尝试单词原形" /></label><button disabled={busy || !query.trim()}>查找词义</button></form>;
+  const search = <form onSubmit={e => { e.preventDefault(); void lookup(); }}><label>查找本句单词<input value={query} maxLength={100} disabled={busy} onChange={e => setQuery(e.target.value)} placeholder="可直接输入原文中的变形词" /></label><button disabled={busy || !query.trim()}>查找词义</button></form>;
+  const candidates = words && <div className="exam-word-candidates" aria-label="可能对应的词条">{words.matches.map((m, i) => m.entry_id ? <button key={m.entry_id} disabled={busy} aria-pressed={word?.entry.id === m.entry_id} onClick={() => void run("lookup", () => loadWord(m.entry_id!, m))}><strong lang="en">{m.word}</strong><span>{m.forms.join(" / ") || (m.match_kind === "spelling" ? "拼写变体" : "独立词条")} · {m.meaning}</span></button> : <div key={`dictionary-${i}`} className="exam-word-dictionary"><strong lang="en">{m.word}</strong><p>{m.meaning}</p><p className="exam-excerpt-hint">这个独立词义未纳入当前学习词表。<a href={words.dictionary_url} target="_blank" rel="noreferrer">核对词典 ↗</a></p></div>)}</div>;
   return <StudyDialog open={open} title={`词句学习 · 第 ${props.question} 题`} onClose={onClose} className="exam-learning-dialog" footer={<>
     <div role="status" className="exam-excerpt-save-status">{notice || (saved ? "这个义项与原句已保存，可继续阅读。" : "")}</div>
     <div className="exam-excerpt-actions">
-      {mode === "word" && word && <button className="primary-action" disabled={busy || saved || !sense || !sentence.trim() || sentence.length > 1500} onClick={() => void collect()}>{operation === "save" ? "正在保存…" : saved ? "已加入复习" : existing ? "保存笔记与原句" : "加入复习，保留原句"}</button>}
+      {mode === "word" && word && <button className="primary-action" disabled={busy || saved || !sense || !surfacePresent || sentence.length > 1500} onClick={() => void collect()}>{operation === "save" ? "正在保存…" : saved ? "已加入复习" : existing ? "保存笔记与原句" : "加入复习，保留原句"}</button>}
       <button type="button" onClick={onClose} className={saved || mode === "sentence" ? "primary-action" : "secondary-action"}>返回阅读</button>
       {saved && <a href={reviewUrl}>现在复习</a>}
     </div>
@@ -123,8 +130,15 @@ function ExcerptPanel({ selected, draft, open, onClose, ...props }: Props & { se
       <div className="exam-excerpt-modes" role="group" aria-label="词句学习方式"><button aria-pressed={mode === "word"} onClick={() => setMode("word")}>单词词义</button><button aria-pressed={mode === "sentence"} onClick={() => setMode("sentence")}>读懂原句</button></div>
       <div role="status" className="exam-excerpt-progress">{operation ? { lookup: "正在查找词义…", save: "正在保存原句…", reload: "正在重新读取词卡…", explain: "正在拆解原句，请稍候。你可以先返回阅读。" }[operation] : ""}</div>
       {mode === "word" && <>
-        {word ? <div className="exam-excerpt-word"><strong lang="en">{word.entry.word}</strong><label>选择本句对应义项<select disabled={busy} value={sense} onChange={e => { setSense(e.target.value); setNotice(""); }}>{word.entry.senses.map(s => <option key={s.id} value={s.id}>{s.definition}</option>)}</select></label><WordPronunciation word={word.entry.word} entryId={word.entry.id} /></div> : <><strong className="exam-excerpt-query" lang="en">{selected.word}</strong>{search}</>}
-        {words && !word && <div className="exam-word-results">{!words.items.length && <p>暂未找到“{query}”。可以换成单词原形再查，或切到“读懂原句”。</p>}{words.items.map(w => <button key={w.id} disabled={busy} onClick={() => void run("lookup", () => loadWord(w.id))}>{w.word} · {w.meaning}</button>)}</div>}
+        {word ? <div className="exam-excerpt-word"><strong lang="en">{surfaceForm}</strong>
+          {normalizedForm(surfaceForm) !== normalizedForm(word.entry.word) && <p className="exam-word-form">{selectedMatch?.match_kind === "spelling" ? "对应拼写" : "原形"} <b lang="en">{word.entry.word}</b> · {selectedMatch?.forms.join(" / ")}</p>}
+          {words?.usage_hint && words.auto_entry_id === word.entry.id && <p className="exam-excerpt-hint">{words.usage_hint}</p>}
+          <label>选择本句对应义项<select disabled={busy} value={sense} onChange={e => { setSense(e.target.value); setNotice(""); }}>{word.entry.senses.map(s => <option key={s.id} value={s.id}>{s.definition}</option>)}</select></label>
+          {normalizedForm(surfaceForm) !== normalizedForm(word.entry.word) && <p className="exam-excerpt-hint">以下播放词条 <span lang="en">{word.entry.word}</span> 的发音；收藏会归入该词条并保留原文词形。</p>}
+          <WordPronunciation word={word.entry.word} entryId={word.entry.id} /></div> : <><strong className="exam-excerpt-query" lang="en">{words?.query || selected.word}</strong>{search}</>}
+        {words && !word && <>{words.status === "not_found" ? <p>暂未收录“{words.query}”或其词形。<a href={words.dictionary_url} target="_blank" rel="noreferrer">去词典查询 ↗</a>，也可用“读懂原句”查看语境解释。</p> : <><p>这个词形可能对应不同词义，请结合原句选择：</p>{candidates}</>}</>}
+        {word && words && words.matches.length > 1 && <details className="exam-excerpt-details"><summary>其他可能词义与拼写</summary>{candidates}</details>}
+        {word && !surfacePresent && <p className="exam-excerpt-hint">当前原句不含“{surfaceForm}”，请选择包含该词的原句后收藏。</p>}
         <p className="exam-excerpt-label">所在原句</p><blockquote lang="en">{sentence}</blockquote>
         {word && <>
           <details className="exam-excerpt-details"><summary>添加语境笔记（选填）</summary><label>我的语境理解（选填）<input value={note} maxLength={500} disabled={busy} onChange={e => changeNote(e.target.value)} placeholder="记下这个词在本句中的意思" /></label><p>点击保存后，笔记会随原句进入复习。</p></details>

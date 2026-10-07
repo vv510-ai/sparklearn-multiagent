@@ -45,6 +45,12 @@
 .exam-excerpt-actions a { display: inline-flex; align-items: center; min-height: 40px; font-size: 14px; }
 .exam-excerpt-error { margin-top: 18px; padding: 14px; border: 1px solid #b67b51; border-radius: 10px; background: #fff5e9; color: #653b1d; }
 .exam-word-results { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.exam-word-form { padding: 8px 12px; background: #edf4ee; border-radius: 8px; font-size: 15px; }
+.exam-word-candidates { display: grid; gap: 10px; }
+.exam-word-candidates button { text-align: left; display: grid; gap: 6px; }
+.exam-word-candidates button[aria-pressed=true] { background: #edf4ee; border: 2px solid #47735e; }
+.exam-word-candidates button span { font-size: 14px; line-height: 1.6; }
+.exam-word-dictionary { padding: 12px; border: 1px solid #d6e2d9; border-radius: 8px; white-space: pre-line; }
 .exam-check-answer { padding: 12px; background: #edf4ee; border-radius: 8px; }
 .word-context-recall { padding: 12px; margin: 14px 0; background: #f2f7f3; color: #20362a; border-radius: 8px; overflow-wrap: anywhere; }
 @media (max-width: 620px) {

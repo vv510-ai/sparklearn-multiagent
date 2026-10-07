@@ -149,14 +149,16 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
         due = {c.entry_id for c in cards if c.data.get("queued_at", "z") <= current or any(t.get("due_at", "z") <= current for t in c.data.get("tracks", {}).values())}
         active = {c.entry_id for c in cards if c.data.get("active")}
     q = query.strip().casefold()
+    from .cet6_word_lookup import resolve
+    form_ids = {m["entry_id"] for m in resolve(q) if m["entry_id"]} if q else set()
     selected_order = order or prefs["word_order"]
     values = [e for e in entries().values() if (group == "all" or e["level"] == group)
         and (not topic or e['word'] in topic['words'])
         and (not family_id or groups.families()[e["id"]]["id"] == family_id)
-        and (not q or q in (e["word"] + " " + " ".join(e.get("variants", [])) + " " + " ".join(e.get("derivatives", []))).casefold())]
+        and (not q or e["id"] in form_ids or q in (e["word"] + " " + " ".join(e.get("variants", [])) + " " + " ".join(e.get("derivatives", []))).casefold())]
     values = groups.ordered(values, selected_order, f"{user}:{notebook}")
     if q:
-        values.sort(key=lambda e: (e["word"].casefold() != q, not e["word"].casefold().startswith(q), e["word"].casefold()))
+        values.sort(key=lambda e: (e["id"] not in form_ids, e["word"].casefold() != q, not e["word"].casefold().startswith(q), e["word"].casefold()))
     if view == "mine":
         values = [e for e in values if e["id"] in collected]
     elif view == "today":
@@ -180,6 +182,13 @@ def act(user: str, notebook: str, item: str, req: WordAction):
     sense = next((s for s in e["senses"] if s["id"] == req.sense_id), None)
     if req.version != version() or not sense:
         raise HTTPException(409, "词库版本或义项已变化，请重新打开词条。")
+    if req.action == "collect" and req.surface_form:
+        from .cet6_word_lookup import normalize, resolve, contains_form
+        surface = normalize(req.surface_form)
+        if not any(m["entry_id"] == item for m in resolve(surface)):
+            raise HTTPException(422, "原文词形与当前词条不匹配，请重新选择原句中的单词。")
+        if not contains_form(req.context, surface):
+            raise HTTPException(422, "请保留包含这个词形的原句。")
     with session() as db:
         row = _find(db, user, notebook, item, req.sense_id)
         if row is None:
@@ -211,6 +220,8 @@ def act(user: str, notebook: str, item: str, req: WordAction):
                 raise HTTPException(422, "题目定位需要对应的原阅读。")
             data["collected"] = True
             context = {"text": req.context.strip(), "note": req.context_note.strip(), "reading_id": req.reading_id, "source": "自己提供的语境", "saved_at": current.isoformat()}
+            if req.surface_form:
+                context["surface_form"] = req.surface_form.strip()
             if req.exam_id:
                 from .cet6_exams import _pack
                 paper, block = _pack(req.exam_id, req.exam_kind)
@@ -249,7 +260,13 @@ def act(user: str, notebook: str, item: str, req: WordAction):
                 identity = ("text", "reading_id", "question_id", "paper_id", "paper_question", "exam_id", "exam_kind", "exam_question", "exam_version")
                 if req.exam_id:
                     # Editing a note replaces the same excerpt, not another review context.
-                    data["contexts"] = ([c for c in previous if not all(c.get(k, "") == context.get(k, "") for k in identity)] + [context])[-20:]
+                    same = [c for c in previous if all(c.get(k, "") == context.get(k, "") for k in identity)]
+                    forms = [f for c in same for f in c.get("surface_forms", [c.get("surface_form", "")]) if f]
+                    if req.surface_form:
+                        forms.append(req.surface_form.strip())
+                    if forms:
+                        context["surface_forms"] = list(dict.fromkeys(forms))[-20:]
+                    data["contexts"] = ([c for c in previous if c not in same] + [context])[-20:]
                 elif not any(all(c.get(k, "") == context.get(k, "") for k in (*identity, "note")) for c in previous):
                     data["contexts"] = (previous + [context])[-20:]
         elif req.action == "start":

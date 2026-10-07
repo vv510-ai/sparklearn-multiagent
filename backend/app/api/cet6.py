@@ -10,6 +10,7 @@ from ..services import cet6_exams as exams
 from ..schemas.cet6 import ExamAction, WordRoundStart, ExamSentenceRequest
 from ..services import cet6_word_rounds as word_rounds
 from ..services import exam_sentence
+from ..services import cet6_word_lookup
 
 router = APIRouter(prefix="/api/notebooks/{notebook_id}/cet6", tags=["cet6"])
 
@@ -61,6 +62,12 @@ def words(notebook_id: str, q: str = Query(default="", max_length=100),
 @router.get("/word-plan")
 def daily_word_plan(notebook_id: str):
     return word_plan.today(require_current_user_id(), notebook_id)
+
+
+@router.get("/word-lookup")
+def lookup_word(notebook_id: str, q: str = Query(min_length=1, max_length=100),
+                context: str = Query(default="", max_length=1500)):
+    return cet6_word_lookup.lookup(require_current_user_id(), notebook_id, q, context)
 
 
 @router.post("/word-plan")
