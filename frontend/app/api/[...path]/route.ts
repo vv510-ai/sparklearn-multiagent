@@ -69,6 +69,40 @@ async function authResponse(req: NextRequest, action: "login" | "register") {
 async function proxy(req: NextRequest, { params }: RouteContext) {
   const { path: routePath } = await params;
   const path = [...routePath];
+  // Worker token is scoped by the backend to this prefix and one configured owner.
+  // Never substitute a website session cookie for this explicit pairing secret.
+  if (path[0] === "personal-image-worker") {
+    const secure = isSecureRequest(req) || ["localhost", "127.0.0.1", "[::1]"].includes(req.nextUrl.hostname);
+    if (!secure) return jsonError("图片接入需要 HTTPS", 400);
+    const validPath = (path.length === 2 && path[1] === "claim") ||
+      (path.length === 3 && /^[a-f0-9]{64}$/.test(path[1]) && ["heartbeat", "submitted", "fail", "complete"].includes(path[2]));
+    if (req.method !== "POST" || !validPath) return jsonError("接口不存在", 404);
+    const authorization = req.headers.get("authorization");
+    if (!authorization) return jsonError("图片接入程序未授权", 401);
+    const headers = new Headers({ Authorization: authorization });
+    for (const name of ["content-type", "x-image-lease"]) {
+      const value = req.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    const maxBytes = path[2] === "complete" ? 20 * 1024 * 1024 : 2048;
+    const reader = req.body?.getReader();
+    const parts: Uint8Array[] = [];
+    let size = 0;
+    if (reader) {
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        size += chunk.value.byteLength;
+        if (size > maxBytes) { await reader.cancel(); return jsonError("请求过大", 413); }
+        parts.push(chunk.value);
+      }
+    }
+    const response = await fetch(`${BACKEND}/api/${path.join("/")}`, {
+      method: "POST", headers, body: Buffer.concat(parts), cache: "no-store", redirect: "error",
+    });
+    return new Response(response.body, { status: response.status,
+      headers: { "Content-Type": response.headers.get("content-type") || "application/json", "Cache-Control": "no-store" } });
+  }
   if (path[0] === "auth" && path[1] === "logout" && req.method === "POST") {
     const response = NextResponse.json({ ok: true });
     response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, maxAge: 0, path: "/", sameSite: "lax" });

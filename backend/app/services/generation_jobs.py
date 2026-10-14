@@ -316,13 +316,13 @@ async def execute(job_id, user, owner, runner=None):
                     content=answer[:20000], source_evidence=evidence[-1] if evidence else [],
                     course_release_id=state.get("course_release_id", "")))
                 job.checkpoints = {**job.checkpoints, "_chat_saved": True}
-    except ProviderPending:
+    except ProviderPending as exc:
         finish = False
         flush()
         with transaction() as db:
             job = _leased(db)
             # Keep running as the recovery marker; only scheduling is requeued.
-            job.detail = "图片仍在生成，稍后会继续查询，无需重新提交。"
+            job.detail = str(exc)[:300] or "图片仍在生成，稍后会继续查询，无需重新提交。"
             ticket = db.get(GenerationTicket, job_id)
             ticket.status, ticket.owner, ticket.lease_until = "queued", "", time.time() + 5
     except SubmissionUncertain as exc:

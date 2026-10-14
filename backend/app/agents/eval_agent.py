@@ -65,10 +65,10 @@ def _learner_summary(resources: dict, flags: list, prompt_template: str = "") ->
         pages = [page for visual in visuals for page in (visual.get("pages") or [visual])]
         if pages and any(page.get("image_status") != "ready" for page in pages):
             return "部分图片未生成，已保留可用图片和文字内容。" if any(page.get("image_status") == "ready" for page in pages) else "图片未生成，已保留文字内容与出处，可先阅读文字版后重试。"
-        if any(page.get("renderer") == "xiaoyunque-infographic-v1" and
+        if any(page.get("renderer") in {"xiaoyunque-infographic-v1", "chatgpt-web-infographic-v1"} and
                (page.get("verification") or {}).get("status") != "passed" for page in pages):
             return "知识图已生成，但自动核对仍有未确认项。请先查看图上的提示，并结合文字版与出处核对。"
-        if pages and all(page.get("renderer") == "xiaoyunque-infographic-v1" for page in pages):
+        if pages and all(page.get("renderer") in {"xiaoyunque-infographic-v1", "chatgpt-web-infographic-v1"} for page in pages):
             return "知识图已生成并完成自动核对，可打开图片并对照文字版与出处阅读。"
         if any(visual.get("layout") == "text_excerpt" for visual in visuals):
             return "关系图尚未生成，已保留完整文字摘要与出处。可打开卡片阅读。"

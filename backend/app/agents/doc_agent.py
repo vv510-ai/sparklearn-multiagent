@@ -958,7 +958,7 @@ async def _gen_one(
         if topic_rejected:
             fallback = True
             flags.append({"agent": "doc", "kind": kind, "type": "topic_drift",
-                          "detail": "知识底稿经一次修正仍未通过主题核对，尚未调用小云雀。"})
+                          "detail": "知识底稿经一次修正仍未通过主题核对，尚未请求图片生成。"})
         elif topic_review["status"] == "uncertain":
             flags.append({"agent": "doc", "kind": kind, "type": "topic_check_unavailable"})
 
@@ -1032,9 +1032,9 @@ async def _gen_one(
     unavailable = topic_missing or topic_rejected or source_scope_missing or (fallback and not chunks and not demo_fallback
                                            and not (prompt_template == "conversation_notes" and conversation.strip()))
     if topic_rejected:
-        md = f"# {name}·一图看懂未生成\n\n知识底稿经修正仍未通过本次主题核对，尚未调用小云雀。请确认当前问题与所选资料相关后重试。"
+        md = f"# {name}·一图看懂未生成\n\n知识底稿经修正仍未通过本次主题核对，尚未请求图片生成。请确认当前问题与所选资料相关后重试。"
     elif unavailable and not source_scope_missing and not topic_missing:
-        md = (f"# {name}·未生成\n\n知识底稿生成失败，尚未调用小云雀。请查看生成详情后重试。"
+        md = (f"# {name}·未生成\n\n知识底稿生成失败，尚未请求图片生成。请查看生成详情后重试。"
               if prompt_template == "one_page" else
               f"# {name}·未生成\n\n本次讲解未能生成可用正文，也没有可展示的相关资料。请重试，或选择相关资料后再生成。")
     one_page = kind == "doc" and prompt_template == "one_page"
@@ -1058,8 +1058,8 @@ async def _gen_one(
             if topic_review["status"] == "mismatch":
                 topic_rejected = unavailable = True
                 flags.append({"agent": "doc", "kind": kind, "type": "topic_drift",
-                              "detail": "可用资料摘录未回答本次主题，尚未调用小云雀。"})
-                md = f"# {name}·一图看懂未生成\n\n当前可用资料没有回答本次问题，尚未调用小云雀。请选择相关资料或允许通用知识补充后重试。"
+                              "detail": "可用资料摘录未回答本次主题，尚未请求图片生成。"})
+                md = f"# {name}·一图看懂未生成\n\n当前可用资料没有回答本次问题，尚未请求图片生成。请选择相关资料或允许通用知识补充后重试。"
             elif topic_review["status"] == "uncertain":
                 flags.append({"agent": "doc", "kind": kind, "type": "topic_check_unavailable"})
     # 防幻觉第二层:内容安全过滤(本地词表 + 讯飞审核挂接)

@@ -129,7 +129,7 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
   const nodes = visual.nodes || [];
   const imageUrl = apiAssetUrl(visual.image_url);
   if (imageUrl) {
-    const reviewedImage = visual.renderer === "xiaoyunque-infographic-v1";
+    const reviewedImage = ["xiaoyunque-infographic-v1", "chatgpt-web-infographic-v1"].includes(visual.renderer || "");
     const reviewPassed = visual.verification?.status === "passed";
     const textLayout = ["svg-text-v1", "svg-map-v2"].includes(visual.renderer || "");
     const picture = <a href={imageUrl} target="_blank" rel="noreferrer" className="block bg-[#FAF9F6]" title="打开高清原图">
@@ -166,10 +166,10 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
       </figure>
     );
   }
-  if (visual.renderer === "xiaoyunque-infographic-v1") return (
+  if (["xiaoyunque-infographic-v1", "chatgpt-web-infographic-v1"].includes(visual.renderer || "")) return (
     <div role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
       <p className="font-semibold">一图看懂图片未生成</p>
-      <p>{visual.image_error || "小云雀暂未返回图片，请先阅读文字版与出处，稍后重试。"}</p>
+      <p>{visual.image_error || "暂未返回图片，请先阅读文字版与出处，稍后重试。"}</p>
     </div>
   );
   return (

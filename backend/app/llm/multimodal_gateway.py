@@ -771,6 +771,18 @@ async def text_to_image(
 ) -> MMResult:
     s = get_settings()
     selected = str(preferred_provider or modern_media.select_provider("image", s)).lower()
+    if selected == "chatgpt_web":
+        from ..services import personal_image
+        started = time.monotonic()
+        if not s.mm_image_enabled or is_demo():
+            data = {"ok": False, "detail": "当前模式未启用真实图片生成。"}
+        else:
+            data = personal_image.request_image(prompt)
+        ok = bool(data.pop("ok", False))
+        result = _result("image", _trace_id(trace_id), started, ok=ok, degraded=not ok,
+                         data=data, error="" if ok else data.get("detail", "图片未生成"))
+        await _record(result, agent="media")
+        return result
     if selected == "openai":
         tenant = current_user_id() or "demo_user"
         return await _run_modern("image", "openai",

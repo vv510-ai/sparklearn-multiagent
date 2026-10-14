@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .api import pilot
+from .api import personal_image
 from .api import settings as model_settings
 from .api import learning, jobs, library, materials, cet6, cet6_advice
 from .auth import bind_request_user, decode_access_token, reset_request_user
@@ -75,6 +76,19 @@ _PUBLIC_PATHS = {
 
 @app.middleware("http")
 async def authenticate_request(request: Request, call_next):
+    if request.url.path.startswith("/api/personal-image-worker/"):
+        from .services.personal_image import authenticate_worker
+        try:
+            user = authenticate_worker(request.headers.get("authorization", ""))
+        except Exception as exc:
+            return JSONResponse({"detail": getattr(exc, "detail", "图片接入程序未授权")},
+                                status_code=getattr(exc, "status_code", 401))
+        context_token = bind_request_user(user)
+        try:
+            request.state.user_id = user
+            return await call_next(request)
+        finally:
+            reset_request_user(context_token)
     public_materials = request.method == "GET" and request.url.path == "/api/materials"
     if not auth_required() or request.url.path in _PUBLIC_PATHS or public_materials:
         return await call_next(request)
@@ -105,6 +119,7 @@ app.add_middleware(
 )
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.include_router(personal_image.router)
 
 for r in (jobs.router, assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
           tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router, materials.router, cet6.router, cet6_advice.router):

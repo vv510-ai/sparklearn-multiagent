@@ -435,3 +435,18 @@ class GenerationEffect(Base):
     user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(24), default="started")
     data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PersonalImageJob(Base):
+    """Owner-scoped handoff to the paired local browser worker."""
+    __tablename__ = "personal_image_jobs"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    generation_job_id: Mapped[str] = mapped_column(String(64), ForeignKey("generation_jobs.id", ondelete="CASCADE"), index=True)
+    prompt: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), default="queued", index=True)
+    created: Mapped[float] = mapped_column(Float)
+    lease: Mapped[str] = mapped_column(String(64), default="")
+    lease_until: Mapped[float] = mapped_column(Float, default=0)
+    detail_code: Mapped[str] = mapped_column(String(32), default="")
+    data: Mapped[dict] = mapped_column(JSON, default=dict)

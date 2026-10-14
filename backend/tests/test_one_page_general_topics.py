@@ -98,7 +98,7 @@ def test_one_page_failure_boundaries(monkeypatch, outcome):
         assert calls["image"] == 0
         assert payload["generation_mode"] == "unavailable"
         assert payload["image_attempted"] is False
-        assert "尚未调用小云雀" in payload["markdown"]
+        assert "尚未请求图片生成" in payload["markdown"]
         assert payload["failure_stage"] == ("content_generation" if outcome == "no_content" else "content_topic")
     else:
         assert calls["image"] == 1

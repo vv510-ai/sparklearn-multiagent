@@ -1,4 +1,4 @@
-"""Xiaoyunque infographic generation with independent, bounded image review."""
+"""Infographic generation with provider isolation and independent, bounded review."""
 from __future__ import annotations
 
 import asyncio
@@ -106,10 +106,15 @@ async def inspect_image(image_url: str, content: str, *, trace_id: str) -> dict:
 
 async def generate_one_page(name: str, parts: list[str], *, content_status: str,
                             trace_id: str, skip_generation: bool = False) -> dict:
+    from .personal_image import enabled_for_user
+    personal = enabled_for_user()
+    provider = "chatgpt_web" if personal else "xiaoyunque"
+    provider_name = "ChatGPT" if personal else "小云雀"
+    renderer = "chatgpt-web-infographic-v1" if personal else RENDERER
     pages = []
     for index, part in enumerate(parts):
         title = f"{name} · {index + 1}/{len(parts)}" if len(parts) > 1 else name
-        page = {"title": title, "renderer": RENDERER, "provider": "xiaoyunque",
+        page = {"title": title, "renderer": renderer, "provider": provider,
                 "content_status": content_status, "image_status": "fallback", "attempts": []}
         pages.append(page)
         content = re.sub(r"\[\^\d+\]", "", part).strip()
@@ -119,23 +124,24 @@ async def generate_one_page(name: str, parts: list[str], *, content_status: str,
             page["verification"] = unverified(page["image_error"])
             continue
         call = invoke_learning_prompt("image.one_page", topic=title, content=content)
-        prompt = call.prompt
+        prompt = call.prompt.replace("小云雀", "ChatGPT") if personal else call.prompt
+        base_prompt = prompt
         page["prompt_skill"] = call.metadata()
         for attempt in range(2):
             await emit({"type": "progress", "agent": "doc", "stage": "one_page_image",
-                        "text": f"正在{'修正并重新生成' if attempt else '用小云雀生成'}第 {index + 1} 张知识图…"})
+                        "text": f"正在{'修正并重新生成' if attempt else '用' + provider_name + '生成'}第 {index + 1} 张知识图…"})
             try:
                 generated = await gateway.text_to_image(prompt, width=1536, height=864,
-                    preferred_provider="xiaoyunque", allow_provider_fallback=False, trace_id=trace_id)
+                    preferred_provider=provider, allow_provider_fallback=False, trace_id=trace_id)
             except Exception:
                 generated = {"ok": False, "data": {}}
             data = generated.get("data") or {}
-            if not generated.get("ok") or data.get("provider") != "xiaoyunque" or not data.get("image_url"):
+            if not generated.get("ok") or data.get("provider") != provider or not data.get("image_url"):
                 page["attempts"].append({"attempt": attempt + 1, "status": "generation_failed"})
                 if page.get("image_url"):
                     page["verification"]["issues"].append("自动修正未能生成新图片；当前展示上一张待核对图片。")
                 else:
-                    page["image_error"] = "小云雀图片未生成成功，已保留文字版与出处，请稍后重试。"
+                    page["image_error"] = (data.get("detail") if personal else "") or f"{provider_name}图片未生成成功，已保留文字版与出处，请稍后重试。"
                     page["verification"] = unverified(page["image_error"])
                 break  # Never retry an ambiguous paid submission automatically.
             await emit({"type": "progress", "agent": "doc", "stage": "one_page_image_check",
@@ -145,7 +151,7 @@ async def generate_one_page(name: str, parts: list[str], *, content_status: str,
             page["attempts"].append({"attempt": attempt + 1, "image_url": data["image_url"], "verification": review})
             if review["status"] != "failed" or attempt == 1:
                 break
-            repair = invoke_learning_prompt("image.one_page_image_repair", base_request=call.prompt,
+            repair = invoke_learning_prompt("image.one_page_image_repair", base_request=base_prompt,
                 issues=json.dumps(review["issues"], ensure_ascii=False))
             page["repair_prompt_skill"] = repair.metadata()
             prompt = repair.prompt
