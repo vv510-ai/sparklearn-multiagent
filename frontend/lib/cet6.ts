@@ -18,7 +18,7 @@ export type Cet6Overview = {
   stats: { collected: number; word_due: number; reading_due: number; practice_due: number };
   recent: { kind: Cet6Kind; at: string; independent: boolean; ratio?: number }[];
 };
-export type WordSummary = { id: string; word: string; level: "foundation" | "cet6"; phonetic: string; variants: string[]; derivatives: string[]; meaning: string; collected: boolean; status: string; family: WordFamily };
+export type WordSummary = { id: string; word: string; level: "foundation" | "cet6" | "reading"; phonetic: string; variants: string[]; derivatives: string[]; meaning: string; collected: boolean; status: string; family: WordFamily | null };
 export type WordEntry = Omit<WordSummary, "meaning" | "collected" | "status" | "family"> & {
   senses: { id: string; definition: string; source_label?: string; source_url?: string }[]; source_pages: number[]; source_url: string; dictionary_url: string;
   role?: string; parents?: string[];
@@ -31,12 +31,12 @@ export type WordCard = {
   rating_options?: Record<string, string>;
   active?: WordAttempt | null; last?: WordAttempt & { rating: string; basis: string; due_at: string; submitted_at: string; scheduling_reason?: string };
 };
-export type WordDetail = { version: string; entry: WordEntry; cards: WordCard[]; preferred_sense_id: string; next_review: { sense_id: string; mode: "meaning" | "spelling" }; family: WordFamily };
+export type WordDetail = { version: string; entry: WordEntry; cards: WordCard[]; preferred_sense_id: string; next_review: { sense_id: string; mode: "meaning" | "spelling" }; family: WordFamily | null };
 export type WordLookup = {
   query: string; normalized: string; status: "matched" | "ambiguous" | "not_found"; auto_entry_id: string | null;
   usage_hint: string; dictionary_url: string; note: string;
   matches: { entry_id: string | null; word: string; codes: string[]; forms: string[]; match_kind: string;
-    meaning: string; source_url: string; collectible: boolean; suggested_sense_id?: string | null }[];
+    meaning: string; source_url: string; collectible: boolean; in_study_list?: boolean; suggested_sense_id?: string | null }[];
 };
 export type WordPlan = { day: string; timezone: string; target: number; new_done: number; new_remaining: number;
   new_ids: string[]; completed_ids: string[]; review_due: number; review_done: number; profile_revision: number; available_new: number;

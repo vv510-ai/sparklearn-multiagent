@@ -53,11 +53,11 @@ def today(user, notebook):
             days = db.scalars(select(VocabularyDay).where(VocabularyDay.user_id == user,
                 VocabularyDay.notebook_id == notebook).order_by(VocabularyDay.day.desc())).all()
             # Already opened rounds are immutable snapshots, including yesterday's.
-            protected = list(dict.fromkeys([c.entry_id for c in cards if c.data.get("active") and c.entry_id not in learnt]
+            protected = list(dict.fromkeys([c.entry_id for c in cards if c.entry_id in catalog and c.data.get("active") and c.entry_id not in learnt]
                 + [item["entry_id"] for d in reversed(days) for r in d.data.get("rounds", []) if r["kind"] == "new"
                    for item in r["items"] if item["entry_id"] in catalog and item["entry_id"] not in learnt]))
             completed = list(dict.fromkeys(c.entry_id for c in sorted(cards,
-                key=lambda c: c.data.get("introduced_at", "")) if c.data.get("introduced_on") == day))
+                key=lambda c: c.data.get("introduced_at", "")) if c.entry_id in catalog and c.data.get("introduced_on") == day))
             row = next((d for d in days if d.id == key), None)
             if row:
                 pool = [i for i in row.data["entry_ids"] if i in catalog]

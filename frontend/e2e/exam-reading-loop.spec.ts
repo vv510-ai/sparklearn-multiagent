@@ -2,6 +2,81 @@ import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 
+test("阅读词表外查义、原句收藏复习与六级计划隔离", async ({ page }, info) => {
+  test.setTimeout(300000);
+  if (process.env.PLAYWRIGHT_REAL_MODE === "1") {
+    expect((await (await page.request.get("/api/health")).json()).release).toBe(process.env.ACCEPTANCE_EXPECTED_COMMIT);
+  }
+  const errors: string[] = [], missingAudio: string[] = [];
+  page.on("pageerror", e => errors.push(e.message));
+  page.on("request", r => { if (r.url().includes("word-audio/v1/") && r.url().includes("reading-")) missingAudio.push(r.url()); });
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto("/");
+  await page.getByRole("tab", { name: "创建账户" }).click();
+  await page.getByPlaceholder("怎么称呼你").fill("阅读词典验收");
+  await page.getByPlaceholder("you@example.com").fill(`reading-dictionary-${randomUUID()}@example.test`);
+  await page.getByPlaceholder("至少 8 位").fill("Reading-Dictionary-QA-2026!");
+  await page.getByRole("button", { name: "创建账户", exact: true }).click();
+  const creationDialog = page.getByRole("dialog", { name: "新建课程" });
+  await expect(creationDialog).toBeVisible();
+  const courses = await (await page.request.get("/api/notebooks/learning/catalogue")).json();
+  await creationDialog.getByRole("radio", { name: courses.items.find((c: { id: string }) => c.id === "cet6").title, exact: true }).check();
+  const creation = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/notebooks");
+  await creationDialog.getByRole("button", { name: "创建并进入", exact: true }).click();
+  const notebook = (await (await creation).json()).id, base = `/api/notebooks/${notebook}/cet6`;
+  await expect(page.getByRole("heading", { name: "六级备考中心" })).toBeVisible();
+  const before = await (await page.request.get(base + "/word-plan")).json();
+  await page.goto(`/?notebook=${notebook}&cet6=exams&exam_kind=reading_cloze&exam_paper=cet6-2026-06-1&exam_question=26`);
+  const panel = page.getByRole("dialog", { name: "词句学习 · 第 26 题" });
+  await page.getByRole("button", { name: "查词 legislature", exact: true }).first().click();
+  await expect(panel.getByLabel("选择本句对应义项").locator("option:checked")).toContainText("立法");
+  await expect(panel).toContainText("阅读补充词 · 六级学习词表外");
+  await expect(panel.locator("audio")).toHaveCount(0);
+  const sentence = await panel.locator("blockquote").first().innerText();
+  expect(sentence).toContain("state legislature");
+  await panel.getByText("添加语境笔记（选填）", { exact: true }).click();
+  await panel.getByLabel("我的语境理解（选填）").fill("本句指州立法机关");
+  await panel.getByRole("button", { name: "加入复习，保留原句", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "已加入复习", exact: true })).toBeDisabled();
+  await page.screenshot({ path: info.outputPath("reading-dictionary-desktop.png"), fullPage: true });
+  await panel.getByRole("button", { name: "返回阅读", exact: true }).click();
+  for (const [surface, meaning, lemma] of [["homelessness", "无家可归", ""], ["lawmakers", "立法", "lawmaker"]]) {
+    await page.getByRole("button", { name: `查词 ${surface}`, exact: true }).first().click();
+    await expect(panel.getByLabel("选择本句对应义项").locator("option:checked")).toContainText(meaning);
+    if (lemma) await expect(panel.locator(".exam-word-form")).toContainText(`原形 ${lemma}`);
+    await panel.getByRole("button", { name: "返回阅读", exact: true }).click();
+  }
+  await page.reload();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "查词 legislature", exact: true }).first().click();
+  await expect(panel.getByRole("button", { name: "已加入复习", exact: true })).toBeDisabled();
+  await page.screenshot({ path: info.outputPath("reading-dictionary-mobile.png"), fullPage: true });
+  expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await panel.getByRole("link", { name: "现在复习", exact: true }).click();
+  await expect(page.getByRole("region", { name: "原句复习" })).toContainText(sentence);
+  await page.reload();
+  await page.getByRole("button", { name: "翻面看释义", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "legislature", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "原句复习" })).toContainText("本句指州立法机关");
+  await expect(page.getByRole("link", { name: "回到原题 · 第 26 题", exact: true })).toBeVisible();
+  await expect(page.getByText("阅读补充词 · 不计入六级背词进度", { exact: true })).toBeVisible();
+  await page.screenshot({ path: info.outputPath("reading-dictionary-recall.png"), fullPage: true });
+  await page.getByRole("button", { name: /^想起来了/ }).click();
+  await expect(page.getByRole("heading", { name: "这一轮完成了" })).toBeVisible();
+  const after = await (await page.request.get(base + "/word-plan")).json();
+  for (const field of ["new_ids", "new_done", "new_remaining", "coverage", "available_new"]) expect(after[field]).toEqual(before[field]);
+  const mine = await (await page.request.get(base + "/words?view=mine&q=legislature")).json();
+  expect(mine.items[0].level).toBe("reading");
+  const detail = await (await page.request.get(base + "/words/" + mine.items[0].id)).json();
+  expect(detail.cards[0].tracks.meaning.attempts).toBe(1);
+  expect(detail.cards[0].contexts[0].text).toBe(sentence);
+  await page.goto(`/?notebook=${notebook}&cet6=vocabulary&cet6_word=${mine.items[0].id}`);
+  await expect(page.getByRole("heading", { name: "legislature", exact: true })).toBeVisible();
+  await page.getByText("词形、派生关系与来源", { exact: true }).click();
+  await expect(page.getByRole("link", { name: "官方词表原页", exact: true })).toHaveCount(0);
+  expect(errors).toEqual([]); expect(missingAudio).toEqual([]);
+});
+
 test("真题变形词自动查义、歧义选择与原形收藏", async ({ page }, info) => {
   test.setTimeout(300000);
   if (process.env.PLAYWRIGHT_REAL_MODE === "1") {
@@ -61,7 +136,7 @@ test("真题变形词自动查义、歧义选择与原形收藏", async ({ page 
   };
   await search("saw");
   await expect(panel.getByLabel("可能对应的词条")).toContainText("see");
-  await expect(panel.locator(".exam-word-dictionary")).toContainText("锯");
+  await expect(panel.getByLabel("可能对应的词条").getByRole("button").filter({ hasText: /^saw/ })).toContainText("锯");
   await expect(panel.getByRole("button", { name: "加入复习，保留原句", exact: true })).toHaveCount(0);
   await search("better");
   await expect(panel.getByLabel("可能对应的词条")).toContainText("good");

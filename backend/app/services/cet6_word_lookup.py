@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from . import cet6_learning as learning
 from . import cet6_vocabulary as vocabulary
+from . import reading_dictionary
 
 DATA = Path(__file__).parents[1] / "data"
 LABELS = {"p": "过去式", "d": "过去分词", "i": "-ing 形式", "3": "第三人称单数",
@@ -48,16 +49,16 @@ def index():
     return data, exact
 
 
-def resolve(query):
+def resolve(query, include_reading=True):
     """Pure lookup; no model, database or guessed suffixes. Keeps ambiguous lemmas."""
     data, exact = index()
     normalized = normalize(query)
     key, possessive = normalized, False
-    if key not in exact and key not in data["forms"]:
+    if key not in exact and key not in data["forms"] and not (include_reading and reading_dictionary.matches(key)):
         # Don't interpret he's/it's/that's as possessives of pronouns.
         stem = key[:-2] if key.endswith("'s") else key[:-1] if key.endswith("s'") else ""
         if stem and stem not in {"he", "she", "it", "there", "that", "what", "who", "how", "where", "when", "why", "let"}:
-            if stem in exact or stem in data["forms"]:
+            if stem in exact or stem in data["forms"] or (include_reading and reading_dictionary.matches(stem)):
                 key, possessive = stem, True
     matches = {}
     for entry_id in exact.get(key, []):
@@ -73,9 +74,20 @@ def resolve(query):
         match = matches.setdefault(entry_id, {"entry_id": entry_id, "word": entry["word"], "codes": [],
                                                "match_kind": "inflection", "source_url": form.get("source_url", data["source_url"])})
         match["codes"] = sorted(set(match["codes"] + form["codes"]))
+    if include_reading:
+        for word, codes in reading_dictionary.matches(key):
+            # Reuse existing study IDs (including aliases), never duplicate cards.
+            ids = exact.get(word, []) or [reading_dictionary.entry_id(word)]
+            for entry_id in ids:
+                if entry_id in matches:
+                    continue  # The reviewed study index has priority over noisy reverse labels.
+                entry = vocabulary.entry(entry_id)
+                matches[entry_id] = {"entry_id": entry_id, "word": entry["word"], "codes": codes,
+                    "match_kind": "inflection" if word != key else "spelling" if entry["word"] != key and query == key else "exact",
+                    "source_url": entry["dictionary_url"]}
     values = list(matches.values())
     for match in values:
-        entry = vocabulary.entries()[match["entry_id"]]
+        entry = vocabulary.entry(match["entry_id"])
         senses = senses_for_form(entry, match["codes"])
         match["meaning"] = "；".join(s["definition"] for s in senses[:2])
         match["suggested_sense_id"] = senses[0]["id"] if match["codes"] and senses else None
@@ -83,9 +95,10 @@ def resolve(query):
         if possessive:
             match["forms"].append("所有格")
         match["collectible"] = bool(entry["senses"])
+        match["in_study_list"] = entry["level"] != "reading"
     # A homograph outside the study list is displayed but cannot create a fake
     # syllabus entry/audio/learning record (e.g. saw, the independent verb).
-    if key in data["homographs"]:
+    if not include_reading and key in data["homographs"]:
         values.append({"entry_id": None, "word": key, "codes": [], "forms": ["独立词义"],
                        "meaning": data["homographs"][key], "match_kind": "dictionary",
                        "source_url": data["source_url"], "collectible": False})
@@ -111,7 +124,7 @@ def lookup(user, notebook, query, context=""):
         before = normalize(context)[:occurrence.start()] if occurrence else ""
         if "d" in selected["codes"] and re.search(r"\b(?:be|am|is|are|was|were|been|being)\s+(?:not\s+)?$", before):
             hint = "这里位于 be 动词之后，可按过去分词理解；be + 过去分词常用于被动语态，也可能描述状态。"
-            transitive = next((s for s in vocabulary.entries()[auto]["senses"] if re.match(r"^vt\.", s["definition"], re.I)), None)
+            transitive = next((s for s in vocabulary.entry(auto)["senses"] if re.match(r"^vt\.", s["definition"], re.I)), None)
             if transitive:
                 selected["suggested_sense_id"] = transitive["id"]
         elif "d" in selected["codes"] and re.search(r"\b(?:have|has|had)\s+(?:not\s+)?$", before):

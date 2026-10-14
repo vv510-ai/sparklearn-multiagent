@@ -92,8 +92,9 @@ function RecallCard({ notebookId, item, onAdvance }: { notebookId: string; item:
         {!active && card?.last && <button className="primary-action" disabled={busy} onClick={() => void onAdvance().catch(e => setError(readingError(e)))}>记录已保存，继续本轮</button>}
       </>}
     </div>
-    {data && active?.revealed && data.family?.total > 1 && <div className="cet6-family-preview"><strong>同词族联记</strong><p lang="en">{data.family.words.join(" · ")}</p><small>来自大纲中的原词与派生关系</small></div>}
-    {data && active?.revealed && <div className="word-round-lesson"><button className="secondary-action" aria-expanded={lesson} onClick={() => setLesson(v => !v)}>{lesson ? "收起用法精讲" : "想理解得更深：看用法与例句"}</button>{lesson && <WordLesson notebookId={notebookId} wordId={item.entry_id} senseId={item.sense_id} />}</div>}
+    {data && active?.revealed && data.entry.level === "reading" && <p className="cet6-muted">阅读补充词 · 不计入六级背词进度</p>}
+    {data && active?.revealed && data.family && data.family.total > 1 && <div className="cet6-family-preview"><strong>同词族联记</strong><p lang="en">{data.family.words.join(" · ")}</p><small>来自大纲中的原词与派生关系</small></div>}
+    {data && active?.revealed && data.entry.level !== "reading" && <div className="word-round-lesson"><button className="secondary-action" aria-expanded={lesson} onClick={() => setLesson(v => !v)}>{lesson ? "收起用法精讲" : "想理解得更深：看用法与例句"}</button>{lesson && <WordLesson notebookId={notebookId} wordId={item.entry_id} senseId={item.sense_id} />}</div>}
     {error && <div className="cet6-error" role="alert"><p>{error}</p><button disabled={busy} onClick={() => setRetry(n => n + 1)}>重新读取，保留本轮</button></div>}
   </>;
 }

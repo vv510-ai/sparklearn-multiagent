@@ -48,6 +48,7 @@ export default function WordPronunciation({ word, entryId }: { word: string; ent
         : "这次音频未能播放，请检查网络后重试，或用音频控件播放。");
     });
   };
+  if (entryId.startsWith("reading-")) return <p className="cet6-muted"><a href={`https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(word)}`} target="_blank" rel="noreferrer">到 Cambridge 词典核对音标与发音 ↗</a></p>;
   return <div className="word-pronunciation">
     <div className="word-voice-controls"><button type="button" className="secondary-action" onClick={speak}><Volume2 size={18} />听发音</button>
       <label><span className="sr-only">发音口音</span><select aria-label="发音口音" value={accent} onChange={e => { setAccent(e.target.value); setError(""); try { localStorage.setItem("learnloop:word-accent", e.target.value); } catch {} }}><option value="en-US">美式英语</option><option value="en-GB">英式英语</option></select></label>

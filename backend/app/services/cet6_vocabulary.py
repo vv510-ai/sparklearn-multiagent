@@ -86,6 +86,12 @@ def version():
 
 
 def entry(item):
+    if item.startswith("reading-"):
+        from . import reading_dictionary
+        result = reading_dictionary.entry(item)
+        if result:
+            return result
+        raise HTTPException(404, "阅读词条不存在，请重新查询。")
     if item not in entries():
         old = next((e for e in corpus()["entries"] if e["id"] == item), None)
         target = corrections()["aliases"].get(old["word"]) if old else None
@@ -133,7 +139,7 @@ def detail(user, notebook, item):
             "sense_id": next((c["sense_id"] for c in cards if not c["tracks"] and c["sense_id"] == preferred_sense(e)),
                 next((c["sense_id"] for c in cards if not c["tracks"]), cards[0]["sense_id"] if cards else "")), "mode": "meaning"}
         return {"entry": e, "version": version(), "cards": cards, "next_review": next_review,
-            "preferred_sense_id": preferred_sense(e), "family": groups.family(e["id"])}
+            "preferred_sense_id": preferred_sense(e), "family": groups.family(e["id"]) if e["level"] != "reading" else None}
 
 
 def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit=30, order=None, family_id="", topic_id=""):
@@ -150,13 +156,20 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
         active = {c.entry_id for c in cards if c.data.get("active")}
     q = query.strip().casefold()
     from .cet6_word_lookup import resolve
-    form_ids = {m["entry_id"] for m in resolve(q) if m["entry_id"]} if q else set()
+    form_ids = {m["entry_id"] for m in resolve(q, include_reading=view == "mine") if m["entry_id"]} if q else set()
     selected_order = order or prefs["word_order"]
     values = [e for e in entries().values() if (group == "all" or e["level"] == group)
         and (not topic or e['word'] in topic['words'])
         and (not family_id or groups.families()[e["id"]]["id"] == family_id)
         and (not q or e["id"] in form_ids or q in (e["word"] + " " + " ".join(e.get("variants", [])) + " " + " ".join(e.get("derivatives", []))).casefold())]
     values = groups.ordered(values, selected_order, f"{user}:{notebook}")
+    if view == "mine" and group == "all" and not family_id and not topic:
+        # Only personal saved reading words appear here; the study list stays fixed.
+        for item in sorted(collected - entries().keys()):
+            if item.startswith("reading-"):
+                extra = entry(item)
+                if not q or item in form_ids or q in extra["word"]:
+                    values.append(extra)
     if q:
         values.sort(key=lambda e: (e["id"] not in form_ids, e["word"].casefold() != q, not e["word"].casefold().startswith(q), e["word"].casefold()))
     if view == "mine":
@@ -171,7 +184,7 @@ def catalogue(user, notebook, query="", group="all", view="all", offset=0, limit
         "items": [{k: e[k] for k in ("id", "word", "level", "phonetic", "variants", "derivatives")} |
             {"meaning": "" if view == "today" else e["senses"][0]["definition"] if e["senses"] else "释义待补，可查看词表原页", "collected": e["id"] in collected,
              "status": "回忆未完成" if e["id"] in active else "到期复习" if e["id"] in due else "复习中" if e["id"] in learnt else "未练习",
-             "family": groups.family(e["id"], learnt)} |
+             "family": groups.family(e["id"], learnt) if e["level"] != "reading" else None} |
             ({"word": "", "phonetic": "", "variants": [], "derivatives": []} if view == "today" and e["id"] in due | active else {}) for e in values[offset:offset + limit]]}
 
 
