@@ -424,12 +424,39 @@ def run(worker, args):
         return
     print("个人 Chat 图片接入程序运行中；仅处理配对账号，按 Ctrl+C 停止。", flush=True)
     worker.keep_browser = not args.once
+    claim_failures = 0
     try:
         while True:
             if (worker.root / "stop.requested").exists():
                 return
             try:
                 job = worker.api("claim").get("job")
+            except KeyboardInterrupt:
+                return
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                # A failed claim has not sent anything to ChatGPT. Retry only this
+                # queue request; never retry run_job or its submission after error.
+                status = error.code if isinstance(error, urllib.error.HTTPError) else None
+                retryable = status is None or status in {408, 500, 502, 503, 504}
+                claim_failures += 1
+                if not retryable or claim_failures > 6:
+                    label = f"HTTP {status}" if status else "network"
+                    print(f"接入已停止：任务连接不可用（{label}）。请检查后重新启动。", flush=True)
+                    raise SystemExit(1) from None
+                delay = min(60, 5 * 2 ** (claim_failures - 1))
+                if claim_failures == 1:
+                    label = f"HTTP {status}" if status else "network"
+                    print(f"网站任务连接暂时中断（{label}），稍后恢复检查；不会重复发送生图。", flush=True)
+                if not wait_for_queue(worker, delay):
+                    return
+                continue
+            except Exception:
+                print("接入已停止：任务响应无法确认。请检查网站后重新启动。", flush=True)
+                raise SystemExit(1) from None
+            if claim_failures:
+                print("网站任务连接已恢复。", flush=True)
+                claim_failures = 0
+            try:
                 if job:
                     worker.run_job(job)
                     if args.once:
@@ -440,10 +467,20 @@ def run(worker, args):
                 # A new login, permission or interface problem requires human attention.
                 print("接入已停止，请检查网站连接与本机 ChatGPT 页面后重新启动。", flush=True)
                 raise SystemExit(1) from None
-            time.sleep(5)
+            if not wait_for_queue(worker, 5):
+                return
     finally:
         if worker.browser_started:
             worker.disconnect()
+
+
+def wait_for_queue(worker, seconds):
+    """Keep Stop responsive during bounded queue-network backoff."""
+    for _ in range(seconds):
+        if (worker.root / "stop.requested").exists():
+            return False
+        time.sleep(1)
+    return not (worker.root / "stop.requested").exists()
 
 
 if __name__ == "__main__":

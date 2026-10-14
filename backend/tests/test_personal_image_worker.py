@@ -3,7 +3,9 @@ import json
 import sys
 import time
 import threading
+import urllib.error
 from pathlib import Path
+from types import SimpleNamespace
 import pytest
 
 spec = importlib.util.spec_from_file_location("personal_chat_worker", Path(__file__).resolve().parents[2] / "scripts/personal_chat_image_worker.py")
@@ -20,6 +22,51 @@ def worker(tmp_path):
 
 def job():
     return {"id":"a"*64, "lease":"b"*48, "prompt":"1、2、3 与 (rear+1)%N", "expires_at":time.time()+1000}
+
+
+def test_idle_network_outage_recovers_without_sending_an_image(worker, monkeypatch):
+    calls = []
+    def api(path):
+        calls.append(path)
+        if len(calls) == 1:
+            raise urllib.error.URLError('connection reset')
+        return {'job': None}
+    pauses = []
+    def pause(_, delay):
+        pauses.append(delay)
+        return len(pauses) == 1
+    monkeypatch.setattr(worker, 'api', api)
+    monkeypatch.setattr(worker, 'run_job', lambda _: pytest.fail('no image job was claimed'))
+    monkeypatch.setattr(worker_module, 'wait_for_queue', pause)
+    worker_module.run(worker, SimpleNamespace(check_browser=False, once=False))
+    assert calls == ['claim', 'claim']
+
+
+@pytest.mark.parametrize('status', [401, 403, 429])
+def test_auth_or_rate_limit_stops_without_network_retry(worker, monkeypatch, status):
+    def api(_):
+        raise urllib.error.HTTPError('https://site.test', status, 'stop', {}, None)
+    monkeypatch.setattr(worker, 'api', api)
+    monkeypatch.setattr(worker_module, 'wait_for_queue', lambda *_: pytest.fail('must not retry authentication'))
+    with pytest.raises(SystemExit):
+        worker_module.run(worker, SimpleNamespace(check_browser=False, once=False))
+
+
+def test_task_network_error_does_not_retry_the_claimed_image(worker, monkeypatch):
+    calls = []
+    def api(path):
+        calls.append(path)
+        return {'job': job()}
+    attempts = []
+    def run_job(task):
+        attempts.append(task['id'])
+        raise urllib.error.URLError('response lost after send')
+    monkeypatch.setattr(worker, 'api', api)
+    monkeypatch.setattr(worker, 'run_job', run_job)
+    monkeypatch.setattr(worker_module, 'wait_for_queue', lambda *_: pytest.fail('must stop after ambiguous task'))
+    with pytest.raises(SystemExit):
+        worker_module.run(worker, SimpleNamespace(check_browser=False, once=False))
+    assert calls == ['claim'] and len(attempts) == 1
 
 
 @pytest.mark.parametrize("url", ["http://example.test", "https://user:secret@example.test", "file:///etc/passwd", "https://example.test/private", "https://example.test/?token=secret", "https://"])
