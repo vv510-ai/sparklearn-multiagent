@@ -1,6 +1,7 @@
 """Worker-only API, authenticated separately from user sessions."""
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+from typing import Literal
 from ..services import personal_image as service
 
 router = APIRouter(prefix="/api/personal-image-worker", tags=["personal-image-worker"])
@@ -9,6 +10,7 @@ router = APIRouter(prefix="/api/personal-image-worker", tags=["personal-image-wo
 class Update(BaseModel):
     lease: str = Field(min_length=48, max_length=48)
     code: str = Field(default="", max_length=32)
+    phase: Literal["", "connect", "prepare_prompt", "submit", "wait_image", "read_image", "upload_image"] = ""
 
 
 @router.post("/claim")
@@ -18,12 +20,12 @@ async def claim():
 
 @router.post("/{identifier}/heartbeat")
 async def heartbeat(identifier: str, update: Update):
-    return service.transition(identifier, update.lease, "heartbeat")
+    return service.transition(identifier, update.lease, "heartbeat", phase=update.phase)
 
 
 @router.post("/{identifier}/submitted")
 async def submitted(identifier: str, update: Update):
-    return service.transition(identifier, update.lease, "submitted")
+    return service.transition(identifier, update.lease, "submitted", phase=update.phase)
 
 
 @router.post("/{identifier}/fail")

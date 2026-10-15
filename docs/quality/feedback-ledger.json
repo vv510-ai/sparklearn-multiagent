@@ -4,7 +4,7 @@
   "source_sha256": "15de8bb9c126b52421b69c68d40167d4f060c06b33d8bf4f0a759b937339e07d",
   "source_problem_count": 25,
   "source_image_count": 29,
-  "updated_at": "2026-10-04",
+  "updated_at": "2026-10-15",
   "issues": [
     {
       "id": "FB-01",
@@ -607,6 +607,20 @@
   ],
   "audit_note": "2026-09-24 复核结束：原反馈不能标记全部解决。新增 QA-01 独立跟踪，不混入原文 25 项计数。单次样本不保证所有模型输出；详见 2026-09-24-audit.md。",
   "new_findings": [
+    {
+      "id": "UX-CHAT-IMAGE-20261015",
+      "title": "普通 Chat 生图容易中断且响应慢",
+      "status": "partial",
+      "group": "个人图片接入",
+      "checked_commit": "",
+      "source_feedback": ["刚刚测试的时候 很容易中断出现问题 而且响应时间很慢", "查清问题 并进行优化 测试 确保整个流程流畅"],
+      "acceptance": "正常按钮连续完成普通 Chat 生成、原图回传、归档和刷新；短暂网络故障及回传回执丢失不重复生图；记录各阶段耗时。",
+      "test_refs": ["backend/tests/test_personal_image.py", "backend/tests/test_personal_image_worker.py", "backend/tests/test_generation_jobs.py"],
+      "cause": "本站连接继承代理产生延迟和超时；等待图片反复重放生成图、重置事件；原有上传恢复次数少且日志无法分辨耗时。",
+      "evidence": [".tmp/personal-image-recheck/network-probe.json：同一接口原路径 11/12 成功、中位 2.914 秒；本站直连 12/12、中位 0.172 秒。", ".tmp/personal-image-recheck/stability/backend-tests.log：最后相关代码修改后完整后端 946 项通过。", "docs/2026-10-15-personal-chat-image.md：改动、诊断范围与恢复边界。"],
+      "limitations": "本地与离线回归已通过，部署及真实连续流程待本次验收；依赖电脑联网、Chrome 登录、页面结构和图片服务实际耗时。",
+      "next_action": "发布后以固定版本完成连续生图、故障注入和归档刷新，并保存时间及原图指纹。"
+    },
     {
       "id": "UX-CET6-ADVICE-20261004",
       "title": "入门建议缺少具体成绩解读，教学内容过于模板化",

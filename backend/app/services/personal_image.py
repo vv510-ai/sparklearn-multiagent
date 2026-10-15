@@ -28,6 +28,14 @@ FAILURES = {
     "worker_error": "本机图片接入程序未完成任务，文字版已保留。",
     "cancelled": "原学习任务已停止，未继续请求图片。",
 }
+PHASE_MESSAGES = {
+    "connect": "正在连接本机 ChatGPT。",
+    "prepare_prompt": "正在把已核对的内容交给 ChatGPT。",
+    "submit": "正在确认图片任务。",
+    "wait_image": "ChatGPT 正在绘图；完成后会自动保存，可先继续学习，无需重新点击。",
+    "read_image": "图片已生成，正在取回原图。",
+    "upload_image": "原图已取回，正在保存到资料归档。",
+}
 
 
 def owner_id() -> str:
@@ -73,6 +81,26 @@ def _expire(db, row):
             row.status, row.lease = "queued", ""
 
 
+def _pending_message(row):
+    if row.status == "queued":
+        return "等待本机 ChatGPT 接入程序；请保持程序与已登录的 Chrome 运行。"
+    return PHASE_MESSAGES.get(row.data.get("phase"), "本机 ChatGPT 正在生成图片，完成后会自动回传。")
+
+
+def pending_message(db, job_id):
+    """Poll a pending handoff without replaying the entire generation graph."""
+    if not enabled_for_user():
+        return ""
+    rows = db.query(PersonalImageJob).filter(PersonalImageJob.user_id == current_user_id(),
+        PersonalImageJob.generation_job_id == job_id,
+        PersonalImageJob.status.in_(["queued", "claimed", "submitted"])).all()
+    for row in rows:
+        _expire(db, row)
+        if row.status in {"queued", "claimed", "submitted"}:
+            return _pending_message(row)
+    return ""
+
+
 def request_image(prompt: str) -> dict:
     if not enabled_for_user() or not _context.get():
         return {"ok": False, "detail": "个人 Chat 图片需通过已登录账号的持久生成任务使用。"}
@@ -92,12 +120,11 @@ def request_image(prompt: str) -> dict:
             db.flush()
         _expire(db, row)
         status, data, code = row.status, dict(row.data), row.detail_code
+        message = _pending_message(row)
     if status == "completed":
         return {"ok": True, **data, "provider": "chatgpt_web"}
     if status == "failed":
         return {"ok": False, "detail": FAILURES.get(code, FAILURES["worker_error"])}
-    message = ("等待本机 ChatGPT 接入程序；请保持程序与已登录的 Chrome 运行。"
-               if status == "queued" else "本机 ChatGPT 正在生成图片，完成后会自动回传。")
     raise ProviderPending(message)
 
 
@@ -130,13 +157,15 @@ def _owned_lease(db, identifier: str, lease: str, *, completed=False):
     return row
 
 
-def transition(identifier: str, lease: str, action: str, code=""):
+def transition(identifier: str, lease: str, action: str, code="", phase=""):
     with transaction() as db:
         row = _owned_lease(db, identifier, lease)
         if action == "submitted":
             row.status = "submitted"  # Acknowledge BEFORE the only UI send.
         elif action == "fail":
             row.status, row.detail_code = "failed", code if code in FAILURES else "worker_error"
+        if phase in PHASE_MESSAGES:
+            row.data = {**row.data, "phase": phase}
         row.lease_until = time.time() + LEASE_SECONDS
     return {"ok": True}
 

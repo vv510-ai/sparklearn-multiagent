@@ -267,8 +267,10 @@ async def execute(job_id, user, owner, runner=None):
         with transaction() as db:
             job = _leased(db)
             recovering = job.status == "running"
+            from .personal_image import pending_message
+            waiting_for_image = pending_message(db, job_id) if recovering else ""
             recovered_errors = any(e.get("type") == "error" for value in job.checkpoints.values() if isinstance(value, dict) for e in value.get("events", []))
-            if recovering:
+            if recovering and not waiting_for_image:
                 # Drop partial-stage deliveries and rebuild from atomic outboxes.
                 # A reset event tells connected viewers to replace partial output.
                 db.query(GenerationEvent).filter_by(job_id=job_id, user_id=user).delete(synchronize_session=False)
@@ -277,11 +279,17 @@ async def execute(job_id, user, owner, runner=None):
                     if isinstance(value, dict):
                         replay.extend(value.get("events", []))
                 db.add_all([GenerationEvent(job_id=job_id, user_id=user, data=e) for e in replay])
-            job.status, job.detail = "running", "正在处理，离开页面后任务会继续。"
+            job.status = "running"
+            if not waiting_for_image:
+                job.detail = "正在处理，离开页面后任务会继续。"
             state, kind = dict(job.state), job.kind
             age = time.time() - db.get(GenerationTicket, job_id).created
         if age > int(os.getenv("GENERATION_MAX_AGE_SECONDS", "1800")):
             raise SubmissionUncertain("等待时间过长，已暂停并保留记录，请先核对已有结果。")
+        if waiting_for_image:
+            # Keep existing events stable while the browser is drawing. Resume
+            # checkpoints once the image is available or the handoff has failed.
+            raise ProviderPending(waiting_for_image)
         if runner is None and os.getenv("GENERATION_WORKER_MODE") == "external":
             from ..rag.ingest import ingest_corpus
             await asyncio.to_thread(ingest_corpus)

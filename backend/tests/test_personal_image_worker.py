@@ -335,3 +335,91 @@ def test_disabled_download_control_stops_without_extracting_image(worker, monkey
     with pytest.raises(worker_module.WorkerError, match='interaction_required'):
         worker.download('uid=1_1 button "已生成图像 1"')
     assert [command[0] for command in calls] == ['click']
+
+
+def test_transfer_recovers_lost_receipt_with_same_bytes_without_new_send(worker, monkeypatch):
+    worker.job = job()
+    calls = []
+    data = b'same-original-image'
+    def upload():
+        calls.append((worker.job['id'], worker.job['lease'], data))
+        if len(calls) == 1:
+            worker.lost.set()  # Server completed; racing heartbeat got 409.
+            raise urllib.error.URLError('lost upload receipt')
+        return {'sha256': hashlib.sha256(data).hexdigest()}
+    monkeypatch.setattr(worker_module, 'wait_for_queue', lambda *_:True)
+    monkeypatch.setattr(worker, 'click', lambda *_:pytest.fail('must not send again'))
+    assert worker.retry_transfer(upload, uploading=True)['sha256'] == hashlib.sha256(data).hexdigest()
+    assert calls[0] == calls[1] and len(calls) == 2
+
+
+@pytest.mark.parametrize('status', [401, 403, 409, 413, 422, 429])
+def test_transfer_does_not_retry_rejected_or_invalid_upload(worker, monkeypatch, status):
+    worker.job = job()
+    def upload():
+        raise urllib.error.HTTPError('https://site.test', status, 'rejected', {}, None)
+    monkeypatch.setattr(worker_module, 'wait_for_queue', lambda *_:pytest.fail('must stop'))
+    with pytest.raises(urllib.error.HTTPError):
+        worker.retry_transfer(upload, uploading=True)
+
+
+def test_retry_before_send_still_stops_if_heartbeat_lease_is_lost(worker, monkeypatch):
+    worker.job = job()
+    worker.lost.set()
+    with pytest.raises(worker_module.WorkerError, match='uncertain'):
+        worker.retry_transfer(lambda:pytest.fail('must not mark submitted'))
+
+
+def test_stage_and_failure_journal_preserve_download_for_manual_recovery(worker):
+    worker.job = job()
+    worker.set_phase('read_image')
+    worker.journal(download='original.png', sha256='c'*64)
+    worker.set_phase('upload_image')
+    worker.journal(failed='uncertain')
+    value = json.loads((worker.root/'active.json').read_text(encoding='utf-8'))
+    assert value['download'] == 'original.png' and value['sha256'] == 'c'*64
+    assert 'read_image' in value['timings'] and value['phase'] == 'upload_image'
+
+
+def test_network_diagnostics_never_include_secret_bearing_exception_text(worker):
+    error = urllib.error.URLError('https://user:secret@example.test/?token=private')
+    worker.diagnostic('network_error', **worker_module.network_detail(error))
+    value = (worker.root/'diagnostics.jsonl').read_text(encoding='utf-8')
+    assert 'secret' not in value and 'token' not in value and 'example.test' not in value
+    assert 'URLError' in value and 'at' in json.loads(value)
+
+
+def test_direct_site_connection_ignores_proxy_but_never_follows_redirect(worker, monkeypatch):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    observed = []
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_): pass
+        def do_POST(self):
+            observed.append(self.path)
+            if self.path.endswith('/claim'):
+                body = b'{"job": null}'
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            else:
+                self.send_response(307)
+                self.send_header('Location', '/unexpected-secret-forward')
+                self.end_headers()
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    monkeypatch.setattr(worker_module.urllib.request, 'getproxies', lambda:{'http':'http://127.0.0.1:1'})
+    monkeypatch.setattr(worker_module.urllib.request, 'proxy_bypass', lambda _:False)
+    direct = worker_module.Worker({**worker.config, 'site_url':f'http://127.0.0.1:{server.server_port}',
+                                   'site_connection':'direct'})
+    try:
+        assert direct.api('claim') == {'job':None}
+        with pytest.raises(urllib.error.HTTPError) as error:
+            direct.api('redirect')
+        assert error.value.code == 307
+        assert observed == ['/api/personal-image-worker/claim', '/api/personal-image-worker/redirect']
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(2)

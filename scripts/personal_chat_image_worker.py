@@ -9,6 +9,7 @@ import argparse
 import base64
 from contextlib import contextmanager
 import hashlib
+import http.client
 import io
 import json
 import mimetypes
@@ -22,6 +23,22 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from datetime import datetime, timezone
+
+
+NETWORK_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError, http.client.IncompleteRead)
+
+
+def network_detail(error):
+    """Only categorical diagnostics: exception strings may contain credentials."""
+    reason = getattr(error, "reason", error)
+    return {"error_type": type(error).__name__, "reason_type": type(reason).__name__,
+            "http_status": error.code if isinstance(error, urllib.error.HTTPError) else None,
+            "errno": getattr(reason, "errno", None), "winerror": getattr(reason, "winerror", None)}
+
+
+def retryable(error):
+    return not isinstance(error, urllib.error.HTTPError) or error.code in {408, 500, 502, 503, 504}
 
 
 class WorkerError(Exception):
@@ -41,6 +58,8 @@ def validate_config(config):
             raise ValueError(f"missing {name}")
     if not Path(config["downloads_dir"]).is_dir():
         raise ValueError("downloads_dir must be the browser's existing Downloads folder")
+    if config.get("site_connection", "system") not in {"system", "direct"}:
+        raise ValueError("site_connection must be system or direct")
     config["site_url"] = config["site_url"].rstrip("/")
     return config
 
@@ -55,7 +74,12 @@ class Worker:
         self.config = validate_config(config)
         self.root = Path(config["state_dir"]).resolve()
         self.root.mkdir(parents=True, exist_ok=True)
-        self.opener = urllib.request.build_opener(NoRedirect)
+        # This selection applies only to the paired LearnLoop HTTPS origin.
+        # It never changes Chrome, ChatGPT, the OS proxy, or TLS verification.
+        handlers = [NoRedirect]
+        if config.get("site_connection") == "direct":
+            handlers.append(urllib.request.ProxyHandler({}))
+        self.opener = urllib.request.build_opener(*handlers)
         self.session = hashlib.sha256(str(self.root).encode()).hexdigest()[:16]
         self.page = None
         self.conversation_url = ""
@@ -65,6 +89,28 @@ class Worker:
         self.lost = threading.Event()
         self.browser_started = False
         self.keep_browser = False
+        self.phase = ""
+        self.phase_started = None
+        self.timings = {}
+        self.journal_lock = threading.Lock()
+        self.diagnostic_lock = threading.Lock()
+
+    def diagnostic(self, event, **fields):
+        record = {"at": datetime.now(timezone.utc).isoformat(), "event": event, **fields}
+        with self.diagnostic_lock:
+            path = self.root / "diagnostics.jsonl"
+            if path.exists() and path.stat().st_size > 2 * 1024 * 1024:
+                path.replace(path.with_suffix(".previous.jsonl"))
+            with path.open("a", encoding="utf-8") as output:
+                output.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    def set_phase(self, phase):
+        now = time.monotonic()
+        if self.phase and self.phase_started is not None:
+            self.timings[self.phase] = round(now - self.phase_started, 3)
+        self.phase, self.phase_started = phase, now
+        self.journal(phase=phase, timings=dict(self.timings))
+        self.diagnostic("phase", job_id=self.job["id"], phase=phase, timings=dict(self.timings))
 
     def api(self, path, payload=None, *, image=None, mime=None):
         headers = {"Authorization": "Bearer " + self.config["worker_token"]}
@@ -76,11 +122,40 @@ class Worker:
             headers["Content-Type"] = "application/json"
         request = urllib.request.Request(self.config["site_url"] + "/api/personal-image-worker/" + path,
                                          data=data, headers=headers, method="POST")
-        with self.opener.open(request, timeout=35) as response:
-            return json.load(response)
+        started = time.monotonic()
+        action = path.rsplit("/", 1)[-1]
+        try:
+            with self.opener.open(request, timeout=35) as response:
+                result = json.load(response)
+        except NETWORK_ERRORS as error:
+            self.diagnostic("network_error", action=action,
+                            elapsed_seconds=round(time.monotonic() - started, 3), **network_detail(error))
+            raise
+        elapsed = round(time.monotonic() - started, 3)
+        if action != "claim" or elapsed > 2 or result.get("job"):
+            self.diagnostic("request", action=action, elapsed_seconds=elapsed)
+        return result
 
     def update(self, action, **extra):
         return self.api(f"{self.job['id']}/{action}", {"lease": self.job["lease"], **extra})
+
+    def retry_transfer(self, operation, *, budget=90, uploading=False):
+        """Retry only an idempotent same-lease transition or same-byte upload."""
+        deadline, attempt = time.monotonic() + budget, 0
+        while True:
+            # A completed upload can make a concurrent heartbeat return 409.
+            # The same-byte complete endpoint can still recover its receipt.
+            self.check_time(self.job, allow_lost=uploading)
+            try:
+                return operation()
+            except NETWORK_ERRORS as error:
+                if not retryable(error) or time.monotonic() >= deadline:
+                    raise
+                attempt += 1
+                self.diagnostic("transfer_retry", job_id=self.job["id"], phase=self.phase,
+                                attempt=attempt, **network_detail(error))
+                if not wait_for_queue(self, min(5, attempt)):
+                    raise WorkerError("cancelled") from None
 
     def cli(self, *args, timeout=55):
         result = subprocess.run([self.config["node_path"], self.config["cli_path"], *map(str, args),
@@ -96,7 +171,13 @@ class Worker:
             raise WorkerError("cancelled")
         if self.lost.is_set():
             raise WorkerError("uncertain")
-        value = self.cli("take_snapshot", self.page)
+        try:
+            value = self.cli("take_snapshot", self.page)
+        except subprocess.TimeoutExpired:
+            # A snapshot is read-only. Never apply this retry to clicking Send.
+            self.diagnostic("snapshot_retry", job_id=self.job["id"] if self.job else None)
+            self.check_time(self.job) if self.job else None
+            value = self.cli("take_snapshot", self.page)
         root = re.search(r'RootWebArea .*url="([^\"]+)"', value)
         if not root or not root[1].startswith("https://chatgpt.com/"):
             raise WorkerError("login_required")
@@ -118,11 +199,15 @@ class Worker:
 
     def journal(self, **fields):
         path = self.root / "active.json"
-        data = {"job_id": self.job["id"], "lease": self.job["lease"], "submitted": self.sent,
-                **({"conversation_url": self.conversation_url} if self.conversation_url else {}), **fields}
-        temporary = path.with_suffix(".part")
-        temporary.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-        temporary.replace(path)
+        with self.journal_lock:
+            prior = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+            if prior.get("job_id") != self.job["id"] or prior.get("lease") != self.job["lease"]:
+                prior = {}
+            data = {**prior, "job_id": self.job["id"], "lease": self.job["lease"], "submitted": self.sent,
+                    **({"conversation_url": self.conversation_url} if self.conversation_url else {}), **fields}
+            temporary = path.with_suffix(".part")
+            temporary.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            temporary.replace(path)
 
     def heartbeat(self, job, stop, lost):
         # The server grants 180 seconds. This 90-second budget leaves room for
@@ -130,14 +215,16 @@ class Worker:
         deadline, delay, interrupted = time.monotonic() + 90, 20, False
         while not stop.wait(delay):
             try:
-                self.api(f"{job['id']}/heartbeat", {"lease": job["lease"]})
-            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                self.api(f"{job['id']}/heartbeat", {"lease": job["lease"],
+                         **({"phase": self.phase} if self.phase in {
+                             "connect", "prepare_prompt", "submit", "wait_image", "read_image", "upload_image"
+                         } else {})})
+            except NETWORK_ERRORS as error:
                 if stop.is_set():
                     return
                 status = error.code if isinstance(error, urllib.error.HTTPError) else None
-                retryable = status is None or status in {408, 500, 502, 503, 504}
                 label = f"HTTP {status}" if status else "network"
-                if retryable and time.monotonic() < deadline:
+                if retryable(error) and time.monotonic() < deadline:
                     if not interrupted:
                         print(f"图片任务保活暂时中断（{label}），正在恢复原任务连接；不会重复发送生图。", flush=True)
                     delay, interrupted = 5, True
@@ -288,12 +375,12 @@ class Worker:
             partial.unlink(missing_ok=True)
         return target
 
-    def check_time(self, job):
+    def check_time(self, job, *, allow_lost=False):
         if (self.root / "stop.requested").exists():
             raise WorkerError("cancelled")
         if job["expires_at"] - time.time() < 150:
             raise WorkerError("timeout")
-        if self.lost.is_set():
+        if self.lost.is_set() and not allow_lost:
             raise WorkerError("uncertain")
 
     def run_job(self, job):
@@ -304,18 +391,21 @@ class Worker:
                 or not time.time() < job["expires_at"] <= time.time() + 1205):
             raise WorkerError("worker_error")
         self.job, self.sent, self.conversation_url = job, False, ""
+        self.phase, self.phase_started, self.timings = "", None, {}
         # An old in-flight heartbeat cannot affect this job or adopt its new lease.
         self.stop_pulse, self.lost = threading.Event(), threading.Event()
         pulse = threading.Thread(target=self.heartbeat, args=(dict(job), self.stop_pulse, self.lost), daemon=True)
         pulse.start()
-        self.journal()
+        self.journal(started_at=datetime.now(timezone.utc).isoformat())
         stage = "connect"
         try:
+            self.set_phase(stage)
             self.check_time(job)
             snapshot = self.connect()
             self.check_time(job)
             editor = self.one(snapshot, "textbox", "询问 ChatGPT|Ask ChatGPT|Message ChatGPT")
             stage = "prepare_prompt"
+            self.set_phase(stage)
             self.cli("fill", self.page, editor, job["prompt"])
             for _ in range(15):
                 snapshot = self.snapshot()
@@ -329,12 +419,16 @@ class Worker:
                 raise WorkerError("ui_changed")
             self.check_time(job)
             stage = "submit"
-            self.update("submitted")  # Commit the fence before touching the send button.
+            self.set_phase(stage)
+            # Same transition is idempotent. A lost acknowledgement never means
+            # the UI Send has happened: that click remains strictly below it.
+            self.retry_transfer(lambda: self.update("submitted", phase="wait_image"))
             self.check_time(job)
             self.sent = True
             self.journal()
             self.click(send)  # Exactly once; never retry this action.
             stage = "wait_image"
+            self.set_phase(stage)
             deadline = min(job["expires_at"] - 30, time.time() + 900)
             stable_image = False
             while time.time() < deadline:
@@ -352,26 +446,24 @@ class Worker:
                 ready = len(images) == 1 and "disabled" not in images[0][2] and not busy and bool(root)
                 if ready and stable_image:
                     stage = "read_image"
+                    self.set_phase(stage)
                     path = self.download(snapshot)
                     data = path.read_bytes()
                     self.journal(download=str(path), sha256=hashlib.sha256(data).hexdigest())
                     stage = "upload_image"
-                    for attempt in range(3):
-                        try:
-                            result = self.api(f"{job['id']}/complete", image=data,
-                                              mime=mimetypes.guess_type(path.name)[0])
-                            if result.get("sha256") != hashlib.sha256(data).hexdigest():
-                                raise WorkerError("worker_error")
-                            self.journal(completed=True, download=str(path), sha256=result["sha256"])
-                            print("图片已自动回传并保存；网站将继续内容核验。", flush=True)
-                            return
-                        except (urllib.error.URLError, TimeoutError):
-                            if attempt == 2:
-                                raise WorkerError("uncertain") from None
-                            time.sleep(2)
+                    self.set_phase(stage)
+                    result = self.retry_transfer(lambda: self.api(f"{job['id']}/complete", image=data,
+                                                mime=mimetypes.guess_type(path.name)[0]), uploading=True)
+                    if result.get("sha256") != hashlib.sha256(data).hexdigest():
+                        raise WorkerError("worker_error")
+                    self.set_phase("completed")
+                    self.journal(completed=True, download=str(path), sha256=result["sha256"],
+                                 completed_at=datetime.now(timezone.utc).isoformat())
+                    print("图片已自动回传并保存；网站将继续内容核验。", flush=True)
+                    return
                 # Live-region 'Response complete' may be stale while a new image is loading.
                 stable_image = ready
-                time.sleep(4)
+                time.sleep(2)
             raise WorkerError("timeout")
         except BaseException as error:
             code = error.code if isinstance(error, WorkerError) else "uncertain" if self.sent else "worker_error"
@@ -381,6 +473,8 @@ class Worker:
                 pass
             self.journal(failed=code, failure_stage=stage, error_type=type(error).__name__,
                          heartbeat_lost=self.lost.is_set())
+            self.diagnostic("job_failed", job_id=job["id"], phase=stage, code=code,
+                            heartbeat_lost=self.lost.is_set(), **network_detail(error))
             print(f"图片任务已暂停：{code}（{stage} / {type(error).__name__}）。不会自动重复发送。", flush=True)
             raise
         finally:
@@ -445,13 +539,12 @@ def run(worker, args):
                 job = worker.api("claim").get("job")
             except KeyboardInterrupt:
                 return
-            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            except NETWORK_ERRORS as error:
                 # A failed claim has not sent anything to ChatGPT. Retry only this
                 # queue request; never retry run_job or its submission after error.
                 status = error.code if isinstance(error, urllib.error.HTTPError) else None
-                retryable = status is None or status in {408, 500, 502, 503, 504}
                 claim_failures = min(claim_failures + 1, 7)
-                if not retryable:
+                if not retryable(error):
                     label = f"HTTP {status}" if status else "network"
                     print(f"接入已停止：任务连接不可用（{label}）。请检查后重新启动。", flush=True)
                     raise SystemExit(1) from None
@@ -479,7 +572,7 @@ def run(worker, args):
                 # A new login, permission or interface problem requires human attention.
                 print("接入已停止，请检查网站连接与本机 ChatGPT 页面后重新启动。", flush=True)
                 raise SystemExit(1) from None
-            if not wait_for_queue(worker, 5):
+            if not wait_for_queue(worker, 2):
                 return
     finally:
         if worker.browser_started:

@@ -16,7 +16,7 @@ from app import config
 from app.auth import create_access_token
 from app.main import app
 from app.models import db as database
-from app.models.entities import AuthAccount, User, PersonalImageJob, GenerationJob, UserAsset
+from app.models.entities import AuthAccount, User, PersonalImageJob, GenerationJob, GenerationEvent, GenerationTicket, UserAsset
 from app.services import generation_jobs as jobs, personal_image as bridge
 from app.tenant import current_user_context
 
@@ -195,3 +195,45 @@ def test_personal_pipeline_does_not_fallback_and_keeps_unverified_label(store, m
     page = asyncio.run(pipeline.generate_one_page("栈", ["后进先出"], content_status="checked", trace_id="test"))
     assert page["renderer"] == "chatgpt-web-infographic-v1" and page["generation_attempts"] == 1
     assert "未确认" in _learner_summary({"r": {"payload": {"one_page_visual": page}}}, [], "one_page")
+
+
+def test_waiting_for_image_preserves_events_and_only_resumes_graph_after_upload(store):
+    job, lease = queue()
+    claim = bridge.claim()
+    bridge.transition(claim['id'], claim['lease'], 'submitted', phase='wait_image')
+    with database.session() as db:
+        db.get(GenerationJob, job['id']).status = 'running'
+        event = GenerationEvent(job_id=job['id'], user_id='owner', data={'type':'progress', 'text':'文字稿已核对'})
+        db.add(event)
+        db.commit()
+        cursor = event.id
+    calls = []
+    async def runner(state):
+        calls.append(state['job_id'])
+        yield {'type':'summary', 'text':'图片已归档'}
+    for _ in range(3):
+        asyncio.run(jobs.execute(*lease, runner=runner))
+        with database.session() as db:
+            events = db.query(GenerationEvent).filter_by(job_id=job['id']).all()
+            assert [(e.id, e.data['text']) for e in events] == [(cursor, '文字稿已核对')]
+            assert '正在绘图' in db.get(GenerationJob, job['id']).detail
+            db.get(GenerationTicket, job['id']).lease_until = 0
+            db.commit()
+        lease = jobs.claim('test')
+    assert calls == []
+    bridge.complete(claim['id'], claim['lease'], image_bytes(), 'image/png')
+    asyncio.run(jobs.execute(*lease, runner=runner))
+    assert calls == [job['id']] and jobs.owned('owner', job['id'])['status'] == 'completed'
+
+
+def test_progress_is_enum_bounded_and_does_not_accept_browser_text(store):
+    queue()
+    claim = bridge.claim()
+    client = TestClient(app)
+    headers = {'Authorization':'Bearer ' + TOKEN}
+    url = f"/api/personal-image-worker/{claim['id']}/heartbeat"
+    assert client.post(url, headers=headers, json={'lease':claim['lease'], 'phase':'read_image'}).status_code == 200
+    assert client.post(url, headers=headers, json={'lease':claim['lease'], 'phase':'private browser content'}).status_code == 422
+    with database.session() as db:
+        parent_id = db.get(PersonalImageJob, claim['id']).generation_job_id
+        assert '正在取回原图' in bridge.pending_message(db, parent_id)
