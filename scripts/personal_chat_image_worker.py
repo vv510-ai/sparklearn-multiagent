@@ -158,9 +158,12 @@ class Worker:
                     raise WorkerError("cancelled") from None
 
     def cli(self, *args, timeout=55):
+        # pythonw has no console to inherit; each Node invocation would otherwise
+        # open a new Windows terminal while polling the browser.
+        window = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
         result = subprocess.run([self.config["node_path"], self.config["cli_path"], *map(str, args),
                                  "--sessionId", self.session], shell=False, capture_output=True,
-                                encoding="utf-8", errors="replace", timeout=timeout)
+                                encoding="utf-8", errors="replace", timeout=timeout, **window)
         # Keep raw browser output, user data and CLI internals out of application logs.
         if result.returncode or re.search(r"^Error:|^Protocol error", result.stdout, re.M):
             raise WorkerError("ui_changed")

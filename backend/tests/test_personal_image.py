@@ -237,3 +237,16 @@ def test_progress_is_enum_bounded_and_does_not_accept_browser_text(store):
     with database.session() as db:
         parent_id = db.get(PersonalImageJob, claim['id']).generation_job_id
         assert '正在取回原图' in bridge.pending_message(db, parent_id)
+
+
+def test_late_heartbeat_cannot_move_progress_backwards(store):
+    queue()
+    claim = bridge.claim()
+    bridge.transition(claim['id'], claim['lease'], 'submitted', phase='wait_image')
+    bridge.transition(claim['id'], claim['lease'], 'heartbeat', phase='submit')
+    with database.session() as db:
+        assert db.get(PersonalImageJob, claim['id']).data['phase'] == 'wait_image'
+    bridge.transition(claim['id'], claim['lease'], 'heartbeat', phase='upload_image')
+    bridge.transition(claim['id'], claim['lease'], 'heartbeat', phase='read_image')
+    with database.session() as db:
+        assert db.get(PersonalImageJob, claim['id']).data['phase'] == 'upload_image'

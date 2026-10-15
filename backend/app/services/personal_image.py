@@ -164,7 +164,9 @@ def transition(identifier: str, lease: str, action: str, code="", phase=""):
             row.status = "submitted"  # Acknowledge BEFORE the only UI send.
         elif action == "fail":
             row.status, row.detail_code = "failed", code if code in FAILURES else "worker_error"
-        if phase in PHASE_MESSAGES:
+        phases = list(PHASE_MESSAGES)
+        previous_phase = row.data.get("phase")
+        if phase in phases and (previous_phase not in phases or phases.index(phase) >= phases.index(previous_phase)):
             row.data = {**row.data, "phase": phase}
         row.lease_until = time.time() + LEASE_SECONDS
     return {"ok": True}

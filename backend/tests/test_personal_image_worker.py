@@ -389,6 +389,20 @@ def test_network_diagnostics_never_include_secret_bearing_exception_text(worker)
     assert 'URLError' in value and 'at' in json.loads(value)
 
 
+@pytest.mark.parametrize('platform', ['win32', 'linux'])
+def test_browser_helper_does_not_open_windows_console(worker, monkeypatch, platform):
+    observed = []
+    monkeypatch.setattr(worker_module.sys, 'platform', platform)
+    monkeypatch.setattr(worker_module.subprocess, 'CREATE_NO_WINDOW', 0x08000000, raising=False)
+    def run(command, **kwargs):
+        observed.append(kwargs)
+        return SimpleNamespace(returncode=0, stdout='page snapshot')
+    monkeypatch.setattr(worker_module.subprocess, 'run', run)
+    assert worker.cli('take_snapshot', 4) == 'page snapshot'
+    assert observed[0].get('creationflags', 0) == (0x08000000 if platform == 'win32' else 0)
+    assert observed[0]['shell'] is False
+
+
 def test_direct_site_connection_ignores_proxy_but_never_follows_redirect(worker, monkeypatch):
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     observed = []
