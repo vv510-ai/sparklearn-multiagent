@@ -1,4 +1,7 @@
 import importlib.util
+import base64
+import hashlib
+import io
 import json
 import sys
 import time
@@ -40,6 +43,24 @@ def test_idle_network_outage_recovers_without_sending_an_image(worker, monkeypat
     monkeypatch.setattr(worker_module, 'wait_for_queue', pause)
     worker_module.run(worker, SimpleNamespace(check_browser=False, once=False))
     assert calls == ['claim', 'claim']
+
+
+def test_idle_outage_longer_than_six_retries_still_recovers_without_sending(worker, monkeypatch):
+    calls, pauses = [], []
+    def api(path):
+        calls.append(path)
+        if len(calls) <= 9:
+            raise urllib.error.URLError('offline')
+        return {'job': None}
+    def pause(_, delay):
+        pauses.append(delay)
+        return len(pauses) < 10
+    monkeypatch.setattr(worker, 'api', api)
+    monkeypatch.setattr(worker, 'run_job', lambda _: pytest.fail('must never send an image'))
+    monkeypatch.setattr(worker_module, 'wait_for_queue', pause)
+    worker_module.run(worker, SimpleNamespace(check_browser=False, once=False))
+    assert calls == ['claim'] * 10
+    assert pauses[:5] == [5, 10, 20, 40, 60] and max(pauses) == 60
 
 
 @pytest.mark.parametrize('status', [401, 403, 429])
@@ -166,6 +187,62 @@ def test_in_flight_old_heartbeat_cannot_touch_next_job(worker, monkeypatch):
     assert observed == [(task['id']+'/heartbeat', {"lease":task['lease']})]
 
 
+def test_transient_heartbeat_failure_recovers_same_lease_without_losing_task(worker, monkeypatch):
+    calls, waits, clock = [], [], [0]
+    class Stop:
+        stopped = False
+        def wait(self, seconds):
+            waits.append(seconds)
+            clock[0] += seconds
+            return self.stopped
+        def is_set(self): return self.stopped
+    stop, lost, task = Stop(), threading.Event(), job()
+    def api(path, payload):
+        calls.append((path, payload))
+        if len(calls) == 1:
+            raise urllib.error.URLError('transient connection reset')
+        stop.stopped = True
+        return {'ok': True}
+    monkeypatch.setattr(worker_module.time, 'monotonic', lambda:clock[0])
+    monkeypatch.setattr(worker, 'api', api)
+    worker.heartbeat(task, stop, lost)
+    assert not lost.is_set() and waits[:2] == [20, 5]
+    assert calls == [(task['id']+'/heartbeat', {'lease':task['lease']})] * 2
+
+
+def test_heartbeat_network_retry_stops_before_server_lease_expires(worker, monkeypatch):
+    calls, clock = [], [0]
+    class Stop:
+        def wait(self, seconds):
+            clock[0] += seconds
+            return False
+        def is_set(self): return False
+    def api(path, payload):
+        calls.append(path)
+        clock[0] += 35  # The transport timeout is included in the retry budget.
+        raise TimeoutError('offline')
+    monkeypatch.setattr(worker_module.time, 'monotonic', lambda:clock[0])
+    monkeypatch.setattr(worker, 'api', api)
+    lost = threading.Event()
+    worker.heartbeat(job(), Stop(), lost)
+    assert lost.is_set() and len(calls) == 2 and clock[0] == 95 < 180
+
+
+@pytest.mark.parametrize('status', [401, 403, 409, 429])
+def test_rejected_heartbeat_stops_immediately_without_retry(worker, monkeypatch, status):
+    calls = []
+    class Stop:
+        def wait(self, _): return False
+        def is_set(self): return False
+    def api(path, payload):
+        calls.append(path)
+        raise urllib.error.HTTPError('https://site.test', status, 'stop', {}, None)
+    monkeypatch.setattr(worker, 'api', api)
+    lost = threading.Event()
+    worker.heartbeat(job(), Stop(), lost)
+    assert lost.is_set() and len(calls) == 1
+
+
 def test_stale_completion_does_not_stop_a_loading_image(worker, monkeypatch, tmp_path):
     import hashlib
     data=b'tested-image-transport'
@@ -187,24 +264,74 @@ def test_stale_completion_does_not_stop_a_loading_image(worker, monkeypatch, tmp
     monkeypatch.setattr(worker_module.time, "sleep", lambda _:None)
     worker.run_job(job())
     assert clicks == ["2_1"]
-    assert json.loads((worker.root/'active.json').read_text())['completed'] is True
+    assert json.loads((worker.root/'active.json').read_text(encoding='utf-8'))['completed'] is True
 
 
-def test_download_uses_matching_frame_guid_and_exact_completed_path(worker, tmp_path):
-    target=tmp_path/'expected.png'
-    target.write_bytes(b'test')
-    unrelated=tmp_path/'same-title.png'
-    unrelated.write_bytes(b'wrong')
-    def event(method, **params): return json.dumps({"method":'Browser.'+method,"params":params})
-    events=iter([
-        event('downloadWillBegin', frameId='other',guid='wrong',suggestedFilename='title.png'),
-        event('downloadProgress',guid='wrong',state='completed',filePath=str(unrelated)),
-        event('downloadWillBegin',frameId='ours',guid='right',suggestedFilename='title.png'),
-        event('downloadProgress',guid='right',state='completed',filePath=str(target)),
-    ])
-    class Socket:
-        def settimeout(self, _): pass
-        def recv(self): return next(events)
-    download=worker_module.ChromeDownload(worker.config,'https://chatgpt.com/c/test','title')
-    download.frame, download.socket='ours',Socket()
-    assert download.wait(threading.Event()) == target.resolve()
+def browser_image():
+    from PIL import Image
+    output = io.BytesIO()
+    Image.new('RGB', (160, 128), '#236b53').save(output, format='PNG')
+    content = output.getvalue()
+    return content, {'conversation_url':'https://chatgpt.com/c/test-123', 'mime':'image/png',
+        'bytes':len(content), 'width':160, 'height':128,
+        'sha256':hashlib.sha256(content).hexdigest(),
+        'data':'data:image/png;base64,' + base64.b64encode(content).decode()}
+
+
+def test_image_uses_existing_browser_connection_and_preserves_original_bytes(worker, monkeypatch):
+    content, exported = browser_image()
+    worker.job, worker.page, worker.conversation_url = job(), 9, exported['conversation_url']
+    calls = []
+    def cli(*args):
+        calls.append(args)
+        if args[0] == 'evaluate_script':
+            Path(args[-1]).write_text(json.dumps(exported), encoding='utf-8')
+        return ''
+    monkeypatch.setattr(worker, 'cli', cli)
+    monkeypatch.setattr(worker, 'snapshot', lambda:'uid=2_1 button "知识图 的文件操作"\nuid=2_2 image "已生成图像 1"\nuid=2_3 button "下载"')
+    result = worker.download('uid=1_1 button "已生成图像 1"')
+    assert result.read_bytes() == content
+    assert result.parent == worker.root and result.stem == worker.job['id']
+    assert [command[0] for command in calls] == ['click', 'evaluate_script']
+    assert calls[0][2] == '1_1'  # Open the generated preview, never send again.
+    assert not list(worker.root.glob('*.browser-image.json'))
+
+
+@pytest.mark.parametrize('field,value', [
+    ('conversation_url','https://chatgpt.com/c/another-user-request'),
+    ('mime','image/svg+xml'), ('sha256','0'*64), ('bytes',1), ('width',159),
+    ('data','data:image/png;base64,not-valid!'),
+    ('data','https://chatgpt.com/backend-api/private'),
+])
+def test_invalid_browser_image_cannot_be_saved_or_uploaded(worker, field, value):
+    _, exported = browser_image()
+    worker.job, worker.conversation_url = job(), exported['conversation_url']
+    exported[field] = value
+    with pytest.raises(worker_module.WorkerError, match='worker_error'):
+        worker.save_browser_image(exported)
+    assert not list(worker.root.glob('*.png')) and not list(worker.root.glob('*.part'))
+
+
+def test_expired_image_is_not_saved_and_export_is_removed(worker, monkeypatch):
+    _, exported = browser_image()
+    worker.job, worker.page, worker.conversation_url = job(), 9, exported['conversation_url']
+    worker.job['expires_at'] = time.time() + 20
+    monkeypatch.setattr(worker, 'snapshot', lambda:'uid=2_1 button "知识图 的文件操作"\nuid=2_2 image "已生成图像 1"\nuid=2_3 button "下载"')
+    def cli(*args):
+        if args[0] == 'evaluate_script':
+            Path(args[-1]).write_text(json.dumps(exported), encoding='utf-8')
+        return ''
+    monkeypatch.setattr(worker, 'cli', cli)
+    with pytest.raises(worker_module.WorkerError, match='timeout'):
+        worker.download('uid=1_1 button "已生成图像 1"')
+    assert not list(worker.root.glob('*.browser-image.json')) and not list(worker.root.glob('*.png'))
+
+
+def test_disabled_download_control_stops_without_extracting_image(worker, monkeypatch):
+    worker.job, worker.page, worker.conversation_url = job(), 9, 'https://chatgpt.com/c/test-123'
+    calls = []
+    monkeypatch.setattr(worker, 'cli', lambda *args: calls.append(args) or '')
+    monkeypatch.setattr(worker, 'snapshot', lambda:'uid=2_1 button "知识图 的文件操作"\nuid=2_2 image "已生成图像 1"\nuid=2_3 button "下载" disableable disabled')
+    with pytest.raises(worker_module.WorkerError, match='interaction_required'):
+        worker.download('uid=1_1 button "已生成图像 1"')
+    assert [command[0] for command in calls] == ['click']

@@ -6,13 +6,14 @@ The config contains a LearnLoop-only pairing token, never a ChatGPT credential.
 """
 from __future__ import annotations
 import argparse
+import base64
 from contextlib import contextmanager
 import hashlib
+import io
 import json
 import mimetypes
 import os
 import re
-import shutil
 import subprocess
 import sys
 import threading
@@ -49,92 +50,6 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None  # Never forward the pairing secret to another origin.
 
 
-class ChromeDownload:
-    """Bind the native download to this Chat frame and its Chrome download GUID."""
-    def __init__(self, config, conversation_url, title):
-        self.config, self.url, self.title = config, conversation_url, title
-        self.socket, self.sequence, self.armed = None, 0, False
-
-    def call(self, method, params=None, session=None):
-        self.sequence += 1
-        message = {"id": self.sequence, "method": method, "params": params or {}}
-        if session:
-            message["sessionId"] = session
-        self.socket.send(json.dumps(message))
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            value = json.loads(self.socket.recv())
-            if value.get("id") == self.sequence:
-                if "error" in value:
-                    raise WorkerError("ui_changed")
-                return value.get("result", {})
-        raise WorkerError("timeout")
-
-    def __enter__(self):
-        import websocket
-        profile = Path(self.config.get("chrome_user_data_dir") or
-                       Path(os.environ["LOCALAPPDATA"]) / "Google/Chrome/User Data")
-        lines = (profile / "DevToolsActivePort").read_text().splitlines()
-        if (len(lines) != 2 or not lines[0].isdigit() or not 0 < int(lines[0]) < 65536
-                or not re.fullmatch(r"/devtools/browser/[A-Za-z0-9-]+", lines[1])):
-            raise WorkerError("ui_changed")
-        # Local Chrome protocol only; never read cookies or request ChatGPT backend URLs.
-        self.socket = websocket.create_connection(f"ws://127.0.0.1:{lines[0]}{lines[1]}",
-                                                   timeout=10, suppress_origin=True)
-        try:
-            targets = self.call("Target.getTargets")["targetInfos"]
-            matches = [t for t in targets if t.get("type") == "page" and t.get("url") == self.url]
-            if len(matches) != 1 or not re.fullmatch(r"https://chatgpt.com/c/[A-Za-z0-9-]+", self.url):
-                raise WorkerError("ui_changed")
-            session = self.call("Target.attachToTarget", {"targetId": matches[0]["targetId"], "flatten": True})["sessionId"]
-            self.frame = self.call("Page.getFrameTree", session=session)["frameTree"]["frame"]["id"]
-            # Keep the user's native Chrome download location and download restrictions.
-            self.call("Browser.setDownloadBehavior", {"behavior": "default", "eventsEnabled": True})
-            self.armed = True
-            return self
-        except BaseException:
-            self.socket.close()
-            raise
-
-    def wait(self, lost, timeout=60):
-        import websocket
-        self.socket.settimeout(1)
-        guid = None
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            if lost.is_set():
-                raise WorkerError("uncertain")
-            try:
-                event = json.loads(self.socket.recv())
-            except websocket.WebSocketTimeoutException:
-                continue
-            data = event.get("params", {})
-            if event.get("method") == "Browser.downloadWillBegin" and data.get("frameId") == self.frame:
-                if guid or not re.fullmatch(re.escape(self.title) + r"\.(?:png|jpe?g|webp)", data.get("suggestedFilename", ""), re.I):
-                    raise WorkerError("uncertain")
-                guid = data["guid"]
-            if event.get("method") == "Browser.downloadProgress" and guid and data.get("guid") == guid:
-                if data.get("state") == "canceled":
-                    raise WorkerError("interaction_required")
-                if data.get("state") == "completed":
-                    # No filename/mtime fallback: it could belong to another concurrent download.
-                    if not data.get("filePath"):
-                        raise WorkerError("uncertain")
-                    path = Path(data["filePath"]).resolve()
-                    if path.parent != Path(self.config["downloads_dir"]).resolve() or not path.is_file():
-                        raise WorkerError("uncertain")
-                    return path
-        raise WorkerError("timeout")
-
-    def __exit__(self, *args):
-        try:
-            if self.armed:
-                self.socket.settimeout(10)
-                self.call("Browser.setDownloadBehavior", {"behavior": "default", "eventsEnabled": False})
-        finally:
-            self.socket.close()  # Detach only; never close the user's Chrome.
-
-
 class Worker:
     def __init__(self, config):
         self.config = validate_config(config)
@@ -143,6 +58,7 @@ class Worker:
         self.opener = urllib.request.build_opener(NoRedirect)
         self.session = hashlib.sha256(str(self.root).encode()).hexdigest()[:16]
         self.page = None
+        self.conversation_url = ""
         self.job = None
         self.sent = False
         self.stop_pulse = threading.Event()
@@ -202,19 +118,41 @@ class Worker:
 
     def journal(self, **fields):
         path = self.root / "active.json"
-        data = {"job_id": self.job["id"], "lease": self.job["lease"], "submitted": self.sent, **fields}
+        data = {"job_id": self.job["id"], "lease": self.job["lease"], "submitted": self.sent,
+                **({"conversation_url": self.conversation_url} if self.conversation_url else {}), **fields}
         temporary = path.with_suffix(".part")
         temporary.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         temporary.replace(path)
 
     def heartbeat(self, job, stop, lost):
-        while not stop.wait(20):
+        # The server grants 180 seconds. This 90-second budget leaves room for
+        # response latency and one final 35-second request. Never replay a send.
+        deadline, delay, interrupted = time.monotonic() + 90, 20, False
+        while not stop.wait(delay):
             try:
                 self.api(f"{job['id']}/heartbeat", {"lease": job["lease"]})
-            except Exception:
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                if stop.is_set():
+                    return
+                status = error.code if isinstance(error, urllib.error.HTTPError) else None
+                retryable = status is None or status in {408, 500, 502, 503, 504}
+                label = f"HTTP {status}" if status else "network"
+                if retryable and time.monotonic() < deadline:
+                    if not interrupted:
+                        print(f"图片任务保活暂时中断（{label}），正在恢复原任务连接；不会重复发送生图。", flush=True)
+                    delay, interrupted = 5, True
+                    continue
+                print(f"图片任务保活无法恢复（{label}），停止等待；不会重复发送生图。", flush=True)
+                lost.set()
+                return
+            except Exception as error:
                 if not stop.is_set():
+                    print(f"图片任务保活响应无法确认（{type(error).__name__}），停止等待。", flush=True)
                     lost.set()
                 return
+            if interrupted and not stop.is_set():
+                print("图片任务保活已恢复，继续等待同一张图片。", flush=True)
+            deadline, delay, interrupted = time.monotonic() + 90, 20, False
 
     def connect(self):
         if not self.browser_started:
@@ -268,19 +206,86 @@ class Worker:
             time.sleep(1)
         if len(names) != 1:
             raise WorkerError("ui_changed")
-        title = re.sub(r" 的文件操作$|^File actions for ", "", names[0][1]).strip()
-        if not title or re.search(r'[<>:"/\\|?*]', title):
+        self.one(snapshot, "image", r"已生成图像 1|Generated image 1")
+        downloads = self.elements(snapshot, "button", "下载|Download")
+        if len(downloads) != 1:
             raise WorkerError("ui_changed")
-        with ChromeDownload(self.config, self.conversation_url, title) as download:
-            self.click(self.one(snapshot, "button", "下载|Download"))
-            source = download.wait(self.lost)
-        if source.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"} or not 0 < source.stat().st_size <= 20 * 1024 * 1024:
-            raise WorkerError("worker_error")
+        if "disabled" in downloads[0][2]:
+            raise WorkerError("interaction_required")
+        if not re.fullmatch(r"https://chatgpt.com/c/[A-Za-z0-9-]+", self.conversation_url):
+            raise WorkerError("ui_changed")
+        # Reuse the user's authorized CLI connection. A second CDP socket asks
+        # Chrome for another permission and can stall an unattended worker.
+        # Read only the blob already displayed in this exact conversation's
+        # preview; never fetch a ChatGPT API URL, screenshot or guessed file.
+        script = r'''async () => {
+          const expected = %s;
+          if (location.href !== expected) throw new Error('wrong conversation');
+          const images = [...document.querySelectorAll('[role="dialog"] img')]
+            .filter(image => /^(已生成图像 1|Generated image 1)$/.test(image.alt));
+          if (images.length !== 1) throw new Error('ambiguous image');
+          const image = images[0];
+          if (!image.complete || image.naturalWidth < 128 || image.naturalHeight < 128 ||
+              !image.currentSrc.startsWith('blob:https://chatgpt.com/')) throw new Error('image unavailable');
+          const response = await fetch(image.currentSrc, {signal: AbortSignal.timeout(15000)});
+          if (!response.ok) throw new Error('blob unavailable');
+          const blob = await response.blob();
+          if (!['image/png', 'image/jpeg', 'image/webp'].includes(blob.type) ||
+              blob.size <= 0 || blob.size > 20 * 1024 * 1024) throw new Error('unsupported image');
+          const sha256 = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',
+            await blob.arrayBuffer())), byte => byte.toString(16).padStart(2, '0')).join('');
+          const data = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('blob read failed'));
+            reader.readAsDataURL(blob);
+          });
+          if (location.href !== expected || !image.isConnected) throw new Error('preview changed');
+          return {conversation_url: expected, mime: blob.type, bytes: blob.size,
+            width: image.naturalWidth, height: image.naturalHeight, sha256, data};
+        }''' % json.dumps(self.conversation_url)
+        export = self.root / (self.job["id"] + ".browser-image.json")
+        try:
+            self.cli("evaluate_script", script, "--pageId", self.page, "--waitForStableDom", "false",
+                     "--filePath", export)
+            self.check_time(self.job)
+            if not export.is_file() or not 0 < export.stat().st_size <= 29 * 1024 * 1024:
+                raise WorkerError("worker_error")
+            image = json.loads(export.read_text(encoding="utf-8"))
+            return self.save_browser_image(image)
+        finally:
+            export.unlink(missing_ok=True)
+
+    def save_browser_image(self, image):
         from PIL import Image
-        with Image.open(source) as image:
-            image.verify()
-        target = self.root / (self.job["id"] + source.suffix.lower())
-        shutil.copy2(source, target)
+        formats = {"image/png": ("PNG", ".png"), "image/jpeg": ("JPEG", ".jpg"), "image/webp": ("WEBP", ".webp")}
+        if not isinstance(image, dict) or image.get("conversation_url") != self.conversation_url or image.get("mime") not in formats:
+            raise WorkerError("worker_error")
+        prefix = "data:" + image["mime"] + ";base64,"
+        encoded = image.get("data", "")
+        if not isinstance(encoded, str) or not encoded.startswith(prefix) or len(encoded) > 28 * 1024 * 1024:
+            raise WorkerError("worker_error")
+        try:
+            content = base64.b64decode(encoded[len(prefix):], validate=True)
+            if (not 0 < len(content) <= 20 * 1024 * 1024 or image.get("bytes") != len(content)
+                    or image.get("sha256") != hashlib.sha256(content).hexdigest()):
+                raise ValueError("image receipt mismatch")
+            fmt, suffix = formats[image["mime"]]
+            with Image.open(io.BytesIO(content)) as picture:
+                if (picture.format != fmt or getattr(picture, "n_frames", 1) != 1
+                        or list(picture.size) != [image.get("width"), image.get("height")]
+                        or min(picture.size) < 128 or picture.width * picture.height > 25000000):
+                    raise ValueError("invalid image")
+                picture.verify()
+        except Exception:
+            raise WorkerError("worker_error") from None
+        target = self.root / (self.job["id"] + suffix)
+        partial = target.with_suffix(".part")
+        try:
+            partial.write_bytes(content)
+            partial.replace(target)
+        finally:
+            partial.unlink(missing_ok=True)
         return target
 
     def check_time(self, job):
@@ -298,17 +303,19 @@ class Worker:
                 or not isinstance(job.get("expires_at"), (int, float))
                 or not time.time() < job["expires_at"] <= time.time() + 1205):
             raise WorkerError("worker_error")
-        self.job, self.sent = job, False
+        self.job, self.sent, self.conversation_url = job, False, ""
         # An old in-flight heartbeat cannot affect this job or adopt its new lease.
         self.stop_pulse, self.lost = threading.Event(), threading.Event()
         pulse = threading.Thread(target=self.heartbeat, args=(dict(job), self.stop_pulse, self.lost), daemon=True)
         pulse.start()
         self.journal()
+        stage = "connect"
         try:
             self.check_time(job)
             snapshot = self.connect()
             self.check_time(job)
             editor = self.one(snapshot, "textbox", "询问 ChatGPT|Ask ChatGPT|Message ChatGPT")
+            stage = "prepare_prompt"
             self.cli("fill", self.page, editor, job["prompt"])
             for _ in range(15):
                 snapshot = self.snapshot()
@@ -321,11 +328,13 @@ class Worker:
             else:
                 raise WorkerError("ui_changed")
             self.check_time(job)
+            stage = "submit"
             self.update("submitted")  # Commit the fence before touching the send button.
             self.check_time(job)
             self.sent = True
             self.journal()
             self.click(send)  # Exactly once; never retry this action.
+            stage = "wait_image"
             deadline = min(job["expires_at"] - 30, time.time() + 900)
             stable_image = False
             while time.time() < deadline:
@@ -342,9 +351,11 @@ class Worker:
                 busy = self.elements(snapshot, "button", r"停止|停止生成|Stop|Stop generating")
                 ready = len(images) == 1 and "disabled" not in images[0][2] and not busy and bool(root)
                 if ready and stable_image:
+                    stage = "read_image"
                     path = self.download(snapshot)
                     data = path.read_bytes()
                     self.journal(download=str(path), sha256=hashlib.sha256(data).hexdigest())
+                    stage = "upload_image"
                     for attempt in range(3):
                         try:
                             result = self.api(f"{job['id']}/complete", image=data,
@@ -368,8 +379,9 @@ class Worker:
                 self.update("fail", code=code)
             except Exception:
                 pass
-            self.journal(failed=code)
-            print(f"图片任务已暂停：{code}。不会自动重复发送。", flush=True)
+            self.journal(failed=code, failure_stage=stage, error_type=type(error).__name__,
+                         heartbeat_lost=self.lost.is_set())
+            print(f"图片任务已暂停：{code}（{stage} / {type(error).__name__}）。不会自动重复发送。", flush=True)
             raise
         finally:
             self.stop_pulse.set()
@@ -438,8 +450,8 @@ def run(worker, args):
                 # queue request; never retry run_job or its submission after error.
                 status = error.code if isinstance(error, urllib.error.HTTPError) else None
                 retryable = status is None or status in {408, 500, 502, 503, 504}
-                claim_failures += 1
-                if not retryable or claim_failures > 6:
+                claim_failures = min(claim_failures + 1, 7)
+                if not retryable:
                     label = f"HTTP {status}" if status else "network"
                     print(f"接入已停止：任务连接不可用（{label}）。请检查后重新启动。", flush=True)
                     raise SystemExit(1) from None
