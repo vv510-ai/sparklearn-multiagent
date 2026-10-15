@@ -610,16 +610,29 @@
     {
       "id": "UX-CHAT-IMAGE-20261015",
       "title": "普通 Chat 生图容易中断且响应慢",
-      "status": "partial",
+      "status": "verified",
       "group": "个人图片接入",
-      "checked_commit": "",
+      "checked_commit": "520f1a06b470ff4adbe1c5e24a285f883e3fcf07",
       "source_feedback": ["刚刚测试的时候 很容易中断出现问题 而且响应时间很慢", "查清问题 并进行优化 测试 确保整个流程流畅", "为什么老是出现这个 能不能不要出现（chrome-devtools 黑窗口）"],
       "acceptance": "正常按钮连续完成普通 Chat 生成、原图回传、归档和刷新；短暂网络故障及回传回执丢失不重复生图；记录各阶段耗时。",
       "test_refs": ["backend/tests/test_personal_image.py", "backend/tests/test_personal_image_worker.py", "backend/tests/test_generation_jobs.py"],
       "cause": "本站连接继承代理产生延迟和超时；等待图片反复重放生成图、重置事件；原有上传恢复次数少且日志无法分辨耗时。",
-      "evidence": [".tmp/personal-image-recheck/network-probe.json：同一接口原路径 11/12 成功、中位 2.914 秒；本站直连 12/12、中位 0.172 秒。", ".tmp/personal-image-recheck/stability/backend-tests.log：最后相关代码修改后完整后端 949 项通过。", ".tmp/personal-image-recheck/stability/normal-1.json：正式按钮完整流程 172.922 秒，刷新归档后原图指纹一致。", "docs/2026-10-15-personal-chat-image.md：改动、诊断范围与恢复边界。"],
-      "limitations": "本地与离线回归已通过，部署及真实连续流程待本次验收；依赖电脑联网、Chrome 登录、页面结构和图片服务实际耗时。",
-      "next_action": "发布后以固定版本完成连续生图、故障注入和归档刷新，并保存时间及原图指纹。"
+      "evidence": [".tmp/personal-image-recheck/network-probe.json：同一接口原路径 11/12 成功、中位 2.914 秒；本站直连 12/12、中位 0.172 秒。", ".tmp/personal-image-recheck/stability/backend-tests.log：最后相关代码修改后完整后端 949 项通过。", ".tmp/personal-image-recheck/stability/normal-1.json、normal-2.json、normal-3.json：3轮正常生成均保存原图，归档刷新与指纹核对完成；第2轮观察中断的记录及补验保留。", ".tmp/personal-image-recheck/stability/fault-injection.json、fault-1.json：真实流程中注入3种暂时故障均恢复，UI只发送1次，归档重开后原图一致。", ".tmp/personal-image-recheck/stability/window-probe-browser-live.json：12次真实浏览器调用、478次窗口采样，没有辅助黑窗口。", "docs/2026-10-15-personal-chat-image.md：诊断、各阶段耗时、完成条件与保留限制。"],
+      "limitations": "只关闭已复现的连接、进度、暂时故障恢复和黑窗口问题；正常整轮实测约173至242秒，Chat绘图耗时仍有波动。依赖电脑联网、Chrome登录与本人授权；不保证长时间断网、限额或页面改版自动恢复。图片内容问题单列QA-CHAT-IMAGE-CONTENT-20261016。",
+      "next_action": "本条在上述范围已验证；新故障按脱敏分阶段日志定位，不将接口加速等同于整轮固定速度。"
+    },
+    {
+      "id": "QA-CHAT-IMAGE-CONTENT-20261016",
+      "title": "普通Chat生成图可能遗漏否定词，自动图片内容核验不可用",
+      "status": "open",
+      "group": "图片内容正确性",
+      "checked_commit": "520f1a06b470ff4adbe1c5e24a285f883e3fcf07",
+      "discovered_by": "2026-10-16稳定性验收时逐张人工查看实际原图。",
+      "acceptance": "真实图片中的条件、否定词、公式与连线被可靠核对，错误图不能被标为已核验；生成与回传成功不能代替内容正确。",
+      "test_refs": ["backend/app/services/one_page_image.py"],
+      "evidence": [".tmp/personal-image-recheck/stability/normal-3.png：四轮比较和下标7正确，但边界说明把不是目标写成一定是目标，逻辑相反。", "资源b17677666821的verification.status仍为unverified，网页保留图片已生成仍需核对提示及文字版；原图与问题记录均保留。"],
+      "limitations": "当前图片理解服务不可用；本次只完成稳定性链路验收，未解决所有生图文字错误。",
+      "next_action": "后续单独验证可用的图片理解服务与实际纠错流程；在此之前保留未核验标记，不宣称图片内容全部正确。"
     },
     {
       "id": "UX-CET6-ADVICE-20261004",
