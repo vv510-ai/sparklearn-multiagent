@@ -25,7 +25,7 @@ from ..services.knowledge_graph import all_kp_ids, canonical_kp_id
 from .learning_scope import current_space, profile_row, event_in_scope, notebook_id
 
 _PROFILE_FIELDS = {
-    "knowledge_mastery", "cognitive_style", "error_prone", "goal", "pace",
+    "knowledge_mastery", "knowledge_trace", "cognitive_style", "error_prone", "goal", "pace",
     "difficulty_pref", "resource_pref", "metacognition", "evidence",
     "focus_kps", "learning_topic", "current_level", "materials_status",
     "onboarding_completed",
