@@ -1,6 +1,7 @@
 "use client";
 
 import MathText from "@/components/chat/MathText";
+import { formatReviewTime } from "@/lib/review";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpenCheck, RefreshCw, Star } from "lucide-react";
@@ -44,7 +45,7 @@ interface PracticeResult {
   expected: string;
   explain: string;
   error_tags: string[];
-  schedule?: { interval_days?: number | null; status?: string };
+  schedule?: { interval_days?: number | null; status?: string; due_at?: string; scheduling_reason?: string };
   report?: { path?: PathPlan; profile_version?: number };
 }
 
@@ -188,7 +189,7 @@ export default function MistakeBook({ onEvaluated, notebookId = "" }: { notebook
                       <div className="flex justify-end gap-2"><button type="button" onClick={() => setActiveId(null)} className="secondary-action">取消</button><button type="button" onClick={() => void submit(item)} disabled={!answer.trim() || !confidence || busy} className="primary-action disabled:opacity-40">{busy ? "正在判分…" : "提交重做"}</button></div>
                     </div>
                   )}
-                  {result && <Notice tone={result.correct ? "success" : "warn"} title={result.correct ? "这次独立答对了" : "这次仍需巩固"} desc={`${result.correct ? "已形成新的恢复证据。" : `参考答案：${choiceLabel(item.question.options, result.expected)}`} ${result.schedule?.interval_days ? `下次计划在 ${result.schedule.interval_days} 天后复习。` : ""}`} />}
+                  {result && <Notice tone={result.correct ? "success" : "warn"} title={result.correct ? "这次独立答对了" : "这次仍需巩固"} desc={`${result.correct ? "本次作答已保存。" : `参考答案：${choiceLabel(item.question.options, result.expected)}`} ${result.schedule?.due_at ? `${result.schedule.scheduling_reason || "已安排复习"}。下次：${formatReviewTime(result.schedule.due_at)}` : ""}`} />}
                 </div>
               </article>
             );

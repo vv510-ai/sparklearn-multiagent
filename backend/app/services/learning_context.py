@@ -12,7 +12,7 @@ def supplemental_context(question: str) -> list[dict]:
     space = current_space()
     course = (space or {}).get("course") or {}
     reference = course.get("exam_reference") or {}
-    if reference and re.search(r"考点|考什么|考试|占分|占比|分值|题型|考纲|六级.*框架", question):
+    if reference and re.search(r"备考|考点|考什么|考试|占分|占比|分值|题型|考纲|六级.*框架", question):
         rows = [f"{part['name']}：分值比例 {part['weight']}%，考试时间 {part['minutes']} 分钟。"
                 for part in reference.get("parts", [])]
         text = f"{course.get('title', '')}考试结构记录（核验日期 {reference.get('checked_on', '未记录')}）：\n" + "\n".join(rows)

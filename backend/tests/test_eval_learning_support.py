@@ -194,7 +194,8 @@ def test_reveal_is_preserved_as_non_independent_mastery_evidence():
     assert retest_report["calibration"]["recorded"] == 1
     assert retest_report["per_kp"][0]["mastery"] > report["per_kp"][0]["mastery"]
     assert retest_report["review"]["schedule"][0]["stage"] == 1
-    assert retest_report["review"]["schedule"][0]["interval_days"] == 1
+    assert retest_report["review"]["schedule"][0]["scheduler"].startswith("fsrs-6/")
+    assert retest_report["review"]["schedule"][0]["interval_days"] > 0
     with session() as db:
         persisted = db.get(QuizAttempt, report["attempt_id"])
         assert persisted is not None

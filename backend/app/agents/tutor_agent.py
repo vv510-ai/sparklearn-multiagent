@@ -13,7 +13,7 @@ from ..config import is_demo
 from ..llm import multimodal_gateway
 from ..llm.failures import failure_code, MESSAGES
 from ..llm.spark_client import llm_stream
-from ..prompt_templates import render_tutor_prompt
+from ..prompt_templates import invoke_learning_prompt, render_tutor_prompt
 from ..rag.citation import build_context, used_indices
 from ..rag.retriever import retrieve
 from ..safety.grounding import grounding_check, grounding_check_local
@@ -105,8 +105,8 @@ def _normalize_tutor_answer(answer: str, question: str, *, has_context: bool) ->
                 text = value
                 break
 
-    if has_context and text and not re.search(r"\[\^\d+\]", text):
-        text = f"{text} [^1]"
+    # The presence of a source does not prove that the answer came from it.
+    # Citation checks must see exactly the references the model supplied.
     return text
 
 
@@ -370,6 +370,15 @@ def _answer_matches_current_question(answer: str, question: str, topic_kp: str) 
         if len(answer) > 650:
             return False
     return True
+
+
+def _unnecessary_source_refusal(answer: str, question: str) -> bool:
+    """Catch a source-gap refusal for ordinary help, not a request for original text."""
+    if re.search(r"原文|原话|(?:这份|这本|该份).{0,6}(?:资料|教材|讲义|课件|文档)|"
+                 r"(?:资料|教材|讲义|课件|文档)(?:里|中|上)|(?:总结|概括|引述|摘抄).{0,12}(?:资料|教材|讲义|课件|文档)", question):
+        return False
+    return bool(re.search(r"(?:没有|未能|未|没能|缺少).{0,20}(?:检索|资料|教材|片段).{0,60}"
+                          r"(?:无法|不能|暂不|不便).{0,12}(?:回答|补充|建议|讲解)", answer, re.DOTALL))
 
 
 def _rag_demo_answer(
@@ -742,64 +751,60 @@ async def run(state: dict) -> dict:
         ground = {"grounded": True, "unsupported": [],
                   "verdict": "自定义主题离线安全回答" if custom_topic and not chunks else "演示模式直接整理检索片段"}
     else:
-        raw_parts: list[str] = []
-        displayed_parts: list[str] = []
-        model_answer = True
-        selected_model_failed = False
+        answer = ""
+        ground = {"grounded": False, "unsupported": [], "verification": "unavailable"}
+        failure_reason = ""
         try:
             if selected_route:
                 await emit({"type": "progress", "agent": "tutor", "stage": "model_route",
                             "detail": "正在结合问题与资料组织回答",
                             "model_route": {key: selected_route.get(key) for key in ("model", "provider", "automatic", "reason")}})
-            async for delta in llm_stream(
-                prompt,
-                role="reasoner",
-                system=prompt_call.system,
-                temperature=0.25 if guided else 0.45,
-                # Keep room for full explanations and the learner's revision task.
-                max_tokens=6000 if selected_route and selected_route["provider"] == "kimi" else 2400,
-                allow_model_fallback=True,
-                allow_mock_fallback=False,
-                reasoning_mode="" if selected_route and selected_route["provider"] == "kimi" else "disabled",
-                task_context=task_context,
-            ):
-                raw_parts.append(delta)
-                # Validate the entire answer before releasing it: a later token
-                # may invent a citation even if the prefix looked plausible.
-
-            raw_answer = "".join(raw_parts)
-            answer = (
-                "".join(displayed_parts)
-                if answer_streamed
-                else _normalize_tutor_answer(raw_answer, question, has_context=bool(chunks))
-            )
-            if not answer:
-                raise RuntimeError("模型返回了内部提示模板，已阻止向学习者展示")
-            if (
-                not interaction_resource
-                and not _answer_matches_current_question(answer, question, topic_kp)
-            ):
-                answer_scope_fallback_reason = f"模型回答未严格围绕当前问题「{topic_name}」"
-                await emit({
-                    "type": "progress",
-                    "agent": "tutor",
-                    "stage": "answer_scope",
-                    "percent": 100,
-                    "degraded": True,
-                    "reason": "answer_scope_failed",
-                    "detail": (
-                        "回答扩展了未提问的知识点，已记录复核"
-                        if answer_streamed
-                        else "回答扩展了未提问的知识点，已替换为当前问题的最小讲解"
-                    ),
-                })
-                if not answer_streamed:
-                    answer = _rag_demo_answer(
-                        question, chunks, guided=guided, topic_kp=topic_kp,
-                    )
-                    model_answer = False
-        except Exception as error:  # 所有模型不可用时仍保持资料内教学链路可用
-            selected_model_failed = selected_route is not None
+            # One bounded rewrite happens inside the same learner turn. A failed
+            # draft is never exposed or replaced with unrelated textbook excerpts.
+            for attempt in range(2):
+                current_prompt = prompt if attempt == 0 else invoke_learning_prompt(
+                    "tutor.repair", original_prompt=prompt, draft=answer[:10000],
+                    reason=failure_reason, citation_count=len(chunks),
+                ).prompt
+                raw_parts: list[str] = []
+                async for delta in llm_stream(
+                    current_prompt, role="reasoner", system=prompt_call.system,
+                    temperature=0.25 if guided else 0.45,
+                    max_tokens=6000 if selected_route and selected_route["provider"] == "kimi" else 2400,
+                    allow_model_fallback=True, allow_mock_fallback=False,
+                    reasoning_mode="" if selected_route and selected_route["provider"] == "kimi" else "disabled",
+                    task_context=task_context,
+                ):
+                    raw_parts.append(delta)
+                answer = _normalize_tutor_answer("".join(raw_parts), question, has_context=bool(chunks))
+                unnecessary_refusal = supplement and _unnecessary_source_refusal(answer, question)
+                scope_ok = bool(answer) and (bool(interaction_resource) or
+                    _answer_matches_current_question(answer, question, topic_kp)) and not unnecessary_refusal
+                ground = grounding_check_local(
+                    answer, ground_contexts, question=question, allow_supplement=supplement,
+                )
+                if scope_ok and (ground.get("grounded") or ground.get("accepted")):
+                    model_answer = True
+                    if attempt:
+                        await emit({"type": "progress", "agent": "tutor", "stage": "answer_repair",
+                                    "percent": 100, "detail": "已校正本轮回答并重新检查引用"})
+                    break
+                if not scope_ok:
+                    answer_scope_fallback_reason = ("允许通用补充，本轮问题不要求资料原文；不能因为没有检索片段拒答"
+                        if unnecessary_refusal else f"回答没有解决当前问题「{topic_name}」")
+                    failure_reason = answer_scope_fallback_reason
+                else:
+                    grounding_fallback_reason = str(ground.get("verdict") or "引用或资料关联检查未通过")
+                    failure_reason = grounding_fallback_reason
+                if attempt == 0:
+                    await emit({"type": "progress", "agent": "tutor", "stage": "answer_repair",
+                                "percent": 70, "detail": "正在校正回答，确保直接回应问题且引用有效",
+                                "reason": "answer_scope_failed" if not scope_ok else "grounding_failed"})
+            if not model_answer:
+                answer = "这次生成的讲解未通过问题与引用检查，暂时没能给出可靠回答。请重试本条消息。"
+                ground = {"grounded": False, "unsupported": [], "verification": "unavailable",
+                          "verdict": "回答校正后仍未通过检查，未展示无效讲解"}
+        except Exception as error:
             await emit({
                 "type": "progress",
                 "agent": "tutor",
@@ -810,85 +815,11 @@ async def run(state: dict) -> dict:
                 "error": MESSAGES[failure_code(error)],
                 "detail": MESSAGES[failure_code(error)],
             })
-            if answer_streamed:
-                interruption = "\n\n连接刚才短暂中断了，前面的讲解已经保留。你回复“继续”，我会从这里接着讲。"
-                await _emit_answer(interruption)
-                displayed_parts.append(interruption)
-                answer = "".join(displayed_parts)
-                model_answer = True
-            elif resolve(prompt):
-                model_answer = False
-                answer = "所选模型调用失败，本次没有生成讲解。请打开模型设置检查连接和额度后重试。"
-            else:
-                model_answer = False
-                answer = (
-                    f"暂时无法连接讲解模型，并且课程资料中没有「{topic_name}」的可核对内容。请稍后重试。"
-                    if custom_topic and not chunks else
-                    _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
-                )
-
-        if model_answer:
-            if custom_topic and not chunks and not supplement:
-                ground = {
-                    "grounded": True,
-                    "unsupported": [],
-                    "verdict": "自定义主题使用当前文本主脑的通用知识生成，未声明虚构资料引用。",
-                }
-            else:
-                ground = grounding_check_local(
-                    answer,
-                    ground_contexts,
-                    question=question,
-                    allow_supplement=supplement,
-                )
-            if not ground.get("grounded", False) and not ground.get("accepted", False):
-                grounding_fallback_reason = str(ground.get("verdict") or "存在资料外表述")
-                failed_grounding = {
-                    "grounded": False,
-                    "unsupported_count": len(ground.get("unsupported") or []),
-                    "verdict": grounding_fallback_reason,
-                }
-                await emit({
-                    "type": "progress",
-                    "agent": "tutor",
-                    "stage": "grounding",
-                    "percent": 100,
-                    "detail": (
-                        "流式回答需要进一步复核"
-                        if answer_streamed
-                        else "模型回答未通过资料溯源,不会展示原回答"
-                    ),
-                    "grounding": failed_grounding,
-                })
-                if not answer_streamed:
-                    await emit({
-                        "type": "progress",
-                        "agent": "tutor",
-                        "stage": "fallback",
-                        "percent": 100,
-                        "degraded": True,
-                        "reason": "grounding_failed",
-                        "detail": f"已替换为资料内确定性讲解：{grounding_fallback_reason[:100]}",
-                    })
-                    answer = _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
-                    ground = {
-                        "grounded": True,
-                        "unsupported": [],
-                        "verdict": "原回答未通过溯源,已替换为资料片段整理",
-                    }
-        else:
-            ground = {
-                "grounded": True,
-                "unsupported": [],
-                "verdict": (
-                    "所选模型调用失败，未生成讲解" if selected_model_failed else
-                    "模型回答偏离当前问题,已替换为同主题最小讲解"
-                    if answer_scope_fallback_reason else
-                    "模型不可用,已直接整理检索片段"
-                ),
-            }
-            if selected_model_failed:
-                ground["grounded"] = False
+            model_answer = False
+            answer = ("所选模型调用失败，本次没有生成讲解。请打开模型设置检查连接和额度后重试。"
+                      if selected_route else "讲解模型暂时不可用，本次未能生成回答，请稍后重试。")
+            ground = {"grounded": False, "unsupported": [], "verification": "unavailable",
+                      "verdict": "模型调用失败，未生成讲解"}
 
     if model_answer and not answer_streamed:
         from ..services.tutor_question_quality import check_question
@@ -929,13 +860,13 @@ async def run(state: dict) -> dict:
     })
     flags = (
         [{"agent": "tutor", "type": "grounding_fallback", "detail": grounding_fallback_reason}]
-        if grounding_fallback_reason else []
+        if grounding_fallback_reason and not model_answer else []
     )
     if not ground.get("grounded", True) and not ground.get("accepted", False):
         flags.append({"agent": "tutor", "type": "grounding", "detail": ground.get("verdict", "")})
         await emit({"type": "safety", "level": "warn",
                     "detail": "部分表述未命中教材依据,已提示复核"})
-    if answer_scope_fallback_reason:
+    if answer_scope_fallback_reason and not model_answer:
         flags.append({
             "agent": "tutor",
             "type": "answer_scope",

@@ -71,8 +71,11 @@ def test_tutor_replaces_grounded_but_overbroad_sorting_answer(monkeypatch):
             "kp": "sorting_basic",
         }]
 
+    drafts = []
     async def overbroad_stream(*args, **kwargs):
-        yield "排序包括冒泡排序、快速排序、归并排序、计数排序和基数排序，应逐一比较复杂度。[^1]"
+        drafts.append(args[0])
+        yield ("排序包括冒泡排序、快速排序、归并排序、计数排序和基数排序，应逐一比较复杂度。[^1]" if len(drafts) == 1
+               else "排序是按规则重新排列同一批元素。例如从 [3, 1, 2] 按从小到大排列为 [1, 2, 3]。元素没有改变，只改变顺序。[^1]")
 
     async def grounding_must_not_run(*args, **kwargs):
         raise AssertionError("out-of-scope model answer must be replaced before grounding")
@@ -95,7 +98,7 @@ def test_tutor_replaces_grounded_but_overbroad_sorting_answer(monkeypatch):
     assert "[1, 2, 3]" in answer
     assert "快速排序" not in answer
     assert "计数排序" not in answer
-    assert any(flag["type"] == "answer_scope" for flag in result["safety_flags"])
+    assert len(drafts) == 2 and not result["safety_flags"]
 
 
 def test_selected_source_mindmap_does_not_add_course_graph_relations():

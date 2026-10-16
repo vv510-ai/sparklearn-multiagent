@@ -40,7 +40,7 @@ const KIND_META: Record<
   video: { label: "讲解视频", code: "视频", icon: "影", variant: "neutral", hint: "动画讲解、配音与字幕；附讲稿与分镜，可暂停对照学习" },
   song: { label: "记忆歌曲", code: "歌曲", icon: "♪", variant: "warn", hint: "先跟唱熟悉旋律，再用填空模式检验能不能唱出关键词" },
   ppt: { label: "复习演示", code: "PPT", icon: "演", variant: "info", hint: "仅在你明确要求时生成；完成后可下载并继续编辑" },
-  flashcards: { label: "记忆闪卡", code: "闪卡", icon: "卡", variant: "warn", hint: "先独立回忆，再翻面核对；可标记已经掌握的卡片" },
+  flashcards: { label: "记忆闪卡", code: "闪卡", icon: "卡", variant: "warn", hint: "先独立回忆，再翻面核对；保存回忆情况并安排下次复习" },
   infographic: { label: "学习信息图", code: "信息图", icon: "视", variant: "info", hint: "把来源内的结论、结构、过程与边界放进一张图" },
   data_table: { label: "知识数据表", code: "数据表", icon: "表", variant: "neutral", hint: "对照、筛选并复制为 CSV，方便继续整理" },
   manim: { label: "Manim 数学动画", code: "MANIM", icon: "动", variant: "success", hint: "浏览器先看动态分镜；有预渲染视频时直接播放，并保留可下载代码" },
@@ -107,7 +107,7 @@ function resourcePreview(r: ResourceItem): string {
       .slice(0, 86);
   }
   if (Array.isArray(questions)) return `${questions.length} 道题，提交后会更新掌握情况与错因。`;
-  if (flashcards?.cards?.length) return `${flashcards.cards.length} 张主动回忆卡，可翻面与标记掌握。`;
+  if (flashcards?.cards?.length) return `${flashcards.cards.length} 张主动回忆卡，可翻面核对并加入复习。`;
   if (infographic?.sections?.length) return `${infographic.sections.length} 个视觉区块，一图串起结论、过程与边界。`;
   if (dataTable?.rows?.length) return `${dataTable.rows.length} 行知识对照，可复制为 CSV。`;
   const video = payload.video as ResourceItem["payload"]["video"];
@@ -307,7 +307,7 @@ export default function ResourceCard({
           ) : r.kind === "quiz" && payload.questions ? (
             <QuizPlayer key={r.id} resourceId={r.id} questions={payload.questions} onEvaluated={onQuizEvaluated} onOpenMistakes={onOpenMistakes} />
           ) : r.kind === "flashcards" && payload.flashcards ? (
-            <FlashcardsBlock artifact={payload.flashcards} />
+            <FlashcardsBlock artifact={payload.flashcards} resourceId={r.id} />
           ) : r.kind === "infographic" && payload.infographic ? (
             <InfographicBlock artifact={payload.infographic} />
           ) : r.kind === "data_table" && payload.data_table ? (
@@ -317,7 +317,7 @@ export default function ResourceCard({
           ) : r.kind === "ppt" ? (
             <PptBlock payload={payload} />
           ) : r.kind === "song" && payload.song ? (
-            <SongBlock song={payload.song} title={title} />
+            <SongBlock song={payload.song} title={title} resourceId={r.id} />
           ) : payload.markdown ? (
             <>
               {payload.generation_details?.message && <p role="status" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">{payload.generation_details.message}</p>}

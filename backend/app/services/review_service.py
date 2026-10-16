@@ -1,8 +1,4 @@
-"""Durable spaced-review scheduling for quiz questions.
-
-The schedule uses independent retrieval practice at 1, 3, 7, 14 and 30 days.
-Any incorrect review resets the item to the short one-day interval.
-"""
+"""Durable quiz recall using the shared FSRS scheduler."""
 from __future__ import annotations
 
 import datetime as dt
@@ -14,8 +10,7 @@ from ..models.db import session
 from ..models.entities import Resource, ReviewItem
 from .knowledge_graph import kp_name
 from .learning_scope import event_in_scope
-
-INTERVAL_DAYS = (1, 3, 7, 14, 30)
+from .review_scheduler import VERSION, schedule
 
 
 def utc_now() -> dt.datetime:
@@ -131,31 +126,27 @@ def apply_review_results(
                 continue
 
             correct = bool(result.get("mastery_correct", result.get("correct")))
-            if correct:
-                next_stage = int(row.stage or 0) + 1
-                if next_stage > len(INTERVAL_DAYS):
-                    row.stage = next_stage
-                    row.status = "mastered"
-                    row.due_at = current
-                    interval_days = None
-                else:
-                    interval_days = INTERVAL_DAYS[next_stage - 1]
-                    row.stage = next_stage
-                    row.status = "scheduled"
-                    row.due_at = current + dt.timedelta(days=interval_days)
-            else:
-                interval_days = 1
-                row.stage = 0
+            data = dict(row.data or {})
+            prior = dict(data.get("schedule") or {})
+            prior["due_at"] = as_utc(row.due_at).isoformat()
+            early = as_utc(row.due_at) > current
+            helped = bool(result.get("hint_used") or result.get("revealed") or result.get("confidence") == "guess")
+            rating = "again" if not correct else "hard" if result.get("confidence") == "unsure" else "good"
+            track, audit = schedule(prior, {"early": early, "used_help": helped, "correct": correct},
+                                    rating, current, f"question:{user_id}:{row.quiz_resource_id}:{row.question_id}")
+            if audit["scheduling_applied"]:
+                row.due_at = dt.datetime.fromisoformat(track["due_at"])
                 row.status = "scheduled"
-                row.due_at = current + dt.timedelta(days=interval_days)
-                row.lapse_count = int(row.lapse_count or 0) + 1
-
+                row.stage = int(row.stage or 0) + 1 if audit["effective_rating"] != "again" else 0
+                row.lapse_count = int(row.lapse_count or 0) + int(audit["effective_rating"] == "again")
+            interval_days = round(max(0, (as_utc(row.due_at) - current).total_seconds()) / 86400, 6)
             row.last_correct = int(correct)
-            row.data = _history(row.data, {
+            row.data = _history({**data, "schedule": track}, {
                 "phase": phase,
                 "correct": correct,
                 "at": current.isoformat(),
                 "next_interval_days": interval_days,
+                **audit,
             })
             row.data = {
                 **row.data,
@@ -173,6 +164,8 @@ def apply_review_results(
                 "due_at": as_utc(row.due_at).isoformat(),
                 "interval_days": interval_days,
                 "lapse_count": row.lapse_count,
+                "scheduler": track.get("scheduler", "legacy"),
+                **{key: value for key, value in audit.items() if key != "fsrs_log"},
             })
         s.commit()
     return schedules
@@ -194,7 +187,9 @@ def review_queue(user_id: str, *, limit: int = 10, at: dt.datetime | None = None
             )).scalars().all()
         } if rows else {}
 
-    rows = [row for row in rows if row.quiz_resource_id in resources and event_in_scope(resources[row.quiz_resource_id].payload)]
+    rows = [row for row in rows if row.quiz_resource_id in resources
+            and resources[row.quiz_resource_id].kind == "quiz"
+            and event_in_scope(resources[row.quiz_resource_id].payload)]
     scheduled_rows = [row for row in rows if row.status == "scheduled"]
     due_rows = [row for row in scheduled_rows if as_utc(row.due_at) <= current]
     upcoming_rows = [row for row in scheduled_rows if as_utc(row.due_at) > current]
@@ -239,7 +234,7 @@ def review_queue(user_id: str, *, limit: int = 10, at: dt.datetime | None = None
             "mastered": sum(row.status == "mastered" for row in rows),
             "next_due_at": (as_utc(upcoming_rows[0].due_at).isoformat()
                             if upcoming_rows else None),
-            "interval_days": list(INTERVAL_DAYS),
+            "scheduler": VERSION,
         },
     }
 
@@ -267,7 +262,8 @@ def mistake_book(user_id: str, *, limit: int = 100) -> dict:
 
     items: list[dict[str, Any]] = []
     for row in rows:
-        if row.quiz_resource_id not in resources or not event_in_scope(resources[row.quiz_resource_id].payload):
+        if (row.quiz_resource_id not in resources or resources[row.quiz_resource_id].kind != "quiz"
+                or not event_in_scope(resources[row.quiz_resource_id].payload)):
             continue
         data = row.data if isinstance(row.data, dict) else {}
         history = [event for event in data.get("history", []) if isinstance(event, dict)]

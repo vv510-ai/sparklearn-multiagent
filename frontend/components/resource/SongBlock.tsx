@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Mic2, Music4, PencilLine } from "lucide-react";
 import { apiAssetUrl } from "@/lib/api";
+import { markRecallLyricsHelp } from "@/lib/review";
+import RecallPractice from "./RecallPractice";
 import type { SongPayload } from "@/lib/types";
 
 type Line = { text: string; section: boolean; start: number | null };
@@ -41,13 +43,12 @@ function timed(lines: Line[], timeline: { text: string; start: number; end: numb
   return lines.map(line => (line.section ? line : { ...line, start: intro + step * index++ }));
 }
 
-export default function SongBlock({ song, title }: { song: SongPayload; title: string }) {
+export default function SongBlock({ song, title, resourceId }: { song: SongPayload; title: string; resourceId: string }) {
   const versions = (song.versions || []).filter(version => version.audio_url);
   const [current, setCurrent] = useState(0);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [cloze, setCloze] = useState(false);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
   const audio = useRef<HTMLAudioElement>(null);
   const lyricsBox = useRef<HTMLDivElement>(null);
   const version = versions[current];
@@ -89,7 +90,7 @@ export default function SongBlock({ song, title }: { song: SongPayload; title: s
           {versions.length > 1 && <div className="ll-song-versions" role="group" aria-label="选择歌曲版本">
             {versions.map((item, index) => <button key={item.song_id} type="button" aria-pressed={index === current} onClick={() => { setCurrent(index); setTime(0); }}>版本 {index + 1}</button>)}
           </div>}
-          {audioUrl ? <audio ref={audio} key={audioUrl} src={audioUrl} controls preload="metadata"
+          {cloze ? <p className="mt-3 text-xs">先独立回忆；需要听歌时，可以返回完整歌词。</p> : audioUrl ? <audio ref={audio} key={audioUrl} src={audioUrl} controls preload="metadata"
             onTimeUpdate={event => setTime(event.currentTarget.currentTime)}
             onLoadedMetadata={event => setDuration(event.currentTarget.duration || 0)} />
             : <p className="mt-3 rounded-lg bg-black/20 px-3 py-2 text-xs leading-5">{song.error || "音乐还没有生成成功；口诀和歌词已经保存，可以先读一读。"}</p>}
@@ -102,19 +103,10 @@ export default function SongBlock({ song, title }: { song: SongPayload; title: s
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <strong className="flex items-center gap-1.5 text-sm text-[#5d3a0d]"><Mic2 size={16} aria-hidden />{cloze ? "跟唱填空" : "歌词跟唱"}</strong>
-            {clozeItems.length > 0 && <button type="button" className="secondary-action !min-h-[32px] !px-3 !py-1 text-xs" onClick={() => setCloze(value => !value)}><PencilLine size={14} />{cloze ? "看完整歌词" : "填空检验"}</button>}
+            {(clozeItems.length > 0 || !!song.mnemonic?.length) && <button type="button" className="secondary-action !min-h-[32px] !px-3 !py-1 text-xs" onClick={() => { audio.current?.pause(); markRecallLyricsHelp(resourceId); setCloze(value => !value); }}><PencilLine size={14} />{cloze ? "看完整歌词" : "复习口诀"}</button>}
           </div>
           {cloze ? (
-            <div className="ll-lyrics ll-cloze" aria-label="填空检验：唱出关键词">
-              {clozeItems.map((item, index) => {
-                const [before, ...rest] = item.line.split(item.answer);
-                const value = answers[index] || "";
-                const right = value.trim() !== "" && value.replace(/\s+/g, "") === item.answer.replace(/\s+/g, "");
-                return <p key={index}>{before}<input aria-label={`第 ${index + 1} 处关键词`} value={value} className={right ? "is-right" : ""}
-                  onChange={event => setAnswers(current => ({ ...current, [index]: event.target.value }))} />{rest.join(item.answer)}</p>;
-              })}
-              <p className="mt-3 text-xs text-[#8a7a5e]">先不看歌词唱一遍，再把关键词填回去。全部变绿说明已经能主动回忆。</p>
-            </div>
+            <RecallPractice resourceId={resourceId} />
           ) : (
             <div ref={lyricsBox} className="ll-lyrics" aria-live="off">
               {lines.length ? lines.map((line, index) => (
@@ -127,7 +119,7 @@ export default function SongBlock({ song, title }: { song: SongPayload; title: s
           )}
         </div>
         <div className="space-y-3">
-          {!!song.mnemonic?.length && <div className="ll-mnemonic">
+          {!cloze && !!song.mnemonic?.length && <div className="ll-mnemonic">
             <h4>记忆口诀</h4>
             <ol>{song.mnemonic.map((item, index) => <li key={index}><strong>{item.line}</strong>{item.meaning && <small>{item.meaning}</small>}</li>)}</ol>
           </div>}

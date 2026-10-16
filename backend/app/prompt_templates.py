@@ -284,7 +284,8 @@ def render_tutor_prompt(
         conversation=_dialog_text(conversation),
         context=context or "（没有检索到可用片段）",
         **({"source_rules": _read_prompt("shared/source-supplement.md")} if source_policy == "supplement"
-           else {"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge else {}),
+           else {"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge
+           else {"source_rules": _read_prompt("tutor/source-boundary.md")}),
     )
 
 

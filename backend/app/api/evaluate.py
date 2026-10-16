@@ -23,7 +23,8 @@ from ..models.entities import QuizAttempt, Resource, ReviewItem
 from ..rag.ingest import validate_source_scope
 from ..schemas.core import (EvalRetestRequest, EvalReviewRequest, EvalSubmit,
                             EvalSupportRequest, MistakeFavoriteRequest,
-                            MistakePracticeRequest, RemediationRequest)
+                            MistakePracticeRequest, RemediationRequest,
+                            RecallEnrollRequest, RecallSubmitRequest)
 from ..services.knowledge_graph import canonical_kp_id, kp_name
 from ..services.learning_evidence import build_learning_evidence
 from ..services.final_review_demo_service import enforce_final_review_submission
@@ -582,7 +583,29 @@ async def retest(req: EvalRetestRequest):
 @scoped_endpoint
 async def get_review_queue(user_id: str = Query("demo_user"), limit: int = Query(10, ge=1, le=50), notebook_id: str = ""):
     ensure_user(user_id)
-    return review_queue(user_id, limit=limit)
+    from ..services.recall_service import recall_queue
+    return {**review_queue(user_id, limit=limit), "recall": recall_queue(user_id)}
+
+
+@router.get("/recall/{resource_id}")
+@scoped_endpoint
+async def get_resource_recall(resource_id: str, user_id: str = "demo_user", due_only: bool = False):
+    from ..services.recall_service import get_recall
+    return get_recall(user_id, resource_id, due_only=due_only)
+
+
+@router.post("/recall/{resource_id}/enroll")
+@scoped_endpoint
+async def enroll_resource_recall(resource_id: str, req: RecallEnrollRequest):
+    from ..services.recall_service import enroll
+    return enroll(req.user_id, resource_id)
+
+
+@router.post("/recall/{resource_id}")
+@scoped_endpoint
+async def submit_resource_recall(resource_id: str, req: RecallSubmitRequest):
+    from ..services.recall_service import record
+    return record(req.user_id, resource_id, req)
 
 
 @router.get("/mistake-book")

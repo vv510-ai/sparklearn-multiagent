@@ -1,70 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Copy, Eye, RotateCcw } from "lucide-react";
+import { ArrowRight, Copy, Eye } from "lucide-react";
 import { Badge, Notice } from "@/components/ui";
 import { apiAssetUrl } from "@/lib/api";
 import OnePageGallery from "./OnePageGallery";
+import RecallPractice from "./RecallPractice";
 import type { ResourceItem } from "@/lib/types";
 
 type Payload = ResourceItem["payload"];
 
-export function FlashcardsBlock({ artifact }: { artifact: NonNullable<Payload["flashcards"]> }) {
-  const cards = artifact.cards || [];
-  const [index, setIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [known, setKnown] = useState<Set<string>>(new Set());
-  const card = cards[index];
-
+export function FlashcardsBlock({ artifact, resourceId }: { artifact: NonNullable<Payload["flashcards"]>; resourceId: string }) {
   if (artifact.blocked) return <Notice tone="warn" title="闪卡暂未生成" desc={artifact.blocked_reason || "所选资料没有可用内容。"} />;
-  if (!card) return <Notice tone="warn" title="闪卡为空" desc="请重新生成这组闪卡。" />;
-
-  const move = (delta: number) => {
-    setIndex((current) => (current + delta + cards.length) % cards.length);
-    setFlipped(false);
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div><div className="text-[10px] font-bold tracking-[0.18em] text-fuchsia-700">ACTIVE RECALL</div><strong className="text-sm text-slate-900">{artifact.title || "复习闪卡"}</strong></div>
-        <Badge variant="info">已掌握 {known.size}/{cards.length}</Badge>
-      </div>
-      <button
-        type="button"
-        onClick={() => setFlipped((value) => !value)}
-        className={`group relative flex min-h-56 w-full flex-col justify-between overflow-hidden rounded-2xl border p-5 text-left shadow-sm transition ${flipped ? "border-emerald-200 bg-emerald-50" : "border-fuchsia-200 bg-gradient-to-br from-fuchsia-50 via-white to-violet-50"}`}
-        aria-label={flipped ? "查看闪卡正面" : "翻面查看答案"}
-      >
-        <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/70" />
-        <div className="relative flex items-center justify-between text-[11px] font-bold tracking-[0.15em] text-slate-500">
-          <span>{flipped ? "BACK · 答案" : "FRONT · 问题"}</span><span>{index + 1}/{cards.length}</span>
-        </div>
-        <div className={`relative my-6 text-center font-bold leading-8 ${flipped ? "text-base text-emerald-950" : "text-xl text-slate-950"}`}>
-          {flipped ? card.back : card.front}
-        </div>
-        <div className="relative flex items-center justify-between gap-3 text-xs text-slate-500">
-          <span>{!flipped && card.hint ? `提示：${card.hint}` : card.source_index ? `依据 [${card.source_index}]` : "来源约束内容"}</span>
-          <span className="flex items-center gap-1 font-semibold text-fuchsia-700"><RotateCcw size={14} /> 点击翻面</span>
-        </div>
-      </button>
-      <div className="flex items-center justify-between gap-2">
-        <button type="button" onClick={() => move(-1)} className="secondary-action"><ArrowLeft size={14} /> 上一张</button>
-        <button
-          type="button"
-          onClick={() => setKnown((current) => {
-            const next = new Set(current);
-            if (next.has(card.id)) next.delete(card.id); else next.add(card.id);
-            return next;
-          })}
-          className={known.has(card.id) ? "primary-action" : "secondary-action"}
-        >
-          <Check size={14} /> {known.has(card.id) ? "已掌握" : "标记掌握"}
-        </button>
-        <button type="button" onClick={() => move(1)} className="secondary-action">下一张 <ArrowRight size={14} /></button>
-      </div>
-    </div>
-  );
+  return <RecallPractice resourceId={resourceId} />;
 }
 
 export function InfographicBlock({ artifact }: { artifact: NonNullable<Payload["infographic"]> }) {

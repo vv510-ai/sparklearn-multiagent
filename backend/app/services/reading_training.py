@@ -20,7 +20,8 @@ from ..models.db import session
 from ..models.entities import ReadingTraining
 from ..schemas.reading import ReadingAction, ReadingMaterial
 from .learning_scope import ensure_space, course_scope
-from .review_service import INTERVAL_DAYS, review_queue
+from .review_service import review_queue
+from .review_scheduler import schedule
 from .study_paths import course_key
 
 
@@ -228,7 +229,10 @@ def act(user: str, notebook: str, item: str, req: ReadingAction) -> dict:
             data["phase"] = "drill_feedback"
         elif req.action == "finish" and phase == "drill_feedback":
             data["phase"] = "done"
-            data["review"] = {"stage": 0, "due_at": (now + dt.timedelta(days=INTERVAL_DAYS[0])).isoformat()}
+            # Feedback was just visible; schedule fresh recall without treating
+            # seeing an answer as independent success.
+            data["review"], _ = schedule({}, {"early": False, "used_help": True},
+                                        "again", now, f"reading:{user}:{item}")
         elif req.action == "start_review" and phase == "done":
             review = data["review"]
             due_at = review.get("due_at")
@@ -250,10 +254,11 @@ def act(user: str, notebook: str, item: str, req: ReadingAction) -> dict:
                     "kind": "original" if all(q["kind"] == "original" for q in exercises) else "short"}
                 data["reviews"].append(record)
                 data["last_review"] = {**record, "feedback": exercises}
-                if not early and not data["used_help"]:
-                    stage = data["review"]["stage"] + 1 if correct == len(exercises) else 0
-                    due = (now + dt.timedelta(days=INTERVAL_DAYS[stage])).isoformat() if stage < len(INTERVAL_DAYS) else None
-                    data["review"] = {"stage": stage, "due_at": due}
+                data["review"], audit = schedule(data["review"],
+                    {"early": early, "used_help": data["used_help"], "correct": correct == len(exercises)},
+                    "good" if correct == len(exercises) else "again", now, f"reading:{user}:{item}")
+                data["reviews"][-1].update(audit)
+                data["last_review"].update(audit)
                 data["phase"] = "done"
                 data.pop("active_review", None)
         else:

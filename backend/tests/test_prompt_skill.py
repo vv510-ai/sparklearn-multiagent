@@ -51,6 +51,7 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "learner_input": "{}", "facts": "{}", "references": "[]",
         "base_request": "依据资料准备课程题目",
         "draft": "{}",
+        "original_prompt": "根据当前问题作答", "reason": "无效引用", "citation_count": 1,
         "validation_issue": "多选题至少两个正确选项",
         "topic": "示例主题",
         "level": "入门", "words": "example", "scene": "日常", "subtitles": "",

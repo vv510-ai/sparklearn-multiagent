@@ -4,7 +4,7 @@
   "source_sha256": "15de8bb9c126b52421b69c68d40167d4f060c06b33d8bf4f0a759b937339e07d",
   "source_problem_count": 25,
   "source_image_count": 29,
-  "updated_at": "2026-10-15",
+  "updated_at": "2026-10-17",
   "issues": [
     {
       "id": "FB-01",
@@ -603,6 +603,32 @@
       "limitations": "截图明确显示课程列表加载失败；原创PDF可复测，原雅思PDF缺失",
       "next_action": "原创 PDF 解析与目录断网分别验收；后续补充扫描件、图片 PDF 与原文件样本，不泛化为全部 PDF。",
       "cause": "截图实际报错为课程列表加载失败；需将目录网络故障与 PDF 解析分别验证，不能仅据截图断定解析器故障。"
+    },
+    {
+      "id": "CHAT-REVIEW-20261017",
+      "title": "普通问答原文拼接、六级首次拒答与复习调度分离",
+      "group": "问答与复习",
+      "status": "partial",
+      "checked_commit": "",
+      "source_feedback": [
+        "继续修好普通文字聊天拼接教材原文的问题，统一复习调度，实际测试通过后部署阿里云。",
+        "六级怎么备考第一次就应正常回答，不要没检索到教材就拒答。"
+      ],
+      "acceptance": "首次普通备考问题直接给建议；严格资料边界保留；错题、闪卡、口诀复习记录持久保存并统一调度。",
+      "test_refs": [
+        "backend/tests/test_tutor_answer_recovery.py",
+        "backend/tests/test_resource_recall.py",
+        "backend/tests/test_spaced_review.py",
+        "backend/tests/test_vocabulary_scheduler.py",
+        "backend/tests/test_reading_training.py"
+      ],
+      "evidence": [
+        "最终后端 1027 项通过，前端生产构建通过。",
+        "完整草稿同轮纠正、重复提交/冲突、跨账号与课程边界均有针对性回归。",
+        "docs/quality/2026-10-17-chat-review.md；本次浏览器及生产原始证据保存在工作区 .chat-review-20261017。"
+      ],
+      "limitations": "提交时记录本地结果；真实模型输出质量与生产运行版本须由发布后的同版本实测确认。",
+      "next_action": "推送 main，等待阿里云自动发布后在发布锁内验证首次六级问答、Python 聚焦回答、严格资料边界和真实生成资源的复习保存。"
     }
   ],
   "audit_note": "2026-09-24 复核结束：原反馈不能标记全部解决。新增 QA-01 独立跟踪，不混入原文 25 项计数。单次样本不保证所有模型输出；详见 2026-09-24-audit.md。",
@@ -613,11 +639,26 @@
       "status": "verified",
       "group": "个人图片接入",
       "checked_commit": "520f1a06b470ff4adbe1c5e24a285f883e3fcf07",
-      "source_feedback": ["刚刚测试的时候 很容易中断出现问题 而且响应时间很慢", "查清问题 并进行优化 测试 确保整个流程流畅", "为什么老是出现这个 能不能不要出现（chrome-devtools 黑窗口）"],
+      "source_feedback": [
+        "刚刚测试的时候 很容易中断出现问题 而且响应时间很慢",
+        "查清问题 并进行优化 测试 确保整个流程流畅",
+        "为什么老是出现这个 能不能不要出现（chrome-devtools 黑窗口）"
+      ],
       "acceptance": "正常按钮连续完成普通 Chat 生成、原图回传、归档和刷新；短暂网络故障及回传回执丢失不重复生图；记录各阶段耗时。",
-      "test_refs": ["backend/tests/test_personal_image.py", "backend/tests/test_personal_image_worker.py", "backend/tests/test_generation_jobs.py"],
+      "test_refs": [
+        "backend/tests/test_personal_image.py",
+        "backend/tests/test_personal_image_worker.py",
+        "backend/tests/test_generation_jobs.py"
+      ],
       "cause": "本站连接继承代理产生延迟和超时；等待图片反复重放生成图、重置事件；原有上传恢复次数少且日志无法分辨耗时。",
-      "evidence": [".tmp/personal-image-recheck/network-probe.json：同一接口原路径 11/12 成功、中位 2.914 秒；本站直连 12/12、中位 0.172 秒。", ".tmp/personal-image-recheck/stability/backend-tests.log：最后相关代码修改后完整后端 949 项通过。", ".tmp/personal-image-recheck/stability/normal-1.json、normal-2.json、normal-3.json：3轮正常生成均保存原图，归档刷新与指纹核对完成；第2轮观察中断的记录及补验保留。", ".tmp/personal-image-recheck/stability/fault-injection.json、fault-1.json：真实流程中注入3种暂时故障均恢复，UI只发送1次，归档重开后原图一致。", ".tmp/personal-image-recheck/stability/window-probe-browser-live.json：12次真实浏览器调用、478次窗口采样，没有辅助黑窗口。", "docs/2026-10-15-personal-chat-image.md：诊断、各阶段耗时、完成条件与保留限制。"],
+      "evidence": [
+        ".tmp/personal-image-recheck/network-probe.json：同一接口原路径 11/12 成功、中位 2.914 秒；本站直连 12/12、中位 0.172 秒。",
+        ".tmp/personal-image-recheck/stability/backend-tests.log：最后相关代码修改后完整后端 949 项通过。",
+        ".tmp/personal-image-recheck/stability/normal-1.json、normal-2.json、normal-3.json：3轮正常生成均保存原图，归档刷新与指纹核对完成；第2轮观察中断的记录及补验保留。",
+        ".tmp/personal-image-recheck/stability/fault-injection.json、fault-1.json：真实流程中注入3种暂时故障均恢复，UI只发送1次，归档重开后原图一致。",
+        ".tmp/personal-image-recheck/stability/window-probe-browser-live.json：12次真实浏览器调用、478次窗口采样，没有辅助黑窗口。",
+        "docs/2026-10-15-personal-chat-image.md：诊断、各阶段耗时、完成条件与保留限制。"
+      ],
       "limitations": "只关闭已复现的连接、进度、暂时故障恢复和黑窗口问题；正常整轮实测约173至242秒，Chat绘图耗时仍有波动。依赖电脑联网、Chrome登录与本人授权；不保证长时间断网、限额或页面改版自动恢复。图片内容问题单列QA-CHAT-IMAGE-CONTENT-20261016。",
       "next_action": "本条在上述范围已验证；新故障按脱敏分阶段日志定位，不将接口加速等同于整轮固定速度。"
     },
@@ -629,8 +670,13 @@
       "checked_commit": "520f1a06b470ff4adbe1c5e24a285f883e3fcf07",
       "discovered_by": "2026-10-16稳定性验收时逐张人工查看实际原图。",
       "acceptance": "真实图片中的条件、否定词、公式与连线被可靠核对，错误图不能被标为已核验；生成与回传成功不能代替内容正确。",
-      "test_refs": ["backend/app/services/one_page_image.py"],
-      "evidence": [".tmp/personal-image-recheck/stability/normal-3.png：四轮比较和下标7正确，但边界说明把不是目标写成一定是目标，逻辑相反。", "资源b17677666821的verification.status仍为unverified，网页保留图片已生成仍需核对提示及文字版；原图与问题记录均保留。"],
+      "test_refs": [
+        "backend/app/services/one_page_image.py"
+      ],
+      "evidence": [
+        ".tmp/personal-image-recheck/stability/normal-3.png：四轮比较和下标7正确，但边界说明把不是目标写成一定是目标，逻辑相反。",
+        "资源b17677666821的verification.status仍为unverified，网页保留图片已生成仍需核对提示及文字版；原图与问题记录均保留。"
+      ],
       "limitations": "当前图片理解服务不可用；本次只完成稳定性链路验收，未解决所有生图文字错误。",
       "next_action": "后续单独验证可用的图片理解服务与实际纠错流程；在此之前保留未核验标记，不宣称图片内容全部正确。"
     },
@@ -644,7 +690,10 @@
         "希望先分析成绩，讲清当前情况、复习重点和理由，让学生开始练习前心里有底。",
         "希望得到完整、有例子、有依据的初步建议，不是泛泛的固定操作清单。"
       ],
-      "test_refs": ["backend/tests/test_cet6_advice.py", "frontend/e2e/cet6-advice.spec.ts"],
+      "test_refs": [
+        "backend/tests/test_cet6_advice.py",
+        "frontend/e2e/cet6-advice.spec.ts"
+      ],
       "evidence": [
         "docs/2026-10-04-cet6-onboarding-advice.md：第三版结构、事实边界及真实内容验收标准。",
         ".tmp/acceptance/20261004T152246Z-local/report.json：前端生产构建、15项浏览器流程通过，桌面与手机截图已检查。",

@@ -7,6 +7,8 @@ import { Badge, Notice, Stat } from "@/components/ui";
 import { USER_ID, apiGet, apiPost } from "@/lib/api";
 import type { EvaluationReport } from "@/components/resource/QuizRetest";
 import ConfidencePicker, { calibrationSignalText, type ConfidenceLevel } from "@/components/resource/ConfidencePicker";
+import RecallPractice from "@/components/resource/RecallPractice";
+import { formatReviewTime } from "@/lib/review";
 
 interface ReviewQuestion {
   id: string;
@@ -35,12 +37,13 @@ interface QueueSummary {
   upcoming: number;
   mastered: number;
   next_due_at?: string | null;
-  interval_days: number[];
+  scheduler?: string;
 }
 
 interface QueueResponse {
   items: ReviewQueueItem[];
   summary: QueueSummary;
+  recall?: { due: number; upcoming: number; items: { resource_id: string; title: string; kind: string; due: number; upcoming: number; next_due_at: string }[] };
 }
 
 interface ReviewSchedule {
@@ -110,6 +113,7 @@ export default function ReviewQueue({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ReviewReport | null>(null);
+  const [recallId, setRecallId] = useState("");
   const startedAt = useRef<Record<number, number>>({});
 
   const resultItems = useMemo(() => Object.fromEntries(
@@ -194,6 +198,7 @@ export default function ReviewQueue({
   }
 
   if (!started) {
+    const dueCount = queue.summary.due + (queue.recall?.due || 0);
     return (
       <div className="insight-panel p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -203,19 +208,30 @@ export default function ReviewQueue({
               <span className="text-xs font-bold text-[#0F6B50]">今日复习</span>
             </div>
             <h2 className="mt-3 text-xl font-bold text-[#1D2028]">
-              {queue.summary.due ? `今天有 ${queue.summary.due} 道题需要回忆` : "今天的复习已经完成"}
+              {dueCount ? `当前有 ${dueCount} 个到期复习项` : "当前没有到期复习"}
             </h2>
             <p className="mt-2 text-sm leading-6 text-[#6F7684]">
-              系统按 1、3、7、14、30 天安排独立回忆；答错会回到短间隔。
+              错题、闪卡和口诀会根据回忆情况安排下一次复习。借助提示和提前练习会单独记录。
             </p>
           </div>
           <button onClick={() => void loadQueue()} className="secondary-action">刷新队列</button>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <Stat label="今日到期" value={queue.summary.due} tone={queue.summary.due ? "warn" : "success"} />
-          <Stat label="后续已排期" value={queue.summary.upcoming} tone="action" />
-          <Stat label="完成周期" value={queue.summary.mastered} tone="success" />
+          <Stat label="当前到期" value={dueCount} tone={dueCount ? "warn" : "success"} />
+          <Stat label="后续已排期" value={queue.summary.upcoming + (queue.recall?.upcoming || 0)} tone="action" />
+          <Stat label="旧版已完成周期" value={queue.summary.mastered} tone="success" />
         </div>
+        {!!queue.recall?.items.length && <div className="mt-4 space-y-3">
+          <strong className="text-sm">闪卡与口诀</strong>
+          {queue.recall.items.map(item => <div key={item.resource_id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 text-sm">
+            <span>{item.title}<small className="ml-2 text-slate-500">{item.due ? `${item.due} 张到期` : `下次 ${formatReviewTime(item.next_due_at)}`}</small></span>
+            <button className="secondary-action" onClick={() => setRecallId(item.resource_id)}>{item.due ? "开始回忆" : "提前练习"}</button>
+          </div>)}
+          {recallId && <div className="rounded-xl border border-slate-200 p-4">
+            <div className="mb-3 flex justify-end"><button className="secondary-action" onClick={() => { setRecallId(""); void loadQueue(); }}>返回复习列表</button></div>
+            <RecallPractice key={recallId} resourceId={recallId} dueOnly={Boolean(queue.recall.items.find(item => item.resource_id === recallId)?.due)} />
+          </div>}
+        </div>}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E1E4EC] bg-[#F8F9FC] px-4 py-3 text-xs text-[#626978]">
           <span>{queue.summary.next_due_at ? `下一次计划：${formatDue(queue.summary.next_due_at)}` : "完成错题或复测后，这里会自动生成计划。"}</span>
           {queue.items.length > 0 && (
@@ -252,7 +268,7 @@ export default function ReviewQueue({
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   <Badge variant="info">{item.kp_name}</Badge>
                   <Badge variant="warn">上次卡点：{item.reason}</Badge>
-                  <Badge variant="neutral">阶段 {item.stage}/5</Badge>
+                  <Badge variant="neutral">连续回忆 {item.stage} 次</Badge>
                 </div>
               </div>
             </div>
@@ -325,7 +341,7 @@ export default function ReviewQueue({
                 )}
                 {schedule && (
                   <div className="mt-1 text-slate-600">
-                    {schedule.status === "mastered" ? "已完成本轮间隔周期" : `下次复习：${schedule.interval_days} 天后`}
+                    {schedule.status === "mastered" ? "已完成旧版间隔周期" : `下次复习：${formatReviewTime(schedule.due_at)}`}
                   </div>
                 )}
               </div>

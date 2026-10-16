@@ -149,7 +149,7 @@ def scoped_endpoint(fn):
             space_id = ""
         snapshot = None
         assessment_id = bound.get("assessment_id")
-        resource_id = getattr(req, "quiz_resource_id", "")
+        resource_id = getattr(req, "quiz_resource_id", "") or bound.get("resource_id", "")
         with session() as db:
             if assessment_id:
                 row = db.get(AssessmentSession, assessment_id)

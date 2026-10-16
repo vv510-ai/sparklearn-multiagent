@@ -160,7 +160,9 @@ def test_draft_feedback_has_room_for_source_feedback_and_revision_task(learner, 
     calls = []
     async def stream(prompt, **kwargs):
         calls.append((prompt, kwargs))
-        yield "你的作文观点明确。原句 Universities should offer quiet rooms 能表达立场。请你自己补写一个支持理由，再发给我。[^1]"
+        # A fabricated reference must be repaired even in feedback on a user draft.
+        suffix = "[^1]" if len(calls) == 1 else ""
+        yield "你的作文观点明确。原句 Universities should offer quiet rooms 能表达立场。请你自己补写一个支持理由，再发给我。" + suffix
     monkeypatch.setattr(tutor_agent, "llm_stream", stream)
     monkeypatch.setattr(tutor_agent, "is_demo", lambda: False)
     question = "请反馈下面的写作原稿。\n\n题目：讨论大学学习空间。\n\n我的原稿：\nUniversities should offer quiet rooms."
@@ -171,4 +173,5 @@ def test_draft_feedback_has_room_for_source_feedback_and_revision_task(learner, 
     assert "Universities should offer quiet rooms" in calls[0][0]
     assert "自行修订" in calls[0][0]
     assert "请你自己补写" in result["answer"] and not result["citations"]
+    assert len(calls) == 2 and "[^1]" not in result["answer"]
     assert "cet6-guide-v1" not in calls[0][0]

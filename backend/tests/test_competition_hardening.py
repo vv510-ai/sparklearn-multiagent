@@ -347,7 +347,7 @@ def test_short_definition_unwraps_model_json_self_check():
         has_context=True,
     )
 
-    assert answer == "图由顶点和边组成。 [^1]"
+    assert answer == "图由顶点和边组成。"  # Unwrapping must not invent a citation.
 
 
 def test_stream_can_disable_generic_mock_fallback(monkeypatch):

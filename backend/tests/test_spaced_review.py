@@ -1,4 +1,4 @@
-"""Contracts for the durable 1/3/7/14/30-day review queue."""
+"""Contracts for durable FSRS review and retained mistake history."""
 from __future__ import annotations
 
 import datetime as dt
@@ -16,6 +16,8 @@ from app.main import app  # noqa: E402
 from app.models.db import init_db, session  # noqa: E402
 from app.models.entities import Resource, ReviewItem  # noqa: E402
 from app.services.profile_service import ensure_user  # noqa: E402
+from app.services.review_scheduler import VERSION  # noqa: E402
+from app.services.review_service import apply_review_results, review_queue  # noqa: E402
 
 
 USER_ID = "spaced_review_contract_user"
@@ -79,7 +81,7 @@ def test_review_queue_hides_answers_and_advances_or_resets_intervals():
         assert queue_response.status_code == 200, queue_response.text
         queue = queue_response.json()
         assert queue["summary"]["due"] == 1
-        assert queue["summary"]["interval_days"] == [1, 3, 7, 14, 30]
+        assert queue["summary"]["scheduler"] == VERSION
         item = queue["items"][0]
         assert item["reason"] == "遍历性质混淆"
         assert "answer" not in item["question"]
@@ -101,7 +103,8 @@ def test_review_queue_hides_answers_and_advances_or_resets_intervals():
         assert first_report["calibration"]["recorded"] == 1
         assert first_schedule["correct"] is True
         assert first_schedule["stage"] == 1
-        assert first_schedule["interval_days"] == 1
+        assert 0 < first_schedule["interval_days"] < 1
+        assert first_schedule["effective_rating"] == "hard"
 
         future_queue = client.get("/api/eval/review-queue", params={"user_id": USER_ID}).json()
         assert future_queue["summary"]["due"] == 0
@@ -122,7 +125,8 @@ def test_review_queue_hides_answers_and_advances_or_resets_intervals():
         assert second_review.status_code == 200, second_review.text
         second_schedule = second_review.json()["review"]["schedule"][0]
         assert second_schedule["stage"] == 2
-        assert second_schedule["interval_days"] == 3
+        assert second_schedule["interval_days"] > 0
+        assert second_schedule["scheduler"] == VERSION
 
         _make_due(item["id"])
         lapsed = client.post("/api/eval/review", json={
@@ -133,7 +137,8 @@ def test_review_queue_hides_answers_and_advances_or_resets_intervals():
         lapsed_schedule = lapsed.json()["review"]["schedule"][0]
         assert lapsed_schedule["correct"] is False
         assert lapsed_schedule["stage"] == 0
-        assert lapsed_schedule["interval_days"] == 1
+        assert 0 < lapsed_schedule["interval_days"] <= 10 / 1440
+        assert lapsed_schedule["effective_rating"] == "again"
         assert lapsed_schedule["lapse_count"] == 1
 
     with session() as db:
@@ -184,9 +189,36 @@ def test_mistake_book_keeps_history_favorites_and_immediate_practice():
         assert practiced.status_code == 200, practiced.text
         practice_payload = practiced.json()
         assert practice_payload["correct"] is True
-        assert practice_payload["schedule"]["interval_days"] == 1
+        assert practice_payload["schedule"]["scheduler"] == VERSION
+        assert 0 < practice_payload["schedule"]["interval_days"] < 1
         assert practice_payload["report"]["items"][0]["evidence_phase"] == "spaced_review"
 
         refreshed = client.get("/api/eval/mistake-book", params={"user_id": USER_ID}).json()
         assert refreshed["summary"] == {"total": 1, "pending": 0, "resolved": 1, "favorite": 1}
         assert refreshed["items"][0]["favorite"] is True
+
+
+def test_legacy_quiz_dates_and_history_migrate_only_when_due():
+    _seed()
+    now = dt.datetime(2026, 10, 17, 8, tzinfo=dt.timezone.utc)
+    due = now + dt.timedelta(days=7)
+    historical = [{"phase": "initial", "correct": False, "at": now.isoformat()}]
+    with session() as db:
+        row = ReviewItem(user_id=USER_ID, quiz_resource_id=QUIZ_ID, question_id=QUESTION["id"],
+            kp="binary_tree", stage=3, due_at=due, data={"history": historical, "favorite": True})
+        db.add(row)
+        db.commit()
+        item_id = row.id
+    queue = review_queue(USER_ID, at=now)
+    assert queue["summary"]["next_due_at"] == due.isoformat()
+    result = {"review_item_id": item_id, "correct": True, "answer": "B"}
+    early = apply_review_results(USER_ID, [result], phase="mistake_practice", at=now)[0]
+    assert early["due_at"] == due.isoformat() and not early["scheduling_applied"]
+    with session() as db:
+        assert "fsrs" not in db.get(ReviewItem, item_id).data["schedule"]
+    migrated = apply_review_results(USER_ID, [result], phase="spaced_review", at=due)[0]
+    assert migrated["scheduler"] == VERSION and migrated["scheduling_applied"]
+    with session() as db:
+        row = db.get(ReviewItem, item_id)
+        assert row.data["favorite"] and row.data["history"][0] == historical[0]
+        assert row.data["schedule"]["fsrs"]["last_review"] == due.isoformat()

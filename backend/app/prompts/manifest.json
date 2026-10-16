@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.10.16.02",
+  "version": "2026.10.17.01",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -43,6 +43,10 @@
     "tutor.followup": {
       "description": "沿用上下文解决当前卡点",
       "file": "tutor/followup.md"
+    },
+    "tutor.repair": {
+      "description": "同一轮内校正偏题或引用无效的答疑草稿",
+      "file": "tutor/repair.md"
     },
     "doc.complete_notes": {
       "description": "多资料融合的完整学习笔记",

@@ -76,13 +76,16 @@ def test_recall_early_does_not_advance_and_due_correct_wrong_scheduling(learner,
     state, _ = operation(client, url, state, "review_draft", answers={next(iter(answers)): next(iter(answers.values()))})
     assert client.get(url + "/" + state["id"]).json()["exercise_answers"] == state["exercise_answers"]
     state, _ = operation(client, url, state, "review_submit", answers=answers)
-    assert state["review"] == schedule and state["history"][-1]["early"]
+    assert state["review"]["due_at"] == schedule["due_at"] and state["history"][-1]["early"]
+    assert state["review"]["fsrs"] == schedule["fsrs"]
+    assert state["review"]["attempts"] == schedule["attempts"] + 1
     clock[0] += dt.timedelta(days=1, seconds=1)
     assert client.get(url).json()["due"] == 1
     state, _ = operation(client, url, state, "start_review")
     state, body = operation(client, url, state, "review_submit", answers=answers)
-    assert state["review"]["stage"] == 1
-    assert dt.datetime.fromisoformat(state["review"]["due_at"]) == clock[0] + dt.timedelta(days=3)
+    assert state["review"]["scheduler"].startswith("fsrs-6/")
+    assert state["history"][-1]["effective_rating"] == "good"
+    assert dt.datetime.fromisoformat(state["review"]["due_at"]) > clock[0]
     repeated = client.post(url + "/" + state["id"], json=body).json()
     assert len(repeated["history"]) == 2 and repeated["review"] == state["review"]
     assert client.get(url).json()["due"] == 0
@@ -90,8 +93,8 @@ def test_recall_early_does_not_advance_and_due_correct_wrong_scheduling(learner,
     state, _ = operation(client, url, state, "start_review")
     wrong = {q["id"]: (answers[q["id"]] + 1) % len(q["options"]) for q in state["exercises"]}
     state, _ = operation(client, url, state, "review_submit", answers=wrong)
-    assert state["review"]["stage"] == 0
-    assert dt.datetime.fromisoformat(state["review"]["due_at"]) == clock[0] + dt.timedelta(days=1)
+    assert state["history"][-1]["effective_rating"] == "again"
+    assert dt.timedelta(0) < dt.datetime.fromisoformat(state["review"]["due_at"]) - clock[0] <= dt.timedelta(minutes=10)
     assert state["first"] == first
 
 
@@ -174,7 +177,9 @@ def test_all_missed_and_uncertain_questions_recur_and_help_is_sticky(learner, mo
     answers = {q["id"]: q["recall"]["answer"] for q in material["questions"]}
     state, _ = operation(client, url, state, "review_draft", answers=answers, used_help=True)
     state, _ = operation(client, url, state, "review_submit", answers=answers, used_help=False)
-    assert state["review"] == schedule
+    assert state["review"]["independent_due_reviews"] == schedule["independent_due_reviews"]
+    assert state["history"][-1]["effective_rating"] == "again"
+    assert dt.datetime.fromisoformat(state["review"]["due_at"]) - clock[0] <= dt.timedelta(minutes=10)
     assert state["history"][-1]["used_help"] is True
     state, _ = operation(client, url, state, "start_review")
     assert not state["used_help"]

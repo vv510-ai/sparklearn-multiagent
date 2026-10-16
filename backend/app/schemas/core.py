@@ -117,6 +117,19 @@ class EvalReviewRequest(BaseModel):
     items: list[ReviewSubmitItem]
 
 
+class RecallEnrollRequest(BaseModel):
+    user_id: str = "demo_user"
+
+
+class RecallSubmitRequest(RecallEnrollRequest):
+    card_key: str = Field(min_length=1, max_length=64)
+    revision: int = Field(ge=0)
+    request_id: str = Field(min_length=8, max_length=80)
+    rating: Literal["again", "hard", "good", "easy"]
+    answer: str = Field(default="", max_length=2000)
+    used_help: bool = False
+
+
 class MistakeFavoriteRequest(BaseModel):
     user_id: str = "demo_user"
     favorite: bool = True

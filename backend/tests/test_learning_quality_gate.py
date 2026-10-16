@@ -135,5 +135,6 @@ def test_failed_grounding_replaces_the_model_answer_before_it_is_returned(monkey
     }))
 
     assert "没有孩子的节点叫根节点" not in result["answer"]
-    assert "叶节点是没有孩子的节点" in result["answer"]
+    assert "叶节点是没有孩子的节点" not in result["answer"]  # No source dump as a substitute answer.
+    assert "重试" in result["answer"]
     assert result["safety_flags"][0]["type"] == "grounding_fallback"
