@@ -17,6 +17,7 @@ from ..config import get_settings, is_demo
 from ..models.db import init_db, session
 from ..models.entities import ModelPreference
 from ..tenant import current_user_id
+from ..llm import personal_subscription
 
 PROVIDERS = {
     "deepseek": {"name": "DeepSeek · 国产", "base_url": "https://api.deepseek.com", "key_env": "deepseek_api_key", "docs": "https://api-docs.deepseek.com/quick_start/pricing/"},
@@ -82,6 +83,8 @@ def _load(user: str) -> tuple[dict, dict, int]:
 
 
 def view(user: str) -> dict:
+    if personal_subscription.enabled():
+        return personal_subscription.view(user)
     routes, keys, revision = _load(user)
     settings = get_settings()
     presets = [
@@ -106,6 +109,8 @@ def view(user: str) -> dict:
 
 
 def save(user: str, routes: dict[str, str], updates: dict[str, str], revision: int | None = None) -> dict:
+    if personal_subscription.enabled():
+        return personal_subscription.save(user, routes, updates, revision)
     if set(routes) - set(MODULES) - {"default"} or any(v and v not in MODELS for v in routes.values()):
         raise HTTPException(422, "请选择列表中的功能和模型")
     if set(updates) - set(PROVIDERS):
@@ -163,6 +168,8 @@ def module_for(prompt: str) -> str:
 
 
 def resolve(prompt: str, *, task_context: dict | None = None) -> dict | None:
+    if personal_subscription.enabled():
+        return personal_subscription.resolve(prompt, task_context=task_context)
     if _OVERRIDE.get() is not None:
         return _OVERRIDE.get()
     user = current_user_id()
@@ -191,6 +198,8 @@ def resolve(prompt: str, *, task_context: dict | None = None) -> dict | None:
 
 
 def test_route(user: str, model: str) -> dict:
+    if personal_subscription.enabled():
+        return personal_subscription.test_route(user, model)
     if model not in MODELS:
         raise HTTPException(422, "不支持的模型")
     _, keys, _ = _load(user)

@@ -1,0 +1,143 @@
+"""Personal local subscription route; always fails closed, never falls back to API."""
+from __future__ import annotations
+import os
+
+from fastapi import HTTPException
+import httpx
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
+
+from ..models.db import session
+from ..models.entities import ModelPreference
+from ..tenant import current_user_id
+
+MODELS = {
+    'kimi-subscription': {'provider': 'kimi', 'label': 'Kimi Code · 本人订阅', 'tier': '订阅',
+                          'cost': '使用本机登录账号的 Kimi Code 订阅用量', 'use': '讲解、笔记、练习和教学设计'},
+    'chatgpt-subscription': {'provider': 'chatgpt', 'label': 'ChatGPT / Codex · 本人订阅', 'tier': '订阅',
+                             'cost': '使用本机官方授权账号的 ChatGPT Work/Codex 订阅用量', 'use': '讲解、笔记、练习和教学设计'},
+}
+MESSAGES = {
+    'not_logged_in': '订阅账号尚未登录或需要重新授权，请在 Mac 上运行对应登录入口。',
+    'limit_or_provider_error': '订阅服务未完成请求，请检查账号额度和网络；没有切换到收费 API。',
+    'invalid_response': '订阅回复不完整或格式不正确，请重试；没有切换到收费 API。',
+    'timeout': '等待订阅回复超时；没有自动重复调用或切换到收费 API。',
+    'worker_unavailable': '请先在 Mac 上运行 05-启动订阅接入.command。',
+    'queue_full': '本机订阅任务较多，请稍后重试。',
+    'unsupported_model': '当前订阅账号不支持所选模型，请检查 Mac 接入配置。',
+}
+
+
+def enabled():
+    return os.environ.get('PORTABLE_TEXT_MODE') == 'subscription'
+
+
+def require_owner(user=None):
+    owner = os.environ.get('PORTABLE_OWNER_ID', '').strip()
+    user = current_user_id() if user is None else user
+    if not owner or not user or owner != user:
+        raise HTTPException(403, '此迁移副本的订阅接入仅限项目拥有者本人账号。')
+    return user
+
+
+def model_for(prompt='', *, task_context=None):
+    from ..services import model_preferences as prefs
+    user = require_owner()
+    override = prefs._OVERRIDE.get()
+    if override:
+        model = override.get('model', '')
+        if override.get('provider') != 'personal_subscription' or model not in MODELS:
+            raise HTTPException(422, '当前仅允许本人订阅模型。')
+        return model
+    routes, _, _ = prefs._load(user)
+    module = prefs.module_for(prompt)
+    model = routes.get(module) or routes.get('default')
+    # Previous API routes are preserved in the snapshot and never executed here.
+    if model not in MODELS:
+        model = os.environ.get('PORTABLE_DEFAULT_MODEL', 'kimi-subscription')
+    if model not in MODELS:
+        raise HTTPException(503, '本机订阅默认模型配置有误。')
+    return model
+
+
+def resolve(prompt, *, task_context=None):
+    # Metadata is also read by other migrated accounts. Preserve access to
+    # existing materials; complete(), view() and test_route() still require owner.
+    if current_user_id() != os.environ.get('PORTABLE_OWNER_ID', '').strip():
+        return None
+    model = model_for(prompt, task_context=task_context)
+    return {'provider': 'personal_subscription', 'model': model, 'automatic': False,
+            'reason': '本人本机订阅；没有 API 回退', 'key': '', 'base_url': ''}
+
+
+async def complete(prompt, *, system='', json_mode=False, task_context=None):
+    model = model_for(prompt, task_context=task_context)
+    token = os.environ.get('PORTABLE_RELAY_TOKEN', '')
+    if len(token) < 40:
+        raise RuntimeError('本机订阅配对配置缺失。')
+    # The peer is fixed in the private Compose network, never a configurable URL.
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(345, connect=5), trust_env=False, follow_redirects=False) as client:
+            response = await client.post('http://subscription-relay:18431/complete',
+                headers={'Authorization': 'Bearer '+token},
+                json={'provider': MODELS[model]['provider'], 'prompt': prompt, 'system': system, 'json': bool(json_mode)})
+            body = response.json()
+        if response.status_code != 200 or body.get('ok') is not True:
+            raise RuntimeError(MESSAGES.get(body.get('error', ''), MESSAGES['limit_or_provider_error']))
+        if body.get('provider') != MODELS[model]['provider'] or not isinstance(body.get('text'), str) or not body['text'].strip():
+            raise RuntimeError(MESSAGES['invalid_response'])
+        return body['text']
+    except httpx.HTTPError:
+        raise RuntimeError(MESSAGES['worker_unavailable']) from None
+    except (ValueError, TypeError):
+        raise RuntimeError(MESSAGES['invalid_response']) from None
+
+
+def view(user):
+    from ..services import model_preferences as prefs
+    require_owner(user)
+    original, _, revision = prefs._load(user)
+    routes = {key: value for key, value in original.items() if value in MODELS}
+    default = os.environ.get('PORTABLE_DEFAULT_MODEL', 'kimi-subscription')
+    presets = [{'id': provider, 'name': info['label'], 'description': info['cost']+'；连接失败时直接报错。',
+                'routes': {'default': model}, 'available': True, 'unavailable_reason': ''}
+               for model, info in MODELS.items() for provider in [info['provider']]]
+    return {'routes': routes, 'revision': revision, 'modules': prefs.MODULES, 'models': MODELS,
+            'providers': {}, 'presets': presets, 'server_routes': {'default': default},
+            'verified_at': '2026-10-16', 'subscription_only': True,
+            'note': '此 Mac 副本的文本任务只使用你本人登录的 Kimi Code 或 ChatGPT/Codex 订阅；请保持本机接入程序运行。图片由同一 ChatGPT 账号的普通 Chat 网页生成。语音、OCR、视频保留原服务。'}
+
+
+def save(user, routes, keys, revision=None):
+    from ..services import model_preferences as prefs
+    require_owner(user)
+    if keys:
+        raise HTTPException(422, '订阅模式不接收 API Key，请使用 Mac 上的登录入口。')
+    if set(routes)-set(prefs.MODULES)-{'default'} or any(value and value not in MODELS for value in routes.values()):
+        raise HTTPException(422, '请选择列表中的订阅模型。')
+    _, _, current_revision = prefs._load(user)
+    if revision is not None and revision != current_revision:
+        raise HTTPException(409, '设置已更新，请刷新后再保存。')
+    with session() as db:
+        row = db.get(ModelPreference, user)
+        values = {'routes': {key: value for key, value in routes.items() if value}, 'revision': current_revision+1}
+        try:
+            if row is None:
+                db.add(ModelPreference(user_id=user, credentials={}, **values))
+            else:
+                result = db.execute(update(ModelPreference).where(ModelPreference.user_id == user,
+                    ModelPreference.revision == current_revision).values(**values))
+                if result.rowcount != 1:
+                    raise HTTPException(409, '设置已更新，请刷新后再保存。')
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(409, '设置已更新，请刷新后再保存。') from None
+    return view(user)
+
+
+def test_route(user, model):
+    require_owner(user)
+    if model not in MODELS:
+        raise HTTPException(422, '请选择订阅模型。')
+    return {'provider': 'personal_subscription', 'model': model, 'key': '', 'base_url': ''}

@@ -31,6 +31,12 @@ function jsonError(detail: string, status: number) {
   return NextResponse.json({ detail }, { status });
 }
 
+function isLoopbackRequest(req: NextRequest) {
+  // Next standalone uses its internal bind address in nextUrl. Nginx preserves
+  // the actual loopback Host, including the public local port.
+  return /^(localhost|127\.0\.0\.1|\[::1\])(?::[0-9]{1,5})?$/i.test(req.headers.get("host") || "");
+}
+
 function isSecureRequest(req: NextRequest) {
   return req.nextUrl.protocol === "https:" || (
     process.env.TRUST_PROXY_HEADERS === "true" && req.headers.get("x-forwarded-proto") === "https"
@@ -72,7 +78,7 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
   // Worker token is scoped by the backend to this prefix and one configured owner.
   // Never substitute a website session cookie for this explicit pairing secret.
   if (path[0] === "personal-image-worker") {
-    const secure = isSecureRequest(req) || ["localhost", "127.0.0.1", "[::1]"].includes(req.nextUrl.hostname);
+    const secure = isSecureRequest(req) || isLoopbackRequest(req);
     if (!secure) return jsonError("图片接入需要 HTTPS", 400);
     const validPath = (path.length === 2 && path[1] === "claim") ||
       (path.length === 3 && /^[a-f0-9]{64}$/.test(path[1]) && ["heartbeat", "submitted", "fail", "complete"].includes(path[2]));
@@ -149,7 +155,7 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
           if (joinedPath === "settings/models" && body && typeof body === "object") {
             const keys = (body as { keys?: Record<string, unknown> }).keys;
             const secure = isSecureRequest(req)
-              || ["localhost", "127.0.0.1", "[::1]"].includes(req.nextUrl.hostname);
+              || isLoopbackRequest(req);
             if (!secure && keys && Object.values(keys).some(value => typeof value === "string" && value.length > 0)) {
               return jsonError("请通过 HTTPS 或本机 localhost 填写 API 密钥", 400);
             }

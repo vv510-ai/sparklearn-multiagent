@@ -5,6 +5,7 @@ import { ArrowLeft, Check, KeyRound, Sparkles } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api";
 
 type Data = {
+  subscription_only?: boolean;
   revision: number;
   modules: Record<string, string>;
   models: Record<string, { provider: string; label: string; tier: string; cost: string; use: string }>;
@@ -71,9 +72,9 @@ export default function ModelSettings({ onBack }: { onBack: () => void }) {
           <p className="mt-3 text-xs leading-6 text-slate-500">点击即保存；切换方案本身不产生模型费用。新生成的内容使用新方案，已有内容保留。</p>
         </section>
         <details className="rounded-2xl border border-[#DDE5D9] bg-white/80 p-5">
-          <summary className="cursor-pointer font-semibold text-slate-800">自定义模型与个人密钥</summary>
-          <p className="mt-3 text-xs leading-6 text-slate-500">需要单独指定某项功能时再调整。个人密钥加密保存，仅对当前账户生效。ChatGPT 会员与 OpenAI API 分别计费。模型和价格核对日期：{data.verified_at}。</p>
-        <section className="space-y-4 rounded-2xl border border-[#DDE5D9] bg-white/80 p-5"><h2 className="flex items-center gap-2 font-bold"><KeyRound size={18}/>连接模型服务</h2>
+          <summary className="cursor-pointer font-semibold text-slate-800">{data.subscription_only ? "各功能的订阅模型" : "自定义模型与个人密钥"}</summary>
+          <p className="mt-3 text-xs leading-6 text-slate-500">{data.subscription_only ? "在 Mac 上登录同一个订阅账号后使用；本页不需要填写 API Key。" : <>需要单独指定某项功能时再调整。个人密钥加密保存，仅对当前账户生效。ChatGPT 会员与 OpenAI API 分别计费。模型和价格核对日期：{data.verified_at}。</>}</p>
+        {!data.subscription_only && <section className="space-y-4 rounded-2xl border border-[#DDE5D9] bg-white/80 p-5"><h2 className="flex items-center gap-2 font-bold"><KeyRound size={18}/>连接模型服务</h2>
           {!secure && <p className="text-sm text-amber-800">当前连接为 HTTP。请通过 HTTPS 或本机 localhost 打开后填写个人密钥；现在可选择已有的服务端模型。</p>}
           {Object.entries(data.providers).map(([id,p]) => <div key={id} className="border-t border-slate-100 pt-4">
             <label className="block text-sm font-semibold" htmlFor={`key-${id}`}>{p.name} API Key</label>
@@ -81,11 +82,11 @@ export default function ModelSettings({ onBack }: { onBack: () => void }) {
             <input id={`key-${id}`} className={control} type="password" autoComplete="off" maxLength={512} disabled={!secure || busy} value={keys[id] || ""} onChange={e => setKeys(k => { const next = {...k}; if (e.target.value) next[id] = e.target.value; else delete next[id]; return next; })} placeholder="填写新密钥；留空保留已保存值"/>
             <div className="mt-2 flex flex-wrap gap-4 text-xs"><a href={p.docs} target="_blank" rel="noopener noreferrer" className="text-emerald-700 underline">查看官方接口与价格</a>{p.has_personal_key && <button type="button" disabled={busy} onClick={() => setKeys(k => ({...k,[id]:""}))} className="text-red-700">{keys[id] === "" ? "保存后移除密钥" : "移除个人密钥"}</button>}</div>
           </div>)}
-        </section>
-        <section className="space-y-4 rounded-2xl border border-[#DDE5D9] bg-white/80 p-5"><h2 className="font-bold">各功能使用的模型</h2><p className="text-xs leading-6 text-slate-500">经济档适合日常学习，均衡档适合深入解释；复杂研究可选 Kimi K3 或 GPT-6 Astra。高价格不保证每道题更准确。</p>
+        </section>}
+        <section className="space-y-4 rounded-2xl border border-[#DDE5D9] bg-white/80 p-5"><h2 className="font-bold">各功能使用的模型</h2><p className="text-xs leading-6 text-slate-500">{data.subscription_only ? "选择 Kimi Code 或 ChatGPT/Codex。登录失效或额度不足时会直接提示，不切换到收费 API。" : "经济档适合日常学习，均衡档适合深入解释；复杂研究可选 Kimi K3 或 GPT-6 Astra。高价格不保证每道题更准确。"}</p>
           {Object.entries({default:"默认模型",...data.modules}).map(([id,label]) => <div key={id} className="border-t border-slate-100 pt-3"><label className="text-sm font-semibold" htmlFor={`model-${id}`}>{label}</label><div className="flex items-end gap-2"><select id={`model-${id}`} className={control} disabled={busy} value={routes[id] || ""} onChange={e=>setRoutes(r=>({...r,[id]:e.target.value}))}><option value="">{id === "default" ? "使用服务端默认模型" : "跟随默认模型"}</option>{Object.entries(data.models).map(([model,m])=><option key={model} value={model}>{m.label} · {m.tier}</option>)}</select><button className="secondary-action mb-1 shrink-0" type="button" disabled={busy || !routes[id] || Object.keys(keys).length > 0} onClick={()=>void test(routes[id])}>测试连接</button></div>{routes[id] && <p className="mt-2 text-xs leading-6 text-slate-500">{data.models[routes[id]]?.use}。{data.models[routes[id]]?.cost}</p>}</div>)}
         </section>
-        <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" className="primary-action" disabled={busy} onClick={()=>void save()}>{busy ? "正在处理…" : "保存模型设置"}</button><span className="text-xs text-slate-500">保存不调用模型；“测试连接”发送一次短请求，可能产生少量费用。</span></div>
+        <div className="mt-5 flex flex-wrap items-center gap-3"><button type="button" className="primary-action" disabled={busy} onClick={()=>void save()}>{busy ? "正在处理…" : "保存模型设置"}</button><span className="text-xs text-slate-500">{data.subscription_only ? "保存不调用模型；测试连接会使用少量本人订阅用量。" : "保存不调用模型；“测试连接”发送一次短请求，可能产生少量费用。"}</span></div>
         </details>
       </>}
     </div>

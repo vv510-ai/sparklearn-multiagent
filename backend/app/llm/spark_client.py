@@ -21,6 +21,7 @@ from typing import AsyncIterator, Iterable
 
 from ..config import get_settings, is_demo
 from . import openai_client
+from . import personal_subscription
 
 log = logging.getLogger("sparklearn.llm")
 
@@ -37,6 +38,8 @@ _FALLBACK_ORDER = ["ultra", "max", "pro", "lite"]
 
 def active_provider() -> str:
     """Resolve the server-side provider without ever exposing credentials."""
+    if personal_subscription.enabled():
+        return "personal_subscription"
     settings = get_settings()
     requested = str(settings.llm_provider or "auto").strip().lower()
     if requested == "openai":
@@ -59,6 +62,8 @@ def active_provider() -> str:
 
 
 def active_llm_label() -> str:
+    if personal_subscription.enabled():
+        return "本人本机订阅（Kimi Code / ChatGPT Codex）"
     if is_demo():
         return "MockEngine（离线演示）"
     settings = get_settings()
@@ -141,6 +146,8 @@ def _kimi_reasoning(role: str, max_tokens: int | None, mode: str) -> str:
 
 def get_spark_llm(role: str = "ultra", streaming: bool = True, temperature: float = 0.7):
     """返回当前统一文本主脑的 LangChain ChatOpenAI 实例(扩展用)。"""
+    if personal_subscription.enabled():
+        raise RuntimeError("订阅模式请经 llm_complete / llm_stream 调用。")
     from langchain_openai import ChatOpenAI
 
     s = get_settings()
@@ -183,6 +190,8 @@ async def llm_complete(prompt: str, *, role: str = "ultra", system: str = "",
                        allow_model_fallback: bool = True,
                        allow_mock_fallback: bool = True) -> str:
     """非流式补全。json_mode=True 时尽力让模型只回 JSON 并做容错解析前清洗。"""
+    if personal_subscription.enabled():
+        return await personal_subscription.complete(prompt, system=system, json_mode=json_mode or json_object)
     from ..services.model_preferences import resolve
     route = resolve(prompt)
     if route:
@@ -287,6 +296,11 @@ async def llm_stream(prompt: str, *, role: str = "ultra", system: str = "",
                      allow_model_fallback: bool = True,
                      allow_mock_fallback: bool = True) -> AsyncIterator[str]:
     """流式补全,逐 token 产出(SSE 直接转发)。"""
+    if personal_subscription.enabled():
+        text = await personal_subscription.complete(prompt, system=system, task_context=task_context)
+        for offset in range(0, len(text), 64):
+            yield text[offset:offset + 64]
+        return
     from ..services.model_preferences import resolve
     route = resolve(prompt, task_context=task_context) if task_context is not None else resolve(prompt)
     if route and route["provider"] == "kimi":
