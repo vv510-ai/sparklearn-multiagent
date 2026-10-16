@@ -41,6 +41,8 @@ def _learner_summary(resources: dict, flags: list, prompt_template: str = "") ->
                    or (resource.get("payload") or {}).get("blocked_reason")]
     if unavailable:
         if len(unavailable) == len(resources):
+            if all((resource.get("payload") or {}).get("blocked_reason") == "video_script_unavailable" for resource in unavailable):
+                return "讲解稿暂未生成，本次尚未提交视频和语音任务。请稍后重试或检查模型连接。"
             if prompt_template == "one_page":
                 reasons = {(r.get("payload") or {}).get("blocked_reason") for r in unavailable}
                 if "topic_missing" in reasons:

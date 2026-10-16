@@ -11,6 +11,7 @@ from ..services.model_preferences import resolve
 import asyncio
 import ast
 import json
+import math
 import re
 import uuid
 
@@ -168,8 +169,13 @@ def _animation_preview(name: str, script: dict) -> dict:
 
 def _video_prompt(script: dict, *, source_bound: bool) -> str:
     base = str(script.get("video_prompt") or "").strip()
+    visual_rules = (
+        "Create a clean 10-second educational concept animation with concrete objects and meaningful state changes. "
+        "Do not show a document, web browser, code editor, source code, paragraphs, subtitles, or Chinese characters. "
+        "Use at most essential single-letter labels and digits; explain the idea through motion. "
+    )
     if not source_bound:
-        return base or str(script.get("title") or "educational animation")
+        return visual_rules + (base or str(script.get("title") or "educational animation"))
     narration = " ".join(str(script.get("narration") or "").split())[:500]
     captions = "；".join(
         str(scene.get("caption") or "").strip()
@@ -177,11 +183,11 @@ def _video_prompt(script: dict, *, source_bound: bool) -> str:
         if isinstance(scene, dict) and str(scene.get("caption") or "").strip()
     )[:300]
     return (
-        "Create a clean educational 2D animation. Only visualize the supplied "
+        visual_rules + f"Visual plan: {base}. Only visualize the supplied "
         "source-grounded narration and captions. Do not add facts, labels, formulas, "
         "or examples that are not supplied. "
-        f"Narration: {narration or 'Use a neutral abstract learning visual.'} "
-        f"Captions: {captions or 'No factual on-screen labels.'}"
+        f"Meaning reference (never typeset this text): {narration or 'Use a neutral abstract learning visual.'} "
+        f"Step meanings (not on-screen captions): {captions or 'No factual on-screen labels.'}"
     )
 
 
@@ -218,6 +224,23 @@ def _script_on_topic(script: dict, name: str, kp: str, chunks: list[dict]) -> bo
             or any(part in text for part in pieces)
             or bool(detected & allowed)
         )
+    )
+
+
+def _usable_script(script: object) -> bool:
+    if not isinstance(script, dict):
+        return False
+    narration = script.get("narration")
+    scenes = script.get("scenes")
+    return bool(
+        isinstance(narration, str) and narration.strip()
+        and all(script.get(field) is None or isinstance(script[field], str)
+                for field in ("title", "video_prompt"))
+        and isinstance(scenes, list) and scenes
+        and all(isinstance(scene, dict)
+                and isinstance(scene.get("visual"), str) and scene["visual"].strip()
+                and (scene.get("caption") is None or isinstance(scene["caption"], str))
+                for scene in scenes)
     )
 
 
@@ -259,66 +282,42 @@ def _strict_sorting_example_script() -> dict:
             "Minimal educational animation showing only the numbers 3, 1, 2 being reordered "
             "into 1, 2, 3, large readable cards, no other algorithms or objects"
         ),
+        "target_seconds": 120,
     }
 
 
 def _normalize_script(script: dict, chunks: list[dict], name: str) -> dict:
+    """Keep the model's teaching sequence; source excerpts are not narration."""
     normalized = dict(script)
-    narration = _clean_script_text(normalized.get("narration"), 820)
-    additions = list(dict.fromkeys(
-        item
-        for item in (_clean_script_text(chunk.get("text"), 210) for chunk in chunks)
-        if len(item) >= 24 and item not in narration
-    ))
-    scaffolds = [
-        f"先明确{name}要解决的具体问题，以及输入和输出分别是什么",
-        "再把关键对象按顺序摆出来，不跳步骤，也不把多个概念一次塞给初学者",
-        "接着用一个最小例子观察状态怎样变化，并在每一步说清为什么这样做",
-        "完成例子后回到正式定义，把生活化理解和资料中的术语一一对应",
-        "随后检查时间与空间代价，说明这种方法在数据规模变大时会发生什么",
-        "还要特别指出一个常见错误，并用成立条件和不成立条件做清楚对照",
-        "讲到新术语时先用白话解释，再给正式名称，避免只报概念却没有建立直观认识",
-        "演示每一步时同时说明当前看到了什么、准备做什么、做完以后状态发生了什么变化",
-        "如果有多种情况，先讲最常见的一种，再单独列出边界情况，不让例外打断主线",
-        "最小例子结束后重新从头复述一次关键顺序，让学习者能在没有画面的情况下自己走完",
-        "再用一个反例说明哪些条件一旦不满足，刚才的方法就不能直接使用或结论不再成立",
-        "把易错点说成可执行的检查动作，例如先检查对象、再检查顺序、最后检查停止条件",
-        "如果画面变化较快，就在关键状态停一下，先让学习者看清变化前后分别是什么，再继续下一步",
-        "只有资料确实给出了复杂度时才说明数量级，并把复杂度和刚才实际发生的操作次数对应起来",
-        "最后把生活类比收回来，明确类比只帮助建立直觉，真正作答仍要使用准确的定义、步骤和边界条件",
-        "收束前给学习者一个十秒自测：能否说出目标、关键步骤以及最容易错的那条边界",
-        "最后用一句记忆钩子收束：先看目标，再走步骤，用例子验证，按边界检查",
-    ]
-    if len(narration) < 650:
-        parts = [narration.rstrip("。")] if narration else []
-        for item in [*additions, *scaffolds]:
-            if item and item not in parts and item not in narration:
-                parts.append(item.rstrip("。"))
-            if len("。".join(parts)) >= 700:
-                break
-        narration = "。".join(parts).strip("。") + "。"
-    if name and name not in narration:
-        marker = f"本节主题是{name}。"
-        body_budget = max(0, 820 - len(marker) - 1)
-        body = narration[:body_budget].rstrip("，；、。 ")
-        narration = f"{body}。{marker}" if body else marker
-    normalized["narration"] = narration[:820] or f"本节用两分钟讲清{name}的核心概念、最小例子和易错边界。"
-
-    scenes = [scene for scene in normalized.get("scenes") or [] if isinstance(scene, dict)]
-    if len(scenes) < 6:
-        scenes = [
-            {"visual": f"用一句白话呈现{name}要解决的问题", "caption": "先抓核心结论"},
-            {"visual": "用生活类比说明对象之间的关系", "caption": "建立直观认识"},
-            {"visual": "把最小例子的初始状态完整摆出来", "caption": "看清输入与目标"},
-            {"visual": "一次只演示一个关键步骤及状态变化", "caption": "跟着步骤走一遍"},
-            {"visual": "把例子重新对应到正式概念和术语", "caption": "回到正式定义"},
-            {"visual": "对照正确做法、常见错误和适用边界", "caption": "最后检查边界"},
-        ]
-    normalized["scenes"] = [
-        {**scene, "t": f"{index * 20}-{(index + 1) * 20}s"}
-        for index, scene in enumerate(scenes[:6])
-    ]
-    normalized["target_seconds"] = 120
+    narration = _clean_script_text(normalized.get("narration"), 1800)
+    normalized["narration"] = narration
+    scenes = [dict(scene) for scene in normalized.get("scenes") or []
+              if isinstance(scene, dict) and (scene.get("visual") or scene.get("caption"))]
+    # Preserve continuous timestamps. Repair only missing/invalid timing,
+    # without replacing concrete steps with generic six-scene filler.
+    end = 0.0
+    valid_timing = bool(scenes)
+    for scene in scenes:
+        match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*s?\s*", str(scene.get("t") or ""))
+        if not match:
+            valid_timing = False
+            break
+        start, next_end = map(float, match.groups())
+        if abs(start - end) > 0.01 or next_end <= start or next_end > 600:
+            valid_timing = False
+            break
+        end = next_end
+    if valid_timing:
+        duration = math.ceil(end)
+    else:
+        specified = normalized.get("target_seconds")
+        duration = (max(len(scenes), min(600, math.ceil(specified)))
+                    if isinstance(specified, (int, float)) and math.isfinite(specified) and specified > 0
+                    else max(10, len(scenes), math.ceil(len(narration) / 4.5)))
+        for index, scene in enumerate(scenes):
+            scene["t"] = f"{round(index * duration / len(scenes))}-{round((index + 1) * duration / len(scenes))}s"
+    normalized["scenes"] = scenes
+    normalized["target_seconds"] = duration
     normalized["video_clip_seconds"] = 10
     return normalized
 
@@ -428,18 +427,38 @@ async def run(state: dict) -> dict:
                     system=video_prompt_call.system,
                     role="reasoner",
                     temperature=0.55,
-                    max_tokens=1800,
+                    max_tokens=3200,
+                    json_object=True,
+                    reasoning_mode="disabled",
                     allow_mock_fallback=False,
                 ),
-                timeout=12,
+                timeout=150,
             )
             script = parse_json(raw)
         except Exception as error:  # noqa: BLE001
-            script_error = str(error)[:180]
-    if (not isinstance(script, dict) or not script.get("narration")
+            script_error = str(error)[:180] or "讲解稿生成超时"
+    if _usable_script(script):
+        script = _normalize_script(script, [], name)
+    if (not _usable_script(script)
             or not _script_on_topic(script, name, kp, chunks)):
         if isinstance(script, dict) and script and not _script_on_topic(script, name, kp, chunks):
             script_error = f"模型脚本偏离当前问题「{name}」"
+        if explicit_kind == "video" and kp != "sorting_basic" and not is_demo():
+            # Never spend a video/TTS order on raw retrieval excerpts or a
+            # generic outline after the actual teaching-script call failed.
+            rid = uuid.uuid4().hex[:12]
+            reason = "讲解稿暂未生成，请稍后重试；尚未提交视频和语音任务。"
+            resource = {
+                "id": rid, "kind": "video", "kp": kp, "title": f"{name}·讲解稿暂未生成",
+                "payload": {"degraded": True, "generation_mode": "unavailable",
+                            "blocked_reason": "video_script_unavailable", "reason": reason,
+                            "video": {"status": "unavailable", "reason": reason}},
+                "citations": [item["citation"] for item in citations],
+            }
+            await emit({"type": "resource", "resource": resource})
+            await agent_end("media", "讲解稿未就绪，未提交视频或语音任务")
+            return {"generated_resources": {rid: resource},
+                    "safety_flags": [{"agent": "media", "type": "video_script_unavailable", "detail": reason}]}
         if kp == "sorting_basic":
             fallback_narration = (
                 "排序就是按一个明确规则重新排列同一批元素。我们只看升序和 3、1、2："
@@ -466,6 +485,8 @@ async def run(state: dict) -> dict:
                       {"t": "40-60s", "visual": "对比正常情况与边界情况", "caption": "检查边界"},
                   ],
                   "video_prompt": f"educational 2D animation explaining {kp}, clean diagram style"}
+        if kp == "sorting_basic":
+            script = _strict_sorting_example_script()
     script = _normalize_script(script, [] if strict_sorting_example else chunks, name)
     await emit({"type": "progress", "agent": "media", "stage": "script", "percent": 25,
                 "detail": f"分镜脚本就绪,共 {len(script.get('scenes', []))} 个镜头"
@@ -482,7 +503,7 @@ async def run(state: dict) -> dict:
     # removes the artificial serial wait and lets the configured provider use
     # its real timeout instead of being cut off after 2.5 seconds.
     audio_task = asyncio.create_task(
-        multimodal_gateway.tts(script["narration"][:820], trace_id=trace_id)
+        multimodal_gateway.tts(script["narration"], trace_id=trace_id)
     )
 
     mode = explicit_kind if explicit_kind != "video" else "manim"
@@ -597,7 +618,7 @@ async def run(state: dict) -> dict:
         if strict_super:
             payload["audio"]["strict_voice"] = True
     await emit({"type": "progress", "agent": "media", "stage": "post", "percent": 100,
-                "detail": "两分钟旁白处理完成"
+                "detail": "讲解旁白处理完成"
                 if isinstance(audio, dict) and audio.get("ok")
                 else "云端旁白不可用,已保留可朗读脚本"})
 

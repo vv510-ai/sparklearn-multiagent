@@ -157,6 +157,8 @@ export interface ResourceItem {
     verification?: string;
     generation_details?: { status: string; reason_codes: string[]; message: string };
     generation_mode?: "unavailable" | "demo" | "source_guide" | "model";
+    reason?: string;
+    blocked_reason?: string;
     template?: string;
     notes_scope?: string;
     source_policy?: "strict" | "supplement";

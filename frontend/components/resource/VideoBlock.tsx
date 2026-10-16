@@ -174,7 +174,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
             className="w-full rounded-xl border border-slate-200 bg-black"
           />
           <p className="text-[11px] leading-5 text-slate-500">
-            上方是约 {script?.video_clip_seconds || 10} 秒的关键概念动画；完整 {script?.target_seconds || 60} 秒讲解请结合下方分镜与稍慢语速旁白收听。
+            上方是约 {script?.video_clip_seconds || 10} 秒的关键概念动画；配套讲解请结合下方分镜与旁白收听，实际时长以播放器为准。
           </p>
         </div>
       ) : video?.task_id ? null : video?.status === "degraded" ? (

@@ -74,18 +74,23 @@ def test_framework_map_fills_sparse_source_points_to_five_branches():
     assert any("易错边界" in point for point in points)
 
 
-def test_video_script_gets_full_storyboard_and_sufficient_narration():
+def test_video_script_preserves_short_lesson_without_pasting_source_excerpts():
+    narration = "排序就是按规则重新排列。把 3、1、2 从小到大排列，得到 1、2、3。元素保持不变。"
+    scenes = [
+        {"t": "0-10s", "visual": "摆出 3、1、2", "caption": "输入"},
+        {"t": "10-25s", "visual": "移成 1、2、3", "caption": "升序"},
+    ]
     script = media_agent._normalize_script(  # noqa: SLF001
-        {"title": "排序", "narration": "排序就是按规则重新排列。", "scenes": []},
+        {"title": "排序", "narration": narration, "scenes": scenes},
         [{"text": "插入排序逐步扩大有序区域，每一步都把当前元素插入正确位置。"} for _ in range(5)],
         "排序",
     )
 
-    assert len(script["scenes"]) >= 4
-    assert script["target_seconds"] == 120
+    assert script["scenes"] == scenes
+    assert script["target_seconds"] == 25
     assert script["video_clip_seconds"] == 10
-    assert len(script["narration"]) >= 650
-    assert script["narration"].count("插入排序逐步扩大有序区域") == 1
+    assert script["narration"] == narration
+    assert "插入排序逐步扩大有序区域" not in script["narration"]
 
 
 def test_video_narration_removes_markdown_source_syntax():
@@ -98,32 +103,35 @@ def test_video_narration_removes_markdown_source_syntax():
     assert "基础排序" in cleaned
 
 
-def test_video_normalization_keeps_llm_prefix_and_names_topic():
+def test_video_normalization_cannot_disguise_wrong_topic_by_appending_its_name():
     prefix = "先看模型原始讲解的第一句话。"
+    narration = prefix + "这段正文没有写出课程主题。" * 50
     script = media_agent._normalize_script(  # noqa: SLF001
-        {"title": "演示", "narration": prefix + "这段正文没有写出课程主题。" * 50, "scenes": []},
+        {"title": "演示", "narration": narration, "scenes": []},
         [],
         "图的遍历",
     )
 
-    assert script["narration"].startswith(prefix)
-    assert "图的遍历" in script["narration"]
+    assert script["narration"] == narration
+    assert media_agent._script_on_topic(script, "图的遍历", "graph_traverse", []) is False  # noqa: SLF001
 
 
-def test_video_storyboard_has_at_most_six_ordered_two_minute_scenes():
+def test_video_storyboard_repairs_missing_timing_without_discarding_steps():
     script = media_agent._normalize_script(  # noqa: SLF001
         {
             "narration": "二叉树用于表达层次关系。",
+            "target_seconds": 90,
             "scenes": [{"visual": str(index), "caption": str(index)} for index in range(9)],
         },
         [],
         "二叉树",
     )
 
-    assert len(script["scenes"]) <= 6
+    assert [scene["visual"] for scene in script["scenes"]] == [str(index) for index in range(9)]
     assert [scene["t"] for scene in script["scenes"]] == [
-        "0-20s", "20-40s", "40-60s", "60-80s", "80-100s", "100-120s"
+        f"{index * 10}-{(index + 1) * 10}s" for index in range(9)
     ]
+    assert script["target_seconds"] == 90
 
 
 def test_video_topic_gate_rejects_adjacent_course_topic():

@@ -54,6 +54,7 @@ function hasText(value: unknown): value is string {
 }
 function resourceIssue(r: ResourceItem): string {
   const payload = r.payload || {};
+  if (payload.generation_mode === "unavailable") return payload.reason || "内容尚未生成";
   if (TEXT_KINDS.has(r.kind) && !hasText(payload.markdown)) return "文本内容为空";
   if (r.kind === "mindmap" && !hasText(payload.markmap)) return "脑图内容为空";
   if (r.kind === "quiz" && (!Array.isArray(payload.questions) || payload.questions.length === 0)) return "题组为空";
@@ -79,7 +80,7 @@ function resourceIssue(r: ResourceItem): string {
 
 function resourcePreview(r: ResourceItem): string {
   const payload = (r.payload || {}) as Record<string, unknown>;
-  if (payload.generation_mode === "unavailable") return "内容尚未生成，请查看原因并调整资料后重试。";
+  if (payload.generation_mode === "unavailable") return hasText(payload.reason) ? payload.reason : "内容尚未生成，请查看原因后重试。";
   const markdown = payload.markdown;
   const markmap = payload.markmap;
   const questions = payload.questions;

@@ -14,6 +14,8 @@ def _install_llm(monkeypatch):
         nonlocal calls
         calls += 1
         if calls == 1:
+            assert kwargs.get("json_object") is True
+            assert kwargs.get("reasoning_mode") == "disabled"
             return (
                 '{"title":"二叉树讲解","narration":"二叉树每个节点最多有两个孩子。",'
                 '"scenes":[{"t":"0-10s","visual":"展示根节点与左右孩子","caption":"二叉树"}],'
@@ -174,7 +176,8 @@ def test_strict_sorting_example_never_absorbs_adjacent_chapter_topics(monkeypatc
     serialized = json.dumps(script, ensure_ascii=False)
 
     assert script["target_seconds"] == 120
-    assert len(script["narration"]) >= 650
+    assert 400 <= len(script["narration"]) <= 820
+    assert all(step in script["narration"] for step in ("第一步", "第二步", "第三步", "十秒自测"))
     assert "3、1、2" in script["narration"]
     assert all(term not in serialized for term in ("计数排序", "快速排序", "二叉树"))
 
@@ -278,3 +281,43 @@ def test_explicit_manim_skips_cloud_video_and_keeps_browser_preview(monkeypatch,
     assert resource["kind"] == "manim"
     assert resource["payload"]["animation_preview"]["stages"]
     assert "class SceneBinaryTree(Scene):" in resource["payload"]["manim_code"]
+
+
+def test_failed_script_never_submits_video_or_tts(monkeypatch):
+    monkeypatch.setattr(media_agent, "is_demo", lambda: False)
+    monkeypatch.setattr(media_agent, "retrieve", lambda *args, **kwargs: [{
+        "text": "Python 的相邻章节：斐波那契数列和字符串切片。",
+        "citation": "Python 教程", "kp": "custom_topic",
+    }])
+
+    async def paid_call(*args, **kwargs):
+        raise AssertionError("An invalid teaching script must not start a paid media task")
+
+    monkeypatch.setattr(media_agent.multimodal_gateway, "video_create", paid_call)
+    monkeypatch.setattr(media_agent.multimodal_gateway, "tts", paid_call)
+    monkeypatch.setattr(media_agent.claude_video, "request", paid_call)
+    for result in (None, "{}",
+                   json.dumps({"narration": "二叉树有左右孩子", "scenes": [{"visual": "二叉树"}]}),
+                   json.dumps({"narration": "   ", "scenes": [{"visual": "Python 变量与赋值"}]}),
+                   json.dumps({"narration": "#", "scenes": [{"visual": "Python 变量与赋值"}]}),
+                   json.dumps({"title": {"bad": "title"}, "narration": "Python 变量与赋值", "scenes": [{"visual": "Python 变量与赋值"}]}),
+                   json.dumps({"narration": "Python 变量与赋值", "scenes": [{"visual": {"label": "Python 变量与赋值"}}]})):
+        async def failed_script(*args, **kwargs):
+            if result is None:
+                raise TimeoutError()
+            return result
+
+        monkeypatch.setattr(media_agent, "llm_complete", failed_script)
+        out = asyncio.run(media_agent.run({
+            "kinds": ["video"], "topic_label": "Python 变量与赋值",
+            "learning_goal": "理解 Python 变量与赋值", "session_id": "failed-script",
+        }))
+        payload = next(iter(out["generated_resources"].values()))["payload"]
+        assert payload["generation_mode"] == "unavailable"
+        assert payload["blocked_reason"] == "video_script_unavailable"
+        assert "script" not in payload
+        assert out["safety_flags"]
+        from app.agents.eval_agent import _learner_summary
+        summary = _learner_summary(out["generated_resources"], out["safety_flags"], "video")
+        assert "尚未提交视频和语音任务" in summary
+        assert "资料" not in summary
