@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import httpx
 
 from ..config import get_settings, is_demo
+from ..services.generation_jobs import SubmissionUncertain, durable_call
 
 DEFAULT_BASES = ("https://www.suno-api.io", "https://suno.code-go.com")
 MODELS = {"suno-v6", "suno-v6-wild", "suno-v6-mini"}
@@ -62,9 +63,15 @@ async def _request(method: str, path: str, *, json_body: dict | None = None, hea
             async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=12), follow_redirects=False) as client:
                 response = await client.request(method, base + path, json=json_body, headers={
                     "Authorization": "Bearer " + cfg.key, "Content-Type": "application/json", **(headers or {})})
-        except httpx.TransportError as exc:  # host unreachable: safe to try the alternate host
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            # No request body reached the service. A read/write failure can happen
+            # after billing; it must never submit again through another host.
             last_error = exc
             continue
+        except httpx.TransportError as exc:
+            if method == "POST" and path.startswith("/api/music/create"):
+                raise SubmissionUncertain("音乐提交回执未收到，已暂停，避免重复生成和扣费。请先核对音乐服务的任务记录。") from exc
+            raise SunoError("unreachable", "音乐查询暂时中断，将继续查询原任务。") from exc
         try:
             body = response.json()
         except ValueError:
@@ -81,6 +88,7 @@ async def _request(method: str, path: str, *, json_body: dict | None = None, hea
     raise SunoError("unreachable", "音乐服务暂时无法连接，请稍后重试。") from last_error
 
 
+@durable_call("suno_create_custom")
 async def create_custom(*, lyrics: str, style_tags: str, title: str, vocal_gender: str = "",
                         negative_tags: str = "", idempotency_key: str) -> str:
     """Submit one custom-mode song (usually two versions). Returns the request id."""

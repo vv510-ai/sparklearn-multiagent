@@ -485,6 +485,35 @@ def test_video_budget_hands_running_task_to_frontend(monkeypatch):
     }
 
 
+def test_paid_video_submission_preserves_a_receipt_after_outer_budget(monkeypatch):
+    monkeypatch.setattr(gateway, "get_settings", lambda: _settings(mm_video_create_timeout_s=0.02))
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
+    calls = []
+
+    def delayed_receipt(prompt, image_url=None):
+        calls.append(prompt)
+        time.sleep(0.06)
+        return "xyq_late_receipt"
+
+    monkeypatch.setattr(gateway.xiaoyunque_client, "create_task", delayed_receipt)
+    result = asyncio.run(gateway.video_create("变量赋值"))
+    assert result["ok"] and result["data"]["task_id"] == "xyq_late_receipt"
+    assert calls == ["变量赋值"]
+
+
+def test_paid_video_lost_http_receipt_does_not_become_a_successful_fallback(monkeypatch):
+    from app.services.generation_jobs import SubmissionUncertain
+    monkeypatch.setattr(gateway, "get_settings", lambda: _settings())
+    monkeypatch.setattr(gateway.xiaoyunque_client, "available", lambda: True)
+
+    def lost_receipt(*args):
+        raise gateway.requests.ReadTimeout("response lost after submission")
+
+    monkeypatch.setattr(gateway.xiaoyunque_client, "create_task", lost_receipt)
+    with pytest.raises(SubmissionUncertain):
+        asyncio.run(gateway.video_create("变量赋值"))
+
+
 def test_video_poll_materializes_and_reuses_provider_mp4(monkeypatch, tmp_path: Path):
     settings = _settings(mm_video_poll_timeout_s=0.2, mm_video_download_timeout_s=0.2)
     task_id = "xyq:test-materialize"

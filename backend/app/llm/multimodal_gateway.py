@@ -288,7 +288,8 @@ def _generate_xiaoyunque_image(prompt: str, digest: str, settings: Any) -> str:
         time.sleep(min(poll_interval_s, remaining))
 
 
-async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float, *, image_pool: bool = False) -> Any:
+async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float, *, image_pool: bool = False,
+                          await_completion: bool = False) -> Any:
     started = time.monotonic()
     slots, pool = (_IMAGE_SLOTS, _IMAGE_POOL) if image_pool else (_MM_SLOTS, _MM_POOL)
     queue_budget = min(120.0 if image_pool else 2.0, max(0.01, timeout_s * 0.5))
@@ -312,6 +313,10 @@ async def _run_in_mm_pool(func: Callable[[], Any], timeout_s: float, *, image_po
 
     loop = asyncio.get_running_loop()
     future = loop.run_in_executor(pool, contextvars.copy_context().run, wrapped)
+    if await_completion:
+        # Paid submission already has an HTTP timeout. A competing outer timer
+        # would discard a late receipt while the sending thread keeps running.
+        return await asyncio.shield(future)
     remaining = max(0.01, timeout_s - (time.monotonic() - started))
     return await asyncio.wait_for(asyncio.shield(future), timeout=remaining)
 
@@ -453,6 +458,7 @@ async def _run_sync(
     timeout_s: float,
     trace_id: str,
     agent: str,
+    await_completion: bool = False,
 ) -> MMResult:
     started = time.monotonic()
     trace_id = _trace_id(trace_id)
@@ -465,7 +471,7 @@ async def _run_sync(
         await _record(result, agent=agent)
         return result
     try:
-        raw = await _run_in_mm_pool(func, timeout_s)
+        raw = await _run_in_mm_pool(func, timeout_s, await_completion=True) if await_completion else await _run_in_mm_pool(func, timeout_s)
         data = normalize(raw)
         result = _result(capability, trace_id, started, ok=True, degraded=False, data=data)
     except TimeoutError:
@@ -925,9 +931,18 @@ async def video_create(
 ) -> MMResult:
     s = get_settings()
     use_ark = ark_video.selected(s)
+
+    def submit():
+        from ..services.generation_jobs import SubmissionUncertain
+        try:
+            return ark_video.create_task(prompt, image_url) if use_ark else xiaoyunque_client.create_task(prompt, image_url)
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            # A lost HTTP response does not prove that no video was ordered.
+            raise SubmissionUncertain("视频提交回执未收到，已暂停，避免重复生成和扣费。请先核对视频服务的任务记录。") from exc
+
     return await _run_sync(
         "video",
-        lambda: ark_video.create_task(prompt, image_url) if use_ark else xiaoyunque_client.create_task(prompt, image_url),
+        submit,
         lambda task_id: {
             "task_id": str(task_id),
             "status": "running",
@@ -939,6 +954,7 @@ async def video_create(
         timeout_s=float(s.mm_video_create_timeout_s),
         trace_id=trace_id,
         agent="media",
+        await_completion=True,
     )
 
 

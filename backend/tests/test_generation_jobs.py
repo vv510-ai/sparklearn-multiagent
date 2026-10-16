@@ -39,6 +39,54 @@ def expire(job_id):
         db.get(GenerationTicket, job_id).lease_until = 0
         db.commit()
 
+
+def test_music_poll_recovery_reuses_persisted_receipt_without_second_order(store, monkeypatch, tmp_path):
+    from app.llm import suno_client
+    from app.services import memory_song
+    submitted, polled, results = [], [], []
+    monkeypatch.setattr(memory_song, "is_demo", lambda: False)
+    monkeypatch.setattr(memory_song, "GEN_DIR", tmp_path / "music")
+    monkeypatch.setattr(suno_client, "available", lambda: True)
+    monkeypatch.setattr(suno_client, "config", lambda: suno_client.SunoConfig("test", ("https://provider.invalid",), "suno-v6"))
+
+    async def compose(*args, **kwargs):
+        return {"title": "变量歌", "lyrics": "变量指向值", "mnemonic": [], "key_points": [], "cloze": [],
+                "review": {"status": "passed"}, "plan": {"style_tags": "pop"}}
+
+    async def request(method, path, **kwargs):
+        submitted.append(path)
+        return {"data": {"request_id": "ac_persisted_song"}}
+
+    async def wait(request_id, **kwargs):
+        polled.append(request_id)
+        if len(polled) == 1:
+            raise suno_client.SunoError("timeout", "still generating")
+        return [{"song_id": "s1", "audio_url": "https://cdn.invalid/a.mp3", "status": "completed"}]
+
+    async def download(*args, **kwargs): return b"ID3-test-audio"
+    async def timeline(*args): return []
+    monkeypatch.setattr(memory_song, "compose", compose)
+    monkeypatch.setattr(suno_client, "_request", request)
+    monkeypatch.setattr(suno_client, "wait_for_songs", wait)
+    monkeypatch.setattr(suno_client, "download", download)
+    monkeypatch.setattr(suno_client, "timeline", timeline)
+
+    async def runner(state):
+        result = await memory_song.generate("变量", goal="", persona="", context="", job_key=state["job_id"])
+        results.append(result)
+        yield {"type": "done"}
+
+    job = submit()
+    asyncio.run(jobs.execute(*jobs.claim("music-first"), runner=runner))
+    assert jobs.owned("u0", job["id"])["status"] == "running"
+    expire(job["id"])
+    asyncio.run(jobs.execute(*jobs.claim("music-recovered"), runner=runner))
+    assert jobs.owned("u0", job["id"])["status"] == "completed"
+    assert submitted == ["/api/music/create/custom"]
+    assert polled == ["ac_persisted_song", "ac_persisted_song"]
+    assert results[0]["status"] == "ready"
+    assert results[0]["request_id"] == "ac_persisted_song"
+
 def test_admission_is_atomic_and_idempotent(store):
     with ThreadPoolExecutor(max_workers=6) as pool:
         results = list(pool.map(lambda _: submit(), range(6)))

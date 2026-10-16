@@ -35,7 +35,7 @@ type StudioPanelKey = "research" | "english" | "profile" | "path" | "resources" 
 export const GENERATORS = [
   {
     title: "讲解视频",
-    desc: "Claude 动画讲解 · 配音字幕 · 1080P 成片",
+    desc: "小云雀概念动画 · 配套讲稿与语音讲解",
     icon: Clapperboard,
     tone: "green",
     goal: "请根据最近的学习对话识别我此刻正在学的内容，制作一段讲解视频：画面要和知识步骤一一对应，先讲直觉再讲机制，最后用一个例子和一个易错点收尾。",

@@ -17,6 +17,7 @@ from ..config import GEN_DIR, is_demo
 from ..llm import suno_client
 from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import invoke_learning_prompt
+from .generation_jobs import ProviderPending, _context
 
 GENRES_FALLBACK = {
     "rap": ("说唱", "Mandopop, hip hop, rap, catchy hook, 96 bpm, male vocal", 96, "male"),
@@ -183,6 +184,7 @@ async def render(song: dict, *, job_key: str) -> dict:
     await emit({"type": "progress", "agent": "music", "stage": "music_submit", "text": "歌词已核对，正在请 AI 歌手演唱（通常 1~3 分钟）…"})
     request_id = await suno_client.create_custom(lyrics=song["lyrics"], style_tags=plan["style_tags"], title=song["title"],
         vocal_gender=plan.get("vocal_gender", ""), negative_tags=song.get("negative_tags", ""), idempotency_key=idempotency)
+    song["request_id"] = request_id
 
     async def progress(state, tasks):
         done = sum(1 for task in tasks if task.get("status") == "completed")
@@ -233,6 +235,12 @@ async def generate(topic: str, *, goal: str, persona: str, context: str, job_key
     try:
         rendered = await render(song, job_key=job_key)
     except suno_client.SunoError as exc:
+        if song.get("request_id"):
+            payload["request_id"] = song["request_id"]
+            if _context.get() and exc.code in {"timeout", "unreachable", "download_failed", "rate_limited", "provider_error"}:
+                # The durable submit call replays the accepted request id after
+                # recovery. Requeue polling, never order another paid song.
+                raise ProviderPending("歌曲已受理，正在继续查询或保存原任务，无需重新生成。") from exc
         payload["error"] = exc.detail
         return payload
     except Exception:

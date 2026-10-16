@@ -142,7 +142,7 @@ def view(user):
     return {'routes': routes, 'revision': revision, 'modules': prefs.MODULES, 'models': MODELS,
             'providers': {}, 'presets': presets, 'server_routes': {'default': default},
             'verified_at': '2026-10-16', 'subscription_only': True,
-            'note': '文字与代码任务优先使用你本人登录的 Kimi Code 或 ChatGPT/Codex 订阅；一个额度不足或未登录时会自动改用另一个，不会切换到收费 API。请保持本机接入程序运行。一图看懂由同一 ChatGPT 账号的网页生成，讲解视频由本机 Claude Code 生成，记忆歌曲由 Suno 生成。'}
+            'note': '文字与代码任务优先使用你本人登录的 Kimi Code 或 ChatGPT/Codex 订阅；一个额度不足或未登录时会自动改用另一个，不会切换到收费 API。请保持本机接入程序运行。一图看懂由同一 ChatGPT 账号的网页生成，讲解视频默认使用小云雀，记忆歌曲由 Suno 生成。'}
 
 
 def save(user, routes, keys, revision=None):

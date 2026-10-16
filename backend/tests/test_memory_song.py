@@ -3,6 +3,7 @@ import asyncio
 import json
 
 import pytest
+import httpx
 
 from app.agents import music_agent
 from app.llm import suno_client
@@ -129,3 +130,42 @@ def test_free_text_song_request_routes_to_the_music_agent_with_scope_template():
     assert orchestrator.requested_resource_kinds("不要编成歌，直接讲") == []
     out = asyncio.run(orchestrator.run({"messages": [{"role": "user", "content": "帮我把光合作用编成一首记忆歌曲"}]}))
     assert out["intent"] == "generate" and out["kinds"] == ["song"] and out["prompt_template"] == "memory_song"
+
+
+@pytest.mark.parametrize("failure", [httpx.ReadTimeout, httpx.WriteError])
+def test_suno_does_not_switch_hosts_after_ambiguous_paid_submission(monkeypatch, failure):
+    from app.services.generation_jobs import SubmissionUncertain
+    calls = []
+    monkeypatch.setattr(suno_client, "config", lambda: suno_client.SunoConfig("test", ("https://primary.invalid", "https://backup.invalid"), "suno-v6"))
+
+    class Client:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def request(self, method, url, **kwargs):
+            calls.append(url)
+            raise failure("connection interrupted after submit")
+
+    monkeypatch.setattr(suno_client.httpx, "AsyncClient", Client)
+    with pytest.raises(SubmissionUncertain):
+        asyncio.run(suno_client._request("POST", "/api/music/create/custom", json_body={}))
+    assert calls == ["https://primary.invalid/api/music/create/custom"]
+
+
+def test_suno_can_switch_hosts_if_connect_failed_before_submission(monkeypatch):
+    calls = []
+    monkeypatch.setattr(suno_client, "config", lambda: suno_client.SunoConfig("test", ("https://primary.invalid", "https://backup.invalid"), "suno-v6"))
+
+    class Client:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def request(self, method, url, **kwargs):
+            calls.append(url)
+            if len(calls) == 1:
+                raise httpx.ConnectTimeout("not connected")
+            return httpx.Response(202, json={"data": {"request_id": "ac_test"}})
+
+    monkeypatch.setattr(suno_client.httpx, "AsyncClient", Client)
+    result = asyncio.run(suno_client._request("POST", "/api/music/create/custom", json_body={}))
+    assert len(calls) == 2 and result["data"]["request_id"] == "ac_test"

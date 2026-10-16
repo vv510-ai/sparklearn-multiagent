@@ -200,6 +200,7 @@ def configure() -> None:
     cfg.setdefault("video_worker_token", secrets.token_urlsafe(48))
     cfg.setdefault("chatgpt_model", "gpt-6.1-sol")
     cfg.setdefault("kimi_model", "kimi-code/k3")
+    cfg.setdefault("video_provider", "xiaoyunque")
     save_config(cfg)
     (STATE / "data").mkdir(parents=True, exist_ok=True, mode=0o700)
     merge_env({
@@ -219,7 +220,8 @@ def configure() -> None:
         "PERSONAL_RELAY_URL": "http://127.0.0.1:18431",
         "PERSONAL_CHAT_IMAGE_ENABLED": "true",
         "PERSONAL_CHAT_IMAGE_WORKER_TOKEN_SHA256": hashlib.sha256(cfg["image_worker_token"].encode()).hexdigest(),
-        "CLAUDE_VIDEO_ENABLED": "true",
+        "VIDEO_PROVIDER": "xiaoyunque" if cfg["video_provider"] != "claude" else "auto",
+        "CLAUDE_VIDEO_ENABLED": "true" if cfg["video_provider"] == "claude" else "false",
         "CLAUDE_VIDEO_WORKER_TOKEN_SHA256": hashlib.sha256(cfg["video_worker_token"].encode()).hexdigest(),
     })
     write_worker_configs(cfg)
