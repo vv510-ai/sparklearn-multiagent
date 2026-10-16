@@ -109,7 +109,16 @@ function resourcePreview(r: ResourceItem): string {
   if (flashcards?.cards?.length) return `${flashcards.cards.length} 张主动回忆卡，可翻面与标记掌握。`;
   if (infographic?.sections?.length) return `${infographic.sections.length} 个视觉区块，一图串起结论、过程与边界。`;
   if (dataTable?.rows?.length) return `${dataTable.rows.length} 行知识对照，可复制为 CSV。`;
-  if (animationPreview?.stages?.length) return `${animationPreview.stages.length} 个动态步骤，可直接预览并下载 Python 代码。`;
+  const video = payload.video as ResourceItem["payload"]["video"];
+  if (video?.provider === "claude_code") {
+    const seconds = Math.round(video.duration || 0);
+    if (video.status === "succeeded") return `Claude 讲解视频 · 1080P · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}，可按章节跳转与下载。`;
+    if (video.status === "awaiting_approval") return "分镜已完成，等你确认后开始制作。";
+    if (video.status === "failed") return "讲解视频没有完成，可以重新制作。";
+    if (video.status === "cancelled") return "已取消制作，可以重新制作。";
+    return `Claude 正在制作讲解视频（${video.progress || 0}%）${video.message ? `：${video.message}` : ""}`.slice(0, 86);
+  }
+  if (animationPreview?.stages?.length) return `${animationPreview.stages.length} 个动态步骤，可直接预览${payload.python_code ? "并下载 Python 代码" : "讲解过程"}。`;
   if (typeof script === "string") return script.replace(/\s+/g, " ").trim().slice(0, 86);
   if (ppt?.status === "ready") return `${ppt.total_pages || ""} 页复习演示已生成，可以下载。`;
   if (ppt?.status === "building") return "正在生成大纲、排版与配图。";

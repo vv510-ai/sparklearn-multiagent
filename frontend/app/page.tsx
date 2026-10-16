@@ -10,6 +10,7 @@ import {
   PanelLeftOpen,
   PanelRightOpen,
   Route,
+  Settings2,
   ShieldCheck,
   SquarePen,
   Target,
@@ -43,13 +44,14 @@ import OnboardingGate from "@/components/onboarding/OnboardingGate";
 import type { Assessment, StudySurvey, CourseScope } from "@/lib/assessment";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import AdaptiveMenu from "@/components/ui/AdaptiveMenu";
+import ModelSettings from "@/components/settings/ModelSettings";
 import StudyDialog from "@/components/ui/StudyDialog";
 import { LearnerScope, useStudyViewport } from "@/lib/study-workspace";
 import { apiGet, apiPost, apiUpload, UNAUTHORIZED_EVENT, USER_ID } from "@/lib/api";
 import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
-type PanelKey = "study" | "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
+type PanelKey = "study" | "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses" | "settings";
 type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "song" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
@@ -234,6 +236,8 @@ export default function Home() {
   const [studyStage, setStudyStage] = useState<StudyStage>("start");
   const [newBookOpen, setNewBookOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelKey>("chat");
+  // Learners get automatic model routing; only the owner of a local install has models and Claude videos to configure.
+  const [ownerSettings, setOwnerSettings] = useState(false);
   const [courseKp, setCourseKp] = useState("");
   const [mobilePane, setMobilePane] = useState<"sources" | "studio" | null>(null);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
@@ -301,6 +305,13 @@ export default function Home() {
   }, [clearSession]);
 
   // Preferences are local to this account and course, including after reload.
+  useEffect(() => {
+    if (!authUser?.id) { setOwnerSettings(false); return; }
+    apiGet<{ available: boolean }>("/settings/claude-video")
+      .then(data => setOwnerSettings(Boolean(data.available)))
+      .catch(() => setOwnerSettings(false));
+  }, [authUser?.id]);
+
   useEffect(() => {
     if (!authUser?.id) { setSourcePolicies({}); return; }
     try {
@@ -981,6 +992,11 @@ export default function Home() {
           <button onClick={() => setEvidenceOpen(true)} className="notebook-evidence-button" aria-label="查看学习依据">
             <ShieldCheck size={16} /><span>依据</span>
           </button>
+          {ownerSettings && (
+            <button type="button" onClick={() => setActivePanel("settings")} className="notebook-home-button" aria-label="模型与讲解视频设置" title="模型与讲解视频设置">
+              <Settings2 size={16} /><span className="hidden md:inline">设置</span>
+            </button>
+          )}
           <div className="hidden max-w-28 truncate text-xs font-semibold text-[#626978] lg:block" title={authUser.email}>{authUser.name}</div>
           <button onClick={() => void logout()} className="notebook-icon-button" aria-label="退出登录" title="退出登录">
             <LogOut size={17} />
@@ -1122,6 +1138,8 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {activePanel === "settings" && <ModelSettings onBack={() => setActivePanel("chat")} />}
 
           {activePanel === "resources" && (
             <div className="notebook-content-scroll">

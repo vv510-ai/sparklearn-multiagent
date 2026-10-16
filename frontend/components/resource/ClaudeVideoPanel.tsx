@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Clapperboard, Download, Loader2, Play, RotateCcw, Square } from "lucide-react";
+import { Clapperboard, Download, Loader2, Play, RotateCcw, X } from "lucide-react";
 import { Notice } from "@/components/ui";
 import { apiAssetUrl, apiGet, apiPost } from "@/lib/api";
 import type { ResourceItem, VideoStoryboard } from "@/lib/types";
@@ -183,7 +183,7 @@ export default function ClaudeVideoPanel({ video: initial, coverUrl }: { video: 
             )}
             <div className="ll-cv-actions">
               <button type="button" className="secondary-action" disabled={busy} onClick={() => void act("cancel")}>
-                <Square size={13} />取消制作
+                <X size={14} />取消制作
               </button>
               <span className="self-center text-[11px] text-slate-500">通常 10~30 分钟；可以先看下面的讲解步骤，完成后会自动出现在这里。</span>
             </div>
