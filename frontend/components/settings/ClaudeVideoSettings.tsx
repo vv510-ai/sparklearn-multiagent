@@ -127,6 +127,9 @@ export default function ClaudeVideoSettings() {
             <p><strong className="text-slate-800">{worker.cli_version || "Claude Code"}</strong> · {authText(worker)}</p>
             <p>制作工具：HyperFrames {worker.tools.hyperframes || "未安装"} · ffmpeg {worker.tools.ffmpeg || "未安装"} · 配音 {worker.tools.tts || "未安装"}</p>
             {!worker.online && <p className="text-amber-800">接入程序现在没有运行：在 Mac 的 LearnLoop 启动菜单选择“启动讲解视频接入”。</p>}
+            {!worker.auth.logged_in && config.access === "subscription" && (
+              <p className="text-amber-800">还没有登录 Claude：在启动菜单选择“登录 Claude”，用你的 Pro / Max 订阅账号完成浏览器授权。</p>
+            )}
           </>
         ) : (
           <p>还没有连接过本机接入程序。在 Mac 的 LearnLoop 启动菜单依次选择“登录 Claude”和“启动讲解视频接入”，保持窗口运行即可。</p>

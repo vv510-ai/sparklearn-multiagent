@@ -175,7 +175,8 @@ def auth_status(claude: str, env: dict) -> dict:
         data = {}
     method = str(data.get("authMethod") or "")
     plan = str(data.get("subscriptionType") or data.get("plan") or data.get("subscription") or "")
-    return {"logged_in": done.returncode == 0 and method != "none", "method": method[:24], "plan": plan[:24]}
+    logged_in = bool(data.get("loggedIn", done.returncode == 0)) and done.returncode == 0 and method != "none"
+    return {"logged_in": logged_in, "method": method[:24], "plan": plan[:24]}
 
 
 def doctor(tools: Path, claude: str) -> dict:

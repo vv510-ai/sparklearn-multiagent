@@ -108,12 +108,15 @@ def owner_id() -> str:
 
 
 def feature_enabled() -> bool:
-    return os.getenv("CLAUDE_VIDEO_ENABLED", "false").lower() == "true" and not is_demo()
+    # is_demo() loads settings first, which also loads backend/.env into the environment.
+    return not is_demo() and os.getenv("CLAUDE_VIDEO_ENABLED", "false").lower() == "true"
 
 
 def enabled_for_user(user: str | None = None) -> bool:
+    if not feature_enabled():  # also loads settings, so the owner lookup sees backend/.env
+        return False
     owner = owner_id()
-    return feature_enabled() and bool(owner) and (user or current_user_id()) == owner
+    return bool(owner) and (user or current_user_id()) == owner
 
 
 def is_task(task_id: str) -> bool:

@@ -88,11 +88,25 @@ def merge_env(updates: dict[str, str]) -> None:
 
 
 # ----------------------------------------------------------------------------- setup
+def ask_owner_email() -> None:
+    """Ask before the long installs, so nobody waits ten minutes for the only question."""
+    cfg = load_config()
+    if cfg.get("owner_email"):
+        return
+    say("\n请输入你（本机唯一拥有者）用来登录网站的邮箱。订阅、一图看懂与视频接入只对这个账号开放。")
+    email = input("拥有者邮箱：").strip().lower()
+    if "@" not in email:
+        raise SystemExit("邮箱格式不正确，请重新运行安装。")
+    cfg["owner_email"] = email
+    save_config(cfg)
+
+
 def setup() -> None:
     STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
     STATE.chmod(0o700)
     if node_version() < (22, 19, 0):
         raise SystemExit("需要 Node.js 22.19 或更高版本。")
+    ask_owner_email()
     if not VENV_PY.exists():
         say("① 创建 Python 环境…")
         uv = shutil.which("uv")
@@ -162,13 +176,8 @@ def build_frontend(force: bool = False) -> None:
 
 
 def configure() -> None:
+    ask_owner_email()
     cfg = load_config()
-    if not cfg.get("owner_email"):
-        say("\n请输入你（本机唯一拥有者）用来登录网站的邮箱。订阅、一图看懂与视频接入只对这个账号开放。")
-        email = input("拥有者邮箱：").strip().lower()
-        if "@" not in email:
-            raise SystemExit("邮箱格式不正确，请重新运行安装。")
-        cfg["owner_email"] = email
     cfg.setdefault("relay_token", secrets.token_urlsafe(48))
     cfg.setdefault("image_worker_token", secrets.token_urlsafe(48))
     cfg.setdefault("video_worker_token", secrets.token_urlsafe(48))
