@@ -27,6 +27,7 @@ _RESOURCE_KIND_HINTS = {
     "quiz": ("出题", "练习题", "题目", "测验", "测一测", "考考我", "做题"),
     "video": ("讲解视频", "视频脚本", "视频", "讲稿"),
     "ppt": ("复习ppt", "学习ppt", "生成ppt", "制作ppt", "复习课件", "演示文稿"),
+    "song": ("记忆歌曲", "编成歌", "编成一首歌", "编成歌曲", "写成歌", "做成歌", "编一首歌", "编首歌", "写首歌", "写一首歌", "唱出来", "口诀歌", "记忆歌"),
 }
 _ALL_RESOURCE_HINTS = ("全套学习", "全部资源", "所有资源", "整套资源")
 _CHAT_RE = re.compile(
@@ -153,6 +154,10 @@ async def run(state: dict) -> dict:
                 "one_page" if any(_affirmed(msg, hint) for hint in ("一图看懂", "一页看懂"))
                 else "complete_notes"
             )
+        elif "song" in selected_kinds and not state.get("prompt_template"):
+            output["prompt_template"] = "memory_song"
+        elif "video" in selected_kinds and not state.get("prompt_template"):
+            output["prompt_template"] = "video"
     if selected_kinds:
         output["kinds"] = selected_kinds
     return output

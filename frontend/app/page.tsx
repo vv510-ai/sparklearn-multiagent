@@ -744,7 +744,9 @@ export default function Home() {
       setPanelError("请先在当前对话里问一个具体问题，再生成笔记、音频、闪卡或视频。这样不会误用旧主题。");
       return;
     }
-    const topicKp = inferKpFromTopic(focus);
+    // Built-in knowledge-point ids belong to the data-structures course only;
+    // any other subject is resolved semantically by the backend.
+    const topicKp = activeCourse?.kind === "ds_algo" || (!activeCourse && !activeNotebook) ? inferKpFromTopic(focus) : null;
     const scopedGoal = !conversationWide && focus
       ? `${goal}\n\n请以最近学习对话中的实际问题为准：${focus}`
       : goal;

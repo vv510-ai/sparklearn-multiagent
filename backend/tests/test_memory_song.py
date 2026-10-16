@@ -121,3 +121,11 @@ def test_music_agent_only_runs_for_song_requests_and_emits_a_song_resource(monke
     assert resource["kind"] == "song" and resource["title"] == "光合作用·记忆歌曲"
     assert resource["payload"]["song"]["status"] == "ready"
     assert any(event["type"] == "resource" for event in events)
+
+
+def test_free_text_song_request_routes_to_the_music_agent_with_scope_template():
+    from app.agents import orchestrator
+    assert orchestrator.requested_resource_kinds("把光合作用编成一首歌") == ["song"]
+    assert orchestrator.requested_resource_kinds("不要编成歌，直接讲") == []
+    out = asyncio.run(orchestrator.run({"messages": [{"role": "user", "content": "帮我把光合作用编成一首记忆歌曲"}]}))
+    assert out["intent"] == "generate" and out["kinds"] == ["song"] and out["prompt_template"] == "memory_song"

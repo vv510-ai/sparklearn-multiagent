@@ -263,6 +263,21 @@ def _is_binary_tree_first_lesson(question: str, topic_kp: str, *, guided: bool) 
     )
 
 
+def _demo_scaffold(topic: str) -> str:
+    """Offline demo for any subject: a labelled study scaffold, never invented facts."""
+    return (
+        f"> 离线演示模式：下面是学习「{topic}」的讲解结构示例，不含未核对的具体结论；"
+        "连接 Kimi / ChatGPT 订阅后会给出完整讲解。\n\n"
+        f"**先建立直觉**：用一句话说清「{topic}」是什么、解决什么问题。\n\n"
+        "**推荐顺序**\n"
+        "1. 是什么：找出定义里的 2~3 个关键词，用自己的话复述。\n"
+        "2. 为什么：它和你已经学过的哪个知识相连？解决了什么问题？\n"
+        "3. 怎么做：挑一个最小例子，把过程一步步走一遍。\n"
+        "4. 易错点：写下最容易混淆的两个概念，说出它们的区别。\n\n"
+        "**下一步**：可以点「一图看懂」「讲解视频」「记忆歌曲」生成三种讲解，或者问我一个更具体的小问题。"
+    )
+
+
 def _strategy_answer(topic_name: str) -> str:
     topic = str(topic_name or "这个主题").strip() or "这个主题"
     if "数据结构" in topic:
@@ -720,8 +735,7 @@ async def run(state: dict) -> dict:
         answer = (
             _strategy_answer(topic_name)
             if learning_strategy else
-            f"「{topic_name}」不在当前课程知识库里；离线演示模式下我不补写无法核对的资料外答案。"
-            "连接星火模型后可以直接继续提问，下一轮也可以随时换到别的知识点。"
+            _demo_scaffold(topic_name)
             if custom_topic and not chunks else
             _rag_demo_answer(question, chunks, guided=guided, topic_kp=topic_kp)
         )
