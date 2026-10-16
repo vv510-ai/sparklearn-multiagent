@@ -176,6 +176,13 @@ def _worker_view(worker: dict) -> dict:
 
 def view(user: str) -> dict:
     available = enabled_for_user(user)
+    from .owner import resolve_owner
+    # Model settings remain accessible to the integration owner when video is off.
+    settings_owner = bool(user) and user in {
+        resolve_owner("CLAUDE_VIDEO_OWNER_ID"),
+        resolve_owner("PERSONAL_IMAGE_OWNER_ID"),
+        resolve_owner("PERSONAL_SUBSCRIPTION_OWNER_ID"),
+    }
     init_db()
     with session() as db:
         row = _config_row(db, user)
@@ -197,7 +204,7 @@ def view(user: str) -> dict:
         reason = "这台服务器没有开启 Claude 讲解视频（需要在本机用启动菜单运行）。"
     elif not available:
         reason = "Claude 讲解视频只对本机拥有者账号开放。"
-    return {"available": available, "reason": reason,
+    return {"available": available, "owner_settings": settings_owner, "reason": reason,
             "config": {**cfg, "has_api_key": has_key, "revision": revision},
             "options": {"models": MODELS, "efforts": EFFORTS, "engines": ENGINES, "voices": VOICES,
                         "qualities": QUALITIES, "durations": DURATIONS},

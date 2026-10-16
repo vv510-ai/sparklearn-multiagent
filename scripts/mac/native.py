@@ -1,4 +1,4 @@
-"""LearnLoop 优化版 · 原生 Mac 运行（不需要 Docker）。
+"""LearnLoop 优化版 · Windows / Mac 原生运行（不需要 Docker）。
 
     python3 scripts/mac/native.py [menu|setup|start|stop|status|login-kimi|login-chatgpt|login-claude|image-worker|video-worker]
 
@@ -10,12 +10,14 @@ Claude Code login. Secrets live in files readable only by you (0600).
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
 import secrets
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -28,13 +30,17 @@ DEV = Path(__file__).resolve().parents[2]
 STATE = DEV.parent / "native" if DEV.parent.name == "runtime" else DEV / ".native"
 BACKEND, FRONTEND, SCRIPTS = DEV / "backend", DEV / "frontend", DEV / "scripts"
 MAC = SCRIPTS / "mac"
-VENV_PY = BACKEND / ".venv" / "bin" / "python"
+WINDOWS = os.name == "nt"
+VENV_PY = BACKEND / ".venv" / ("Scripts/python.exe" if WINDOWS else "bin/python")
 CONFIG = STATE / "config.json"
 ENV_FILE = BACKEND / ".env"
 BACKEND_PORT, FRONTEND_PORT = 18010, 18090
 SITE = f"http://localhost:{FRONTEND_PORT}"
-SERVICES = ("relay", "backend", "frontend", "subscriptions")
-os.environ["PATH"] = ":".join(["/opt/homebrew/bin", "/usr/local/bin", str(Path.home() / ".local/bin"), os.environ.get("PATH", "")])
+SERVICES = ("subscriptions", "frontend", "backend", "relay")
+if not WINDOWS:
+    os.environ["PATH"] = os.pathsep.join(["/opt/homebrew/bin", "/usr/local/bin", str(Path.home() / ".local/bin"), os.environ.get("PATH", "")])
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 
 def say(text: str) -> None:
@@ -56,7 +62,9 @@ def save_config(data: dict) -> None:
 
 
 def run(args, **kwargs) -> None:
-    subprocess.run([str(a) for a in args], check=True, **kwargs)
+    command = [str(a) for a in args]
+    command[0] = shutil.which(command[0]) or command[0]
+    subprocess.run(command, check=True, **kwargs)
 
 
 def node_version() -> tuple[int, ...]:
@@ -84,7 +92,7 @@ def merge_env(updates: dict[str, str]) -> None:
     additions = [f"{key}={value}" for key, value in updates.items() if key not in current]
     if additions:
         text = ENV_FILE.read_text(encoding="utf-8") if ENV_FILE.exists() else ""
-        private_write(ENV_FILE, text.rstrip("\n") + ("\n" if text else "") + "# --- native Mac run (generated) ---\n" + "\n".join(additions) + "\n")
+        private_write(ENV_FILE, text.rstrip("\n") + ("\n" if text else "") + "# --- native local run (generated) ---\n" + "\n".join(additions) + "\n")
 
 
 # ----------------------------------------------------------------------------- setup
@@ -156,14 +164,23 @@ def install_tool(name: str, package_json: Path) -> Path:
 
 
 def build_frontend(force: bool = False) -> None:
-    head = subprocess.run(["git", "-C", str(DEV), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
-    dirty = subprocess.run(["git", "-C", str(DEV), "status", "--porcelain", "frontend"], capture_output=True, text=True).stdout
     stamp = FRONTEND / ".next" / "learnloop-build-stamp"
-    wanted = head + ":" + hashlib.sha256(dirty.encode()).hexdigest()
+    digest = hashlib.sha256()
+    sources = [p for name in ("app", "components", "lib", "scripts") for p in (FRONTEND / name).rglob("*") if p.is_file()]
+    sources += [p for p in FRONTEND.iterdir() if p.is_file() and p.suffix in {".json", ".mjs", ".ts"} and p.name != "next-env.d.ts"]
+    for path in sorted(sources):
+        digest.update(path.relative_to(FRONTEND).as_posix().encode())
+        digest.update(path.read_bytes())
+    wanted = sys.platform + ":" + digest.hexdigest()
     standalone = FRONTEND / ".next" / "standalone"
-    if not force and stamp.exists() and stamp.read_text() == wanted and (standalone / "server.js").exists():
+    artifact = FRONTEND / ".next" / "BUILD_ID" if WINDOWS else standalone / "server.js"
+    if not force and stamp.exists() and stamp.read_text() == wanted and artifact.exists():
         return
     run(["npm", "run", "build"], cwd=FRONTEND, env={**os.environ, "NEXT_TELEMETRY_DISABLED": "1"})
+    if WINDOWS:
+        # next start uses the native dependency tree; no privileged symlinks needed.
+        stamp.write_text(wanted)
+        return
     # The standalone server serves static assets and /public from its own folder.
     for link, source in ((standalone / "public", FRONTEND / "public"), (standalone / ".next" / "static", FRONTEND / ".next" / "static")):
         if link.is_symlink() or link.exists():
@@ -186,10 +203,10 @@ def configure() -> None:
     save_config(cfg)
     (STATE / "data").mkdir(parents=True, exist_ok=True, mode=0o700)
     merge_env({
-        "AUTH_SECRET": secrets.token_urlsafe(48),
+        "AUTH_SECRET": (BACKEND / ".auth_secret").read_text().strip() if (BACKEND / ".auth_secret").exists() else secrets.token_urlsafe(48),
         "AUTH_REQUIRED": "true",
         "DEMO_MODE": "false",
-        "DATABASE_URL": f"sqlite:///{(STATE / 'data' / 'learnloop.db').as_posix()}",
+        "DATABASE_URL": f"sqlite:///{(BACKEND / 'sparklearn.db' if (BACKEND / 'sparklearn.db').exists() else STATE / 'data' / 'learnloop.db').as_posix()}",
         "GENERATION_JOBS_ENABLED": "true",
         "GENERATION_WORKER_MODE": "embedded",
         "GENERATION_MAX_RUNNING": "2",
@@ -212,8 +229,8 @@ def write_worker_configs(cfg: dict) -> None:
     private_write(STATE / "subscription-worker.json", json.dumps({
         "relay_url": "http://127.0.0.1:18431", "relay_token": cfg["relay_token"],
         "state_dir": str(STATE / "subscription-state"), "chatgpt_auth_path": str(STATE / "auth" / "chatgpt.json"),
-        "chatgpt_model": cfg["chatgpt_model"], "kimi_model": cfg["kimi_model"], "kimi_home": str(STATE / "kimi-home"),
-        "kimi_executable": str(STATE / "kimi-cli" / "node_modules" / ".bin" / "kimi")}, indent=2))
+        "chatgpt_model": cfg["chatgpt_model"], "kimi_model": cfg["kimi_model"], "kimi_home": cfg.get("kimi_home", str(STATE / "kimi-home")),
+        "kimi_executable": cfg.get("kimi_executable", str(STATE / "kimi-cli" / "node_modules" / ".bin" / ("kimi.cmd" if WINDOWS else "kimi")))}, indent=2))
     downloads = Path.home() / "Downloads"
     downloads.mkdir(exist_ok=True)
     private_write(STATE / "image-worker.json", json.dumps({
@@ -227,12 +244,41 @@ def pid_file(name: str) -> Path:
     return STATE / "pids" / f"{name}.pid"
 
 
+def windows_process_stamp(pid: int) -> str | None:
+    """Read process creation time without sending Windows' destructive signal 0."""
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+    handle = kernel.OpenProcess(0x1000, False, pid)
+    if not handle:
+        return None
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel.GetExitCodeProcess(handle, ctypes.byref(exit_code)) or exit_code.value != 259:
+            return None
+        times = [wintypes.FILETIME() for _ in range(4)]
+        if not kernel.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+            return None
+        return str((times[0].dwHighDateTime << 32) | times[0].dwLowDateTime)
+    finally:
+        kernel.CloseHandle(handle)
+
+
 def alive(name: str) -> bool:
     try:
         pid = int(pid_file(name).read_text())
+        if WINDOWS:
+            saved = json.loads(pid_file(name).with_suffix(".json").read_text())
+            stamp = windows_process_stamp(pid)
+            return stamp is not None and saved.get("created") == stamp and saved.get("pid") == pid
         os.kill(pid, 0)
         return True
-    except (OSError, ValueError):
+    except (OSError, ValueError, TypeError):
         return False
 
 
@@ -241,10 +287,44 @@ def spawn(name: str, args, cwd: Path, extra_env: dict | None = None) -> None:
         return
     (STATE / "logs").mkdir(parents=True, exist_ok=True, mode=0o700)
     (STATE / "pids").mkdir(parents=True, exist_ok=True, mode=0o700)
-    log = open(STATE / "logs" / f"{name}.log", "ab")
-    process = subprocess.Popen([str(a) for a in args], cwd=cwd, stdout=log, stderr=subprocess.STDOUT,
-                               stdin=subprocess.DEVNULL, env={**os.environ, **(extra_env or {})}, start_new_session=True)
+    command = [str(a) for a in args]
+    command[0] = shutil.which(command[0]) or command[0]
+    flags = {"creationflags": subprocess.CREATE_NO_WINDOW} if WINDOWS else {"start_new_session": True}
+    with open(STATE / "logs" / f"{name}.log", "ab") as log:
+        process = subprocess.Popen(command, cwd=cwd, stdout=log, stderr=subprocess.STDOUT,
+                                   stdin=subprocess.DEVNULL, env={**os.environ, **(extra_env or {})}, **flags)
     pid_file(name).write_text(str(process.pid))
+    if WINDOWS:
+        private_write(pid_file(name).with_suffix(".json"), json.dumps({"pid": process.pid, "created": windows_process_stamp(process.pid)}))
+
+
+@contextmanager
+def launcher_lock():
+    STATE.mkdir(parents=True, exist_ok=True)
+    with (STATE / "launcher.lock").open("a+b") as handle:
+        if handle.tell() == 0:
+            handle.write(b"0")
+            handle.flush()
+        handle.seek(0)
+        try:
+            if WINDOWS:
+                import msvcrt
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise SystemExit("另一个启动或停止操作正在进行，请等它完成后再试。") from None
+        yield
+
+
+def require_free_port(name: str, port: int) -> None:
+    if alive(name):
+        return
+    with socket.socket() as connection:
+        connection.settimeout(1)
+        if connection.connect_ex(("127.0.0.1", port)) == 0:
+            raise SystemExit(f"端口 {port} 已被其他程序占用，未停止该程序。请关闭占用程序后重试。")
 
 
 def wait_http(url: str, seconds: int) -> bool:
@@ -266,9 +346,12 @@ def start() -> None:
         raise SystemExit("请先运行“首次安装”。")
     build_frontend()
     write_worker_configs(cfg)
+    for name, port in (("relay", 18431), ("backend", BACKEND_PORT), ("frontend", FRONTEND_PORT)):
+        require_free_port(name, port)
     spawn("relay", [VENV_PY, MAC / "relay.py"], MAC, {"PORTABLE_RELAY_TOKEN": cfg["relay_token"], "RELAY_HOST": "127.0.0.1"})
     spawn("backend", [VENV_PY, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", BACKEND_PORT], BACKEND)
-    spawn("frontend", ["node", "server.js"], FRONTEND / ".next" / "standalone",
+    frontend_command = ["node", FRONTEND / "node_modules" / "next" / "dist" / "bin" / "next", "start", "--hostname", "127.0.0.1", "--port", FRONTEND_PORT] if WINDOWS else ["node", "server.js"]
+    spawn("frontend", frontend_command, FRONTEND if WINDOWS else FRONTEND / ".next" / "standalone",
           {"PORT": str(FRONTEND_PORT), "HOSTNAME": "127.0.0.1", "BACKEND_URL": f"http://127.0.0.1:{BACKEND_PORT}", "NODE_ENV": "production"})
     (STATE / "subscription-state" / "subscriptions.stop").unlink(missing_ok=True)
     spawn("subscriptions", [VENV_PY, MAC / "subscription_worker.py", "--config", STATE / "subscription-worker.json"], MAC)
@@ -278,7 +361,8 @@ def start() -> None:
     if not wait_http(f"http://127.0.0.1:{FRONTEND_PORT}/", 60):
         raise SystemExit(f"网站没有按时启动，请查看日志：{STATE / 'logs' / 'frontend.log'}")
     status()
-    webbrowser.open(SITE)
+    if os.environ.get("LEARNLOOP_NO_BROWSER") != "1":
+        webbrowser.open(SITE)
 
 
 def stop() -> None:
@@ -286,18 +370,39 @@ def stop() -> None:
                  STATE / "video-state" / "stop.requested"):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
+    failures = []
     for name in SERVICES:
         try:
             pid = int(pid_file(name).read_text())
-            os.killpg(pid, signal.SIGTERM)
+            if WINDOWS:
+                if alive(name):
+                    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=20)
+                    deadline = time.monotonic() + 5
+                    while alive(name) and time.monotonic() < deadline:
+                        time.sleep(0.1)
+                    if alive(name):
+                        failures.append(name)
+                        continue
+            else:
+                os.killpg(pid, signal.SIGTERM)
+        except subprocess.TimeoutExpired:
+            if alive(name):
+                failures.append(name)
+                continue
         except (OSError, ValueError):
-            pass
+            if alive(name):
+                failures.append(name)
+                continue
         pid_file(name).unlink(missing_ok=True)
+        pid_file(name).with_suffix(".json").unlink(missing_ok=True)
+    if failures:
+        raise SystemExit("以下程序未停止，已保留进程记录供重试：" + "、".join(failures))
     say("已停止网站与接入程序；数据库与生成的内容都保留。")
 
 
 def logins() -> dict[str, bool]:
-    kimi = (STATE / "kimi-home" / "credentials" / "kimi-code.json").exists()
+    cfg = load_config()
+    kimi = (Path(cfg.get("kimi_home", str(STATE / "kimi-home"))) / "credentials" / "kimi-code.json").exists()
     chatgpt = (STATE / "auth" / "chatgpt.json").exists() and "access_token" in (STATE / "auth" / "chatgpt.json").read_text()
     return {"Kimi Code 订阅": kimi, "ChatGPT/Codex 订阅": chatgpt, "Claude Code（讲解视频）": claude_signed_in()}
 
@@ -321,10 +426,10 @@ def status() -> None:
 # ----------------------------------------------------------------------------- logins
 def login_kimi() -> None:
     cfg = load_config()
-    exe = STATE / "kimi-cli" / "node_modules" / ".bin" / "kimi"
+    exe = Path(cfg.get("kimi_executable", str(STATE / "kimi-cli" / "node_modules" / ".bin" / ("kimi.cmd" if WINDOWS else "kimi"))))
     if not exe.exists():
         install_tool("kimi-cli", MAC / "kimi-cli.package.json")
-    home = STATE / "kimi-home"
+    home = Path(cfg.get("kimi_home", str(STATE / "kimi-home")))
     home.mkdir(parents=True, exist_ok=True, mode=0o700)
     run([exe, "login"], env={**os.environ, "KIMI_CODE_HOME": str(home), "KIMI_CODE_EXPERIMENTAL_FLAG": "1"})
     settings = tomllib.loads((home / "config.toml").read_text(encoding="utf-8"))
@@ -351,7 +456,7 @@ def login_chatgpt() -> None:
 
 
 def claude_executable() -> str:
-    local = STATE / "claude-cli" / "node_modules" / ".bin" / "claude"
+    local = STATE / "claude-cli" / "node_modules" / ".bin" / ("claude.cmd" if WINDOWS else "claude")
     return str(local) if local.exists() else (shutil.which("claude") or "")
 
 
@@ -389,7 +494,7 @@ def image_worker() -> None:
     if not (STATE / "image-worker" / "node_modules").exists():
         install_tool("image-worker", MAC / "image-worker.package.json")
     write_worker_configs(cfg)
-    say("请在 Chrome 打开 chatgpt.com 并登录与 Kimi/ChatGPT 订阅相同的账号；")
+    say("请在 Chrome 打开 chatgpt.com 并登录你自己的 ChatGPT 账号；")
     say("然后在 chrome://inspect/#remote-debugging 允许远程调试，并接受 Chrome 的连接提示。保持此窗口运行。")
     args = [VENV_PY, SCRIPTS / "personal_chat_image_worker.py", "--config", STATE / "image-worker.json"]
     run(args + ["--check-browser"])
@@ -426,13 +531,21 @@ MENU = [("首次安装 / 修复安装", "setup"), ("启动网站（含文字订�
 
 
 def menu() -> None:
-    say("\n=== 知行循证 LearnLoop · 优化版（原生 Mac，无需 Docker）===")
+    say("\n=== 知行循证 LearnLoop · 优化版（本机运行，无需 Docker）===")
     for index, (label, _) in enumerate(MENU, 1):
         say(f"  {index}. {label}")
     choice = input("请输入序号：").strip()
     if not choice.isdigit() or not 1 <= int(choice) <= len(MENU):
         raise SystemExit("没有这个选项。")
-    ACTIONS[MENU[int(choice) - 1][1]]()
+    dispatch(MENU[int(choice) - 1][1])
+
+
+def dispatch(action: str) -> None:
+    if action in {"start", "stop", "setup"}:
+        with launcher_lock():
+            ACTIONS[action]()
+    else:
+        ACTIONS[action]()
 
 
 def main() -> None:
@@ -440,7 +553,7 @@ def main() -> None:
     parser.add_argument("action", nargs="?", default="menu", choices=["menu", *ACTIONS])
     action = parser.parse_args().action
     try:
-        (menu if action == "menu" else ACTIONS[action])()
+        menu() if action == "menu" else dispatch(action)
     except subprocess.CalledProcessError as error:
         raise SystemExit(f"步骤未完成（退出码 {error.returncode}）。数据没有被重置，请保留窗口内容排查。") from None
     except KeyboardInterrupt:

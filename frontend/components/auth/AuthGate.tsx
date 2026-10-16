@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Clapperboard, Eye, EyeOff, Images, LockKeyhole, Mail, Music4, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, Sparkles, UserRound } from "lucide-react";
 import { FormEvent, useState } from "react";
 import CinematicBackground from "@/components/ui/CinematicBackground";
 import { apiPost } from "@/lib/api";
@@ -11,6 +11,10 @@ export type AuthUser = {
   name: string;
   demo?: boolean;
 };
+
+const AUTH_HERO_LEAD = Array.from("让世界享受");
+const AUTH_HERO_ACCENT = Array.from("学习");
+const AUTH_HERO_TAIL = Array.from("的乐趣");
 
 export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: AuthUser) => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -40,31 +44,58 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
   };
 
   return (
-    <main className="ll-auth">
-      <CinematicBackground />
+    <main className="relative min-h-dvh overflow-hidden bg-[#062B38] text-white">
+      <CinematicBackground subdued video />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_25%,rgba(54,185,139,0.20),transparent_34%),linear-gradient(110deg,rgba(3,34,45,0.88),rgba(4,33,45,0.55))]" />
 
-      <div className="ll-auth-inner">
-        <section className="hidden lg:block" aria-label="知行循证 LearnLoop 简介">
-          <div className="ll-auth-brand">
-            <span className="ll-logo"><Sparkles size={20} /></span>
-            <div><strong className="block text-lg font-black tracking-tight">知行循证 LearnLoop</strong><span className="text-xs text-[#9ff0cd]">多模态 AI 学习机</span></div>
-          </div>
-          <p className="ll-auth-kicker mt-10">LEARN · SEE · REMEMBER · PRACTICE</p>
-          <h1 className="ll-auth-title">任何知识，<br />都能被<em>看懂、记住、练会</em></h1>
-          <p className="ll-auth-lead">上传资料或说出想学的主题，AI 为你生成一图看懂、讲解视频和记忆歌曲，再用练习与间隔复习确认真的学会；每一步都有依据可查。</p>
-          <div className="ll-auth-features">
-            <div className="ll-auth-feature"><Images size={22} /><strong>一图看懂</strong><small>复杂知识自动拆成 1~N 张图，逐张核对</small></div>
-            <div className="ll-auth-feature"><Clapperboard size={22} /><strong>讲解视频</strong><small>动画、配音、字幕一次生成 1080P 成片</small></div>
-            <div className="ll-auth-feature"><Music4 size={22} /><strong>记忆歌曲</strong><small>口诀写成歌，跟唱填空也能复习</small></div>
-          </div>
-          <div className="ll-auth-loop" aria-label="学习闭环"><span>看懂</span><ArrowRight size={14} /><span>记住</span><ArrowRight size={14} /><span>练会</span><ArrowRight size={14} /><span>复盘</span></div>
+      <div className="relative z-10 mx-auto grid min-h-dvh w-full max-w-6xl items-center gap-12 px-5 py-10 lg:grid-cols-[1.05fr_0.8fr] lg:px-10">
+        <section className="hidden max-w-xl lg:block">
+          <p className="mb-5 text-sm font-semibold tracking-[0.16em] text-[#B8F3D4]">WELCOME TO YOUR LEARNING SPACE</p>
+          <h1 className="auth-hero-title" aria-label="让世界享受学习的乐趣">
+            <span className="auth-hero-visual" aria-hidden="true">
+              <span className="auth-hero-word">
+                {AUTH_HERO_LEAD.map((character, index) => (
+                  <span
+                    key={`lead-${character}-${index}`}
+                    className="auth-hero-character"
+                    style={{ animationDelay: `${180 + index * 72}ms` }}
+                  >
+                    {character}
+                  </span>
+                ))}
+              </span>
+              <span className="auth-hero-accent">
+                {AUTH_HERO_ACCENT.map((character, index) => (
+                  <span
+                    key={`accent-${character}-${index}`}
+                    className="auth-hero-character"
+                    style={{ animationDelay: `${180 + (AUTH_HERO_LEAD.length + index) * 72}ms` }}
+                  >
+                    {character}
+                  </span>
+                ))}
+              </span>
+              <span className="auth-hero-word">
+                {AUTH_HERO_TAIL.map((character, index) => (
+                  <span
+                    key={`tail-${character}-${index}`}
+                    className="auth-hero-character"
+                    style={{ animationDelay: `${180 + (AUTH_HERO_LEAD.length + AUTH_HERO_ACCENT.length + index) * 72}ms` }}
+                  >
+                    {character}
+                  </span>
+                ))}
+              </span>
+              <span className="auth-hero-cursor" />
+            </span>
+          </h1>
         </section>
 
-        <section className="ll-auth-card">
-          <div className="ll-auth-card-body">
+        <section className="mx-auto w-full max-w-[430px] rounded-[28px] border border-white/20 bg-white/[0.12] p-3 shadow-[0_35px_100px_rgba(0,12,22,0.38)] backdrop-blur-2xl">
+          <div className="rounded-[22px] bg-white px-6 py-7 text-[#1D2028] sm:px-8 sm:py-8">
             <div className="mb-7 flex items-center gap-2.5">
-              <span className="ll-logo" style={{ width: 38, height: 38, borderRadius: 12 }}><Sparkles size={18} /></span>
-              <div><strong className="block text-lg font-black">知行循证</strong><span className="text-xs text-[#69837a]">LearnLoop · 看懂 · 记住 · 练会</span></div>
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#0F6B50] text-white"><Sparkles size={18} /></span>
+              <div><strong className="block text-lg">知行循证</strong><span className="text-xs text-[#7C8491]">LearnLoop · 让学习发生，有据可循</span></div>
             </div>
             <div className="mb-5 text-xs text-[#0F6B50]"><a href="/review" className="underline underline-offset-4">先体验一次练习</a></div>
 
@@ -122,7 +153,7 @@ export default function AuthGate({ onAuthenticated }: { onAuthenticated: (user: 
 
               {error && <div role="alert" className="rounded-xl border border-[#F0D0C5] bg-[#FFF5F1] px-3.5 py-3 text-sm leading-5 text-[#A0442C]">{error}</div>}
 
-              <button disabled={submitting} className="primary-action flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold disabled:cursor-wait disabled:opacity-60">
+              <button disabled={submitting} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F6B50] px-4 py-3.5 text-sm font-bold text-white transition hover:bg-[#0B5C44] disabled:cursor-wait disabled:opacity-60">
                 {submitting ? "正在验证…" : mode === "login" ? "登录并继续" : "创建账户"}
                 {!submitting && <ArrowRight size={17} />}
               </button>

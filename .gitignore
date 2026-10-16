@@ -17,6 +17,7 @@ backend/app/data/vector_store.json
 backend/app/data/vector_store_manifest.json
 backend/app/data/uploaded_sources/
 .venv/
+.native/
 dist/
 backend/runs/
 runs/

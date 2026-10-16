@@ -75,7 +75,7 @@ export default function ModelSettings({ onBack }: { onBack: () => void }) {
         <ClaudeVideoSettings />
         <details className="rounded-2xl border border-[#DDE5D9] bg-white/80 p-5">
           <summary className="cursor-pointer font-semibold text-slate-800">{data.subscription_only ? "各功能的订阅模型" : "自定义模型与个人密钥"}</summary>
-          <p className="mt-3 text-xs leading-6 text-slate-500">{data.subscription_only ? "在 Mac 上登录同一个订阅账号后使用；本页不需要填写 API Key。" : <>需要单独指定某项功能时再调整。个人密钥加密保存，仅对当前账户生效。ChatGPT 会员与 OpenAI API 分别计费。模型和价格核对日期：{data.verified_at}。</>}</p>
+          <p className="mt-3 text-xs leading-6 text-slate-500">{data.subscription_only ? "在本机登录你自己的订阅账号后使用；本页不需要填写 API Key。" : <>需要单独指定某项功能时再调整。个人密钥加密保存，仅对当前账户生效。ChatGPT 会员与 OpenAI API 分别计费。模型和价格核对日期：{data.verified_at}。</>}</p>
         {!data.subscription_only && <section className="space-y-4 rounded-2xl border border-[#DDE5D9] bg-white/80 p-5"><h2 className="flex items-center gap-2 font-bold"><KeyRound size={18}/>连接模型服务</h2>
           {!secure && <p className="text-sm text-amber-800">当前连接为 HTTP。请通过 HTTPS 或本机 localhost 打开后填写个人密钥；现在可选择已有的服务端模型。</p>}
           {Object.entries(data.providers).map(([id,p]) => <div key={id} className="border-t border-slate-100 pt-4">

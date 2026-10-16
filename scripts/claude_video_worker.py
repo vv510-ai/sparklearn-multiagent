@@ -1,4 +1,4 @@
-"""LearnLoop · Claude 讲解视频接入程序（在拥有者自己的 Mac 上运行）。
+"""LearnLoop · Claude 讲解视频接入程序（在拥有者自己的电脑上运行）。
 
     python scripts/claude_video_worker.py setup  --tools DIR
     python scripts/claude_video_worker.py run    --site URL --state DIR --tools DIR --claude PATH --token-file CONFIG
@@ -56,6 +56,7 @@ HELLO_SECONDS = 45
 KEEP_WORKSPACES = 6
 LEAD_IN, SCENE_GAP, TAIL = 0.3, 0.45, 1.6
 FALLBACK_VOICE = "Tingting"
+WINDOWS = os.name == "nt"
 # ASCII "," "." ":" also appear inside numbers and times, so they never end a subtitle line.
 CLAUSE_END = "，。！？；：!?;"
 LOGIN_ERRORS = {"authentication_failed", "oauth_org_not_allowed", "account_on_hold"}
@@ -90,9 +91,13 @@ def arch() -> str:
 
 def tool_paths(tools: Path) -> dict[str, Path]:
     modules = tools / "node_modules"
+    suffix = ".exe" if WINDOWS else ""
+    os_name = "win32" if WINDOWS else ("darwin" if sys.platform == "darwin" else "linux")
+    ffmpeg = modules / "ffmpeg-static" / ("ffmpeg" + suffix)
+    ffprobe = modules / "ffprobe-static" / "bin" / os_name / arch() / ("ffprobe" + suffix)
     return {"bin": tools / "bin", "node_bin": modules / ".bin",
-            "ffmpeg": modules / "ffmpeg-static" / "ffmpeg",
-            "ffprobe": modules / "ffprobe-static" / "bin" / "darwin" / arch() / "ffprobe",
+            "ffmpeg": ffmpeg if ffmpeg.exists() else Path(shutil.which("ffmpeg") or ffmpeg),
+            "ffprobe": ffprobe if ffprobe.exists() else Path(shutil.which("ffprobe") or ffprobe),
             "gsap": modules / "gsap" / "dist" / "gsap.min.js",
             "three": modules / "three" / "build" / "three.module.min.js",
             "skills": tools / "skills" / ".claude" / "skills", "guides": tools / "guides"}
@@ -104,6 +109,12 @@ def tool_env(tools: Path, api_key: str = "", *, offline: bool = True) -> dict[st
     env["PATH"] = os.pathsep.join([str(paths["bin"]), str(paths["node_bin"]), env.get("PATH", "")])
     env.update({"HYPERFRAMES_SKIP_SKILLS": "1", "NO_UPDATE_NOTIFIER": "1", "npm_config_update_notifier": "false",
                 "DISABLE_AUTOUPDATER": "1", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"})
+    if WINDOWS and not env.get("CLAUDE_CODE_GIT_BASH_PATH"):
+        git = shutil.which("git")
+        if git:
+            bash = Path(git).parent.parent / "bin" / "bash.exe"
+            if bash.exists():
+                env["CLAUDE_CODE_GIT_BASH_PATH"] = str(bash)
     if offline:
         # npx must resolve the pinned local HyperFrames, never download another version mid-job.
         env["npm_config_offline"] = "true"
@@ -113,7 +124,10 @@ def tool_env(tools: Path, api_key: str = "", *, offline: bool = True) -> dict[st
 
 
 def run_quiet(args, *, cwd=None, env=None, timeout=120) -> subprocess.CompletedProcess:
-    return subprocess.run([str(a) for a in args], cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+    command = [str(a) for a in args]
+    command[0] = shutil.which(command[0], path=(env or os.environ).get("PATH")) or command[0]
+    flags = {"creationflags": subprocess.CREATE_NO_WINDOW} if WINDOWS else {}
+    return subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, **flags)
 
 
 def setup(tools: Path) -> None:
@@ -128,12 +142,17 @@ def setup(tools: Path) -> None:
     paths["ffprobe"].chmod(0o755)
     paths["bin"].mkdir(parents=True, exist_ok=True)
     for name in ("ffmpeg", "ffprobe"):
-        link = paths["bin"] / name
+        link = paths["bin"] / (name + (".exe" if WINDOWS else ""))
         link.unlink(missing_ok=True)
-        link.symlink_to(paths[name])
+        if WINDOWS:
+            shutil.copy2(paths[name], link)
+        else:
+            link.symlink_to(paths[name])
     wrapper = paths["bin"] / "learnloop-check"
-    wrapper.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{Path(__file__).resolve()}" check "$@"\n', encoding="utf-8")
+    wrapper.write_text(f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "{Path(__file__).resolve().as_posix()}" check "$@"\n', encoding="utf-8", newline="\n")
     wrapper.chmod(0o755)
+    if WINDOWS:
+        wrapper.with_suffix(".cmd").write_text(f'@echo off\r\n"{sys.executable}" "{Path(__file__).resolve()}" check %*\r\n', encoding="utf-8")
     env = tool_env(tools, offline=False)
     if not (paths["skills"] / "hyperframes-core").exists():
         say("正在下载 HyperFrames 制作技能（约 18 MB）…")
@@ -189,7 +208,9 @@ def doctor(tools: Path, claude: str) -> dict:
         except (OSError, subprocess.SubprocessError, IndexError):
             return ""
 
-    chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    chrome_candidates = [Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")]
+    if WINDOWS:
+        chrome_candidates = [Path(os.environ.get(name, "")) / "Google/Chrome/Application/chrome.exe" for name in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA")]
     try:
         import edge_tts  # noqa: F401
         tts = "edge-tts"
@@ -199,7 +220,7 @@ def doctor(tools: Path, claude: str) -> dict:
             "tools": {"hyperframes": first_line(["hyperframes", "--version"]),
                       "ffmpeg": (first_line([paths["ffmpeg"], "-hide_banner", "-version"]).replace("ffmpeg version ", "").split() or [""])[0],
                       "ffprobe": "ok" if paths["ffprobe"].exists() else "",
-                      "chrome": "system" if Path(chrome).exists() else "", "tts": tts,
+                      "chrome": "system" if any(p.is_file() for p in chrome_candidates) else "", "tts": tts,
                       "node": first_line(["node", "--version"])}}
 
 
@@ -391,6 +412,33 @@ def speak_say(text: str, target: Path, ffmpeg: str) -> list[dict]:
     return []
 
 
+def speak_windows(text: str, target: Path, ffmpeg: str) -> list[dict]:
+    """Use an installed Chinese Windows voice if online narration is unavailable."""
+    source, wave = target.with_suffix(".txt"), target.with_suffix(".wav")
+    source.write_text(text, encoding="utf-8")
+    script = (
+        "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Speech; "
+        "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "$v=$s.GetInstalledVoices() | Where-Object { $_.Enabled -and $_.VoiceInfo.Culture.Name -like 'zh-*' } | Select-Object -First 1; "
+        "if (-not $v) { throw 'No Chinese voice installed' }; "
+        "$s.SelectVoice($v.VoiceInfo.Name); "
+        "$s.SetOutputToWaveFile($env:LEARNLOOP_TTS_WAVE); "
+        "try { $s.Speak([IO.File]::ReadAllText($env:LEARNLOOP_TTS_TEXT,[Text.Encoding]::UTF8)) } finally { $s.Dispose() }"
+    )
+    try:
+        done = run_quiet(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+                         env={**os.environ, "LEARNLOOP_TTS_TEXT": str(source), "LEARNLOOP_TTS_WAVE": str(wave)}, timeout=300)
+        if done.returncode or not wave.exists():
+            raise WorkerError("tts_failed", "在线配音不可用，Windows 中文语音也未就绪；请检查网络或安装中文语音。")
+        converted = run_quiet([ffmpeg, "-y", "-v", "error", "-i", wave, "-ar", "24000", "-ac", "1", target], timeout=300)
+        if converted.returncode or not target.exists():
+            raise WorkerError("tts_failed", "Windows 配音转换失败")
+    finally:
+        source.unlink(missing_ok=True)
+        wave.unlink(missing_ok=True)
+    return []
+
+
 def record_narration(workspace: Path, storyboard: dict, voice: str, tools: Path) -> dict:
     paths = tool_paths(tools)
     audio = workspace / "audio"
@@ -403,8 +451,9 @@ def record_narration(workspace: Path, storyboard: dict, voice: str, tools: Path)
         all_words = [speak_edge(text, voice, target) for text, target in zip(texts, targets)]
     except EdgeUnavailable:
         # One voice for the whole video: never mix the online voice with the system fallback.
-        engine = "macos-say"
-        all_words = [speak_say(text, target, str(paths["ffmpeg"])) for text, target in zip(texts, targets)]
+        engine = "windows-sapi" if WINDOWS else "macos-say"
+        fallback = speak_windows if WINDOWS else speak_say
+        all_words = [fallback(text, target, str(paths["ffmpeg"])) for text, target in zip(texts, targets)]
     durations = [media_duration(target, str(paths["ffprobe"])) for target in targets]
     captions_by_scene = list(zip(texts, all_words, durations))
     offsets, windows, total = plan_timeline(durations)
@@ -536,6 +585,11 @@ class ClaudeRun:
         self.stage, self.on_progress, self.should_stop, self.timeout = stage, on_progress, should_stop, timeout
 
     def _stop(self, process: subprocess.Popen) -> None:
+        if WINDOWS:
+            if process.poll() is None:
+                run_quiet(["taskkill", "/PID", str(process.pid), "/T", "/F"], timeout=20)
+                process.wait(timeout=10)
+            return
         for sig, wait in ((signal.SIGINT, 15), (signal.SIGTERM, 10), (signal.SIGKILL, 5)):
             if process.poll() is not None:
                 return
@@ -550,8 +604,13 @@ class ClaudeRun:
 
     def run(self) -> dict:
         self.log.parent.mkdir(parents=True, exist_ok=True)
-        process = subprocess.Popen(self.cmd, cwd=self.cwd, env=self.env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, text=True, start_new_session=True, bufsize=1)
+        command = list(self.cmd)
+        command[0] = shutil.which(command[0], path=self.env.get("PATH")) or command[0]
+        flags = {"creationflags": subprocess.CREATE_NO_WINDOW} if WINDOWS else {"start_new_session": True}
+        # Python helper tools inherit UTF-8 on Windows too, matching the pipe encoding.
+        child_env = {**self.env, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+        process = subprocess.Popen(command, cwd=self.cwd, env=child_env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace", bufsize=1, **flags)
         process.stdin.write(self.prompt)
         process.stdin.close()
         stderr_lines: list[str] = []

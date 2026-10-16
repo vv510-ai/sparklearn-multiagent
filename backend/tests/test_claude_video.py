@@ -243,6 +243,18 @@ def test_worker_failure_codes_map_to_learner_messages(store):
     assert failed["status"] == "failed" and "额度" in failed["error"] and "resets 3pm" in failed["error"]
 
 
+def test_owner_settings_stay_visible_when_video_is_disabled(store, monkeypatch):
+    monkeypatch.setenv("CLAUDE_VIDEO_ENABLED", "false")
+    monkeypatch.delenv("CLAUDE_VIDEO_OWNER_ID")
+    monkeypatch.setenv("PERSONAL_IMAGE_OWNER_ID", "owner")
+    client = TestClient(app)
+    owner = client.get("/api/settings/claude-video", headers=user_headers()).json()
+    other = client.get("/api/settings/claude-video", headers=user_headers("other")).json()
+    assert owner["owner_settings"] is True and owner["available"] is False
+    assert other["owner_settings"] is False and other["available"] is False
+    assert client.post("/api/settings/claude-video/test", headers=user_headers()).status_code == 403
+
+
 def test_settings_validate_keys_revisions_and_owner(store):
     client = TestClient(app)
     view = client.get("/api/settings/claude-video", headers=user_headers()).json()

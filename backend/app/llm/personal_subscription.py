@@ -18,13 +18,13 @@ MODELS = {
                              'cost': '使用本机官方授权账号的 ChatGPT Work/Codex 订阅用量', 'use': '讲解、笔记、练习和教学设计'},
 }
 MESSAGES = {
-    'not_logged_in': '订阅账号尚未登录或需要重新授权，请在 Mac 上运行对应登录入口。',
+    'not_logged_in': '订阅账号尚未登录或需要重新授权，请在本机启动菜单中运行对应登录入口。',
     'limit_or_provider_error': '订阅服务未完成请求，请检查账号额度和网络；没有切换到收费 API。',
     'invalid_response': '订阅回复不完整或格式不正确，请重试；没有切换到收费 API。',
     'timeout': '等待订阅回复超时；没有自动重复调用或切换到收费 API。',
-    'worker_unavailable': '请先在 Mac 上运行 05-启动订阅接入.command。',
+    'worker_unavailable': '请先从本机启动菜单启动网站和订阅接入。',
     'queue_full': '本机订阅任务较多，请稍后重试。',
-    'unsupported_model': '当前订阅账号不支持所选模型，请检查 Mac 接入配置。',
+    'unsupported_model': '当前订阅账号不支持所选模型，请检查本机接入配置。',
 }
 
 
@@ -149,7 +149,7 @@ def save(user, routes, keys, revision=None):
     from ..services import model_preferences as prefs
     require_owner(user)
     if keys:
-        raise HTTPException(422, '订阅模式不接收 API Key，请使用 Mac 上的登录入口。')
+        raise HTTPException(422, '订阅模式不接收 API Key，请使用本机启动菜单中的登录入口。')
     if set(routes)-set(prefs.MODULES)-{'default'} or any(value and value not in MODELS for value in routes.values()):
         raise HTTPException(422, '请选择列表中的订阅模型。')
     _, _, current_revision = prefs._load(user)

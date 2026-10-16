@@ -32,7 +32,7 @@ def test_quota_on_kimi_fails_over_to_chatgpt_subscription(relay):
 def test_shared_worker_outage_does_not_retry_the_other_provider(relay):
     calls, script = relay
     script((False, "worker_unavailable"))
-    with pytest.raises(RuntimeError, match="05-启动订阅接入"):
+    with pytest.raises(RuntimeError, match="本机启动菜单"):
         asyncio.run(subscription.complete("讲讲光合作用"))
     assert calls == ["kimi-subscription"]
 

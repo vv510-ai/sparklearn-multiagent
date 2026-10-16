@@ -411,6 +411,8 @@ def test_direct_site_connection_ignores_proxy_but_never_follows_redirect(worker,
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_): pass
         def do_POST(self):
+            # Consume the request before closing; unread bytes can reset TCP on Windows.
+            self.rfile.read(int(self.headers.get('Content-Length', '0')))
             observed.append(self.path)
             if self.path.endswith('/claim'):
                 body = b'{"job": null}'

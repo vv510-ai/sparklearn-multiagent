@@ -307,8 +307,8 @@ export default function Home() {
   // Preferences are local to this account and course, including after reload.
   useEffect(() => {
     if (!authUser?.id) { setOwnerSettings(false); return; }
-    apiGet<{ available: boolean }>("/settings/claude-video")
-      .then(data => setOwnerSettings(Boolean(data.available)))
+    apiGet<{ available: boolean; owner_settings?: boolean }>("/settings/claude-video")
+      .then(data => setOwnerSettings(Boolean(data.owner_settings ?? data.available)))
       .catch(() => setOwnerSettings(false));
   }, [authUser?.id]);
 
