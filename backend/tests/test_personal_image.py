@@ -250,3 +250,60 @@ def test_late_heartbeat_cannot_move_progress_backwards(store):
     bridge.transition(claim['id'], claim['lease'], 'heartbeat', phase='read_image')
     with database.session() as db:
         assert db.get(PersonalImageJob, claim['id']).data['phase'] == 'upload_image'
+
+
+def test_multi_image_answer_is_stored_by_position_and_resumes_with_all_pictures(store):
+    job, generation_lease = queue_multi()
+    claim = bridge.claim()
+    assert claim["multi"] is True and claim["max_images"] == bridge.MAX_IMAGES
+    bridge.transition(claim["id"], claim["lease"], "submitted", phase="wait_image")
+    bridge.transition(claim["id"], claim["lease"], "heartbeat", phase="continue_more")
+    first, second = image_bytes("white"), image_bytes("green")
+    stored = bridge.store_image(claim["id"], claim["lease"], 1, first, "image/png")
+    assert bridge.store_image(claim["id"], claim["lease"], 1, first, "image/png") == stored
+    with pytest.raises(HTTPException) as error:
+        bridge.store_image(claim["id"], claim["lease"], 1, second, "image/png")
+    assert error.value.status_code == 409
+    with pytest.raises(HTTPException) as error:
+        bridge.finish(claim["id"], claim["lease"], 2)  # picture 2 was never uploaded
+    assert error.value.status_code == 422
+    bridge.store_image(claim["id"], claim["lease"], 2, second, "image/png")
+    done = bridge.finish(claim["id"], claim["lease"], 2, "https://chatgpt.com/c/abc-12345678")
+    assert done["count"] == 2 and [item["index"] for item in done["images"]] == [1, 2]
+    assert done["conversation_url"].startswith("https://chatgpt.com/c/")
+    assert bridge.finish(claim["id"], claim["lease"], 2) == done
+    token = jobs._context.set(generation_lease)
+    try:
+        generated = bridge.request_image("帮我弄一个一图看懂光合作用的内容", multi=True)
+    finally:
+        jobs._context.reset(token)
+    assert generated["ok"] and len(generated["images"]) == 2 and generated["image_url"] == done["images"][0]["image_url"]
+    with database.session() as db:
+        assert db.query(UserAsset).count() == 2
+
+
+def test_multi_image_routes_are_worker_only(store):
+    queue_multi()
+    claim = bridge.claim()
+    bridge.transition(claim["id"], claim["lease"], "submitted")
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer " + TOKEN, "Content-Type": "image/png", "X-Image-Lease": claim["lease"]}
+    url = f"/api/personal-image-worker/{claim['id']}/image/1"
+    assert client.post(url, headers={**headers, "Authorization": "Bearer nope"}, content=image_bytes()).status_code == 401
+    assert client.post(url, headers=headers, content=image_bytes()).status_code == 200
+    assert client.post(f"/api/personal-image-worker/{claim['id']}/image/9", headers=headers, content=image_bytes()).status_code == 422
+    finish = client.post(f"/api/personal-image-worker/{claim['id']}/finish",
+                         headers={"Authorization": "Bearer " + TOKEN}, json={"lease": claim["lease"], "count": 1})
+    assert finish.status_code == 200 and finish.json()["count"] == 1
+
+
+def queue_multi(prompt="帮我弄一个一图看懂光合作用的内容", key="multi1"):
+    job = jobs.submit({"user_id": "owner", "session_id": "test", "messages": []}, "resource", key, jobs.digest(key))
+    lease = jobs.claim("generation-worker")
+    token = jobs._context.set(lease)
+    try:
+        with pytest.raises(jobs.ProviderPending):
+            bridge.request_image(prompt, multi=True)
+    finally:
+        jobs._context.reset(token)
+    return job, lease

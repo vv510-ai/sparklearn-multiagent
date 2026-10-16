@@ -163,6 +163,23 @@ def invoke_learning_prompt(capability: str, **values: Any) -> PromptCall:
     )
 
 
+def render_plain_prompt(capability: str, **values: Any) -> PromptCall:
+    """Render one capability verbatim for an external chat UI.
+
+    Unlike :func:`invoke_learning_prompt`, nothing is added: no system prompt,
+    no ``CAPABILITY=`` header and no learner context. Used where the exact text
+    is a product decision (for example the 一图看懂 request sent to ChatGPT).
+    """
+    key = str(capability or "").strip().lower()
+    manifest = _load_manifest()
+    entry = manifest["capabilities"].get(key)
+    if not isinstance(entry, dict):
+        raise ValueError(f"unsupported learning prompt capability: {capability}")
+    prompt = _render(_read_prompt(str(entry.get("file") or "")), values, label=key)
+    return PromptCall(capability=key, prompt=prompt, system="",
+                      version=str(manifest.get("version") or "unversioned"))
+
+
 def supported_template(value: str) -> str:
     key = str(value or "").strip().lower()
     return key if key in _DOC_TEMPLATES else DEFAULT_TEMPLATE

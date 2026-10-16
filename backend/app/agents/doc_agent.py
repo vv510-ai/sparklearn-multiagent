@@ -22,7 +22,9 @@ from ..safety.grounding import grounding_check, grounding_check_local
 from ..safety.guard import safety_filter
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.learner_content import plain_learning_text, without_source_code
-from ..services.one_page_image import generate_one_page
+import os
+
+from ..services.one_page_image import generate_one_page, generate_simple_one_page
 from ..services.one_page_topic import check_draft
 from ..services.knowledge_map_layout import map_plan
 from ..services.topic_scope import focus_chunks_on_topic, topic_terms
@@ -746,6 +748,91 @@ def _doc_label(default: str, template_key: str) -> str:
     }.get(str(template_key or "").strip().lower(), default)
 
 
+def _simple_one_page_mode() -> bool:
+    """The owner's ChatGPT web bridge receives the plain product template."""
+    from ..services.personal_image import enabled_for_user
+    return (os.getenv("ONE_PAGE_PROMPT_MODE", "simple").strip().lower() != "draft"
+            and not is_demo() and enabled_for_user())
+
+
+def _material_points(chunks: list[dict], budget: int = 1500) -> str:
+    lines, used = [], 0
+    for chunk in chunks:
+        text = re.sub(r"\s+", " ", str(chunk.get("text") or "")).strip()
+        if not text:
+            continue
+        line = "- " + text[:240]
+        if used + len(line) > budget:
+            break
+        lines.append(line)
+        used += len(line) + 1
+    return "\n".join(lines)
+
+
+async def _one_page_text_fallback(name: str, *, goal: str, conversation: str, ctx: str, profile: dict,
+                                  general_knowledge: bool, source_bound: bool) -> str:
+    """When pictures fail, still give a compact 一图看懂 text overview."""
+    call = render_learning_prompt_call("one_page", topic=name, goal=goal, persona=_persona(profile), context=ctx,
+                                       conversation=conversation, general_knowledge=general_knowledge,
+                                       source_policy="strict" if source_bound else "supplement")
+    try:
+        text = await asyncio.wait_for(llm_complete(call.prompt, system=call.system, role="reasoner", temperature=0.4,
+            max_tokens=2400, reasoning_mode="disabled", allow_mock_fallback=False), timeout=_DOC_TIMEOUT_S)
+        return without_source_code(str(text or "").strip(), keep_mermaid=True)
+    except Exception:
+        return ""
+
+
+async def _gen_one_page_simple(*, name: str, kp: str, profile: dict, goal: str, conversation: str, ctx: str,
+                               chunks: list[dict], citations: list[dict], source_ids: list[str], supplement: bool,
+                               custom_topic: bool, trace_id: str, skip_multimodal: bool) -> dict:
+    source_bound = bool(source_ids and chunks and not supplement)
+    visual = await generate_simple_one_page(name, material_points=_material_points(chunks) if source_bound else "",
+                                            trace_id=trace_id, skip_generation=skip_multimodal)
+    page = visual["pages"][0]
+    text_version = str(page.pop("text_version", "") or visual.pop("text_version", "") or "").strip()
+    visual.pop("text_version", None)
+    flags: list[dict] = []
+    ready = visual.get("image_status") == "ready"
+    if ready:
+        md = (f"# 一图看懂：{name}\n\n> 文字版依据每张图的独立读图整理，方便检索和复习；内容以原图为准。\n\n{text_version}")
+        mode = "model"
+        if visual["verification"]["status"] != "passed":
+            flags.append({"agent": "doc", "kind": "doc", "type": "image_review", "detail": "成图仍需核对",
+                          "issues": visual["verification"]["issues"]})
+    else:
+        flags.append({"agent": "doc", "kind": "doc", "type": "image_degraded", "detail": visual.get("image_error", "图片未生成")})
+        md = await _one_page_text_fallback(name, goal=goal, conversation=conversation, ctx=ctx, profile=profile,
+                                           general_knowledge=custom_topic and not source_ids, source_bound=source_bound)
+        mode = "model" if md else "unavailable"
+        md = md or f"# {name}·一图看懂未生成\n\n{visual.get('image_error') or '图片与文字版都没有生成成功，请稍后重试。'}"
+    used = citations[:len(chunks)] if source_bound else []
+    payload = {
+        "markdown": md,
+        "generation_mode": mode,
+        "blocked_reason": "" if mode != "unavailable" else "generation_failed",
+        "grounded": visual.get("verification", {}).get("status") != "failed",
+        "template": "one_page",
+        "reusable_note": False,
+        "prompt_skill": visual.get("prompt_skill"),
+        "topic_label": name,
+        "source_ids": source_ids,
+        "source_policy": "strict" if source_bound else "supplement",
+        "source_evidence": used,
+        "one_page_visual": visual,
+        "image_attempted": bool(visual.get("attempts")),
+        "verification": visual.get("verification", {}).get("status", "unverified"),
+        "topic_verification": {"status": "matched", "reason": "主题由本次请求解析得到，直接用于出图请求。"},
+        "failure_stage": "" if ready else "image_generation",
+    }
+    payload["generation_details"] = generation_details(flags, mode=mode, source_empty=False)
+    resource = {"id": uuid.uuid4().hex[:12], "kind": "doc", "kp": kp, "title": f"{name}·一图看懂",
+                "payload": payload, "citations": [c["citation"] for c in used]}
+    await emit({"type": "resource", "resource": resource})
+    await emit({"type": "citations", "agent": "doc", "items": resource["citations"]})
+    return {"resource": resource, "flags": flags}
+
+
 async def _gen_one(
     kind: str,
     kp: str,
@@ -799,6 +886,11 @@ async def _gen_one(
     ctx, citations = build_context(chunks)
     if prompt_template == "one_page":
         ctx = re.sub(r"(?m)^\[(\d+)\] ", r"[^\1] ", ctx)
+    if (kind == "doc" and prompt_template == "one_page" and _simple_one_page_mode()
+            and not (one_page_scope or {}).get("missing")):
+        return await _gen_one_page_simple(name=name, kp=kp, profile=profile, goal=goal, conversation=conversation,
+            ctx=ctx, chunks=chunks, citations=citations, source_ids=source_ids, supplement=supplement,
+            custom_topic=custom_topic, trace_id=trace_id, skip_multimodal=skip_multimodal)
     if kind in _STRUCTURED_KINDS:
         return await _gen_structured_resource(
             kind=kind,

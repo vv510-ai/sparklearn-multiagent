@@ -6,6 +6,7 @@ export type AgentId =
 export interface OnePageImage {
   index: number;
   url: string;
+  title?: string;
   width?: number;
   height?: number;
   transcript?: string;
@@ -55,6 +56,7 @@ export interface OnePageVisualData {
   images?: OnePageImage[];
   prompt_mode?: "simple" | "draft";
   conversation_url?: string;
+  coverage?: { status: string; missing: string[] };
   provider?: string;
   model?: string;
   renderer?: string;

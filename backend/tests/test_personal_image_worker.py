@@ -292,7 +292,9 @@ def test_image_uses_existing_browser_connection_and_preserves_original_bytes(wor
     result = worker.download('uid=1_1 button "已生成图像 1"')
     assert result.read_bytes() == content
     assert result.parent == worker.root and result.stem == worker.job['id']
-    assert [command[0] for command in calls] == ['click', 'evaluate_script']
+    # Reading the preview is followed by one read-only script that closes it (Escape).
+    assert [command[0] for command in calls] == ['click', 'evaluate_script', 'evaluate_script']
+    assert 'Escape' in calls[-1][1]
     assert calls[0][2] == '1_1'  # Open the generated preview, never send again.
     assert not list(worker.root.glob('*.browser-image.json'))
 
@@ -437,3 +439,41 @@ def test_direct_site_connection_ignores_proxy_but_never_follows_redirect(worker,
         server.shutdown()
         server.server_close()
         thread.join(2)
+
+
+def test_multi_job_collects_every_picture_and_continues_once_when_asked(worker, monkeypatch, tmp_path):
+    root = 'uid=1_0 RootWebArea "Test" url="https://chatgpt.com/c/test-123"\n'
+    one = root + 'uid=4_1 button "已生成图像 1"'
+    two = root + 'uid=5_1 button "已生成图像 1"\nuid=5_2 button "已生成图像 2"'
+    snapshots = iter(['uid=2_1 button "发送"', one, one, two, two] + [two] * 20)
+    clicks, sent, uploads, finished = [], [], [], []
+    multi = {**job(), "multi": True, "max_images": 6}
+    monkeypatch.setattr(worker, "heartbeat", lambda *args: None)
+    monkeypatch.setattr(worker, "connect", lambda: 'uid=1_1 textbox "询问 ChatGPT"')
+    monkeypatch.setattr(worker, "snapshot", lambda: next(snapshots))
+    monkeypatch.setattr(worker, "cli", lambda *args: "")
+    monkeypatch.setattr(worker, "click", lambda uid: clicks.append(uid))
+    monkeypatch.setattr(worker, "update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(worker, "last_reply_text", lambda: "这是第 1 张。需要我继续生成第 2 张吗？" if not sent else "两张都完成了。")
+    monkeypatch.setattr(worker, "send_text", lambda text: sent.append(text))
+    files = {}
+    def download(snapshot, position=0):
+        path = tmp_path / f"picture-{position}.png"
+        path.write_bytes(f"picture-{position}".encode())
+        files[position] = path
+        return path
+    monkeypatch.setattr(worker, "download", download)
+    def api(path, payload=None, *, image=None, mime=None):
+        if "/image/" in path:
+            uploads.append(path.rsplit("/", 1)[-1])
+            return {"sha256": hashlib.sha256(image).hexdigest()}
+        if path.endswith("/finish"):
+            finished.append(payload)
+            return {"ok": True}
+        return {}
+    monkeypatch.setattr(worker, "api", api)
+    monkeypatch.setattr(worker_module.time, "sleep", lambda _: None)
+    worker.run_job(multi)
+    assert clicks == ["2_1"] and len(sent) == 1 and "继续" in sent[0]
+    assert uploads == ["1", "2"] and finished[0]["count"] == 2
+    assert finished[0]["conversation_url"] == "https://chatgpt.com/c/test-123"

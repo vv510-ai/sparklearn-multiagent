@@ -768,6 +768,7 @@ async def text_to_image(
     preferred_provider: str = "",
     allow_provider_fallback: bool = True,
     trace_id: str = "",
+    multi: bool = False,
 ) -> MMResult:
     s = get_settings()
     selected = str(preferred_provider or modern_media.select_provider("image", s)).lower()
@@ -777,7 +778,8 @@ async def text_to_image(
         if not s.mm_image_enabled or is_demo():
             data = {"ok": False, "detail": "当前模式未启用真实图片生成。"}
         else:
-            data = personal_image.request_image(prompt)
+            # multi=True lets one ChatGPT answer split a topic into several pictures.
+            data = personal_image.request_image(prompt, multi=multi)
         ok = bool(data.pop("ok", False))
         result = _result("image", _trace_id(trace_id), started, ok=ok, degraded=not ok,
                          data=data, error="" if ok else data.get("detail", "图片未生成"))

@@ -220,7 +220,7 @@ class Worker:
             try:
                 self.api(f"{job['id']}/heartbeat", {"lease": job["lease"],
                          **({"phase": self.phase} if self.phase in {
-                             "connect", "prepare_prompt", "submit", "wait_image", "read_image", "upload_image"
+                             "connect", "prepare_prompt", "submit", "wait_image", "continue_more", "read_image", "upload_image"
                          } else {})})
             except NETWORK_ERRORS as error:
                 if stop.is_set():
@@ -286,21 +286,93 @@ class Worker:
             print("未能确认浏览器连接已断开，接入程序已停止，请检查专用 CLI 连接。", flush=True)
             raise WorkerError("disconnect_failed") from None
 
-    def download(self, snapshot):
-        self.click(self.one(snapshot, "button", r"已生成图像 1|Generated image 1"))
+    IMAGE_LABEL = r"已生成图像 ?\d*|Generated image ?\d*"
+
+    def image_buttons(self, snapshot):
+        """Generated-image buttons in document order (numbering may restart per reply)."""
+        return self.elements(snapshot, "button", self.IMAGE_LABEL)
+
+    def export_json(self, script, name):
+        """Run a read-only page script and read its JSON result from a private file."""
+        export = self.root / (self.job["id"] + "." + name + ".json")
+        try:
+            self.cli("evaluate_script", script, "--pageId", self.page, "--waitForStableDom", "false",
+                     "--filePath", export)
+            if not export.is_file() or not 0 < export.stat().st_size <= 512 * 1024:
+                raise WorkerError("worker_error")
+            return json.loads(export.read_text(encoding="utf-8"))
+        finally:
+            export.unlink(missing_ok=True)
+
+    def last_reply_text(self):
+        script = r'''async () => {
+          const replies = [...document.querySelectorAll('[data-message-author-role="assistant"]')];
+          const last = replies[replies.length - 1];
+          return {text: last ? String(last.innerText || '').slice(-1200) : ''};
+        }'''
+        try:
+            value = self.export_json(script, "reply")
+            return str(value.get("text") or "") if isinstance(value, dict) else ""
+        except Exception:
+            return ""
+
+    @staticmethod
+    def asks_to_continue(text):
+        # ChatGPT sometimes draws one picture per turn and asks before the next.
+        return bool(re.search(r"继续|下一张|接下来|剩下|剩余|要不要|是否需要|需要我|要我|Shall I|Should I|continue|next (?:one|image)", text, re.I))
+
+    def send_text(self, text):
+        """Fill the composer and click Send once; used only for a bounded 继续 follow-up."""
+        snapshot = self.snapshot()
+        editor = self.one(snapshot, "textbox", "询问 ChatGPT|Ask ChatGPT|Message ChatGPT|Ask anything|有问题，尽管问")
+        self.cli("fill", self.page, editor, text)
+        for _ in range(15):
+            snapshot = self.snapshot()
+            sends = self.elements(snapshot, "button", "发送|发送消息|Send|Send message|发送提示")
+            if len(sends) == 1 and "disabled" not in sends[0][2]:
+                self.click(sends[0][0])  # Exactly once per bounded follow-up.
+                return
+            time.sleep(1)
+        raise WorkerError("ui_changed")
+
+    def close_preview(self):
+        script = r'''async () => {
+          for (const target of [document.activeElement, document.body, document]) {
+            target && target.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', bubbles: true}));
+          }
+          await new Promise(resolve => setTimeout(resolve, 400));
+          return {open: !!document.querySelector('[role="dialog"] img')};
+        }'''
+        try:
+            self.export_json(script, "close")
+            snapshot = self.snapshot()
+            if self.elements(snapshot, "button", r".+ 的文件操作|File actions for .+"):
+                closers = self.elements(snapshot, "button", "关闭|Close")
+                if closers:
+                    self.click(closers[-1][0])
+        except Exception:
+            pass
+
+    def download(self, snapshot, position=0):
+        buttons = self.image_buttons(snapshot)
+        if len(buttons) <= position:
+            raise WorkerError("ui_changed")
+        uid, label, _ = buttons[position]
+        self.click(uid)
         for _ in range(12):
             snapshot = self.snapshot()
             names = self.elements(snapshot, "button", r".+ 的文件操作|File actions for .+")
             if names:
                 break
             time.sleep(1)
-        if len(names) != 1:
+        if not names:
             raise WorkerError("ui_changed")
-        self.one(snapshot, "image", r"已生成图像 1|Generated image 1")
+        if not self.elements(snapshot, "image", self.IMAGE_LABEL):
+            raise WorkerError("ui_changed")
         downloads = self.elements(snapshot, "button", "下载|Download")
-        if len(downloads) != 1:
+        if not downloads:
             raise WorkerError("ui_changed")
-        if "disabled" in downloads[0][2]:
+        if all("disabled" in item[2] for item in downloads):
             raise WorkerError("interaction_required")
         if not re.fullmatch(r"https://chatgpt.com/c/[A-Za-z0-9-]+", self.conversation_url):
             raise WorkerError("ui_changed")
@@ -310,9 +382,19 @@ class Worker:
         # preview; never fetch a ChatGPT API URL, screenshot or guessed file.
         script = r'''async () => {
           const expected = %s;
+          const label = %s;
           if (location.href !== expected) throw new Error('wrong conversation');
-          const images = [...document.querySelectorAll('[role="dialog"] img')]
-            .filter(image => /^(已生成图像 1|Generated image 1)$/.test(image.alt));
+          let images = [...document.querySelectorAll('[role="dialog"] img')]
+            .filter(image => /^(已生成图像|Generated image) ?\d*$/.test(image.alt));
+          const exact = images.filter(image => image.alt === label);
+          if (exact.length === 1) images = exact;
+          else {
+            // Carousel previews keep neighbours mounted; read only the one shown.
+            const shown = images.filter(image => { const box = image.getBoundingClientRect();
+              return box.width > 160 && box.height > 90 && box.right > 0 && box.left < innerWidth; });
+            shown.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+            images = shown.slice(0, 1);
+          }
           if (images.length !== 1) throw new Error('ambiguous image');
           const image = images[0];
           if (!image.complete || image.naturalWidth < 128 || image.naturalHeight < 128 ||
@@ -333,7 +415,7 @@ class Worker:
           if (location.href !== expected || !image.isConnected) throw new Error('preview changed');
           return {conversation_url: expected, mime: blob.type, bytes: blob.size,
             width: image.naturalWidth, height: image.naturalHeight, sha256, data};
-        }''' % json.dumps(self.conversation_url)
+        }''' % (json.dumps(self.conversation_url), json.dumps(label))
         export = self.root / (self.job["id"] + ".browser-image.json")
         try:
             self.cli("evaluate_script", script, "--pageId", self.page, "--waitForStableDom", "false",
@@ -342,11 +424,12 @@ class Worker:
             if not export.is_file() or not 0 < export.stat().st_size <= 29 * 1024 * 1024:
                 raise WorkerError("worker_error")
             image = json.loads(export.read_text(encoding="utf-8"))
-            return self.save_browser_image(image)
+            return self.save_browser_image(image, position)
         finally:
             export.unlink(missing_ok=True)
+            self.close_preview()
 
-    def save_browser_image(self, image):
+    def save_browser_image(self, image, position=0):
         from PIL import Image
         formats = {"image/png": ("PNG", ".png"), "image/jpeg": ("JPEG", ".jpg"), "image/webp": ("WEBP", ".webp")}
         if not isinstance(image, dict) or image.get("conversation_url") != self.conversation_url or image.get("mime") not in formats:
@@ -369,7 +452,7 @@ class Worker:
                 picture.verify()
         except Exception:
             raise WorkerError("worker_error") from None
-        target = self.root / (self.job["id"] + suffix)
+        target = self.root / (self.job["id"] + ("" if not position else f"_{position + 1}") + suffix)
         partial = target.with_suffix(".part")
         try:
             partial.write_bytes(content)
@@ -406,7 +489,7 @@ class Worker:
             self.check_time(job)
             snapshot = self.connect()
             self.check_time(job)
-            editor = self.one(snapshot, "textbox", "询问 ChatGPT|Ask ChatGPT|Message ChatGPT")
+            editor = self.one(snapshot, "textbox", "询问 ChatGPT|Ask ChatGPT|Message ChatGPT|Ask anything|有问题，尽管问")
             stage = "prepare_prompt"
             self.set_phase(stage)
             self.cli("fill", self.page, editor, job["prompt"])
@@ -432,8 +515,11 @@ class Worker:
             self.click(send)  # Exactly once; never retry this action.
             stage = "wait_image"
             self.set_phase(stage)
+            multi = job.get("multi") is True
+            limit = max(1, min(int(job.get("max_images") or 1), 6)) if multi else 1
+            follow_ups = 0
             deadline = min(job["expires_at"] - 30, time.time() + 900)
-            stable_image = False
+            seen_count, stable_rounds = -1, 0
             while time.time() < deadline:
                 snapshot = self.snapshot()
                 root = re.search(r'RootWebArea .*url="(https://chatgpt.com/c/[A-Za-z0-9-]+)"', snapshot)
@@ -444,28 +530,70 @@ class Worker:
                     raise WorkerError("login_required")
                 if self.elements(snapshot, "button", "验证|Verify|重新生成|Regenerate|重试|Retry"):
                     raise WorkerError("interaction_required")
-                images = self.elements(snapshot, "button", r"已生成图像 1|Generated image 1")
+                images = self.image_buttons(snapshot)
                 busy = self.elements(snapshot, "button", r"停止|停止生成|Stop|Stop generating")
-                ready = len(images) == 1 and "disabled" not in images[0][2] and not busy and bool(root)
-                if ready and stable_image:
+                ready = bool(images) and all("disabled" not in item[2] for item in images) and not busy and bool(root)
+                # Live-region 'Response complete' may be stale while a new image is
+                # loading: require the same picture count on two consecutive polls.
+                stable_rounds = stable_rounds + 1 if ready and len(images) == seen_count else 0
+                seen_count = len(images) if ready else -1
+                if ready and stable_rounds >= 1:
+                    if multi and len(images) < limit and follow_ups < 3 and self.asks_to_continue(self.last_reply_text()):
+                        follow_ups += 1
+                        stage = "continue_more"
+                        self.set_phase(stage)
+                        self.journal(follow_ups=follow_ups)
+                        self.send_text("继续，把剩下的一图看懂全部生成出来。")
+                        seen_count, stable_rounds = -1, 0
+                        time.sleep(3)
+                        continue
                     stage = "read_image"
                     self.set_phase(stage)
-                    path = self.download(snapshot)
-                    data = path.read_bytes()
-                    self.journal(download=str(path), sha256=hashlib.sha256(data).hexdigest())
+                    count = min(len(images), limit)
+                    if not multi:
+                        path = self.download(snapshot)
+                        data = path.read_bytes()
+                        self.journal(download=str(path), sha256=hashlib.sha256(data).hexdigest())
+                        stage = "upload_image"
+                        self.set_phase(stage)
+                        result = self.retry_transfer(lambda: self.api(f"{job['id']}/complete", image=data,
+                                                    mime=mimetypes.guess_type(path.name)[0]), uploading=True)
+                        if result.get("sha256") != hashlib.sha256(data).hexdigest():
+                            raise WorkerError("worker_error")
+                        self.set_phase("completed")
+                        self.journal(completed=True, download=str(path), sha256=result["sha256"],
+                                     completed_at=datetime.now(timezone.utc).isoformat())
+                        print("图片已自动回传并保存；网站将继续内容核验。", flush=True)
+                        return
+                    saved, digests = [], set()
+                    for position in range(count):
+                        self.check_time(job)
+                        try:
+                            path = self.download(self.snapshot(), position)
+                        except WorkerError:
+                            if saved:
+                                break  # Keep the pictures already read instead of failing the set.
+                            raise
+                        data = path.read_bytes()
+                        digest = hashlib.sha256(data).hexdigest()
+                        if digest in digests:
+                            continue  # The preview showed a picture we already have.
+                        digests.add(digest)
+                        saved.append((path, data, digest))
                     stage = "upload_image"
                     self.set_phase(stage)
-                    result = self.retry_transfer(lambda: self.api(f"{job['id']}/complete", image=data,
-                                                mime=mimetypes.guess_type(path.name)[0]), uploading=True)
-                    if result.get("sha256") != hashlib.sha256(data).hexdigest():
-                        raise WorkerError("worker_error")
+                    for number, (path, data, digest) in enumerate(saved, 1):
+                        result = self.retry_transfer(lambda: self.api(f"{job['id']}/image/{number}", image=data,
+                                                    mime=mimetypes.guess_type(path.name)[0]), uploading=True)
+                        if result.get("sha256") != digest:
+                            raise WorkerError("worker_error")
+                    self.retry_transfer(lambda: self.api(f"{job['id']}/finish", {
+                        "lease": job["lease"], "count": len(saved), "conversation_url": self.conversation_url}),
+                        uploading=True)
                     self.set_phase("completed")
-                    self.journal(completed=True, download=str(path), sha256=result["sha256"],
-                                 completed_at=datetime.now(timezone.utc).isoformat())
-                    print("图片已自动回传并保存；网站将继续内容核验。", flush=True)
+                    self.journal(completed=True, images=len(saved), completed_at=datetime.now(timezone.utc).isoformat())
+                    print(f"{len(saved)} 张一图看懂已自动回传；网站将继续内容核验。", flush=True)
                     return
-                # Live-region 'Response complete' may be stale while a new image is loading.
-                stable_image = ready
                 time.sleep(2)
             raise WorkerError("timeout")
         except BaseException as error:

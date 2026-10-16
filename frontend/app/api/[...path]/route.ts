@@ -81,7 +81,9 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
     const secure = isSecureRequest(req) || isLoopbackRequest(req);
     if (!secure) return jsonError("图片接入需要 HTTPS", 400);
     const validPath = (path.length === 2 && path[1] === "claim") ||
-      (path.length === 3 && /^[a-f0-9]{64}$/.test(path[1]) && ["heartbeat", "submitted", "fail", "complete"].includes(path[2]));
+      (path.length === 3 && /^[a-f0-9]{64}$/.test(path[1]) && ["heartbeat", "submitted", "fail", "complete", "finish"].includes(path[2])) ||
+      // Multi-image answers upload each picture by its 1-based position.
+      (path.length === 4 && /^[a-f0-9]{64}$/.test(path[1]) && path[2] === "image" && /^[1-9]$/.test(path[3]));
     if (req.method !== "POST" || !validPath) return jsonError("接口不存在", 404);
     const authorization = req.headers.get("authorization");
     if (!authorization) return jsonError("图片接入程序未授权", 401);
@@ -90,7 +92,7 @@ async function proxy(req: NextRequest, { params }: RouteContext) {
       const value = req.headers.get(name);
       if (value) headers.set(name, value);
     }
-    const maxBytes = path[2] === "complete" ? 20 * 1024 * 1024 : 2048;
+    const maxBytes = path[2] === "complete" || path[2] === "image" ? 20 * 1024 * 1024 : 2048;
     const reader = req.body?.getReader();
     const parts: Uint8Array[] = [];
     let size = 0;

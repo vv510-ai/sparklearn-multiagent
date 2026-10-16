@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Copy, Eye, RotateCcw } from "lucide-react";
 import { Badge, Notice } from "@/components/ui";
 import { apiAssetUrl } from "@/lib/api";
+import OnePageGallery from "./OnePageGallery";
 import type { ResourceItem } from "@/lib/types";
 
 type Payload = ResourceItem["payload"];
@@ -125,6 +126,7 @@ export function DataTableBlock({ artifact }: { artifact: NonNullable<Payload["da
 }
 
 export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_page_visual"]> }) {
+  if (visual.images && visual.images.length) return <OnePageGallery visual={visual} />;
   if (visual.pages && visual.pages.length > 1) return <div aria-label="分图知识地图"><p className="mb-3 text-xs text-slate-600">内容较多，分为 {visual.pages.length} 张阅读。完整内容保留在下方笔记。</p>{visual.pages.map((page, index) => <OnePageVisual key={index} visual={page} />)}</div>;
   const nodes = visual.nodes || [];
   const imageUrl = apiAssetUrl(visual.image_url);
@@ -166,7 +168,7 @@ export function OnePageVisual({ visual }: { visual: NonNullable<Payload["one_pag
       </figure>
     );
   }
-  if (["xiaoyunque-infographic-v1", "chatgpt-web-infographic-v1"].includes(visual.renderer || "")) return (
+  if (["xiaoyunque-infographic-v1", "chatgpt-web-infographic-v1", "chatgpt-web-infographic-v2"].includes(visual.renderer || "")) return (
     <div role="status" className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
       <p className="font-semibold">一图看懂图片未生成</p>
       <p>{visual.image_error || "暂未返回图片，请先阅读文字版与出处，稍后重试。"}</p>

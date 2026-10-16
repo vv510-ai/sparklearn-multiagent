@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.09.26.02",
+  "version": "2026.10.16.01",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -57,7 +57,7 @@
       "file": "doc/one-page.md"
     },
     "image.one_page": {
-      "description": "一图看懂知识图谱信息图生成",
+      "description": "一图看懂视觉底稿出图（API 图像模型备用路径）",
       "file": "image/one-page-visual.md"
     },
     "doc.error_confusion": {
@@ -207,6 +207,14 @@
     "doc.one_page_topic_repair": {
       "description": "按明确主题偏差修正底稿一次",
       "file": "doc/one-page-topic-repair.md"
+    },
+    "image.one_page_simple": {
+      "description": "发给 ChatGPT 网页的极简一图看懂出图请求（可拆多张）",
+      "file": "image/one-page-simple.md"
+    },
+    "image.one_page_review": {
+      "description": "依据独立 OCR 转写核验多张成图的准确性与覆盖度并整理文字版",
+      "file": "image/one-page-review.md"
     }
   }
 }
