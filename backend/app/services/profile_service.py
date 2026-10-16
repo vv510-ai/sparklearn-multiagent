@@ -20,7 +20,7 @@ from sqlalchemy import select
 from ..auth import enforce_user_scope
 from ..models.db import init_db, session
 from ..models.entities import EventLog, Profile, User
-from ..services.bkt import bkt_update
+from ..services.bkt import bkt_update, bkt_update_plus
 from ..services.knowledge_graph import all_kp_ids, canonical_kp_id
 from .learning_scope import current_space, profile_row, event_in_scope, notebook_id
 
@@ -114,6 +114,24 @@ def sanitize_profile_patch(patch: dict[str, Any] | None) -> dict[str, Any]:
                 clean_mastery[kp] = round(value, 4)
         if clean_mastery:
             out["knowledge_mastery"] = clean_mastery
+
+    trace = patch.get("knowledge_trace")
+    if isinstance(trace, dict):
+        clean_trace: dict[str, dict] = {}
+        for raw_kp, raw in trace.items():
+            kp = canonical_kp_id(str(raw_kp))
+            if not kp or not isinstance(raw, dict):
+                continue
+            last = str(raw.get("last") or "")[:40]
+            try:
+                dt.datetime.fromisoformat(last)
+                correct = max(0, min(100000, int(raw.get("independent_correct") or 0)))
+                attempts = max(0, min(100000, int(raw.get("attempts") or 0)))
+            except (TypeError, ValueError):
+                continue
+            clean_trace[kp] = {"last": last, "independent_correct": correct, "attempts": attempts}
+        if clean_trace:
+            out["knowledge_trace"] = clean_trace
 
     style = str(patch.get("cognitive_style") or "").strip()
     if style in _COGNITIVE_STYLES:
@@ -344,14 +362,28 @@ def complete_onboarding(user_id: str, answers: dict[str, Any] | None) -> dict:
     return merge_profile(user_id, onboarding_patch(answers))
 
 
-def update_mastery(user_id: str, kp: str, correct: bool) -> float:
+def update_mastery(user_id: str, kp: str, correct: bool, *, item_type: str = "", options: int = 0,
+                   support: str = "independent", at: dt.datetime | None = None) -> float:
+    """BKT⁺: forget since the last evidence, then a question-type/support-aware update."""
     canonical = canonical_kp_id(kp)
     if canonical is None:
         raise ValueError(f"unknown knowledge point: {kp}")
     prof = get_profile(user_id)
     cur = float(prof["knowledge_mastery"].get(canonical, 0.3))
-    new = bkt_update(cur, correct)
-    merge_profile(user_id, {"knowledge_mastery": {canonical: new}})
+    trace = (prof.get("knowledge_trace") or {}).get(canonical) or {}
+    now = at or dt.datetime.now(dt.timezone.utc)
+    days = None
+    try:
+        last = dt.datetime.fromisoformat(str(trace.get("last") or ""))
+        days = max(0.0, (now - (last if last.tzinfo else last.replace(tzinfo=dt.timezone.utc))).total_seconds() / 86400)
+    except ValueError:
+        pass
+    independent = int(trace.get("independent_correct") or 0)
+    new = bkt_update_plus(cur, correct, item_type=item_type, options=options, support=support,
+                          days_since=days, independent_correct=independent)
+    merge_profile(user_id, {"knowledge_mastery": {canonical: new}, "knowledge_trace": {canonical: {
+        "last": now.isoformat(), "independent_correct": independent + int(bool(correct) and support == "independent"),
+        "attempts": int(trace.get("attempts") or 0) + 1}}})
     return new
 
 

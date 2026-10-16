@@ -211,7 +211,9 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
         if not kp:
             continue
         affected_kps.add(kp)
-        new_m = update_mastery(user_id, kp, mastery_correct)
+        support_level = str(a.get("support_level") or ("revealed" if a.get("revealed") else "hinted" if a.get("hint_used") else "independent"))
+        new_m = update_mastery(user_id, kp, mastery_correct, item_type=str(a.get("type") or ""),
+                               options=len(a.get("options") or []), support=support_level)
         d = per_kp.setdefault(
             kp,
             {"kp": kp, "name": kp_name(kp), "n": 0, "right": 0,
@@ -220,7 +222,6 @@ def evaluate_answers(user_id: str, answers: list[dict]) -> dict:
         d["n"] += 1
         d["right"] += int(correct)
         d["mastery_right"] += int(mastery_correct)
-        support_level = a.get("support_level", "independent")
         d["supported"] += int(support_level != "independent")
         confidence = normalize_confidence(a.get("confidence"))
         calibration_eligible = bool(confidence) and support_level == "independent"
