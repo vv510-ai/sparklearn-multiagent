@@ -1,0 +1,6 @@
+{
+  "name": "learnloop-personal-kimi",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {"@moonshot-ai/kimi-code": "0.29.2"}
+}

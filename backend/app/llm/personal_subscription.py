@@ -52,7 +52,8 @@ def other_model(model):
 
 
 def require_owner(user=None):
-    owner = os.environ.get('PORTABLE_OWNER_ID', '').strip()
+    from ..services.owner import resolve_owner
+    owner = resolve_owner('PORTABLE_OWNER_ID')
     user = current_user_id() if user is None else user
     if not owner or not user or owner != user:
         raise HTTPException(403, '此迁移副本的订阅接入仅限项目拥有者本人账号。')
@@ -82,7 +83,8 @@ def model_for(prompt='', *, task_context=None):
 def resolve(prompt, *, task_context=None):
     # Metadata is also read by other migrated accounts. Preserve access to
     # existing materials; complete(), view() and test_route() still require owner.
-    if current_user_id() != os.environ.get('PORTABLE_OWNER_ID', '').strip():
+    from ..services.owner import resolve_owner
+    if current_user_id() != resolve_owner('PORTABLE_OWNER_ID'):
         return None
     model = model_for(prompt, task_context=task_context)
     return {'provider': 'personal_subscription', 'model': model, 'automatic': False,

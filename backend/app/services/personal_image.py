@@ -42,7 +42,8 @@ PHASE_MESSAGES = {
 
 
 def owner_id() -> str:
-    return os.getenv("PERSONAL_CHAT_IMAGE_OWNER_ID", "").strip()
+    from .owner import resolve_owner
+    return resolve_owner("PERSONAL_CHAT_IMAGE_OWNER_ID")
 
 
 def enabled_for_user() -> bool:

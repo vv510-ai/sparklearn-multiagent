@@ -1,0 +1,404 @@
+"""LearnLoop 优化版 · 原生 Mac 运行（不需要 Docker）。
+
+    python3 scripts/mac/native.py [menu|setup|start|stop|status|login-kimi|login-chatgpt|login-claude|image-worker|video-worker]
+
+Everything stays on this Mac: the website listens on localhost only, the text
+subscriptions (Kimi Code / ChatGPT) run through the paired local relay, the
+ChatGPT web image worker drives your own Chrome, and videos use your own
+Claude Code login. Secrets live in files readable only by you (0600).
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import secrets
+import shutil
+import signal
+import subprocess
+import sys
+import time
+import tomllib
+import urllib.request
+import webbrowser
+from pathlib import Path
+
+DEV = Path(__file__).resolve().parents[2]
+STATE = DEV.parent / "native" if DEV.parent.name == "runtime" else DEV / ".native"
+BACKEND, FRONTEND, SCRIPTS = DEV / "backend", DEV / "frontend", DEV / "scripts"
+MAC = SCRIPTS / "mac"
+VENV_PY = BACKEND / ".venv" / "bin" / "python"
+CONFIG = STATE / "config.json"
+ENV_FILE = BACKEND / ".env"
+BACKEND_PORT, FRONTEND_PORT = 18010, 18090
+SITE = f"http://localhost:{FRONTEND_PORT}"
+SERVICES = ("relay", "backend", "frontend", "subscriptions")
+os.environ["PATH"] = ":".join(["/opt/homebrew/bin", "/usr/local/bin", str(Path.home() / ".local/bin"), os.environ.get("PATH", "")])
+
+
+def say(text: str) -> None:
+    print(text, flush=True)
+
+
+def private_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.write_text(text, encoding="utf-8")
+    path.chmod(0o600)
+
+
+def load_config() -> dict:
+    return json.loads(CONFIG.read_text(encoding="utf-8")) if CONFIG.exists() else {}
+
+
+def save_config(data: dict) -> None:
+    private_write(CONFIG, json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def run(args, **kwargs) -> None:
+    subprocess.run([str(a) for a in args], check=True, **kwargs)
+
+
+def node_version() -> tuple[int, ...]:
+    node = shutil.which("node")
+    if not node:
+        raise SystemExit("请先安装 Node.js 22.19 或更高版本（推荐 24 LTS）。")
+    raw = subprocess.check_output([node, "--version"], text=True).strip().lstrip("v")
+    return tuple(int(part) for part in raw.split(".")[:3])
+
+
+def env_lines() -> dict[str, str]:
+    values = {}
+    if ENV_FILE.exists():
+        for raw in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                values[key.strip()] = value.strip()
+    return values
+
+
+def merge_env(updates: dict[str, str]) -> None:
+    """Add missing keys; never overwrite a value the owner already set."""
+    current = env_lines()
+    additions = [f"{key}={value}" for key, value in updates.items() if key not in current]
+    if additions:
+        text = ENV_FILE.read_text(encoding="utf-8") if ENV_FILE.exists() else ""
+        private_write(ENV_FILE, text.rstrip("\n") + ("\n" if text else "") + "# --- native Mac run (generated) ---\n" + "\n".join(additions) + "\n")
+
+
+# ----------------------------------------------------------------------------- setup
+def setup() -> None:
+    STATE.mkdir(parents=True, exist_ok=True, mode=0o700)
+    STATE.chmod(0o700)
+    if node_version() < (22, 19, 0):
+        raise SystemExit("需要 Node.js 22.19 或更高版本。")
+    if not VENV_PY.exists():
+        say("① 创建 Python 环境…")
+        uv = shutil.which("uv")
+        if uv:
+            run([uv, "venv", "--python", "3.12", BACKEND / ".venv"])
+        else:
+            run([sys.executable, "-m", "venv", BACKEND / ".venv"])
+    say("② 安装后端依赖（首次约 3~6 分钟）…")
+    uv = shutil.which("uv")
+    if uv:
+        run([uv, "pip", "install", "--python", VENV_PY, "-r", BACKEND / "requirements.txt"], env={**os.environ, "UV_HTTP_TIMEOUT": "120"})
+    else:
+        run([VENV_PY, "-m", "pip", "install", "-r", BACKEND / "requirements.txt"])
+    say("③ 安装前端依赖并构建网站（首次约 2~4 分钟）…")
+    lock = hashlib.sha256((FRONTEND / "package-lock.json").read_bytes()).hexdigest()
+    marker = FRONTEND / "node_modules" / ".learnloop-lock"
+    if not marker.exists() or marker.read_text() != lock:
+        run(["npm", "ci", "--no-audit", "--no-fund"], cwd=FRONTEND)
+        marker.write_text(lock)
+    build_frontend(force=True)
+    say("④ 安装本机接入工具（Kimi Code、Chrome 接入）…")
+    install_tool("kimi-cli", MAC / "kimi-cli.package.json")
+    install_tool("image-worker", MAC / "image-worker.package.json")
+    configure()
+    say("\n✅ 安装完成。接下来：先“启动网站”，用你填写的邮箱注册账号，再分别登录 Kimi / ChatGPT / Claude。")
+
+
+def install_tool(name: str, package_json: Path) -> Path:
+    target = STATE / name
+    target.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(package_json, target / "package.json")
+    run(["npm", "install", "--prefix", target, "--no-audit", "--no-fund"])
+    return target
+
+
+def build_frontend(force: bool = False) -> None:
+    head = subprocess.run(["git", "-C", str(DEV), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    dirty = subprocess.run(["git", "-C", str(DEV), "status", "--porcelain", "frontend"], capture_output=True, text=True).stdout
+    stamp = FRONTEND / ".next" / "learnloop-build-stamp"
+    wanted = head + ":" + hashlib.sha256(dirty.encode()).hexdigest()
+    standalone = FRONTEND / ".next" / "standalone"
+    if not force and stamp.exists() and stamp.read_text() == wanted and (standalone / "server.js").exists():
+        return
+    run(["npm", "run", "build"], cwd=FRONTEND, env={**os.environ, "NEXT_TELEMETRY_DISABLED": "1"})
+    # The standalone server serves static assets and /public from its own folder.
+    for link, source in ((standalone / "public", FRONTEND / "public"), (standalone / ".next" / "static", FRONTEND / ".next" / "static")):
+        if link.is_symlink() or link.exists():
+            if link.is_symlink():
+                link.unlink()
+            else:
+                shutil.rmtree(link)
+        link.symlink_to(source, target_is_directory=True)
+    stamp.write_text(wanted)
+
+
+def configure() -> None:
+    cfg = load_config()
+    if not cfg.get("owner_email"):
+        say("\n请输入你（本机唯一拥有者）用来登录网站的邮箱。订阅、一图看懂与视频接入只对这个账号开放。")
+        email = input("拥有者邮箱：").strip().lower()
+        if "@" not in email:
+            raise SystemExit("邮箱格式不正确，请重新运行安装。")
+        cfg["owner_email"] = email
+    cfg.setdefault("relay_token", secrets.token_urlsafe(48))
+    cfg.setdefault("image_worker_token", secrets.token_urlsafe(48))
+    cfg.setdefault("chatgpt_model", "gpt-6.1-sol")
+    cfg.setdefault("kimi_model", "kimi-code/k3")
+    save_config(cfg)
+    (STATE / "data").mkdir(parents=True, exist_ok=True, mode=0o700)
+    merge_env({
+        "AUTH_SECRET": secrets.token_urlsafe(48),
+        "AUTH_REQUIRED": "true",
+        "DEMO_MODE": "false",
+        "DATABASE_URL": f"sqlite:///{(STATE / 'data' / 'learnloop.db').as_posix()}",
+        "GENERATION_JOBS_ENABLED": "true",
+        "GENERATION_WORKER_MODE": "embedded",
+        "GENERATION_MAX_RUNNING": "2",
+        "FRONTEND_ORIGIN": SITE,
+        "TRACE_ENABLED": "false",
+        "LEARNLOOP_OWNER_EMAIL": cfg["owner_email"],
+        "PORTABLE_TEXT_MODE": "subscription",
+        "PORTABLE_DEFAULT_MODEL": "kimi-subscription",
+        "PORTABLE_RELAY_TOKEN": cfg["relay_token"],
+        "PERSONAL_RELAY_URL": "http://127.0.0.1:18431",
+        "PERSONAL_CHAT_IMAGE_ENABLED": "true",
+        "PERSONAL_CHAT_IMAGE_WORKER_TOKEN_SHA256": hashlib.sha256(cfg["image_worker_token"].encode()).hexdigest(),
+    })
+    write_worker_configs(cfg)
+
+
+def write_worker_configs(cfg: dict) -> None:
+    private_write(STATE / "subscription-worker.json", json.dumps({
+        "relay_url": "http://127.0.0.1:18431", "relay_token": cfg["relay_token"],
+        "state_dir": str(STATE / "subscription-state"), "chatgpt_auth_path": str(STATE / "auth" / "chatgpt.json"),
+        "chatgpt_model": cfg["chatgpt_model"], "kimi_model": cfg["kimi_model"], "kimi_home": str(STATE / "kimi-home"),
+        "kimi_executable": str(STATE / "kimi-cli" / "node_modules" / ".bin" / "kimi")}, indent=2))
+    downloads = Path.home() / "Downloads"
+    downloads.mkdir(exist_ok=True)
+    private_write(STATE / "image-worker.json", json.dumps({
+        "site_url": SITE, "worker_token": cfg["image_worker_token"], "node_path": shutil.which("node") or "node",
+        "cli_path": str(STATE / "image-worker" / "node_modules" / "chrome-devtools-mcp" / "build" / "src" / "bin" / "chrome-devtools.js"),
+        "downloads_dir": str(downloads), "state_dir": str(STATE / "image-state"), "site_connection": "direct"}, indent=2))
+
+
+# ----------------------------------------------------------------------------- processes
+def pid_file(name: str) -> Path:
+    return STATE / "pids" / f"{name}.pid"
+
+
+def alive(name: str) -> bool:
+    try:
+        pid = int(pid_file(name).read_text())
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def spawn(name: str, args, cwd: Path, extra_env: dict | None = None) -> None:
+    if alive(name):
+        return
+    (STATE / "logs").mkdir(parents=True, exist_ok=True, mode=0o700)
+    (STATE / "pids").mkdir(parents=True, exist_ok=True, mode=0o700)
+    log = open(STATE / "logs" / f"{name}.log", "ab")
+    process = subprocess.Popen([str(a) for a in args], cwd=cwd, stdout=log, stderr=subprocess.STDOUT,
+                               stdin=subprocess.DEVNULL, env={**os.environ, **(extra_env or {})}, start_new_session=True)
+    pid_file(name).write_text(str(process.pid))
+
+
+def wait_http(url: str, seconds: int) -> bool:
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        try:
+            with opener.open(url, timeout=5) as response:
+                if response.status < 500:
+                    return True
+        except Exception:
+            time.sleep(2)
+    return False
+
+
+def start() -> None:
+    cfg = load_config()
+    if not VENV_PY.exists() or not cfg:
+        raise SystemExit("请先运行“首次安装”。")
+    build_frontend()
+    write_worker_configs(cfg)
+    spawn("relay", [VENV_PY, MAC / "relay.py"], MAC, {"PORTABLE_RELAY_TOKEN": cfg["relay_token"], "RELAY_HOST": "127.0.0.1"})
+    spawn("backend", [VENV_PY, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", BACKEND_PORT], BACKEND)
+    spawn("frontend", ["node", "server.js"], FRONTEND / ".next" / "standalone",
+          {"PORT": str(FRONTEND_PORT), "HOSTNAME": "127.0.0.1", "BACKEND_URL": f"http://127.0.0.1:{BACKEND_PORT}", "NODE_ENV": "production"})
+    (STATE / "subscription-state" / "subscriptions.stop").unlink(missing_ok=True)
+    spawn("subscriptions", [VENV_PY, MAC / "subscription_worker.py", "--config", STATE / "subscription-worker.json"], MAC)
+    say("正在启动网站（首次启动需要加载检索模型，约 30~90 秒）…")
+    if not wait_http(f"http://127.0.0.1:{BACKEND_PORT}/api/health", 180):
+        raise SystemExit(f"后端没有按时启动，请查看日志：{STATE / 'logs' / 'backend.log'}")
+    if not wait_http(f"http://127.0.0.1:{FRONTEND_PORT}/", 60):
+        raise SystemExit(f"网站没有按时启动，请查看日志：{STATE / 'logs' / 'frontend.log'}")
+    status()
+    webbrowser.open(SITE)
+
+
+def stop() -> None:
+    for path in (STATE / "subscription-state" / "subscriptions.stop", STATE / "image-state" / "stop.requested",
+                 STATE / "video-state" / "stop.requested"):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    for name in SERVICES:
+        try:
+            pid = int(pid_file(name).read_text())
+            os.killpg(pid, signal.SIGTERM)
+        except (OSError, ValueError):
+            pass
+        pid_file(name).unlink(missing_ok=True)
+    say("已停止网站与接入程序；数据库与生成的内容都保留。")
+
+
+def logins() -> dict[str, bool]:
+    kimi = (STATE / "kimi-home" / "credentials" / "kimi-code.json").exists()
+    chatgpt = (STATE / "auth" / "chatgpt.json").exists() and "access_token" in (STATE / "auth" / "chatgpt.json").read_text()
+    claude = bool(claude_executable())
+    return {"Kimi Code 订阅": kimi, "ChatGPT/Codex 订阅": chatgpt, "Claude Code（讲解视频）": claude}
+
+
+def status() -> None:
+    say("\n—— LearnLoop 优化版运行状态 ——")
+    for name, label in (("backend", "后端"), ("frontend", "网站"), ("relay", "订阅中继"), ("subscriptions", "订阅接入")):
+        say(f"{label}：{'运行中' if alive(name) else '未运行'}")
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open("http://127.0.0.1:18431/health", timeout=4) as response:
+            connected = json.load(response).get("worker_connected")
+        say(f"文字模型接入：{'已连接' if connected else '中继在线，接入程序未连接'}")
+    except Exception:
+        say("文字模型接入：中继未运行")
+    for label, ok in logins().items():
+        say(f"{label}：{'已就绪' if ok else '未登录/未安装'}")
+    say(f"网站地址：{SITE}（只在本机可访问）\n")
+
+
+# ----------------------------------------------------------------------------- logins
+def login_kimi() -> None:
+    cfg = load_config()
+    exe = STATE / "kimi-cli" / "node_modules" / ".bin" / "kimi"
+    if not exe.exists():
+        install_tool("kimi-cli", MAC / "kimi-cli.package.json")
+    home = STATE / "kimi-home"
+    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    run([exe, "login"], env={**os.environ, "KIMI_CODE_HOME": str(home), "KIMI_CODE_EXPERIMENTAL_FLAG": "1"})
+    settings = tomllib.loads((home / "config.toml").read_text(encoding="utf-8"))
+    candidates = [key for key, value in settings.get("models", {}).items() if value.get("provider") == "managed:kimi-code"]
+    model = settings.get("default_model") if settings.get("default_model") in candidates else (candidates[0] if candidates else "")
+    if not model:
+        raise SystemExit("没有找到 Kimi Code 订阅模型，请确认登录的是订阅账号。")
+    cfg["kimi_model"] = model
+    save_config(cfg)
+    write_worker_configs(cfg)
+    say(f"Kimi Code 订阅登录完成（模型 {model}）。重新“启动网站”后生效。")
+
+
+def login_chatgpt() -> None:
+    sys.path.insert(0, str(MAC))
+    import chatgpt_auth  # noqa: E402  (local module)
+    cfg = load_config()
+    models = chatgpt_auth.login(STATE / "auth" / "chatgpt.json")
+    if cfg.get("chatgpt_model") not in models:
+        cfg["chatgpt_model"] = models[0]
+    save_config(cfg)
+    write_worker_configs(cfg)
+    say("ChatGPT 订阅登录完成。一图看懂还需要在 Chrome 里登录同一个 ChatGPT 账号。")
+
+
+def claude_executable() -> str:
+    local = STATE / "claude-cli" / "node_modules" / ".bin" / "claude"
+    return str(local) if local.exists() else (shutil.which("claude") or "")
+
+
+def login_claude() -> None:
+    exe = claude_executable()
+    if not exe:
+        say("正在安装官方 Claude Code（只装在本项目目录里）…")
+        target = STATE / "claude-cli"
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "package.json").write_text(json.dumps({"private": True, "dependencies": {"@anthropic-ai/claude-code": "latest"}}))
+        run(["npm", "install", "--prefix", target, "--no-audit", "--no-fund"])
+        exe = claude_executable()
+    say("接下来会打开官方 Claude Code。请在其中输入 /login，选择你的 Claude 订阅账号，按浏览器提示完成登录；登录后输入 /exit 退出即可。")
+    say("（LearnLoop 不读取、不保存任何 Claude 凭据；视频生成时只调用你已登录的官方 claude 命令。）")
+    subprocess.run([exe], cwd=str(STATE))
+
+
+# ----------------------------------------------------------------------------- workers
+def image_worker() -> None:
+    cfg = load_config()
+    if not (STATE / "image-worker" / "node_modules").exists():
+        install_tool("image-worker", MAC / "image-worker.package.json")
+    write_worker_configs(cfg)
+    say("请在 Chrome 打开 chatgpt.com 并登录与 Kimi/ChatGPT 订阅相同的账号；")
+    say("然后在 chrome://inspect/#remote-debugging 允许远程调试，并接受 Chrome 的连接提示。保持此窗口运行。")
+    args = [VENV_PY, SCRIPTS / "personal_chat_image_worker.py", "--config", STATE / "image-worker.json"]
+    run(args + ["--check-browser"])
+    run(args)
+
+
+def video_worker() -> None:
+    worker = SCRIPTS / "claude_video_worker.py"
+    if not worker.exists():
+        raise SystemExit("当前版本还没有视频接入程序。")
+    exe = claude_executable()
+    if not exe:
+        raise SystemExit("请先运行“登录 Claude”。")
+    run([VENV_PY, worker, "--site", SITE, "--state", STATE / "video-state", "--claude", exe,
+         "--token-file", CONFIG])
+
+
+ACTIONS = {"setup": setup, "start": start, "stop": stop, "status": status, "login-kimi": login_kimi,
+           "login-chatgpt": login_chatgpt, "login-claude": login_claude, "image-worker": image_worker,
+           "video-worker": video_worker}
+MENU = [("首次安装 / 修复安装", "setup"), ("启动网站（含文字订阅接入）", "start"), ("登录 Kimi Code 订阅", "login-kimi"),
+        ("登录 ChatGPT 订阅", "login-chatgpt"), ("登录 Claude（讲解视频）", "login-claude"),
+        ("启动一图看懂接入（ChatGPT 网页）", "image-worker"), ("启动讲解视频接入（Claude Code）", "video-worker"),
+        ("查看运行状态", "status"), ("停止网站与接入", "stop")]
+
+
+def menu() -> None:
+    say("\n=== 知行循证 LearnLoop · 优化版（原生 Mac，无需 Docker）===")
+    for index, (label, _) in enumerate(MENU, 1):
+        say(f"  {index}. {label}")
+    choice = input("请输入序号：").strip()
+    if not choice.isdigit() or not 1 <= int(choice) <= len(MENU):
+        raise SystemExit("没有这个选项。")
+    ACTIONS[MENU[int(choice) - 1][1]]()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", nargs="?", default="menu", choices=["menu", *ACTIONS])
+    action = parser.parse_args().action
+    try:
+        (menu if action == "menu" else ACTIONS[action])()
+    except subprocess.CalledProcessError as error:
+        raise SystemExit(f"步骤未完成（退出码 {error.returncode}）。数据没有被重置，请保留窗口内容排查。") from None
+    except KeyboardInterrupt:
+        say("已取消。")
+
+
+if __name__ == "__main__":
+    main()
