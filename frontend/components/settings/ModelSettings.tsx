@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, Check, KeyRound, Sparkles } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api";
+import ClaudeVideoSettings from "./ClaudeVideoSettings";
 
 type Data = {
   subscription_only?: boolean;
@@ -46,7 +47,7 @@ export default function ModelSettings({ onBack }: { onBack: () => void }) {
     Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => b[k] === v);
   const pending = Object.keys(keys).length > 0 || !!data && !sameRoutes(routes, data.routes);
   return <div className="notebook-content-scroll">
-    <div className="notebook-content-heading"><div><span>YOUR MODELS</span><h1>模型设置</h1><p>选择学习方案，模型会按任务自动切换。</p></div><button className="secondary-action" onClick={onBack}><ArrowLeft size={15}/>返回</button></div>
+    <div className="notebook-content-heading"><div><span>YOUR MODELS</span><h1>模型设置</h1><p>选择学习方案，模型会按任务自动切换；讲解视频单独使用本机 Claude。</p></div><button className="secondary-action" onClick={onBack}><ArrowLeft size={15}/>返回</button></div>
     <div className="mx-auto max-w-4xl space-y-6 p-5 pb-16">
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       {message && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
@@ -71,6 +72,7 @@ export default function ModelSettings({ onBack }: { onBack: () => void }) {
           {pending && <p className="mt-3 text-sm text-amber-800">下方还有未保存的自定义设置，请先保存再切换方案。</p>}
           <p className="mt-3 text-xs leading-6 text-slate-500">点击即保存；切换方案本身不产生模型费用。新生成的内容使用新方案，已有内容保留。</p>
         </section>
+        <ClaudeVideoSettings />
         <details className="rounded-2xl border border-[#DDE5D9] bg-white/80 p-5">
           <summary className="cursor-pointer font-semibold text-slate-800">{data.subscription_only ? "各功能的订阅模型" : "自定义模型与个人密钥"}</summary>
           <p className="mt-3 text-xs leading-6 text-slate-500">{data.subscription_only ? "在 Mac 上登录同一个订阅账号后使用；本页不需要填写 API Key。" : <>需要单独指定某项功能时再调整。个人密钥加密保存，仅对当前账户生效。ChatGPT 会员与 OpenAI API 分别计费。模型和价格核对日期：{data.verified_at}。</>}</p>

@@ -6,6 +6,7 @@ import { Notice } from "@/components/ui";
 import { apiAssetUrl, apiGet } from "@/lib/api";
 import type { ResourceItem } from "@/lib/types";
 import { voiceLabel } from "@/lib/media";
+import ClaudeVideoPanel from "./ClaudeVideoPanel";
 
 export default function VideoBlock({ payload }: { payload: ResourceItem["payload"]; kind?: string }) {
   const [video, setVideo] = useState(payload.video);
@@ -16,6 +17,9 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
   const [previewPlaying, setPreviewPlaying] = useState(true);
   const [narrationSpeaking, setNarrationSpeaking] = useState(false);
   const attempts = useRef(0);
+  // Claude Code videos poll and render in their own panel; the legacy cloud-video flow stays below.
+  const claude = payload.video?.provider === "claude_code";
+  const claudeDone = claude && payload.video?.status === "succeeded";
   const script = payload.script;
   const scenes = script?.scenes || [];
   const providerUrl = String(video?.url || "");
@@ -63,7 +67,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
   }, [narrationSpeaking, script?.narration]);
 
   const poll = useCallback(async () => {
-    if (!video?.task_id || polling) return;
+    if (claude || !video?.task_id || polling) return;
     setPolling(true);
     setPollError("");
     try {
@@ -78,17 +82,17 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
     } finally {
       setPolling(false);
     }
-  }, [polling, video?.task_id]);
+  }, [claude, polling, video?.task_id]);
 
   useEffect(() => {
     const terminal = video?.status === "failed" || video?.status === "timeout";
-    if (!video?.task_id || polling || terminal || videoUrl || attempts.current >= 120) return;
+    if (claude || !video?.task_id || polling || terminal || videoUrl || attempts.current >= 120) return;
     const timer = window.setTimeout(() => {
       attempts.current += 1;
       void poll();
     }, attempts.current === 0 ? 800 : 3500);
     return () => window.clearTimeout(timer);
-  }, [poll, polling, shouldMaterialize, video?.status, video?.task_id, videoUrl]);
+  }, [claude, poll, polling, shouldMaterialize, video?.status, video?.task_id, videoUrl]);
 
   if (!video && !script && !preview && !payload.audio_url && !payload.cover_url) {
     return (
@@ -102,12 +106,13 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
 
   return (
     <div className="space-y-3">
-      {video?.task_id && !videoUrl && video.status !== "failed" && video.status !== "timeout" && (
+      {claude && payload.video && <ClaudeVideoPanel video={payload.video} coverUrl={coverUrl} />}
+      {!claude && video?.task_id && !videoUrl && video.status !== "failed" && video.status !== "timeout" && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs">
           <span className="min-w-0 text-slate-700">
             {shouldMaterialize || video.status === "succeeded"
-              ? "小云雀视频已生成，正在安全保存到 知行循证"
-              : "小云雀正在云端生成视频；下面的动态演示是等待期间的学习预览"}
+              ? "云端视频已生成，正在安全保存到 知行循证"
+              : "云端正在生成视频；下面的动态演示是等待期间的学习预览"}
           </span>
           <button
             onClick={() => void poll()}
@@ -119,7 +124,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         </div>
       )}
 
-      {stages.length > 0 && (
+      {stages.length > 0 && !claudeDone && (
         <div className="overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-br from-[#071E19] via-[#10392E] to-[#19513F] text-white shadow-sm">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
             <div><div className="text-[10px] font-bold tracking-[0.18em] text-emerald-300">动态演示</div><strong className="text-sm">{preview?.title || script?.title || "动态讲解"}</strong></div>
@@ -146,7 +151,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         </div>
       )}
 
-      {video?.status === "failed" || video?.status === "timeout" ? (
+      {claude ? null : video?.status === "failed" || video?.status === "timeout" ? (
         <Notice
           tone="error"
           title={`视频生成${video.status === "timeout" ? "超时" : "失败"}`}
@@ -186,7 +191,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
       {pollError && <Notice tone="warn" title="视频保存稍有延迟" desc={pollError} />}
       {playbackError && <Notice tone="warn" title="视频暂时无法播放" desc={playbackError} />}
 
-      {script && (
+      {script && !claudeDone && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <span className="text-[11px] font-bold tracking-[0.18em] text-emerald-600">讲解步骤</span>
@@ -209,7 +214,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         </div>
       )}
 
-      {audioUrl && (
+      {audioUrl && !claudeDone && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="mb-2 text-[11px] font-bold tracking-[0.18em] text-emerald-600">
             {voiceLabel(payload.audio)}
@@ -223,7 +228,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         </div>
       )}
 
-      {strictSuperUnavailable && script?.narration && (
+      {strictSuperUnavailable && script?.narration && !claudeDone && (
         <Notice
           tone="warn"
           title="超拟人语音暂未生成"
@@ -231,7 +236,7 @@ export default function VideoBlock({ payload }: { payload: ResourceItem["payload
         />
       )}
 
-      {!audioUrl && script?.narration && !strictSuperUnavailable && (
+      {!audioUrl && script?.narration && !strictSuperUnavailable && !claudeDone && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
           <div>
             <div className="text-[11px] font-bold tracking-[0.18em] text-emerald-700">即时语音讲解</div>

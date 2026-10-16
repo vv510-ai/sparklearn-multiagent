@@ -239,6 +239,14 @@
     "video.claude_rules": {
       "description": "Claude 讲解视频无人值守运行的工作边界与内容规则（追加到 Claude Code 系统提示）",
       "file": "video/claude-rules.md"
+    },
+    "video.claude_style": {
+      "description": "Claude 讲解视频的品牌视觉规范（版式、色彩、字体、质感、动效、片头片尾）",
+      "file": "video/claude-style.md"
+    },
+    "video.claude_repair": {
+      "description": "Claude 讲解视频：成片校验未通过时的修复指令（problems 由本机接入程序填入）",
+      "file": "video/claude-repair.md"
     }
   }
 }

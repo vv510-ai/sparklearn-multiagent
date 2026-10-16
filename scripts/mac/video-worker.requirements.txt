@@ -1,0 +1,2 @@
+# Claude video worker extras (installed into the backend virtualenv by scripts/mac/native.py)
+edge-tts==7.3.1

@@ -696,3 +696,41 @@
 
 /* A lone tile in a two-column stage spans the row and lays out horizontally. */
 .ll-stage .grid > .studio-tile:last-child:nth-child(odd) { grid-column: span 2; min-height: 64px; flex-direction: row; align-items: center; justify-content: flex-start; }
+
+/* ---------- Claude teaching video ---------- */
+.ll-cv { border-radius: 22px; overflow: hidden; border: 1px solid var(--ll-line-strong); background: linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(236, 248, 242, 0.88)); box-shadow: var(--ll-specular), var(--ll-shadow-md); }
+.ll-cv-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px; color: #e9fbf3; background: var(--ll-grad-hero); }
+.ll-cv-head h3 { display: flex; min-width: 0; align-items: center; gap: 8px; font-size: 15px; font-weight: 900; letter-spacing: -0.01em; }
+.ll-cv-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.ll-cv-badges span { padding: 2px 9px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.14); font-size: 11px; font-weight: 700; }
+.ll-cv-body { display: grid; gap: 14px; padding: 16px; }
+.ll-cv-progress { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(14, 122, 90, 0.12); }
+.ll-cv-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #0e7a5a, #12a38a, #7ee2b8, #12a38a, #0e7a5a); background-size: 200% 100%; animation: ll-cv-flow 2.4s linear infinite; transition: width 600ms var(--ll-ease); }
+@keyframes ll-cv-flow { to { background-position: -200% 0; } }
+.ll-cv-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.ll-cv-steps li { display: grid; justify-items: center; gap: 6px; color: var(--ll-ink-3); font-size: 11px; font-weight: 700; text-align: center; }
+.ll-cv-steps li b { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 999px; border: 2px solid rgba(14, 122, 90, 0.18); background: #fff; color: var(--ll-ink-3); font-size: 11px; }
+.ll-cv-steps li.is-done b { border-color: var(--ll-green); background: var(--ll-green); color: #fff; }
+.ll-cv-steps li.is-active { color: var(--ll-forest); }
+.ll-cv-steps li.is-active b { border-color: var(--ll-teal); color: var(--ll-forest); box-shadow: 0 0 0 5px rgba(126, 226, 184, 0.35); animation: ll-cv-pulse 1.6s ease-in-out infinite; }
+@keyframes ll-cv-pulse { 50% { box-shadow: 0 0 0 9px rgba(126, 226, 184, 0.12); } }
+.ll-cv-message { display: flex; align-items: center; gap: 8px; color: var(--ll-ink-2); font-size: 13px; }
+.ll-cv-board { display: grid; gap: 8px; }
+.ll-cv-scene { display: grid; grid-template-columns: 74px 1fr; gap: 10px; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--ll-line); background: #fff; }
+.ll-cv-scene time { color: var(--ll-teal); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.ll-cv-scene strong { display: block; color: var(--ll-ink); font-size: 13px; }
+.ll-cv-scene p { margin-top: 3px; color: var(--ll-ink-2); font-size: 12px; line-height: 1.65; }
+.ll-cv-scene small { display: block; margin-top: 4px; color: var(--ll-ink-3); font-size: 11px; line-height: 1.6; }
+.ll-cv-chapters { display: flex; flex-wrap: wrap; gap: 6px; }
+.ll-cv-chapters button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--ll-line-strong); background: #fff; color: var(--ll-ink); font-size: 12px; font-weight: 700; transition: background 160ms var(--ll-ease), transform 160ms var(--ll-ease); }
+.ll-cv-chapters button:hover { background: #ecf8f2; transform: translateY(-1px); }
+.ll-cv-chapters button time { color: var(--ll-teal); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.ll-cv-approve textarea { width: 100%; min-height: 72px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ll-line-strong); background: #fff; font-size: 13px; }
+.ll-cv-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 560px) { .ll-cv-scene { grid-template-columns: 1fr; } .ll-cv-steps li { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .ll-cv-progress i, .ll-cv-steps li.is-active b { animation: none; } }
+.ll-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.ll-seg button { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--ll-line-strong); background: #fff; color: var(--ll-ink-2); font-size: 12px; font-weight: 700; transition: background 160ms var(--ll-ease), color 160ms var(--ll-ease); }
+.ll-seg button:hover:not(:disabled) { background: #ecf8f2; }
+.ll-seg button[aria-pressed="true"] { border-color: transparent; background: var(--ll-grad-primary); color: #fff; box-shadow: 0 6px 16px rgba(14, 122, 90, 0.25); }
+.ll-seg button:disabled { opacity: 0.55; }

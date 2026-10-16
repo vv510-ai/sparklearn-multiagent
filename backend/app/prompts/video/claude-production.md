@@ -10,7 +10,7 @@
 - `video/assets/narration.mp3`：完整旁白配音，从第 0 秒开始播放，不要改动它的时间。
 - `audio/captions.json`：逐句字幕时间轴，格式为 `[{"text": "...", "start": 0.0, "end": 2.4}]`。
 - `video/`：已经初始化好的 HyperFrames 项目（`video/index.html` 是根合成），`video/vendor/gsap.min.js` 是本地 GSAP。
-- `guides/`：讲解视频的视觉设计、动效语言和叙事参考，动手前先读一遍。
+- `guides/learnloop-style.md`：LearnLoop 讲解视频视觉规范，必须遵守；`guides/` 里的其他文件是讲解视频的视觉设计、动效语言和叙事参考。动手前先读一遍。
 
 {{engine_rule}}
 

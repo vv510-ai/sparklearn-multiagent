@@ -452,7 +452,10 @@ def _prompts(row: ClaudeVideoJob) -> dict:
                      "分镜和配音都已经准备好。"),
         quality=settings.get("quality") or "looks").prompt
     rules = render_plain_prompt("video.claude_rules").prompt
-    return {"storyboard": storyboard, "production": production, "rules": rules}
+    style = render_plain_prompt("video.claude_style").prompt
+    # The worker fills in the concrete check failures; the wording still lives in app/prompts.
+    repair = render_plain_prompt("video.claude_repair", problems="{{problems}}").prompt
+    return {"storyboard": storyboard, "production": production, "rules": rules, "style": style, "repair": repair}
 
 
 def claim(user: str, info: dict) -> dict | None:

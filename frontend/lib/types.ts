@@ -204,6 +204,17 @@ export interface ResourceItem {
       stored?: boolean;
       cached?: boolean;
       phase?: string;
+      /** Claude Code videos (provider "claude_code"): live state from the local worker. */
+      message?: string;
+      progress?: number;
+      effort?: string;
+      code?: string;
+      title?: string;
+      notes?: string;
+      approve_storyboard?: boolean;
+      worker_online?: boolean;
+      storyboard?: VideoStoryboard | null;
+      chapters?: { start: number; title: string }[];
     };
     manim_code?: string;
     python_code?: string;
@@ -331,4 +342,50 @@ export interface PathPlan {
   generated_by?: string;
   updated_at?: string;
   remediation?: LearningDiagnosis;
+}
+
+export interface VideoStoryboardScene {
+  title: string;
+  goal?: string;
+  narration: string;
+  visual?: string;
+  on_screen?: string[];
+  transition?: string;
+  start?: number;
+  end?: number;
+}
+
+export interface VideoStoryboard {
+  title: string;
+  hook?: string;
+  summary?: string;
+  visual_style?: string;
+  quiz?: string;
+  self_check?: string;
+  duration?: number;
+  scenes: VideoStoryboardScene[];
+}
+
+export interface ClaudeVideoOption { id: string; label: string; note: string }
+
+export interface ClaudeVideoSettings {
+  available: boolean;
+  reason: string;
+  note: string;
+  active_jobs: number;
+  config: {
+    model: string; effort: string; engine: string; max_seconds: number; voice: string; quality: string;
+    approve_storyboard: boolean; access: "subscription" | "api_key"; budget_usd: number;
+    has_api_key: boolean; revision: number;
+  };
+  options: {
+    models: ClaudeVideoOption[]; efforts: ClaudeVideoOption[]; engines: ClaudeVideoOption[];
+    voices: ClaudeVideoOption[]; qualities: ClaudeVideoOption[]; durations: number[];
+  };
+  worker: {
+    online: boolean; last_seen: number | null; cli_version: string; busy: boolean;
+    auth: { logged_in: boolean; method: string; plan: string };
+    tools: Record<string, string>;
+  };
+  test: { status: string; reply: string; detail: string; model: string; at: number } | null;
 }

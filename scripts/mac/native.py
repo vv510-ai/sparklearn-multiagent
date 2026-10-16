@@ -113,11 +113,24 @@ def setup() -> None:
         run(["npm", "ci", "--no-audit", "--no-fund"], cwd=FRONTEND)
         marker.write_text(lock)
     build_frontend(force=True)
-    say("④ 安装本机接入工具（Kimi Code、Chrome 接入）…")
+    say("④ 安装本机接入工具（Kimi Code、Chrome 接入、讲解视频制作工具）…")
     install_tool("kimi-cli", MAC / "kimi-cli.package.json")
     install_tool("image-worker", MAC / "image-worker.package.json")
+    install_video_tools()
     configure()
     say("\n✅ 安装完成。接下来：先“启动网站”，用你填写的邮箱注册账号，再分别登录 Kimi / ChatGPT / Claude。")
+
+
+def install_video_tools() -> None:
+    """HyperFrames + ffmpeg + GSAP for Claude videos, and edge-tts for the Chinese narration."""
+    install_tool("video-tools", MAC / "video-tools.package.json")
+    uv = shutil.which("uv")
+    requirements = MAC / "video-worker.requirements.txt"
+    if uv:
+        run([uv, "pip", "install", "--python", VENV_PY, "-r", requirements], env={**os.environ, "UV_HTTP_TIMEOUT": "120"})
+    else:
+        run([VENV_PY, "-m", "pip", "install", "-r", requirements])
+    run([VENV_PY, SCRIPTS / "claude_video_worker.py", "setup", "--tools", STATE / "video-tools"])
 
 
 def install_tool(name: str, package_json: Path) -> Path:
@@ -158,6 +171,7 @@ def configure() -> None:
         cfg["owner_email"] = email
     cfg.setdefault("relay_token", secrets.token_urlsafe(48))
     cfg.setdefault("image_worker_token", secrets.token_urlsafe(48))
+    cfg.setdefault("video_worker_token", secrets.token_urlsafe(48))
     cfg.setdefault("chatgpt_model", "gpt-6.1-sol")
     cfg.setdefault("kimi_model", "kimi-code/k3")
     save_config(cfg)
@@ -179,6 +193,8 @@ def configure() -> None:
         "PERSONAL_RELAY_URL": "http://127.0.0.1:18431",
         "PERSONAL_CHAT_IMAGE_ENABLED": "true",
         "PERSONAL_CHAT_IMAGE_WORKER_TOKEN_SHA256": hashlib.sha256(cfg["image_worker_token"].encode()).hexdigest(),
+        "CLAUDE_VIDEO_ENABLED": "true",
+        "CLAUDE_VIDEO_WORKER_TOKEN_SHA256": hashlib.sha256(cfg["video_worker_token"].encode()).hexdigest(),
     })
     write_worker_configs(cfg)
 
@@ -274,8 +290,7 @@ def stop() -> None:
 def logins() -> dict[str, bool]:
     kimi = (STATE / "kimi-home" / "credentials" / "kimi-code.json").exists()
     chatgpt = (STATE / "auth" / "chatgpt.json").exists() and "access_token" in (STATE / "auth" / "chatgpt.json").read_text()
-    claude = bool(claude_executable())
-    return {"Kimi Code 订阅": kimi, "ChatGPT/Codex 订阅": chatgpt, "Claude Code（讲解视频）": claude}
+    return {"Kimi Code 订阅": kimi, "ChatGPT/Codex 订阅": chatgpt, "Claude Code（讲解视频）": claude_signed_in()}
 
 
 def status() -> None:
@@ -331,6 +346,16 @@ def claude_executable() -> str:
     return str(local) if local.exists() else (shutil.which("claude") or "")
 
 
+def claude_signed_in() -> bool:
+    exe = claude_executable()
+    if not exe:
+        return False
+    try:
+        return subprocess.run([exe, "auth", "status"], capture_output=True, timeout=30).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def login_claude() -> None:
     exe = claude_executable()
     if not exe:
@@ -340,9 +365,13 @@ def login_claude() -> None:
         (target / "package.json").write_text(json.dumps({"private": True, "dependencies": {"@anthropic-ai/claude-code": "latest"}}))
         run(["npm", "install", "--prefix", target, "--no-audit", "--no-fund"])
         exe = claude_executable()
-    say("接下来会打开官方 Claude Code。请在其中输入 /login，选择你的 Claude 订阅账号，按浏览器提示完成登录；登录后输入 /exit 退出即可。")
-    say("（LearnLoop 不读取、不保存任何 Claude 凭据；视频生成时只调用你已登录的官方 claude 命令。）")
-    subprocess.run([exe], cwd=str(STATE))
+    if claude_signed_in():
+        say("官方 Claude Code 已登录，可以直接“启动讲解视频接入”。")
+        return
+    say("接下来由官方 Claude Code 打开浏览器登录页：请选择你的 Claude 订阅账号（Pro / Max）并完成授权。")
+    say("（LearnLoop 不读取、不保存任何 Claude 凭据；制作视频时只调用你已登录的官方 claude 命令。）")
+    subprocess.run([exe, "auth", "login"], cwd=str(STATE))
+    say("Claude 登录完成。" if claude_signed_in() else "还没有检测到登录，可以重新选择“登录 Claude”。")
 
 
 # ----------------------------------------------------------------------------- workers
@@ -359,14 +388,23 @@ def image_worker() -> None:
 
 
 def video_worker() -> None:
-    worker = SCRIPTS / "claude_video_worker.py"
-    if not worker.exists():
-        raise SystemExit("当前版本还没有视频接入程序。")
+    cfg = load_config()
+    if not cfg:
+        raise SystemExit("请先运行“首次安装”。")
     exe = claude_executable()
     if not exe:
         raise SystemExit("请先运行“登录 Claude”。")
-    run([VENV_PY, worker, "--site", SITE, "--state", STATE / "video-state", "--claude", exe,
-         "--token-file", CONFIG])
+    if not cfg.get("video_worker_token") or "CLAUDE_VIDEO_WORKER_TOKEN_SHA256" not in env_lines():
+        configure()  # Older installs: add the video pairing secret, then the website must reload .env.
+        say("已开启讲解视频接入。请先“停止网站与接入”再“启动网站”，然后重新选择本项。")
+        return
+    if not (STATE / "video-tools" / "bin" / "learnloop-check").exists():
+        say("正在安装讲解视频制作工具（HyperFrames、ffmpeg、中文配音，首次约 1~3 分钟）…")
+        install_video_tools()
+    say("讲解视频由你本机已登录的官方 Claude Code 制作；在网页“设置 → 讲解视频”里可以选模型、思考强度、配音和时长。")
+    say("保持此窗口运行；网页上生成“讲解视频”时会自动开始制作。")
+    run([VENV_PY, SCRIPTS / "claude_video_worker.py", "run", "--site", f"http://127.0.0.1:{BACKEND_PORT}",
+         "--state", STATE / "video-state", "--tools", STATE / "video-tools", "--claude", exe, "--token-file", CONFIG])
 
 
 ACTIONS = {"setup": setup, "start": start, "stop": stop, "status": status, "login-kimi": login_kimi,
