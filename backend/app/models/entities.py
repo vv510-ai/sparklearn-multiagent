@@ -450,3 +450,35 @@ class PersonalImageJob(Base):
     lease_until: Mapped[float] = mapped_column(Float, default=0)
     detail_code: Mapped[str] = mapped_column(String(32), default="")
     data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ClaudeVideoJob(Base):
+    """Owner-scoped teaching-video job run by the local official Claude Code CLI.
+
+    The id doubles as the resource's ``video.task_id`` (prefix ``claude_``). Prompts
+    are rendered by the backend; the worker never receives anything else.
+    """
+    __tablename__ = "claude_video_jobs"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    resource_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    kind: Mapped[str] = mapped_column(String(16), default="video")  # video | ping
+    status: Mapped[str] = mapped_column(String(24), default="queued", index=True)
+    created: Mapped[float] = mapped_column(Float)
+    updated: Mapped[float] = mapped_column(Float, default=0)
+    lease: Mapped[str] = mapped_column(String(64), default="")
+    lease_until: Mapped[float] = mapped_column(Float, default=0)
+    detail_code: Mapped[str] = mapped_column(String(32), default="")
+    brief: Mapped[dict] = mapped_column(JSON, default=dict)
+    settings: Mapped[dict] = mapped_column(JSON, default=dict)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ClaudeVideoConfig(Base):
+    """Per-owner Claude video settings and the last status reported by the local worker."""
+    __tablename__ = "claude_video_configs"
+    user_id: Mapped[str] = mapped_column(String(64), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    credential: Mapped[str] = mapped_column(Text, default="")
+    worker: Mapped[dict] = mapped_column(JSON, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=0)

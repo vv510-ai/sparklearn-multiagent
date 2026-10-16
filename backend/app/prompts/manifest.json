@@ -1,6 +1,6 @@
 {
   "name": "sparklearn.learning_prompt",
-  "version": "2026.10.16.01",
+  "version": "2026.10.16.02",
   "system": "system.md",
   "partials": {
     "source_rules": "shared/source-grounding.md",
@@ -227,6 +227,18 @@
     "music.review": {
       "description": "记忆歌曲：逐行核对歌词是否会让人记错",
       "file": "music/review.md"
+    },
+    "video.claude_storyboard": {
+      "description": "Claude 讲解视频第一步：只写分镜方案 storyboard.json（画面与知识步骤一一对应）",
+      "file": "video/claude-storyboard.md"
+    },
+    "video.claude_production": {
+      "description": "Claude 讲解视频第二步：按确认的分镜与真实配音时间轴用 HyperFrames 制作、自查并渲染 1080P MP4",
+      "file": "video/claude-production.md"
+    },
+    "video.claude_rules": {
+      "description": "Claude 讲解视频无人值守运行的工作边界与内容规则（追加到 Claude Code 系统提示）",
+      "file": "video/claude-rules.md"
     }
   }
 }

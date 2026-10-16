@@ -279,6 +279,10 @@ async def retry_audio(rid: str, req: AudioRetryRequest):
 @router.get("/video/task/{task_id}")
 async def video_task(task_id: str):
     user_id = require_current_user_id()
+    from ..services import claude_video
+    if claude_video.is_task(task_id):
+        # Owned by the job row itself; every state change is already mirrored into the resource.
+        return claude_video.poll(user_id, task_id)
     if not task_belongs_to_user(user_id, task_id):
         raise HTTPException(404, "video task not found")
     resource_id = task_resource_id(user_id, task_id)

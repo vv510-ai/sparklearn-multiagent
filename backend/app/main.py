@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import assessment, auth, chat, courses, debug, demo, evaluate, knowledge, meta, notebooks, path, resources, tutor
 from .api import pilot
 from .api import personal_image
+from .api import claude_video
 from .api import settings as model_settings
 from .api import learning, jobs, library, materials, cet6, cet6_advice
 from .auth import bind_request_user, decode_access_token, reset_request_user
@@ -76,12 +77,14 @@ _PUBLIC_PATHS = {
 
 @app.middleware("http")
 async def authenticate_request(request: Request, call_next):
-    if request.url.path.startswith("/api/personal-image-worker/"):
-        from .services.personal_image import authenticate_worker
+    if request.url.path.startswith(("/api/personal-image-worker/", "/api/claude-video-worker/")):
+        # Paired local workers authenticate with their own token, never a website session.
+        from .services import claude_video as video_worker, personal_image as image_worker
+        worker = image_worker if request.url.path.startswith("/api/personal-image-worker/") else video_worker
         try:
-            user = authenticate_worker(request.headers.get("authorization", ""))
+            user = worker.authenticate_worker(request.headers.get("authorization", ""))
         except Exception as exc:
-            return JSONResponse({"detail": getattr(exc, "detail", "图片接入程序未授权")},
+            return JSONResponse({"detail": getattr(exc, "detail", "接入程序未授权")},
                                 status_code=getattr(exc, "status_code", 401))
         context_token = bind_request_user(user)
         try:
@@ -139,6 +142,8 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.include_router(personal_image.router)
+for router in (claude_video.worker_router, claude_video.settings_router, claude_video.video_router):
+    app.include_router(router)
 
 for r in (jobs.router, assessment.router, courses.router, auth.router, chat.router, resources.router, notebooks.router, path.router, debug.router, knowledge.router,
           tutor.router, evaluate.router, demo.router, meta.router, pilot.router, model_settings.router, learning.router, library.router, materials.router, cet6.router, cet6_advice.router):

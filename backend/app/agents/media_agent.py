@@ -1,8 +1,9 @@
 """媒体智能体(Media Agent):
-1) 星火生成分镜视频脚本(video_script JSON);
-2) 首选小云雀文生视频（异步任务 + progress 事件轮询）;
-3) 云端视频不可用时优雅降级:生成 Manim 动画场景代码(可本地渲染)+ 讯飞 TTS 旁白音频;
-4) 讯飞文生图生成课程封面(可选)。"""
+1) 文本模型生成讲解稿与分镜草稿(video_script JSON);
+2) 拥有者开启 Claude 讲解视频时，交给本机官方 Claude Code 先出分镜、再配音与渲染 1080P 成片
+   （异步任务，页面轮询 video.task_id，见 services/claude_video.py）;
+3) 否则使用已配置的云端文生视频（小云雀/方舟，异步任务 + 轮询）;
+4) 云端视频不可用时优雅降级:生成 Manim 动画场景代码(可本地渲染)+ TTS 旁白音频。"""
 from __future__ import annotations
 
 from ..services.model_preferences import resolve
@@ -19,6 +20,7 @@ from ..llm.spark_client import llm_complete, parse_json
 from ..prompt_templates import render_manim_prompt_call, render_video_prompt_call
 from ..rag.citation import build_context
 from ..rag.retriever import retrieve
+from ..services import claude_video
 from ..services.knowledge_graph import infer_kp_ids, resolve_topic
 from ..services.topic_scope import focus_chunks_on_topic
 from .emitter import agent_end, agent_start, emit
@@ -321,6 +323,21 @@ def _normalize_script(script: dict, chunks: list[dict], name: str) -> dict:
     return normalized
 
 
+def _claude_brief_content(script: dict) -> str:
+    """The reviewed outline handed to Claude; Claude may re-plan it but not add facts."""
+    parts = [f"讲解稿：{script.get('narration') or ''}".strip()]
+    scenes = [scene for scene in script.get("scenes") or [] if isinstance(scene, dict)]
+    if scenes:
+        parts.append("分镜草稿：\n" + "\n".join(
+            f"{index}. {scene.get('caption') or '镜头'}：{scene.get('visual') or ''}" for index, scene in enumerate(scenes, 1)))
+    return "\n\n".join(parts)
+
+
+def _video_audience(profile: dict) -> str:
+    return (f"零基础也能跟上的学习者（偏好{profile.get('cognitive_style') or '视觉型'}讲解、"
+            f"{profile.get('difficulty_pref') or '循序渐进'}、{profile.get('pace') or '常规'}节奏）")
+
+
 def _local_manim_video(kp: str) -> dict | None:
     filename = _LOCAL_MANIM_VIDEOS.get(kp)
     if not filename or not (GEN_DIR / filename).is_file():
@@ -469,7 +486,23 @@ async def run(state: dict) -> dict:
     )
 
     mode = explicit_kind if explicit_kind != "video" else "manim"
-    if explicit_kind == "video":
+    rid = uuid.uuid4().hex[:12]
+    claude_state: dict = {}
+    if explicit_kind == "video" and claude_video.enabled_for_user():
+        try:
+            claude_state = claude_video.request(
+                topic=name, goal=goal or f"讲清{name}", persona=_video_audience(state.get("student_profile") or {}),
+                content=_claude_brief_content(script), material=context, resource_id=rid,
+                job_key=str(state.get("job_id") or state.get("run_id") or state.get("session_id") or rid))
+        except Exception:  # noqa: BLE001 - fall back to the configured cloud video path
+            claude_state = {}
+    if claude_state:
+        payload["video"] = claude_state
+        mode = "claude_code"
+        await emit({"type": "progress", "agent": "media", "stage": "video", "percent": 45,
+                    "detail": "已交给本机 Claude 制作讲解视频（先出分镜，再配音与渲染，通常 10~30 分钟），可先看下面的讲解步骤",
+                    "task_id": claude_state.get("task_id")})
+    elif explicit_kind == "video":
         try:
             created = await multimodal_gateway.video_create(
                 _video_prompt(script, source_bound=bool(source_ids)), trace_id=trace_id,
@@ -568,7 +601,6 @@ async def run(state: dict) -> dict:
                 if isinstance(audio, dict) and audio.get("ok")
                 else "云端旁白不可用,已保留可朗读脚本"})
 
-    rid = uuid.uuid4().hex[:12]
     title_suffix = {
         "manim": "Manim 数学动画",
         "python_animation": "Python 数学动画",
@@ -581,6 +613,7 @@ async def run(state: dict) -> dict:
                 "citations": [item["citation"] for item in citations]}
     await emit({"type": "resource", "resource": resource})
     summaries = {
+        "claude_code": "已交给本机 Claude 制作讲解视频，完成后会自动出现在这里",
         "xiaoyunque": "小云雀视频任务已提交",
         "video": "云端视频任务已提交",
         "local_manim": "已产出预渲染 Manim 教学动画 + 旁白脚本",
