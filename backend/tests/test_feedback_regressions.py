@@ -141,3 +141,22 @@ def test_video_topic_gate_rejects_adjacent_course_topic():
     }
 
     assert media_agent._script_on_topic(script, "图的遍历", "graph_traverse", []) is False  # noqa: SLF001
+
+
+def test_video_topic_gate_accepts_mixed_language_label_with_example():
+    script = {
+        "narration": "Python 里的变量，就是给一个值贴上名字。把名字 x 贴到 3 上叫赋值。",
+        "scenes": [{"visual": "名字 x 贴到数值 3 上", "caption": "一个等号做赋值"}],
+    }
+
+    for label in ("Python 变量与赋值：x = 3", "Python变量与赋值: x=3"):
+        assert media_agent._script_on_topic(script, label, "custom_topic", []) is True  # noqa: SLF001
+
+
+def test_video_topic_gate_cannot_pass_on_language_name_alone():
+    script = {
+        "narration": "Python 的循环可以重复做一件事。",
+        "scenes": [{"visual": "重复运行三个步骤", "caption": "循环"}],
+    }
+
+    assert media_agent._script_on_topic(script, "Python 变量与赋值：x = 3", "custom_topic", []) is False  # noqa: SLF001

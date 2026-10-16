@@ -207,8 +207,15 @@ def _script_on_topic(script: dict, name: str, kp: str, chunks: list[dict]) -> bo
         "scenes": script.get("scenes"),
     }
     text = re.sub(r"\s+", "", json.dumps(body, ensure_ascii=False)).lower()
-    topic = re.sub(r"\s+", "", str(name or "")).lower()
-    pieces = [part for part in re.split(r"[与和、/·（）()\s]+", topic) if len(part) >= 2]
+    label = str(name or "").lower()
+    topic = re.sub(r"\s+", "", label)
+    # Keep the separators until after tokenization: removing spaces first
+    # merged "Python 变量" and left "赋值：x = 3" as an impossible phrase.
+    pieces = [part for part in re.split(r"[与和、/·（）()\s:：=]+", label) if len(part) >= 2]
+    # In a mixed-language label, the language name alone is not evidence that
+    # the lesson covers its requested concept (e.g. Python loops vs assignment).
+    concept_pieces = [part for part in pieces if re.search(r"[\u4e00-\u9fff]", part)]
+    pieces = concept_pieces or pieces
     # The current topic is the boundary. A broad chapter containing adjacent
     # topics must not make those topics valid for this video's narration.
     allowed = set(infer_kp_ids(name))
