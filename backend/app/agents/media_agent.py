@@ -183,7 +183,7 @@ def _video_prompt(script: dict, *, source_bound: bool) -> str:
         if isinstance(scene, dict) and str(scene.get("caption") or "").strip()
     )[:300]
     return (
-        visual_rules + f"Visual plan: {base}. Only visualize the supplied "
+        visual_rules + "Only visualize the supplied "
         "source-grounded narration and captions. Do not add facts, labels, formulas, "
         "or examples that are not supplied. "
         f"Meaning reference (never typeset this text): {narration or 'Use a neutral abstract learning visual.'} "
