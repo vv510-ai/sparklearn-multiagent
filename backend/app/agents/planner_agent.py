@@ -24,7 +24,8 @@ async def run(state: dict) -> dict:
     )
 
     one_page_scope = None
-    if state.get("prompt_template") == "one_page":
+    # Picture, song and video requests name a topic in free text; resolve it semantically.
+    if state.get("prompt_template") in {"one_page", "memory_song", "video"}:
         one_page_scope = await resolve_scope(str(goal), state.get("conversation") or [],
             str(state.get("topic_label") or ""), complete=llm_complete, demo=is_demo())
         target_kp, topic_name = one_page_scope["kp"], one_page_scope["topic"]

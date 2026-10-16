@@ -1,7 +1,7 @@
 /** SparkLearn 前后端事件协议(与 backend/app/agents/emitter.py 对齐)。 */
 export type AgentId =
   | "profile" | "orchestrator" | "planner" | "path"
-  | "doc" | "mindmap" | "quiz" | "media" | "tutor" | "eval";
+  | "doc" | "mindmap" | "quiz" | "media" | "music" | "tutor" | "eval";
 
 export interface OnePageImage {
   index: number;

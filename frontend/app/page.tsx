@@ -50,7 +50,7 @@ import { inferKpFromTopic, kpName } from "@/lib/kp";
 import type { LearningNotebook, PathPlan, ResourceItem, SparkEvent, StudentProfile } from "@/lib/types";
 
 type PanelKey = "study" | "research" | "english" | "chat" | "profile" | "path" | "resources" | "mistakes" | "assessment" | "courses";
-type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "ppt";
+type ResourceFilter = "all" | "doc" | "study" | "quiz" | "video" | "song" | "ppt";
 type ChatRequest = { path: string; body: Record<string, unknown>; display: string };
 type EvalReportSummary = { path?: PathPlan; profile_version?: number };
 type OnboardingResponse = { required: boolean; profile: StudentProfile; path?: PathPlan | null; resume?: { phase: string; notebook_id: string; assessment_id: string }; recommendation?: { title?: string; reason?: string; knowledge_point?: string | null } };
@@ -106,14 +106,15 @@ const RESOURCE_FILTERS: { key: ResourceFilter; label: string }[] = [
   { key: "doc", label: "笔记" },
   { key: "study", label: "学习工件" },
   { key: "quiz", label: "测验" },
-  { key: "video", label: "讲解" },
+  { key: "video", label: "视频" },
+  { key: "song", label: "歌曲" },
   { key: "ppt", label: "PPT" },
 ];
 
 const TRACE_FLOW = [
   { label: "理解目标", ids: ["profile", "orchestrator"] },
   { label: "规划路线", ids: ["planner", "path"] },
-  { label: "整理内容", ids: ["doc", "mindmap", "quiz", "media", "tutor"] },
+  { label: "整理内容", ids: ["doc", "mindmap", "quiz", "media", "music", "tutor"] },
   { label: "检查结果", ids: ["eval"] },
 ] as const;
 

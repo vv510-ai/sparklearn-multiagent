@@ -26,7 +26,8 @@ const AGENT_META: Record<string, { name: string; code: string; group: string }> 
   doc: { name: "图文教程", code: "DOC", group: "准备资料" },
   mindmap: { name: "思维导图", code: "MAP", group: "准备资料" },
   quiz: { name: "练习题组", code: "QUZ", group: "准备资料" },
-  media: { name: "讲解脚本", code: "MED", group: "准备资料" },
+  media: { name: "讲解视频", code: "MED", group: "准备资料" },
+  music: { name: "记忆歌曲", code: "MUS", group: "准备资料" },
   tutor: { name: "答疑导师", code: "TUT", group: "即时辅导" },
   eval: { name: "结果检查", code: "EVL", group: "结果检查" },
 };
@@ -153,7 +154,7 @@ function StageLabel({ text, active }: { text: string; active: boolean }) {
 }
 
 export default function AgentTrace({ trace }: { trace: TraceState }) {
-  const gen: AgentId[] = ["doc", "mindmap", "quiz", "media"];
+  const gen: AgentId[] = ["doc", "mindmap", "quiz", "media", "music"];
   const startedAtRef = useRef<Record<string, number>>({});
   const runStartRef = useRef<number | null>(null);
   const [durations, setDurations] = useState<Record<string, number>>({});

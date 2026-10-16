@@ -16,14 +16,14 @@ import uuid
 from typing import Any, AsyncIterator
 
 from . import (conversation_note_agent, doc_agent, eval_agent, guided_agent,
-               media_agent, mindmap_agent, orchestrator, path_agent,
+               media_agent, mindmap_agent, music_agent, orchestrator, path_agent,
                planner_agent, profile_agent, quiz_agent, tutor_agent)
 from .emitter import agent_end, emit, reset_emitter, set_emitter
 from .state import LearningState, merge_dict
 from ..trace import TraceRecorder
 
 _GEN_NODES = {"doc": doc_agent.run, "mindmap": mindmap_agent.run,
-              "quiz": quiz_agent.run, "media": media_agent.run}
+              "quiz": quiz_agent.run, "media": media_agent.run, "music": music_agent.run}
 
 try:
     from langgraph.graph import END, START, StateGraph
@@ -120,7 +120,7 @@ class MiniGraph:
                       "flashcards": "doc", "infographic": "doc", "data_table": "doc",
                       "mindmap": "mindmap", "quiz": "quiz",
                       "video": "media", "audio": "media", "image": "media",
-                      "manim": "media", "python_animation": "media"}
+                      "manim": "media", "python_animation": "media", "song": "music"}
         wanted = [_KIND2NODE[k] for k in (s.get("kinds") or []) if k in _KIND2NODE]
         run_nodes = list(dict.fromkeys(wanted)) or list(_GEN_NODES)
         results = await asyncio.gather(*(checkpoint(n, _guard_gen_node(n, _GEN_NODES[n]), s) for n in run_nodes),

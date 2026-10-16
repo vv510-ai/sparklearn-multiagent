@@ -12,7 +12,8 @@ def _tool_only(text: str) -> bool:
     # Match complete sequences of request words; never remove syllables from a
     # subject and accidentally turn it into a context-free command.
     return bool(re.fullmatch(
-        r"(?:一[图页]看懂|知识图谱?|信息图|请|帮我|给我|帮忙|麻烦|可以|能不能|能|你|我|"
+        r"(?:一[图页]看懂|知识图谱?|信息图|记忆歌曲?|歌曲|口诀|顺口溜|编成歌|唱成歌|唱|讲解视频|视频|动画|"
+        r"请|帮我|给我|帮忙|麻烦|可以|能不能|能|你|我|"
         r"把|将|用|生成|制作|整理|画出|画成|画|做成|做|一下|一个|一张|一份|功能|"
         r"刚才|上面|前面|这些|这个|那个|这部分|它|当前|本次|内容|知识|对话|总结|继续|"
         r"的|再|吧|吗|好|[\s，,。！？?!：:])*", text))

@@ -28,8 +28,27 @@ MESSAGES = {
 }
 
 
+# Prompts may only travel to the paired relay: the Compose service or this Mac.
+RELAYS = {'http://subscription-relay:18431', 'http://127.0.0.1:18431', 'http://localhost:18431'}
+# Provider-specific failures where the other subscription can still answer.
+FAILOVER_ERRORS = {'limit_or_provider_error', 'not_logged_in', 'unsupported_model', 'timeout', 'invalid_response'}
+
+
 def enabled():
     return os.environ.get('PORTABLE_TEXT_MODE') == 'subscription'
+
+
+def relay_url():
+    value = os.environ.get('PERSONAL_RELAY_URL', '').strip().rstrip('/')
+    return value if value in RELAYS else 'http://subscription-relay:18431'
+
+
+def failover_enabled():
+    return os.environ.get('PORTABLE_SUBSCRIPTION_FAILOVER', 'true').strip().lower() not in {'0', 'false', 'no', 'off'}
+
+
+def other_model(model):
+    return 'chatgpt-subscription' if model == 'kimi-subscription' else 'kimi-subscription'
 
 
 def require_owner(user=None):
@@ -70,27 +89,43 @@ def resolve(prompt, *, task_context=None):
             'reason': '本人本机订阅；没有 API 回退', 'key': '', 'base_url': ''}
 
 
+async def _ask(model, prompt, system, json_mode, token):
+    """One relay round trip. Returns (ok, text_or_error_code)."""
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(345, connect=5), trust_env=False, follow_redirects=False) as client:
+            response = await client.post(relay_url() + '/complete',
+                headers={'Authorization': 'Bearer '+token},
+                json={'provider': MODELS[model]['provider'], 'prompt': prompt, 'system': system, 'json': bool(json_mode)})
+            body = response.json()
+    except httpx.HTTPError:
+        return False, 'worker_unavailable'
+    except (ValueError, TypeError):
+        return False, 'invalid_response'
+    if response.status_code != 200 or body.get('ok') is not True:
+        code = body.get('error', '') if isinstance(body, dict) else ''
+        return False, code if code in MESSAGES else 'limit_or_provider_error'
+    if body.get('provider') != MODELS[model]['provider'] or not isinstance(body.get('text'), str) or not body['text'].strip():
+        return False, 'invalid_response'
+    return True, body['text']
+
+
 async def complete(prompt, *, system='', json_mode=False, task_context=None):
+    """Kimi Code and ChatGPT/Codex subscriptions back each other up; never a paid API."""
     model = model_for(prompt, task_context=task_context)
     token = os.environ.get('PORTABLE_RELAY_TOKEN', '')
     if len(token) < 40:
         raise RuntimeError('本机订阅配对配置缺失。')
-    # The peer is fixed in the private Compose network, never a configurable URL.
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(345, connect=5), trust_env=False, follow_redirects=False) as client:
-            response = await client.post('http://subscription-relay:18431/complete',
-                headers={'Authorization': 'Bearer '+token},
-                json={'provider': MODELS[model]['provider'], 'prompt': prompt, 'system': system, 'json': bool(json_mode)})
-            body = response.json()
-        if response.status_code != 200 or body.get('ok') is not True:
-            raise RuntimeError(MESSAGES.get(body.get('error', ''), MESSAGES['limit_or_provider_error']))
-        if body.get('provider') != MODELS[model]['provider'] or not isinstance(body.get('text'), str) or not body['text'].strip():
-            raise RuntimeError(MESSAGES['invalid_response'])
-        return body['text']
-    except httpx.HTTPError:
-        raise RuntimeError(MESSAGES['worker_unavailable']) from None
-    except (ValueError, TypeError):
-        raise RuntimeError(MESSAGES['invalid_response']) from None
+    order = [model, other_model(model)] if failover_enabled() else [model]
+    error = 'limit_or_provider_error'
+    for candidate in order:
+        ok, value = await _ask(candidate, prompt, system, json_mode, token)
+        if ok:
+            return value
+        error = value
+        # The local worker or queue is shared, so the other subscription cannot help.
+        if value not in FAILOVER_ERRORS:
+            break
+    raise RuntimeError(MESSAGES.get(error, MESSAGES['limit_or_provider_error']))
 
 
 def view(user):
@@ -105,7 +140,7 @@ def view(user):
     return {'routes': routes, 'revision': revision, 'modules': prefs.MODULES, 'models': MODELS,
             'providers': {}, 'presets': presets, 'server_routes': {'default': default},
             'verified_at': '2026-10-16', 'subscription_only': True,
-            'note': '此 Mac 副本的文本任务只使用你本人登录的 Kimi Code 或 ChatGPT/Codex 订阅；请保持本机接入程序运行。图片由同一 ChatGPT 账号的普通 Chat 网页生成。语音、OCR、视频保留原服务。'}
+            'note': '文字与代码任务优先使用你本人登录的 Kimi Code 或 ChatGPT/Codex 订阅；一个额度不足或未登录时会自动改用另一个，不会切换到收费 API。请保持本机接入程序运行。一图看懂由同一 ChatGPT 账号的网页生成，讲解视频由本机 Claude Code 生成，记忆歌曲由 Suno 生成。'}
 
 
 def save(user, routes, keys, revision=None):

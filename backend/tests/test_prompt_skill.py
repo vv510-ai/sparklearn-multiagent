@@ -84,6 +84,7 @@ def test_every_capability_is_loaded_from_a_standalone_markdown_file():
         "answer": "示例回答",
         "kind": "翻译", "rubric": "核对信息与表达", "dimensions": "信息、句法、术语、自然度",
         "material_hint": "", "material_section": "", "transcripts": "【图1】示例",
+        "key_points": "- 要点", "mnemonic": "- 口诀", "revision_notes": "", "lyrics": "[Chorus]\n示例",
     }
     prompt_root = Path(__file__).resolve().parents[1] / "app" / "prompts"
     system_text = (prompt_root / "system.md").read_text(encoding="utf-8").strip()

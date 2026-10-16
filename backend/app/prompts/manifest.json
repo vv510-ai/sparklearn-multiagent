@@ -215,6 +215,18 @@
     "image.one_page_review": {
       "description": "依据独立 OCR 转写核验多张成图的准确性与覆盖度并整理文字版",
       "file": "image/one-page-review.md"
+    },
+    "music.plan": {
+      "description": "记忆歌曲：知识要点→口诀→由模型决定曲风/节奏/人声",
+      "file": "music/plan.md"
+    },
+    "music.lyrics": {
+      "description": "记忆歌曲：依据口诀与音乐方案写可演唱的准确歌词与填空",
+      "file": "music/lyrics.md"
+    },
+    "music.review": {
+      "description": "记忆歌曲：逐行核对歌词是否会让人记错",
+      "file": "music/review.md"
     }
   }
 }
