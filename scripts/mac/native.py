@@ -256,6 +256,8 @@ def windows_process_stamp(pid: int) -> str | None:
     kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
     handle = kernel.OpenProcess(0x1000, False, pid)
     if not handle:
+        if ctypes.get_last_error() == 5:
+            raise PermissionError("无法读取已有进程，请在启动它的 Windows 用户和权限环境中操作。")
         return None
     try:
         exit_code = wintypes.DWORD()
@@ -278,6 +280,8 @@ def alive(name: str) -> bool:
             return stamp is not None and saved.get("created") == stamp and saved.get("pid") == pid
         os.kill(pid, 0)
         return True
+    except PermissionError as error:
+        raise SystemExit(str(error)) from None
     except (OSError, ValueError, TypeError):
         return False
 
