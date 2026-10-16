@@ -23,6 +23,7 @@ import CourseCreateDialog from "@/components/notebook/CourseCreateDialog";
 import SourcePanel, { COURSE_SOURCE_ID, isSourceSelectable, type KnowledgeSource } from "@/components/notebook/SourcePanel";
 import StudioPanel, { GENERATORS } from "@/components/notebook/StudioPanel";
 import type { StudyStage, SuggestedTool } from "@/lib/learning-guidance";
+import type { NextAction } from "@/lib/next-steps";
 import PathDag from "@/components/path/PathDag";
 import LearningEvidence from "@/components/profile/LearningEvidence";
 import MistakeBook from "@/components/profile/MistakeBook";
@@ -120,9 +121,16 @@ function SparkMark({ light = false, running = false }: { light?: boolean; runnin
   return (
     <span className={`inline-grid h-7 w-7 place-items-center ${running ? "animate-pulse" : ""}`} aria-hidden>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <defs>
+          <linearGradient id="ll-spark" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#7EE2B8" />
+            <stop offset="0.55" stopColor="#12A38A" />
+            <stop offset="1" stopColor="#0E7A5A" />
+          </linearGradient>
+        </defs>
         <path
           d="M12 1.8c.9 4.8 4.6 8.5 9.4 9.4-4.8.9-8.5 4.6-9.4 9.4-.9-4.8-4.6-8.5-9.4-9.4 4.8-.9 8.5-4.6 9.4-9.4z"
-          fill={running ? "#F4C879" : light ? "#F5FFF9" : "#0F6B50"}
+          fill={running ? "#F2C46D" : light ? "#F5FFF9" : "url(#ll-spark)"}
         />
       </svg>
     </span>
@@ -726,7 +734,9 @@ export default function Home() {
       return;
     }
     const conversationWide = ["framework", "conversation_notes"].includes(promptTemplate);
-    const focus = conversationFocus.trim();
+    // A brand-new course has no question yet; its title is the topic the learner chose.
+    const courseTopic = notebookTopic.trim() && !/^(我的学习工作台|课程学习|新的学习笔记)$/.test(notebookTopic.trim()) ? notebookTopic.trim() : "";
+    const focus = conversationFocus.trim() || courseTopic;
     if (!conversationWide && !focus) {
       setActivePanel("chat");
       setMobilePane(null);
@@ -762,6 +772,11 @@ export default function Home() {
         artifact_scope: conversationWide ? "conversation" : "current_topic",
       },
     });
+  };
+
+  const runNextStep = (action: NextAction) => {
+    if (action.type === "open") { openPanel(action.panel); return; }
+    startSuggestedTool(action.template as SuggestedTool);
   };
 
   const startSuggestedTool = (template: SuggestedTool) => {
@@ -842,9 +857,9 @@ export default function Home() {
 
   if (authStatus === "loading") {
     return (
-      <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#062B38] text-white">
+      <main className="relative grid min-h-dvh place-items-center overflow-hidden text-white">
         <CinematicBackground subdued />
-        <div className="relative z-10 flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm backdrop-blur-xl">
+        <div className="ll-loading-pill">
           <SparkMark light running /> 正在恢复你的学习空间…
         </div>
       </main>
@@ -867,9 +882,9 @@ export default function Home() {
 
   if (onboardingLoading) {
     return (
-      <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#062B38] text-white">
+      <main className="relative grid min-h-dvh place-items-center overflow-hidden text-white">
         <CinematicBackground subdued />
-        <div className="relative z-10 flex items-center gap-3 rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm backdrop-blur-xl">
+        <div className="ll-loading-pill">
           <SparkMark light running /> 正在准备你的学习起点…
         </div>
       </main>
@@ -1028,6 +1043,7 @@ export default function Home() {
               learnerId={authUser.id}
               onStudyStage={setStudyStage}
               onSuggestedTool={activeNotebook ? startSuggestedTool : undefined}
+              onNextStep={activeNotebook ? runNextStep : undefined}
               onQuizEvaluated={refreshAfterEvaluation}
               onOpenMistakes={() => openPanel("mistakes")}
               recommendedTask={pathPlan ? {
@@ -1120,7 +1136,7 @@ export default function Home() {
                 </div>
                 {groupedResources.length ? (
                   <div className="space-y-3">
-                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} onRenamed={saved => setResources(items => items.map(item => item.id === saved.id ? saved : item))} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} onOpenMistakes={() => openPanel("mistakes")} />)}
+                    {groupedResources.map((group) => <ResourceCard key={group.key} r={group.representative} onNextStep={runNextStep} onRenamed={saved => setResources(items => items.map(item => item.id === saved.id ? saved : item))} versionCount={group.versionCount} onQuizEvaluated={refreshAfterEvaluation} onOpenMistakes={() => openPanel("mistakes")} />)}
                   </div>
                 ) : <div className="source-empty min-h-[220px]"><FolderOpen size={24} /><strong>这里还没有资料</strong><span>从右侧学习工坊生成一份内容。</span></div>}
               </div>

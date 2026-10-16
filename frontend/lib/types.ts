@@ -3,9 +3,58 @@ export type AgentId =
   | "profile" | "orchestrator" | "planner" | "path"
   | "doc" | "mindmap" | "quiz" | "media" | "tutor" | "eval";
 
+export interface OnePageImage {
+  index: number;
+  url: string;
+  width?: number;
+  height?: number;
+  transcript?: string;
+  verification?: {
+    status: "passed" | "failed" | "unverified";
+    checks?: Record<string, string>;
+    issues: string[];
+  };
+}
+
+export interface SongVersion {
+  song_id: string;
+  title?: string;
+  audio_url?: string;
+  cover_url?: string;
+  duration?: number;
+  status?: string;
+  timeline?: { text: string; start: number; end: number }[];
+}
+
+export interface SongPayload {
+  status: "ready" | "failed" | "blocked" | "lyrics_only" | string;
+  topic?: string;
+  title?: string;
+  mnemonic?: { line: string; meaning: string }[];
+  plan?: {
+    genre?: string;
+    style_tags?: string;
+    bpm?: number;
+    mood?: string;
+    vocal_gender?: string;
+    reason?: string;
+    structure?: string[];
+  };
+  lyrics?: string;
+  cloze?: { line: string; answer: string }[];
+  review?: { status: string; issues: string[] };
+  versions?: SongVersion[];
+  provider?: string;
+  model?: string;
+  error?: string;
+}
+
 export interface OnePageVisualData {
   title?: string;
   image_url?: string;
+  images?: OnePageImage[];
+  prompt_mode?: "simple" | "draft";
+  conversation_url?: string;
   provider?: string;
   model?: string;
   renderer?: string;
@@ -135,9 +184,17 @@ export interface ResourceItem {
     one_page_visual?: OnePageVisualData;
     difficulty?: number;
     script?: { title?: string; narration?: string; scenes?: { t: string; visual: string; caption?: string }[]; video_prompt?: string; target_seconds?: number; video_clip_seconds?: number };
+    song?: SongPayload;
     video?: {
       status?: string;
       url?: string;
+      poster_url?: string;
+      duration?: number;
+      width?: number;
+      height?: number;
+      engine?: string;
+      model?: string;
+      provider?: string;
       task_id?: string;
       error?: string;
       reason?: string;

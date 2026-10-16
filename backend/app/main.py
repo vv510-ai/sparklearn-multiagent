@@ -90,7 +90,26 @@ async def authenticate_request(request: Request, call_next):
         finally:
             reset_request_user(context_token)
     public_materials = request.method == "GET" and request.url.path == "/api/materials"
-    if not auth_required() or request.url.path in _PUBLIC_PATHS or public_materials:
+    if not auth_required():
+        # Offline demo mode does not require a login, but a learner who did
+        # register must keep using their own notebooks. Without this binding the
+        # request falls back to demo_user and every owned notebook returns 404.
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        payload = None
+        if scheme.lower() == "bearer" and token.strip():
+            try:
+                payload = decode_access_token(token.strip())
+            except Exception:  # an expired demo token simply browses as the demo learner
+                payload = None
+        if payload and payload.get("sub"):
+            context_token = bind_request_user(str(payload["sub"]))
+            try:
+                request.state.user_id = str(payload["sub"])
+                return await call_next(request)
+            finally:
+                reset_request_user(context_token)
+        return await call_next(request)
+    if request.url.path in _PUBLIC_PATHS or public_materials:
         return await call_next(request)
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")

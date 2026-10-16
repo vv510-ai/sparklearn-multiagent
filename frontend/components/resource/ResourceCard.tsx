@@ -18,6 +18,9 @@ import { DataTableBlock, FlashcardsBlock, InfographicBlock, OnePageVisual } from
 import { apiAssetUrl, apiPost, USER_ID } from "@/lib/api";
 import { withoutCodeBlocks } from "@/lib/learningContent";
 import { isInteractiveAudioResource } from "./interaction";
+import NextSteps from "./NextSteps";
+import SongBlock from "./SongBlock";
+import type { NextAction } from "@/lib/next-steps";
 
 const KIND_META: Record<
   string,
@@ -34,7 +37,8 @@ const KIND_META: Record<
   reading: { label: "延伸阅读", code: "阅读", icon: "读", variant: "neutral", hint: "围绕当前知识点补充阅读材料" },
   mindmap: { label: "知识导图", code: "导图", icon: "图", variant: "info", hint: "按掌握情况标注：已掌握✅ 待巩固⚠️ 未解锁🔒" },
   quiz: { label: "巩固练习", code: "练习", icon: "练", variant: "warn", hint: "提交后更新掌握情况、错因与后续路线" },
-  video: { label: "讲解视频", code: "视频", icon: "影", variant: "neutral", hint: "小云雀云端生成状态、动态预览、分镜与超拟人旁白" },
+  video: { label: "讲解视频", code: "视频", icon: "影", variant: "neutral", hint: "动画讲解、配音与字幕；附讲稿与分镜，可暂停对照学习" },
+  song: { label: "记忆歌曲", code: "歌曲", icon: "♪", variant: "warn", hint: "先跟唱熟悉旋律，再用填空模式检验能不能唱出关键词" },
   ppt: { label: "复习演示", code: "PPT", icon: "演", variant: "info", hint: "仅在你明确要求时生成；完成后可下载并继续编辑" },
   flashcards: { label: "记忆闪卡", code: "闪卡", icon: "卡", variant: "warn", hint: "先独立回忆，再翻面核对；可标记已经掌握的卡片" },
   infographic: { label: "学习信息图", code: "信息图", icon: "视", variant: "info", hint: "把来源内的结论、结构、过程与边界放进一张图" },
@@ -69,6 +73,7 @@ function resourceIssue(r: ResourceItem): string {
     return "讲解资源为空";
   }
   if (r.kind === "ppt" && !payload.ppt) return "PPT 任务为空";
+  if (r.kind === "song" && !payload.song) return "歌曲内容为空";
   return "";
 }
 
@@ -120,6 +125,7 @@ export default function ResourceCard({
   onAudioQuestion,
   onOpenMistakes,
   onRenamed,
+  onNextStep,
   interactionBusy = false,
 }: {
   r: ResourceItem;
@@ -133,6 +139,7 @@ export default function ResourceCard({
   ) => Promise<boolean>;
   onOpenMistakes?: () => void;
   onRenamed?: (resource: ResourceItem) => void;
+  onNextStep?: (action: NextAction) => void;
   interactionBusy?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -239,7 +246,7 @@ export default function ResourceCard({
                   {narration
                     ? audioUrl
                       ? voiceLabel(audioState)
-                      : isStrictSuperUnavailable ? "星火超拟人语音等待恢复" : "互动讲解 · 浏览器朗读"
+                      : isStrictSuperUnavailable ? "超拟人语音等待恢复" : "互动讲解 · 浏览器朗读"
                     : audioUrl
                       ? voiceLabel(audioState)
                       : "知识封面"}
@@ -264,7 +271,7 @@ export default function ResourceCard({
                 )}
                 {isStandardVoiceFallback && (
                   <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-5 text-amber-800">
-                    当前播放的是普通星火语音，不是已配置的超拟人音色。超拟人服务恢复后可点“重新生成云端语音”切回。
+                    当前播放的是普通语音，不是已配置的超拟人音色。超拟人服务恢复后可点“重新生成云端语音”切回。
                   </p>
                 )}
               </div>
@@ -299,6 +306,8 @@ export default function ResourceCard({
             <VideoBlock payload={payload} kind={r.kind} />
           ) : r.kind === "ppt" ? (
             <PptBlock payload={payload} />
+          ) : r.kind === "song" && payload.song ? (
+            <SongBlock song={payload.song} title={title} />
           ) : payload.markdown ? (
             <>
               {payload.generation_details?.message && <p role="status" className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">{payload.generation_details.message}</p>}
@@ -318,7 +327,7 @@ export default function ResourceCard({
           ) : (
             <Notice tone="warn" title="暂时无法展示这类内容" desc="内容已安全保留，系统不会把内部数据直接展示给学习者。" />
           )}
-
+          {onNextStep && !issue && <NextSteps resource={r} disabled={interactionBusy} onAction={onNextStep} />}
         </div>
       )}
     </Panel>

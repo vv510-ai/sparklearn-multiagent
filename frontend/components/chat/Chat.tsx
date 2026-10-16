@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowUp, BookOpen, BookPlus, Check, ChevronDown, Copy, FileText, FileUp, Gauge, ImagePlus, LoaderCircle, Maximize2, Mic, NotebookPen, PanelRightOpen, Play, Plus, Route, Square, X } from "lucide-react";
+import { ArrowRight, ArrowUp, BookOpen, BookPlus, Check, ChevronDown, Clapperboard, Copy, FileText, FileUp, Gauge, ImagePlus, Images, LoaderCircle, Maximize2, Mic, Music4, NotebookPen, PanelRightOpen, Play, Plus, Route, Sparkles, Square, X } from "lucide-react";
 import { USER_ID, apiPost, apiUpload, postSSE } from "@/lib/api";
 import type { ResourceItem, SparkEvent, SourceEvidence as Evidence } from "@/lib/types";
 import AnswerChoices from "./AnswerChoices";
 import Markdown from "./Markdown";
 import SourceEvidence from "./SourceEvidence";
 import ResourceCard from "@/components/resource/ResourceCard";
+import type { NextAction } from "@/lib/next-steps";
 import StudySuggestion from "./StudySuggestion";
 import StudyDialog from "@/components/ui/StudyDialog";
 import AdaptiveMenu from "@/components/ui/AdaptiveMenu";
@@ -105,6 +106,7 @@ export default function Chat({
   learnerId = "",
   onStudyStage,
   onSuggestedTool,
+  onNextStep,
   sourceLabel = "已选资料",
   onOpenSources,
   onOpenStudio,
@@ -134,6 +136,7 @@ export default function Chat({
   learnerId?: string;
   onStudyStage?: (stage: StudyStage) => void;
   onSuggestedTool?: (tool: SuggestedTool) => void;
+  onNextStep?: (action: NextAction) => void;
   sourceLabel?: string;
   onOpenSources?: () => void;
   onOpenStudio?: () => void;
@@ -165,6 +168,10 @@ export default function Chat({
   const draftKey = `learnloop:chat-draft:${learnerId}:${notebookId || "welcome"}:${notebookId ? sessionId : "new"}`;
   const abortRef = useRef<(() => void) | null>(null);
   const voiceRecorderRef = useRef<VoiceRecorder | null>(null);
+  const welcomeTopic = (() => {
+    const value = (topic || "").trim();
+    return value && !/^(我的学习工作台|课程学习|新的学习笔记|等待新问题)$/.test(value) ? value.slice(0, 40) : "";
+  })();
   const bottomRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef(sessionId || `s-${Math.random().toString(36).slice(2, 8)}`);
   const consumedSeedRef = useRef("");
@@ -521,10 +528,20 @@ export default function Chat({
 
       <div className="notebook-chat-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
         {msgs.length === 0 && (
-          <div className="learning-welcome">
-            <BookOpen size={28} className="text-[#176c58]" />
-            <h3>从一个问题开始</h3>
-            <p>今天想弄懂什么？</p>
+          <div className="learning-welcome ll-welcome">
+            <span className="ll-welcome-kicker"><Sparkles size={14} aria-hidden />今天想弄懂什么？</span>
+            <h3>{welcomeTopic ? <>围绕「{welcomeTopic}」<br />从一个问题开始</> : "从一个问题开始"}</h3>
+            <p>直接提问；也可以一键生成三种讲解，再用练习确认学会。</p>
+            {notebookId && onSuggestedTool && <div className="ll-welcome-core" role="group" aria-label="一键生成核心讲解">
+              <button type="button" onClick={() => onSuggestedTool("one_page")}><Images size={20} aria-hidden /><strong>一图看懂</strong><small>讲不完自动拆成多张</small></button>
+              <button type="button" onClick={() => onSuggestedTool("video")}><Clapperboard size={20} aria-hidden /><strong>讲解视频</strong><small>动画 · 配音 · 字幕</small></button>
+              <button type="button" className="is-song" onClick={() => onSuggestedTool("memory_song")}><Music4 size={20} aria-hidden /><strong>记忆歌曲</strong><small>口诀唱出来更好记</small></button>
+            </div>}
+            {welcomeTopic && <div className="ll-welcome-examples" aria-label="可以这样问">
+              {[`用一个生活例子讲讲「${welcomeTopic}」是什么`, `「${welcomeTopic}」最容易错在哪里？`, `帮我梳理「${welcomeTopic}」的知识框架`].map(question => (
+                <button key={question} type="button" onClick={() => void send(question)}>{question}<ArrowRight size={14} aria-hidden /></button>
+              ))}
+            </div>}
             {recommendedTask && notebookId && (
               <div className="chat-next-task">
                 <strong>下一步：{recommendedTask.title}</strong>
@@ -577,6 +594,8 @@ export default function Chat({
                   <ResourceCard
                     key={r.id}
                     r={r}
+                    defaultOpen={i === msgs.length - 1}
+                    onNextStep={onNextStep}
                     onRenamed={saved => {
                       setMsgs(items => items.map(item => ({ ...item, resources: item.resources.map(resource => resource.id === saved.id ? saved : resource) })));
                       onEvent?.({ type: "resource", resource: saved });

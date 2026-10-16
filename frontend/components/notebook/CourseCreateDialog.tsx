@@ -64,11 +64,19 @@ export default function CourseCreateDialog({ onClose, onCreated }: {
       const key = selection === "upload" ? "custom" : selection;
       const sourceIds = files.map(file => uploaded.get(file)).filter((id): id is string => Boolean(id));
       setNote(sourceIds.length ? "正在根据课本整理知识点和起点题，通常需要几十秒…" : key === "custom" ? "正在围绕主题准备课程范围与起点题，通常需要几十秒…" : key === "cet6" ? "正在准备六级备考中心…" : "正在准备教材与学习章节…");
-      await apiPost<CourseScope>(`/notebooks/${notebook.id}/learning/prepare`, {
-        title: title.trim(), course_key: key, source_ids: sourceIds,
-        survey: { ...DEFAULT_SURVEY, notebook_id: notebook.id, course_key: key, course_title: title.trim(), source_ids: sourceIds,
-          materials_status: sourceIds.length ? "已有资料" : "暂时没有" },
-      });
+      try {
+        await apiPost<CourseScope>(`/notebooks/${notebook.id}/learning/prepare`, {
+          title: title.trim(), course_key: key, source_ids: sourceIds,
+          survey: { ...DEFAULT_SURVEY, notebook_id: notebook.id, course_key: key, course_title: title.trim(), source_ids: sourceIds,
+            materials_status: sourceIds.length ? "已有资料" : "暂时没有" },
+        });
+      } catch (prepareError) {
+        // A custom topic (with or without materials) is already a usable course:
+        // chat, 一图看懂, videos and songs do not need the starting check. Never
+        // trap the learner here; the check can be prepared later from 测评与计划.
+        if (key !== "custom") throw prepareError;
+        try { sessionStorage.setItem(`learnloop:prepare-deferred:${notebook.id}`, "1"); } catch { /* optional notice only */ }
+      }
       await onCreated(notebook);
     } catch (e) {
       setError(e instanceof Error ? e.message.replace(/^(?:POST|GET) \S+ → \d+:?\s*/, "") : "课程暂未创建完成，请重试。");
