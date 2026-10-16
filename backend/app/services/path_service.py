@@ -1,11 +1,15 @@
-"""路径服务:基于知识图谱依赖 + BKT 掌握度 + 难度偏好,规划动态个性化学习路径(DAG)。
+"""路径服务:基于知识图谱依赖 + BKT⁺ 掌握度 + 难度偏好,规划动态个性化学习路径(DAG)。
 
 算法(Path Agent 调用):
 1. 拓扑排序得到合法学习序;
-2. 节点状态:done(掌握度≥0.8)/ ready(先修达标 0.6)/ locked;
-3. 排序权重 score = w1·(1-mastery) + w2·目标相关 + w3·易错点命中 − w4·难度惩罚,
-   难度惩罚方向由 difficulty_pref 决定(循序渐进惩罚高难;挑战式奖励高难);
-4. 评估(/api/eval)后掌握度变化 → 触发重排,实现"随评估结果重排"闭环。
+2. 有效掌握度 = BKT⁺ 遗忘衰减后的掌握度(距上次练习越久越低,复习越多衰减越慢);
+3. 节点状态:done(有效掌握度≥0.8)/ ready(先修有效掌握度≥0.6)/ locked;
+   曾经掌握但已淡化到阈值以下的节点重新变为 ready,并获得复习加权;
+4. 排序权重 score = (1-有效掌握度) + 目标相关 + 易错点命中 + 难度偏好项
+   + ZPD 加权(预测答对率落在 0.55–0.85“跳一跳够得着”区间时优先,低于 0.35 时让位给先修)
+   + 遗忘复习加权;
+   ZPD 思想见 Clement et al., JEDM 2015(ZPDES);合意困难见 Bjork 1994;
+5. 评估(/api/eval)后掌握度变化 → 触发重排,实现"随评估结果重排"闭环。
 """
 from __future__ import annotations
 
@@ -14,10 +18,29 @@ import hashlib
 
 from ..models.db import init_db, session
 from ..models.entities import PathPlan, PersonalizationDecision, Profile
+from .bkt import forget, predicted_correct
 from .knowledge_graph import kp_name, load_kg, prerequisites, topological_order
 from .learning_scope import current_space, profile_row
 
 DONE_T, READY_T = 0.8, 0.6
+ZPD_LOW, ZPD_HIGH, TOO_HARD = 0.55, 0.85, 0.35
+
+
+def _days_since(value, now: dt.datetime) -> float | None:
+    try:
+        last = dt.datetime.fromisoformat(str(value or ""))
+    except ValueError:
+        return None
+    last = last if last.tzinfo else last.replace(tzinfo=dt.timezone.utc)
+    return max(0.0, (now - last).total_seconds() / 86400)
+
+
+def effective_mastery(profile: dict, kp: str, now: dt.datetime | None = None) -> tuple[float, float, float | None]:
+    """(recorded, retrievable-now, days since the last evidence) for one knowledge point."""
+    recorded = float((profile.get("knowledge_mastery") or {}).get(kp, 0.3))
+    info = (profile.get("knowledge_trace") or {}).get(kp) or {}
+    days = _days_since(info.get("last"), now or dt.datetime.now(dt.timezone.utc))
+    return recorded, forget(recorded, days, int(info.get("independent_correct") or 0)), days
 
 
 def plan_conversation_path(profile: dict, topics: list[dict]) -> dict:
@@ -81,8 +104,8 @@ def plan_conversation_path(profile: dict, topics: list[dict]) -> dict:
 
 
 def plan_path(profile: dict, goal_kps: list[str] | None = None,
-              generated_by: str = "rule") -> dict:
-    mastery: dict[str, float] = profile.get("knowledge_mastery", {})
+              generated_by: str = "rule", now: dt.datetime | None = None) -> dict:
+    now = now or dt.datetime.now(dt.timezone.utc)
     pref = profile.get("difficulty_pref", "循序渐进")
     errors = set(profile.get("error_prone", []))
     goal_kps = set(goal_kps or profile.get("focus_kps", []) or [])
@@ -91,27 +114,37 @@ def plan_path(profile: dict, goal_kps: list[str] | None = None,
     order = topological_order()
     nodes = []
     for kp in order:
-        m = float(mastery.get(kp, 0.3))
+        recorded, m, days = effective_mastery(profile, kp, now)
+        faded = recorded >= DONE_T > m
         pres = prerequisites(kp)
         if m >= DONE_T:
             status = "done"
-        elif all(mastery.get(p, 0.0) >= READY_T for p in pres):
+        elif all(effective_mastery(profile, p, now)[1] >= READY_T for p in pres):
             status = "ready"
         else:
             status = "locked"
         diff = kg["nodes"][kp].get("difficulty", 3)
         diff_term = (-0.06 * diff) if pref == "循序渐进" else (0.04 * diff)
+        chance = predicted_correct(m)
+        zpd = 0.25 if ZPD_LOW <= chance <= ZPD_HIGH else (-0.15 if chance < TOO_HARD else 0.0)
         score = (1 - m) * 1.0 \
             + (0.5 if kp in goal_kps else 0.0) \
             + (0.3 if any(kp in e or kp_name(kp) in e for e in errors) else 0.0) \
-            + diff_term
+            + diff_term + (zpd if status == "ready" else 0.0) + (0.35 if faded else 0.0)
+        reason = _reason(kp, m, status, kp in goal_kps, pref)
+        if faded and days is not None:
+            reason += f",约 {days:.0f} 天没练,记忆已淡化,建议先复习"
+        elif status == "ready" and zpd > 0:
+            reason += ",预测答对率处在“跳一跳够得着”的区间"
         nodes.append({
             "id": kp, "name": kp_name(kp), "mastery": round(m, 3), "status": status,
+            "recorded_mastery": round(recorded, 3), "predicted_correct": chance,
+            "days_since_practice": None if days is None else round(days, 1),
             "difficulty": diff, "score": round(score, 3),
             "chapter": str(kg["nodes"][kp].get("chapter") or "课程知识点"),
             "desc": str(kg["nodes"][kp].get("desc") or ""),
             "subtopics": list(kg["nodes"][kp].get("subtopics") or []),
-            "reason": _reason(kp, m, status, kp in goal_kps, pref),
+            "reason": reason,
         })
 
     ready_sorted = sorted([n for n in nodes if n["status"] == "ready"],
@@ -129,6 +162,7 @@ def plan_path(profile: dict, goal_kps: list[str] | None = None,
         "detail_edges": kg["detail_edges"],
         "next_kp": next_kp,
         "generated_by": generated_by,
+        "algorithm": "bkt_plus_forgetting_zpd_v1",
         "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
 

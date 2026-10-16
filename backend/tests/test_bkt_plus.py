@@ -56,3 +56,23 @@ def test_update_mastery_records_trace_and_applies_decay(monkeypatch):
     after_month = profiles.update_mastery("u", "stack", False, item_type="fill", at=start + dt.timedelta(days=30))
     same_session = bkt.bkt_update_plus(0.95, False, item_type="fill")
     assert after_month < same_session  # a month away weakens the same evidence further
+
+
+def test_path_reopens_faded_knowledge_and_prefers_the_zone_of_proximal_development():
+    from app.services.path_service import plan_path
+    from app.services.profile_service import default_profile
+    now = dt.datetime(2026, 11, 1, tzinfo=dt.timezone.utc)
+    profile = default_profile()
+    profile["knowledge_mastery"].update({"complexity": 0.95, "array": 0.9})
+    profile["knowledge_trace"] = {
+        "complexity": {"last": (now - dt.timedelta(days=40)).isoformat(), "independent_correct": 0, "attempts": 3},
+        "array": {"last": (now - dt.timedelta(hours=2)).isoformat(), "independent_correct": 5, "attempts": 6},
+    }
+    path = plan_path(profile, now=now)
+    by = {node["id"]: node for node in path["nodes"]}
+    assert by["array"]["status"] == "done"                      # practised recently and often
+    assert by["complexity"]["status"] == "ready"                # mastered once, faded after 40 days
+    assert by["complexity"]["recorded_mastery"] == 0.95 and by["complexity"]["mastery"] < 0.8
+    assert "淡化" in by["complexity"]["reason"]
+    assert path["algorithm"] == "bkt_plus_forgetting_zpd_v1"
+    assert 0 <= by["complexity"]["predicted_correct"] <= 1
