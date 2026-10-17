@@ -95,3 +95,23 @@ def test_minimal_example_repair_explains_the_failed_size_constraint(monkeypatch)
     assert "650" in calls[0] and "不增加第二个数值例子" in calls[0]
     assert f"草稿有 {len(long_draft)} 个字符" in calls[1]
     assert "压缩到 500" in calls[1]
+
+
+@pytest.mark.parametrize("extra", ["以后再执行 `score = 8`，就会关联另一个整数。", "```python\nprint(score + 1)\n```"])
+def test_minimal_example_rejects_added_examples_before_streaming(monkeypatch, extra):
+    valid = "`score = 7` 让名字 score 与整数 7 建立关联。执行 `print(score)` 会输出 7。"
+    result, calls, events = run_turn(monkeypatch, [valid + extra, valid],
+        question="请只用 score = 7 这个例子解释 Python 赋值。")
+    assert len(calls) == 2 and valid in result["answer"]
+    assert "新增了题目未要求" in calls[1] or "代码额外引入" in calls[1]
+    assert extra not in "".join(e.get("delta", "") for e in events if e["type"] == "token")
+
+
+@pytest.mark.parametrize("question,answer", [
+    ("解释 x = 3 和重新赋值", "`x = 3` 后可以 `x = 5`。"),
+    ("只用 x = 3 和 x = 5 解释重新赋值", "先 `x = 3`，然后 `x = 5`。"),
+    ("只用 score = -7 这个例子", "```python\nscore = -7  # 第 1 步\nprint(score)\n``` [^1]"),
+    ("只用教材第 3 页说明赋值", "例如 `x = 5`。"),
+])
+def test_numeric_example_guard_does_not_limit_unrelated_requests(question, answer):
+    assert tutor_agent._minimal_example_issue(answer, question) == ""

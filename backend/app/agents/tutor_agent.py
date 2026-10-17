@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from ..services.model_preferences import resolve
 
+import ast
 import base64
 import json
 import re
@@ -339,6 +340,30 @@ def _sorting_minimal_answer(question: str, chunks: list[dict]) -> str:
     ])
 
 
+def _minimal_example_issue(answer: str, question: str) -> str:
+    """Check explicit numeric assignment examples without executing model code."""
+    if len(answer) > 650 or ("只用" not in question and "只回答" not in question):
+        return ""
+    binding = re.compile(r"(?<![\w.])([A-Za-z_]\w*)\s*=(?!=)\s*([+-]?\d+(?:\.\d+)?)(?![\w.])")
+    requested = {(name, float(number)) for name, number in binding.findall(question)}
+    if not requested:
+        return ""
+    for name, number in binding.findall(answer):
+        if (name, float(number)) not in requested:
+            return f"新增了题目未要求的赋值例子 {name} = {number}；只保留用户给出的例子，不演示重新赋值"
+    allowed_numbers = {abs(number) for _, number in requested}
+    for fenced, inline in re.findall(r"```[^\n]*\n(.*?)```|`([^`\n]+)`", answer, re.DOTALL):
+        try:
+            tree = ast.parse((fenced or inline).strip())
+        except (SyntaxError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Constant) and type(node.value) in (int, float)
+                    and abs(node.value) not in allowed_numbers):
+                return f"代码额外引入了数值 {node.value}；只解释原赋值与读取结果，不增加运算、第二个例子或练习"
+    return ""
+
+
 def _answer_matches_current_question(answer: str, question: str, topic_kp: str) -> bool:
     """Reject grounded-but-irrelevant answers before they reach the learner."""
 
@@ -368,6 +393,8 @@ def _answer_matches_current_question(answer: str, question: str, topic_kp: str) 
         if requested_numbers - set(re.findall(r"(?<![A-Za-z])\d+", answer)):
             return False
         if len(answer) > 650:
+            return False
+        if _minimal_example_issue(answer, question):
             return False
     return True
 
@@ -792,6 +819,9 @@ async def run(state: dict) -> dict:
                 if not scope_ok:
                     answer_scope_fallback_reason = ("允许通用补充，本轮问题不要求资料原文；不能因为没有检索片段拒答"
                         if unnecessary_refusal else f"回答没有解决当前问题「{topic_name}」")
+                    example_issue = _minimal_example_issue(answer, question)
+                    if example_issue:
+                        answer_scope_fallback_reason += f"；{example_issue}"
                     if ("只用" in question or "只回答" in question) and len(answer) > 650:
                         answer_scope_fallback_reason += f"；草稿有 {len(answer)} 个字符，超过本轮 650 字符上限。只保留指定例子，压缩到 500 字符以内。"
                     failure_reason = answer_scope_fallback_reason
