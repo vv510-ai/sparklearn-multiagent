@@ -8,7 +8,7 @@ long-running development process.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import hashlib
 import json
 from pathlib import Path
@@ -145,6 +145,10 @@ def invoke_learning_prompt(capability: str, **values: Any) -> PromptCall:
     # This report already carries a frozen intake. Appending the latest profile
     # could mix two revisions when another page edits preferences mid-generation.
     learning_context = None if key == "english.cet6_advice" else context_summary()
+    if learning_context and key.startswith("tutor.") and not learning_context.get("evidence"):
+        # Initial/default estimates are not a diagnostic result for a new learner.
+        learning_context = {field: value for field, value in learning_context.items() if field != "mastery"}
+        learning_context["assessment_note"] = _read_prompt("tutor/evidence-boundary.md")
     if learning_context and "one_page" in key:
         # The explicit request and selected evidence define infographic content.
         # Old course exam records/mastery must not leak through the generic
@@ -274,7 +278,7 @@ def render_tutor_prompt(
         if general_knowledge
         else "使用课程知识库和已经沉淀的个人学习笔记"
     )
-    return invoke_learning_prompt(
+    call = invoke_learning_prompt(
         "tutor.guided" if guided else "tutor.followup",
         question=question or "请从最基础开始讲解当前主题",
         cognitive_style=profile.get("cognitive_style", "视觉型"),
@@ -287,6 +291,9 @@ def render_tutor_prompt(
            else {"source_rules": _read_prompt("shared/general-topic.md")} if general_knowledge
            else {"source_rules": _read_prompt("tutor/source-boundary.md")}),
     )
+    if "只用" in question or "只回答" in question:
+        call = replace(call, prompt=call.prompt + "\n\n" + _read_prompt("tutor/minimal-scope.md"))
+    return call
 
 
 def render_quiz_prompt_call(

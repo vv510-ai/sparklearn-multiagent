@@ -44,6 +44,19 @@ def test_manifest_is_ready_for_an_mcp_wrapper():
     } <= set(PROMPT_CAPABILITIES)
 
 
+@pytest.mark.parametrize("measured", [False, True])
+def test_tutor_does_not_present_default_mastery_as_assessed_ability(monkeypatch, measured):
+    from app.services import course_learning_service
+    context = {"course": "六级", "mastery": {"listening": 0.3},
+               "evidence": [{"skill": "listening", "measured": True, "correct": 1, "total": 4}] if measured else []}
+    monkeypatch.setattr(course_learning_service, "context_summary", lambda: context)
+    rendered = render_tutor_prompt("六级你觉得怎么备考", {}, "", [], source_policy="supplement").prompt
+    assert ('"mastery"' in rendered) is measured
+    if not measured:
+        assert "尚无可引用的能力测评证据" in rendered
+    assert context["mastery"] == {"listening": 0.3}
+
+
 def test_every_capability_is_loaded_from_a_standalone_markdown_file():
     sample_values = {
         "title": "示例课程",

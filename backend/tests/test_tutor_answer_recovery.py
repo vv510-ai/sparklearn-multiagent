@@ -84,3 +84,14 @@ def test_explicit_source_only_still_blocks_missing_source(monkeypatch):
 
 def test_normalization_never_adds_a_citation_for_the_model():
     assert tutor_agent._normalize_tutor_answer("图由顶点和边组成。", "图是什么", has_context=True) == "图由顶点和边组成。"
+
+
+def test_minimal_example_repair_explains_the_failed_size_constraint(monkeypatch):
+    long_draft = "x = 3 把名字 x 与整数 3 关联。" + "接着进一步解释赋值、重新赋值及其他情形。" * 40
+    valid = "x = 3 中，3 是整数对象，x 是名字，= 执行赋值，让名字 x 与整数 3 建立关联。读取 x 时得到关联的对象，不是把变量名当文本替换。"
+    result, calls, _ = run_turn(monkeypatch, [long_draft, valid],
+                               question="请只用 x = 3 这个例子解释 Python 变量和赋值，不要展开其他章节。")
+    assert len(calls) == 2 and valid in result["answer"]
+    assert "650" in calls[0] and "不增加第二个数值例子" in calls[0]
+    assert f"草稿有 {len(long_draft)} 个字符" in calls[1]
+    assert "压缩到 500" in calls[1]

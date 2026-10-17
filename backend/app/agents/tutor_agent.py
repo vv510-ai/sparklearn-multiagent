@@ -792,6 +792,8 @@ async def run(state: dict) -> dict:
                 if not scope_ok:
                     answer_scope_fallback_reason = ("允许通用补充，本轮问题不要求资料原文；不能因为没有检索片段拒答"
                         if unnecessary_refusal else f"回答没有解决当前问题「{topic_name}」")
+                    if ("只用" in question or "只回答" in question) and len(answer) > 650:
+                        answer_scope_fallback_reason += f"；草稿有 {len(answer)} 个字符，超过本轮 650 字符上限。只保留指定例子，压缩到 500 字符以内。"
                     failure_reason = answer_scope_fallback_reason
                 else:
                     grounding_fallback_reason = str(ground.get("verdict") or "引用或资料关联检查未通过")
