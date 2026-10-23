@@ -88,7 +88,7 @@ git clone https://github.com/vv510-ai/sparklearn-multiagent.git
 cd sparklearn-multiagent
 ```
 
-本仓库为私有仓库，克隆需要拥有访问权限的 GitHub 账号。仓库包含课程数据与静态音频，首次克隆和构建可能耗时。先安装 Git；以下两种方式任选一种。
+本仓库公开，任何人无需登录即可浏览代码和 README，也可以通过上方 Git 地址克隆。仓库包含课程数据与静态音频，首次克隆和构建可能耗时。先安装 Git；以下两种方式任选一种。
 
 ### 方式一：Docker Compose 本地体验
 
