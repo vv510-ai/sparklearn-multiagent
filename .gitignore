@@ -27,3 +27,19 @@ frontend/playwright-report/
 frontend/test-results/
 frontend/blob-report/
 frontend/public/vendor/pdf.worker.min.mjs
+
+# Private configuration variants, credentials and runtime sidecar files
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.dpapi
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.db-*
+.pytest_cache/
+.ruff_cache/
